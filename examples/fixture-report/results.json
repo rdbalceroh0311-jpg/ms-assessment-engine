@@ -1,0 +1,3103 @@
+{
+  "schema_version": 1,
+  "customer_id": "fixture-ai",
+  "customer_name": "Harbour Demo Plumbing",
+  "target": "http://127.0.0.1:18765/",
+  "created_at": "2026-10-18T08:10:31.934806+00:00",
+  "selected_categories": [
+    "accessibility",
+    "copywriting",
+    "cro_ux",
+    "domain_email",
+    "entity",
+    "geo",
+    "local_seo",
+    "performance",
+    "security",
+    "seo",
+    "technical"
+  ],
+  "assessed_categories": [
+    "accessibility",
+    "copywriting",
+    "cro_ux",
+    "entity",
+    "geo",
+    "local_seo",
+    "security",
+    "seo",
+    "technical"
+  ],
+  "max_pages": 30,
+  "pages": [
+    "http://127.0.0.1:18765/",
+    "http://127.0.0.1:18765/contact.html",
+    "http://127.0.0.1:18765/about.html",
+    "http://127.0.0.1:18765/services.html",
+    "http://127.0.0.1:18765/quote.html"
+  ],
+  "modules": [
+    {
+      "name": "siteone",
+      "status": "ok",
+      "reason": "",
+      "raw_paths": [
+        "raw/siteone.json",
+        "raw/siteone.stderr.txt"
+      ],
+      "evidence": [
+        {
+          "id": "ev-siteone-001",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne HTTP response",
+          "data": {
+            "cacheLifetime": null,
+            "cacheTypeFlags": 8,
+            "elapsedTime": 0.001,
+            "extras": [],
+            "size": 1684,
+            "status": "200",
+            "type": 1,
+            "url": "http://127.0.0.1:18765/"
+          }
+        },
+        {
+          "id": "ev-siteone-002",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/contact.html",
+          "description": "SiteOne HTTP response",
+          "data": {
+            "cacheLifetime": null,
+            "cacheTypeFlags": 8,
+            "elapsedTime": 0.002,
+            "extras": [],
+            "size": 1507,
+            "status": "200",
+            "type": 1,
+            "url": "http://127.0.0.1:18765/contact.html"
+          }
+        },
+        {
+          "id": "ev-siteone-003",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/style.css",
+          "description": "SiteOne HTTP response",
+          "data": {
+            "cacheLifetime": null,
+            "cacheTypeFlags": 8,
+            "elapsedTime": 0.001,
+            "extras": [],
+            "size": 499,
+            "status": "200",
+            "type": 3,
+            "url": "http://127.0.0.1:18765/style.css"
+          }
+        },
+        {
+          "id": "ev-siteone-004",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/about.html",
+          "description": "SiteOne HTTP response",
+          "data": {
+            "cacheLifetime": null,
+            "cacheTypeFlags": 8,
+            "elapsedTime": 0.004,
+            "extras": [],
+            "size": 1342,
+            "status": "200",
+            "type": 1,
+            "url": "http://127.0.0.1:18765/about.html"
+          }
+        },
+        {
+          "id": "ev-siteone-005",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/services.html",
+          "description": "SiteOne HTTP response",
+          "data": {
+            "cacheLifetime": null,
+            "cacheTypeFlags": 8,
+            "elapsedTime": 0.001,
+            "extras": [],
+            "size": 1259,
+            "status": "200",
+            "type": 1,
+            "url": "http://127.0.0.1:18765/services.html"
+          }
+        },
+        {
+          "id": "ev-siteone-006",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/quote.html",
+          "description": "SiteOne HTTP response",
+          "data": {
+            "cacheLifetime": null,
+            "cacheTypeFlags": 8,
+            "elapsedTime": 0.002,
+            "extras": [],
+            "size": 1082,
+            "status": "200",
+            "type": 1,
+            "url": "http://127.0.0.1:18765/quote.html"
+          }
+        },
+        {
+          "id": "ev-siteone-007",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/missing-offer.html",
+          "description": "SiteOne HTTP response",
+          "data": {
+            "cacheLifetime": null,
+            "cacheTypeFlags": 32768,
+            "elapsedTime": 0.002,
+            "extras": [],
+            "size": 335,
+            "status": "404",
+            "type": 1,
+            "url": "http://127.0.0.1:18765/missing-offer.html"
+          }
+        },
+        {
+          "id": "ev-siteone-008",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/work.svg",
+          "description": "SiteOne HTTP response",
+          "data": {
+            "cacheLifetime": null,
+            "cacheTypeFlags": 8,
+            "elapsedTime": 0.001,
+            "extras": [],
+            "size": 187,
+            "status": "200",
+            "type": 4,
+            "url": "http://127.0.0.1:18765/work.svg"
+          }
+        },
+        {
+          "id": "ev-siteone-009",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne SEO metadata",
+          "data": {
+            "deniedByRobotsTxt": "false",
+            "description": "Local plumbing maintenance in Sydney. Request a clear written quote.",
+            "h1": "Reliable plumbing for Sydney homes",
+            "indexing": "",
+            "keywords": "",
+            "robotsIndex": "1",
+            "title": "Harbour Demo Plumbing - Sydney",
+            "urlPathAndQuery": "/"
+          }
+        },
+        {
+          "id": "ev-siteone-010",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/about.html",
+          "description": "SiteOne SEO metadata",
+          "data": {
+            "deniedByRobotsTxt": "false",
+            "description": "Learn about our local service approach and quote process.",
+            "h1": "A local service with clear communication",
+            "indexing": "",
+            "keywords": "",
+            "robotsIndex": "1",
+            "title": "About - Harbour Demo Plumbing",
+            "urlPathAndQuery": "/about.html"
+          }
+        },
+        {
+          "id": "ev-siteone-011",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/contact.html",
+          "description": "SiteOne SEO metadata",
+          "data": {
+            "deniedByRobotsTxt": "false",
+            "description": "Contact our Sydney team to discuss plumbing maintenance.",
+            "h1": "Contact our team",
+            "indexing": "",
+            "keywords": "",
+            "robotsIndex": "1",
+            "title": "Contact - Harbour Demo Plumbing",
+            "urlPathAndQuery": "/contact.html"
+          }
+        },
+        {
+          "id": "ev-siteone-012",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/quote.html",
+          "description": "SiteOne SEO metadata",
+          "data": {
+            "deniedByRobotsTxt": "false",
+            "description": "",
+            "h1": "",
+            "indexing": "",
+            "keywords": "",
+            "robotsIndex": "1",
+            "title": "Quote - Harbour Demo Plumbing",
+            "urlPathAndQuery": "/quote.html"
+          }
+        },
+        {
+          "id": "ev-siteone-013",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/services.html",
+          "description": "SiteOne SEO metadata",
+          "data": {
+            "deniedByRobotsTxt": "false",
+            "description": "Explore tap repairs, drain clearing and home plumbing maintenance.",
+            "h1": "Plumbing services",
+            "indexing": "",
+            "keywords": "",
+            "robotsIndex": "1",
+            "title": "Plumbing services - Harbour Demo Plumbing",
+            "urlPathAndQuery": "/services.html"
+          }
+        },
+        {
+          "id": "ev-siteone-014",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne header analysis (crawl aggregate)",
+          "data": {
+            "critical": "6",
+            "header": "Content-Security-Policy",
+            "highestSeverity": "4",
+            "notice": "0",
+            "ok": "0",
+            "recommendation": "Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks.",
+            "warning": "0"
+          }
+        },
+        {
+          "id": "ev-siteone-015",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne header analysis (crawl aggregate)",
+          "data": {
+            "critical": "6",
+            "header": "Server",
+            "highestSeverity": "4",
+            "notice": "0",
+            "ok": "0",
+            "recommendation": "Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.",
+            "warning": "0"
+          }
+        },
+        {
+          "id": "ev-siteone-016",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne header analysis (crawl aggregate)",
+          "data": {
+            "critical": "0",
+            "header": "X-Content-Type-Options",
+            "highestSeverity": "3",
+            "notice": "0",
+            "ok": "0",
+            "recommendation": "X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks.",
+            "warning": "6"
+          }
+        },
+        {
+          "id": "ev-siteone-017",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne header analysis (crawl aggregate)",
+          "data": {
+            "critical": "0",
+            "header": "Referrer-Policy",
+            "highestSeverity": "3",
+            "notice": "0",
+            "ok": "0",
+            "recommendation": "Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security.",
+            "warning": "6"
+          }
+        },
+        {
+          "id": "ev-siteone-018",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne header analysis (crawl aggregate)",
+          "data": {
+            "critical": "0",
+            "header": "Permissions-Policy",
+            "highestSeverity": "3",
+            "notice": "0",
+            "ok": "0",
+            "recommendation": "Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.",
+            "warning": "6"
+          }
+        },
+        {
+          "id": "ev-siteone-019",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne seo-headings table",
+          "data": [
+            {
+              "headings": "<h2> We do stuff",
+              "headingsCount": "1",
+              "headingsErrorsCount": "1",
+              "headingsHtml": "<ul><li><span class=\"help\" title=\"Heading level 2 is not correct. Should be 1.\">&lt;h2&gt; We do stuff</span></li></ul>",
+              "urlPathAndQuery": "/quote.html"
+            },
+            {
+              "headings": "<h1> Reliable plumbing for Sydney homes <h2> How we help <h2> Local experience",
+              "headingsCount": "3",
+              "headingsErrorsCount": "0",
+              "headingsHtml": "<ul><li>&lt;h1&gt; Reliable plumbing for Sydney homes<ul><li>&lt;h2&gt; How we help</li><li>&lt;h2&gt; Local experience</li></ul></li></ul>",
+              "urlPathAndQuery": "/"
+            },
+            {
+              "headings": "<h1> Contact our team <h2> Privacy policy [#privacy]",
+              "headingsCount": "2",
+              "headingsErrorsCount": "0",
+              "headingsHtml": "<ul><li>&lt;h1&gt; Contact our team<ul><li>&lt;h2&gt; Privacy policy [#privacy]</li></ul></li></ul>",
+              "urlPathAndQuery": "/contact.html"
+            },
+            {
+              "headings": "<h1> A local service with clear communication <h2> Our approach <h2> Customer feedback",
+              "headingsCount": "3",
+              "headingsErrorsCount": "0",
+              "headingsHtml": "<ul><li>&lt;h1&gt; A local service with clear communication<ul><li>&lt;h2&gt; Our approach</li><li>&lt;h2&gt; Customer feedback</li></ul></li></ul>",
+              "urlPathAndQuery": "/about.html"
+            },
+            {
+              "headings": "<h1> Plumbing services <h2> Leak repairs <h2> Drain clearing <h3> What happens next?",
+              "headingsCount": "4",
+              "headingsErrorsCount": "0",
+              "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing services<ul><li>&lt;h2&gt; Leak repairs</li><li>&lt;h2&gt; Drain clearing<ul><li>&lt;h3&gt; What happens next?</li></ul></li></ul></li></ul>",
+              "urlPathAndQuery": "/services.html"
+            }
+          ]
+        },
+        {
+          "id": "ev-siteone-020",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne 404 table",
+          "data": [
+            {
+              "sourceUqId": "http://127.0.0.1:18765/quote.html",
+              "statusCode": "404",
+              "url": "http://127.0.0.1:18765/missing-offer.html"
+            }
+          ]
+        },
+        {
+          "id": "ev-siteone-021",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne headers table",
+          "data": [
+            {
+              "header": "Connection",
+              "maxValue": "",
+              "minValue": "",
+              "occurrences": "1",
+              "uniqueValues": "1",
+              "valuesPreview": "close"
+            },
+            {
+              "header": "Content-Length",
+              "maxValue": "2 kB",
+              "minValue": "187 B",
+              "occurrences": "8",
+              "uniqueValues": "-",
+              "valuesPreview": "[ignored generic values]"
+            },
+            {
+              "header": "Content-Type",
+              "maxValue": "",
+              "minValue": "",
+              "occurrences": "8",
+              "uniqueValues": "4",
+              "valuesPreview": "text/html (5) / text/css (1) / text/html;charset=utf-8 (1) / image/svg+xml (1)"
+            },
+            {
+              "header": "Date",
+              "maxValue": "2026-10-18",
+              "minValue": "2026-10-18",
+              "occurrences": "8",
+              "uniqueValues": "-",
+              "valuesPreview": "[ignored generic values]"
+            },
+            {
+              "header": "Last-Modified",
+              "maxValue": "2026-10-18",
+              "minValue": "2026-10-18",
+              "occurrences": "7",
+              "uniqueValues": "-",
+              "valuesPreview": "[ignored generic values]"
+            },
+            {
+              "header": "Server",
+              "maxValue": "",
+              "minValue": "",
+              "occurrences": "8",
+              "uniqueValues": "1",
+              "valuesPreview": "SimpleHTTP/0.6 Python/3.12.13"
+            }
+          ]
+        },
+        {
+          "id": "ev-siteone-022",
+          "source": "siteone",
+          "url": "http://127.0.0.1:18765/",
+          "description": "SiteOne headers-values table",
+          "data": [
+            {
+              "header": "Connection",
+              "occurrences": "1",
+              "value": "close"
+            },
+            {
+              "header": "Content-Type",
+              "occurrences": "5",
+              "value": "text/html"
+            },
+            {
+              "header": "Content-Type",
+              "occurrences": "1",
+              "value": "text/css"
+            },
+            {
+              "header": "Content-Type",
+              "occurrences": "1",
+              "value": "text/html;charset=utf-8"
+            },
+            {
+              "header": "Content-Type",
+              "occurrences": "1",
+              "value": "image/svg+xml"
+            },
+            {
+              "header": "Server",
+              "occurrences": "8",
+              "value": "SimpleHTTP/0.6 Python/3.12.13"
+            }
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "id": "siteone-001",
+          "title": "Broken or unavailable URLs",
+          "category": "technical",
+          "severity": "high",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-siteone-007"
+          ],
+          "detail": "HTTP 404 at http://127.0.0.1:18765/missing-offer.html.",
+          "recommendation": "Repair internal links and restore or redirect unavailable pages.",
+          "check_key": "broken-links",
+          "urls": [
+            "http://127.0.0.1:18765/missing-offer.html"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P1",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "siteone-002",
+          "title": "Missing meta description",
+          "category": "seo",
+          "severity": "medium",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-siteone-012"
+          ],
+          "detail": "No meta description recorded at http://127.0.0.1:18765/quote.html.",
+          "recommendation": "Add a descriptive, page-specific meta description.",
+          "check_key": "missing-description",
+          "urls": [
+            "http://127.0.0.1:18765/quote.html"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P2",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "siteone-003",
+          "title": "Missing H1",
+          "category": "seo",
+          "severity": "medium",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-siteone-012"
+          ],
+          "detail": "No H1 recorded at http://127.0.0.1:18765/quote.html.",
+          "recommendation": "Add a descriptive, page-specific H1.",
+          "check_key": "missing-h1",
+          "urls": [
+            "http://127.0.0.1:18765/quote.html"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P2",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "siteone-004",
+          "title": "Review content-security-policy header",
+          "category": "security",
+          "severity": "low",
+          "kind": "problem",
+          "confidence": "needs_verification",
+          "evidence_ids": [
+            "ev-siteone-014"
+          ],
+          "detail": "Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks.",
+          "recommendation": "Review and test the header policy for the affected responses.",
+          "check_key": "header-missing:content-security-policy",
+          "urls": [
+            "http://127.0.0.1:18765/"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P3",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "siteone-005",
+          "title": "Review server header",
+          "category": "security",
+          "severity": "low",
+          "kind": "problem",
+          "confidence": "needs_verification",
+          "evidence_ids": [
+            "ev-siteone-015"
+          ],
+          "detail": "Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.",
+          "recommendation": "Review and test the header policy for the affected responses.",
+          "check_key": "header-review:server",
+          "urls": [
+            "http://127.0.0.1:18765/"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P3",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "siteone-006",
+          "title": "Review x-content-type-options header",
+          "category": "security",
+          "severity": "low",
+          "kind": "problem",
+          "confidence": "needs_verification",
+          "evidence_ids": [
+            "ev-siteone-016"
+          ],
+          "detail": "X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks.",
+          "recommendation": "Review and test the header policy for the affected responses.",
+          "check_key": "header-missing:x-content-type-options",
+          "urls": [
+            "http://127.0.0.1:18765/"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P3",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "siteone-007",
+          "title": "Review referrer-policy header",
+          "category": "security",
+          "severity": "low",
+          "kind": "problem",
+          "confidence": "needs_verification",
+          "evidence_ids": [
+            "ev-siteone-017"
+          ],
+          "detail": "Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security.",
+          "recommendation": "Review and test the header policy for the affected responses.",
+          "check_key": "header-missing:referrer-policy",
+          "urls": [
+            "http://127.0.0.1:18765/"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P3",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "siteone-008",
+          "title": "Review permissions-policy header",
+          "category": "security",
+          "severity": "low",
+          "kind": "problem",
+          "confidence": "needs_verification",
+          "evidence_ids": [
+            "ev-siteone-018"
+          ],
+          "detail": "Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.",
+          "recommendation": "Review and test the header policy for the affected responses.",
+          "check_key": "header-missing:permissions-policy",
+          "urls": [
+            "http://127.0.0.1:18765/"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P3",
+          "ams_service": "Website improvement"
+        }
+      ]
+    },
+    {
+      "name": "browser",
+      "status": "ok",
+      "reason": "",
+      "raw_paths": [
+        "raw/browser.json"
+      ],
+      "evidence": [
+        {
+          "id": "ev-browser-001",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/",
+          "description": "Rendered page evidence (desktop)",
+          "data": {
+            "url": "http://127.0.0.1:18765/",
+            "viewport": "desktop",
+            "page": {
+              "title": "Harbour Demo Plumbing - Sydney",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                },
+                {
+                  "name": "description",
+                  "content": "Local plumbing maintenance in Sydney. Request a clear written quote."
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H1",
+                  "text": "Reliable plumbing for Sydney homes"
+                },
+                {
+                  "level": "H2",
+                  "text": "How we help"
+                },
+                {
+                  "level": "H2",
+                  "text": "Local experience"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nReliable plumbing for Sydney homes\n\nWe help homeowners repair leaks and maintain working plumbing. Written quotes before work begins.\n\nHow we help\n\nTap repairs, blocked drains and scheduled maintenance.\n\nRequest a plumbing quote\nLocal experience\n\nOur fictional team serves central Sydney. Ask about licence details and insurance before booking.\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Request a plumbing quote",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [
+                {
+                  "@context": "https://schema.org",
+                  "@type": "LocalBusiness",
+                  "name": "Harbour Demo Plumbing",
+                  "telephone": "+61 2 5550 0199",
+                  "address": {
+                    "@type": "PostalAddress",
+                    "streetAddress": "12 Example Street",
+                    "addressLocality": "Sydney",
+                    "postalCode": "2000",
+                    "addressRegion": "NSW",
+                    "addressCountry": "AU"
+                  }
+                }
+              ],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Our fictional team serves central Sydney. Ask about licence details and insurance before booking.",
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/01-desktop.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [],
+              "incomplete": []
+            }
+          }
+        },
+        {
+          "id": "ev-browser-002",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/about.html",
+          "description": "Rendered page evidence (desktop)",
+          "data": {
+            "url": "http://127.0.0.1:18765/about.html",
+            "viewport": "desktop",
+            "page": {
+              "title": "About - Harbour Demo Plumbing",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                },
+                {
+                  "name": "description",
+                  "content": "Learn about our local service approach and quote process."
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H1",
+                  "text": "A local service with clear communication"
+                },
+                {
+                  "level": "H2",
+                  "text": "Our approach"
+                },
+                {
+                  "level": "H2",
+                  "text": "Customer feedback"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nA local service with clear communication\n\nHarbour Demo Plumbing is a fictional Sydney plumbing company used to demonstrate website assessments.\n\nOur approach\n\nExplain the problem, agree the scope, then complete the work. All examples on this site are synthetic.\n\nCustomer feedback\nDemo testimonial: The team explained our options clearly.\nTalk to our team\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Talk to our team",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Demo testimonial: The team explained our options clearly.",
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/02-desktop.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [],
+              "incomplete": []
+            }
+          }
+        },
+        {
+          "id": "ev-browser-003",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/quote.html",
+          "description": "Rendered page evidence (desktop)",
+          "data": {
+            "url": "http://127.0.0.1:18765/quote.html",
+            "viewport": "desktop",
+            "page": {
+              "title": "Quote - Harbour Demo Plumbing",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H2",
+                  "text": "We do stuff"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nWe do stuff\n\nQuality solutions for all your needs.\n\nImportant quote details are hard to read.\n\nClick here\n\nGet in touch for more.\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Click here",
+                  "href": "http://127.0.0.1:18765/missing-offer.html"
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/03-desktop.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [
+                {
+                  "id": "color-contrast",
+                  "impact": "serious",
+                  "tags": [
+                    "cat.color",
+                    "wcag2aa",
+                    "wcag143",
+                    "TTv5",
+                    "TT13.c",
+                    "EN-301-549",
+                    "EN-9.1.4.3",
+                    "ACT"
+                  ],
+                  "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+                  "help": "Elements must meet minimum color contrast ratio thresholds",
+                  "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI",
+                  "nodes": [
+                    {
+                      "any": [
+                        {
+                          "id": "color-contrast",
+                          "data": {
+                            "fgColor": "#bbbbbb",
+                            "bgColor": "#ffffff",
+                            "contrastRatio": 1.91,
+                            "fontSize": "13.5pt (18px)",
+                            "fontWeight": "normal",
+                            "messageKey": null,
+                            "expectedContrastRatio": "4.5:1",
+                            "shadowColor": null
+                          },
+                          "relatedNodes": [
+                            {
+                              "html": "<p style=\"color:#bbbbbb;background:#ffffff\">Important quote details are hard to read.</p>",
+                              "target": [
+                                "main > p:nth-child(4)"
+                              ]
+                            }
+                          ],
+                          "impact": "serious",
+                          "message": "Element has insufficient color contrast of 1.91 (foreground color: #bbbbbb, background color: #ffffff, font size: 13.5pt (18px), font weight: normal). Expected contrast ratio of 4.5:1"
+                        }
+                      ],
+                      "all": [],
+                      "none": [],
+                      "impact": "serious",
+                      "html": "<p style=\"color:#bbbbbb;background:#ffffff\">Important quote details are hard to read.</p>",
+                      "target": [
+                        "main > p:nth-child(4)"
+                      ],
+                      "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 1.91 (foreground color: #bbbbbb, background color: #ffffff, font size: 13.5pt (18px), font weight: normal). Expected contrast ratio of 4.5:1"
+                    }
+                  ]
+                },
+                {
+                  "id": "image-alt",
+                  "impact": "critical",
+                  "tags": [
+                    "cat.text-alternatives",
+                    "wcag2a",
+                    "wcag111",
+                    "section508",
+                    "section508.22.a",
+                    "TTv5",
+                    "TT7.a",
+                    "TT7.b",
+                    "EN-301-549",
+                    "EN-9.1.1.1",
+                    "ACT"
+                  ],
+                  "description": "Ensure <img> elements have alternative text or a role of none or presentation",
+                  "help": "Images must have alternative text",
+                  "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI",
+                  "nodes": [
+                    {
+                      "any": [
+                        {
+                          "id": "has-alt",
+                          "data": null,
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "Element does not have an alt attribute"
+                        },
+                        {
+                          "id": "aria-label",
+                          "data": null,
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "aria-label attribute does not exist or is empty"
+                        },
+                        {
+                          "id": "aria-labelledby",
+                          "data": null,
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+                        },
+                        {
+                          "id": "non-empty-title",
+                          "data": {
+                            "messageKey": "noAttr"
+                          },
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "Element has no title attribute"
+                        },
+                        {
+                          "id": "presentational-role",
+                          "data": null,
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+                        }
+                      ],
+                      "all": [],
+                      "none": [],
+                      "impact": "critical",
+                      "html": "<img src=\"/work.svg\" width=\"240\" height=\"100\">",
+                      "target": [
+                        "img"
+                      ],
+                      "failureSummary": "Fix any of the following:\n  Element does not have an alt attribute\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+                    }
+                  ]
+                }
+              ],
+              "incomplete": []
+            }
+          }
+        },
+        {
+          "id": "ev-browser-004",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/contact.html",
+          "description": "Rendered page evidence (desktop)",
+          "data": {
+            "url": "http://127.0.0.1:18765/contact.html",
+            "viewport": "desktop",
+            "page": {
+              "title": "Contact - Harbour Demo Plumbing",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                },
+                {
+                  "name": "description",
+                  "content": "Contact our Sydney team to discuss plumbing maintenance."
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H1",
+                  "text": "Contact our team"
+                },
+                {
+                  "level": "H2",
+                  "text": "Privacy policy"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nContact our team\n\nTell us about your plumbing issue. This demonstration form does not send messages.\n\nName\nEmail\nWhat do you need?\nRequest a quote\nPrivacy policy\n\nThis static demo does not collect or process submissions. Do not enter personal information.\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Request a quote",
+                  "href": ""
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [
+                {
+                  "action": "http://127.0.0.1:18765/request-quote",
+                  "method": "post",
+                  "fields": [
+                    {
+                      "name": "name",
+                      "type": "text",
+                      "label": "Name",
+                      "required": true
+                    },
+                    {
+                      "name": "email",
+                      "type": "email",
+                      "label": "Email",
+                      "required": true
+                    },
+                    {
+                      "name": "message",
+                      "type": "textarea",
+                      "label": "What do you need?",
+                      "required": true
+                    },
+                    {
+                      "name": "",
+                      "type": "submit",
+                      "label": "",
+                      "required": null
+                    }
+                  ]
+                }
+              ],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Privacy policy",
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/04-desktop.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [],
+              "incomplete": [
+                {
+                  "id": "color-contrast",
+                  "impact": "serious",
+                  "tags": [
+                    "cat.color",
+                    "wcag2aa",
+                    "wcag143",
+                    "TTv5",
+                    "TT13.c",
+                    "EN-301-549",
+                    "EN-9.1.4.3",
+                    "ACT"
+                  ],
+                  "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+                  "help": "Elements must meet minimum color contrast ratio thresholds",
+                  "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI",
+                  "nodes": [
+                    {
+                      "any": [
+                        {
+                          "id": "color-contrast",
+                          "data": {
+                            "fgColor": null,
+                            "bgColor": null,
+                            "contrastRatio": 0,
+                            "fontSize": "13.5pt (18px)",
+                            "fontWeight": "normal",
+                            "messageKey": "elmPartiallyObscured",
+                            "expectedContrastRatio": "4.5:1",
+                            "shadowColor": null
+                          },
+                          "relatedNodes": [
+                            {
+                              "html": "<textarea id=\"message\" name=\"message\" required=\"\" style=\"\"></textarea>",
+                              "target": [
+                                "#message"
+                              ]
+                            }
+                          ],
+                          "impact": "serious",
+                          "message": "Element's background color could not be determined because it's partially obscured by another element"
+                        }
+                      ],
+                      "all": [],
+                      "none": [],
+                      "impact": "serious",
+                      "html": "<textarea id=\"message\" name=\"message\" required=\"\" style=\"\"></textarea>",
+                      "target": [
+                        "#message"
+                      ],
+                      "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ev-browser-005",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/services.html",
+          "description": "Rendered page evidence (desktop)",
+          "data": {
+            "url": "http://127.0.0.1:18765/services.html",
+            "viewport": "desktop",
+            "page": {
+              "title": "Plumbing services - Harbour Demo Plumbing",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                },
+                {
+                  "name": "description",
+                  "content": "Explore tap repairs, drain clearing and home plumbing maintenance."
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H1",
+                  "text": "Plumbing services"
+                },
+                {
+                  "level": "H2",
+                  "text": "Leak repairs"
+                },
+                {
+                  "level": "H2",
+                  "text": "Drain clearing"
+                },
+                {
+                  "level": "H3",
+                  "text": "What happens next?"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nPlumbing services\nLeak repairs\n\nWe inspect visible leaks and discuss repair options.\n\nDrain clearing\n\nRequest an inspection to identify the blockage before agreeing to work.\n\nWhat happens next?\n\nDescribe your issue and we will arrange a suitable visit.\n\nGet a quote\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Get a quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/05-desktop.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [],
+              "incomplete": []
+            }
+          }
+        },
+        {
+          "id": "ev-browser-006",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/",
+          "description": "Rendered page evidence (mobile)",
+          "data": {
+            "url": "http://127.0.0.1:18765/",
+            "viewport": "mobile",
+            "page": {
+              "title": "Harbour Demo Plumbing - Sydney",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                },
+                {
+                  "name": "description",
+                  "content": "Local plumbing maintenance in Sydney. Request a clear written quote."
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H1",
+                  "text": "Reliable plumbing for Sydney homes"
+                },
+                {
+                  "level": "H2",
+                  "text": "How we help"
+                },
+                {
+                  "level": "H2",
+                  "text": "Local experience"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nReliable plumbing for Sydney homes\n\nWe help homeowners repair leaks and maintain working plumbing. Written quotes before work begins.\n\nHow we help\n\nTap repairs, blocked drains and scheduled maintenance.\n\nRequest a plumbing quote\nLocal experience\n\nOur fictional team serves central Sydney. Ask about licence details and insurance before booking.\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Request a plumbing quote",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [
+                {
+                  "@context": "https://schema.org",
+                  "@type": "LocalBusiness",
+                  "name": "Harbour Demo Plumbing",
+                  "telephone": "+61 2 5550 0199",
+                  "address": {
+                    "@type": "PostalAddress",
+                    "streetAddress": "12 Example Street",
+                    "addressLocality": "Sydney",
+                    "postalCode": "2000",
+                    "addressRegion": "NSW",
+                    "addressCountry": "AU"
+                  }
+                }
+              ],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Our fictional team serves central Sydney. Ask about licence details and insurance before booking.",
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/01-mobile.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [],
+              "incomplete": []
+            }
+          }
+        },
+        {
+          "id": "ev-browser-007",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/about.html",
+          "description": "Rendered page evidence (mobile)",
+          "data": {
+            "url": "http://127.0.0.1:18765/about.html",
+            "viewport": "mobile",
+            "page": {
+              "title": "About - Harbour Demo Plumbing",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                },
+                {
+                  "name": "description",
+                  "content": "Learn about our local service approach and quote process."
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H1",
+                  "text": "A local service with clear communication"
+                },
+                {
+                  "level": "H2",
+                  "text": "Our approach"
+                },
+                {
+                  "level": "H2",
+                  "text": "Customer feedback"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nA local service with clear communication\n\nHarbour Demo Plumbing is a fictional Sydney plumbing company used to demonstrate website assessments.\n\nOur approach\n\nExplain the problem, agree the scope, then complete the work. All examples on this site are synthetic.\n\nCustomer feedback\nDemo testimonial: The team explained our options clearly.\nTalk to our team\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Talk to our team",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Demo testimonial: The team explained our options clearly.",
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/02-mobile.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [],
+              "incomplete": []
+            }
+          }
+        },
+        {
+          "id": "ev-browser-008",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/quote.html",
+          "description": "Rendered page evidence (mobile)",
+          "data": {
+            "url": "http://127.0.0.1:18765/quote.html",
+            "viewport": "mobile",
+            "page": {
+              "title": "Quote - Harbour Demo Plumbing",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H2",
+                  "text": "We do stuff"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nWe do stuff\n\nQuality solutions for all your needs.\n\nImportant quote details are hard to read.\n\nClick here\n\nGet in touch for more.\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Click here",
+                  "href": "http://127.0.0.1:18765/missing-offer.html"
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/03-mobile.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [
+                {
+                  "id": "color-contrast",
+                  "impact": "serious",
+                  "tags": [
+                    "cat.color",
+                    "wcag2aa",
+                    "wcag143",
+                    "TTv5",
+                    "TT13.c",
+                    "EN-301-549",
+                    "EN-9.1.4.3",
+                    "ACT"
+                  ],
+                  "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+                  "help": "Elements must meet minimum color contrast ratio thresholds",
+                  "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI",
+                  "nodes": [
+                    {
+                      "any": [
+                        {
+                          "id": "color-contrast",
+                          "data": {
+                            "fgColor": "#bbbbbb",
+                            "bgColor": "#ffffff",
+                            "contrastRatio": 1.91,
+                            "fontSize": "13.5pt (18px)",
+                            "fontWeight": "normal",
+                            "messageKey": null,
+                            "expectedContrastRatio": "4.5:1",
+                            "shadowColor": null
+                          },
+                          "relatedNodes": [
+                            {
+                              "html": "<p style=\"color:#bbbbbb;background:#ffffff\">Important quote details are hard to read.</p>",
+                              "target": [
+                                "main > p:nth-child(4)"
+                              ]
+                            }
+                          ],
+                          "impact": "serious",
+                          "message": "Element has insufficient color contrast of 1.91 (foreground color: #bbbbbb, background color: #ffffff, font size: 13.5pt (18px), font weight: normal). Expected contrast ratio of 4.5:1"
+                        }
+                      ],
+                      "all": [],
+                      "none": [],
+                      "impact": "serious",
+                      "html": "<p style=\"color:#bbbbbb;background:#ffffff\">Important quote details are hard to read.</p>",
+                      "target": [
+                        "main > p:nth-child(4)"
+                      ],
+                      "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 1.91 (foreground color: #bbbbbb, background color: #ffffff, font size: 13.5pt (18px), font weight: normal). Expected contrast ratio of 4.5:1"
+                    }
+                  ]
+                },
+                {
+                  "id": "image-alt",
+                  "impact": "critical",
+                  "tags": [
+                    "cat.text-alternatives",
+                    "wcag2a",
+                    "wcag111",
+                    "section508",
+                    "section508.22.a",
+                    "TTv5",
+                    "TT7.a",
+                    "TT7.b",
+                    "EN-301-549",
+                    "EN-9.1.1.1",
+                    "ACT"
+                  ],
+                  "description": "Ensure <img> elements have alternative text or a role of none or presentation",
+                  "help": "Images must have alternative text",
+                  "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI",
+                  "nodes": [
+                    {
+                      "any": [
+                        {
+                          "id": "has-alt",
+                          "data": null,
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "Element does not have an alt attribute"
+                        },
+                        {
+                          "id": "aria-label",
+                          "data": null,
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "aria-label attribute does not exist or is empty"
+                        },
+                        {
+                          "id": "aria-labelledby",
+                          "data": null,
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+                        },
+                        {
+                          "id": "non-empty-title",
+                          "data": {
+                            "messageKey": "noAttr"
+                          },
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "Element has no title attribute"
+                        },
+                        {
+                          "id": "presentational-role",
+                          "data": null,
+                          "relatedNodes": [],
+                          "impact": "critical",
+                          "message": "Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+                        }
+                      ],
+                      "all": [],
+                      "none": [],
+                      "impact": "critical",
+                      "html": "<img src=\"/work.svg\" width=\"240\" height=\"100\">",
+                      "target": [
+                        "img"
+                      ],
+                      "failureSummary": "Fix any of the following:\n  Element does not have an alt attribute\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+                    }
+                  ]
+                }
+              ],
+              "incomplete": []
+            }
+          }
+        },
+        {
+          "id": "ev-browser-009",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/contact.html",
+          "description": "Rendered page evidence (mobile)",
+          "data": {
+            "url": "http://127.0.0.1:18765/contact.html",
+            "viewport": "mobile",
+            "page": {
+              "title": "Contact - Harbour Demo Plumbing",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                },
+                {
+                  "name": "description",
+                  "content": "Contact our Sydney team to discuss plumbing maintenance."
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H1",
+                  "text": "Contact our team"
+                },
+                {
+                  "level": "H2",
+                  "text": "Privacy policy"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nContact our team\n\nTell us about your plumbing issue. This demonstration form does not send messages.\n\nName\nEmail\nWhat do you need?\nRequest a quote\nPrivacy policy\n\nThis static demo does not collect or process submissions. Do not enter personal information.\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Request a quote",
+                  "href": ""
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [
+                {
+                  "action": "http://127.0.0.1:18765/request-quote",
+                  "method": "post",
+                  "fields": [
+                    {
+                      "name": "name",
+                      "type": "text",
+                      "label": "Name",
+                      "required": true
+                    },
+                    {
+                      "name": "email",
+                      "type": "email",
+                      "label": "Email",
+                      "required": true
+                    },
+                    {
+                      "name": "message",
+                      "type": "textarea",
+                      "label": "What do you need?",
+                      "required": true
+                    },
+                    {
+                      "name": "",
+                      "type": "submit",
+                      "label": "",
+                      "required": null
+                    }
+                  ]
+                }
+              ],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Privacy policy",
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/04-mobile.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [],
+              "incomplete": [
+                {
+                  "id": "color-contrast",
+                  "impact": "serious",
+                  "tags": [
+                    "cat.color",
+                    "wcag2aa",
+                    "wcag143",
+                    "TTv5",
+                    "TT13.c",
+                    "EN-301-549",
+                    "EN-9.1.4.3",
+                    "ACT"
+                  ],
+                  "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+                  "help": "Elements must meet minimum color contrast ratio thresholds",
+                  "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI",
+                  "nodes": [
+                    {
+                      "any": [
+                        {
+                          "id": "color-contrast",
+                          "data": {
+                            "fgColor": null,
+                            "bgColor": null,
+                            "contrastRatio": 0,
+                            "fontSize": "13.5pt (18px)",
+                            "fontWeight": "normal",
+                            "messageKey": "elmPartiallyObscured",
+                            "expectedContrastRatio": "4.5:1",
+                            "shadowColor": null
+                          },
+                          "relatedNodes": [
+                            {
+                              "html": "<textarea id=\"message\" name=\"message\" required=\"\" style=\"\"></textarea>",
+                              "target": [
+                                "#message"
+                              ]
+                            }
+                          ],
+                          "impact": "serious",
+                          "message": "Element's background color could not be determined because it's partially obscured by another element"
+                        }
+                      ],
+                      "all": [],
+                      "none": [],
+                      "impact": "serious",
+                      "html": "<textarea id=\"message\" name=\"message\" required=\"\" style=\"\"></textarea>",
+                      "target": [
+                        "#message"
+                      ],
+                      "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ev-browser-010",
+          "source": "browser",
+          "url": "http://127.0.0.1:18765/services.html",
+          "description": "Rendered page evidence (mobile)",
+          "data": {
+            "url": "http://127.0.0.1:18765/services.html",
+            "viewport": "mobile",
+            "page": {
+              "title": "Plumbing services - Harbour Demo Plumbing",
+              "meta": [
+                {
+                  "name": "viewport",
+                  "content": "width=device-width, initial-scale=1"
+                },
+                {
+                  "name": "description",
+                  "content": "Explore tap repairs, drain clearing and home plumbing maintenance."
+                }
+              ],
+              "headings": [
+                {
+                  "level": "H1",
+                  "text": "Plumbing services"
+                },
+                {
+                  "level": "H2",
+                  "text": "Leak repairs"
+                },
+                {
+                  "level": "H2",
+                  "text": "Drain clearing"
+                },
+                {
+                  "level": "H3",
+                  "text": "What happens next?"
+                }
+              ],
+              "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nPlumbing services\nLeak repairs\n\nWe inspect visible leaks and discuss repair options.\n\nDrain clearing\n\nRequest an inspection to identify the blockage before agreeing to work.\n\nWhat happens next?\n\nDescribe your issue and we will arrange a suitable visit.\n\nGet a quote\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+              "visible_text_truncated": false,
+              "ctas": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "Get a quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                },
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                },
+                {
+                  "text": "Privacy policy",
+                  "href": "http://127.0.0.1:18765/contact.html#privacy"
+                }
+              ],
+              "forms": [],
+              "contacts": [
+                {
+                  "text": "02 5550 0100",
+                  "href": "tel:+61255500100"
+                },
+                {
+                  "text": "hello@example.test",
+                  "href": "mailto:hello@example.test"
+                }
+              ],
+              "json_ld": [],
+              "microdata": [],
+              "nap_candidates": [
+                "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
+                "02 5550 0100 | hello@example.test"
+              ],
+              "nav_links": [
+                {
+                  "text": "Home",
+                  "href": "http://127.0.0.1:18765/"
+                },
+                {
+                  "text": "Services",
+                  "href": "http://127.0.0.1:18765/services.html"
+                },
+                {
+                  "text": "About",
+                  "href": "http://127.0.0.1:18765/about.html"
+                },
+                {
+                  "text": "Contact",
+                  "href": "http://127.0.0.1:18765/contact.html"
+                },
+                {
+                  "text": "Quote",
+                  "href": "http://127.0.0.1:18765/quote.html"
+                }
+              ],
+              "trust_signals": [
+                "Privacy policy"
+              ]
+            },
+            "console_errors": [],
+            "screenshot": "screenshots/05-mobile.png",
+            "axe": {
+              "version": "4.10.3",
+              "violations": [],
+              "incomplete": []
+            }
+          }
+        }
+      ],
+      "findings": [
+        {
+          "id": "browser-001",
+          "title": "Elements must meet minimum color contrast ratio thresholds",
+          "category": "accessibility",
+          "severity": "high",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-browser-003",
+            "ev-browser-008"
+          ],
+          "detail": "desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast).",
+          "recommendation": "Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology.",
+          "check_key": "axe:color-contrast",
+          "urls": [
+            "http://127.0.0.1:18765/quote.html"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P1",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "browser-002",
+          "title": "Images must have alternative text",
+          "category": "accessibility",
+          "severity": "high",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-browser-003",
+            "ev-browser-008"
+          ],
+          "detail": "desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt).",
+          "recommendation": "Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology.",
+          "check_key": "axe:image-alt",
+          "urls": [
+            "http://127.0.0.1:18765/quote.html"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P1",
+          "ams_service": "Website improvement"
+        }
+      ]
+    },
+    {
+      "name": "domain_email",
+      "status": "skipped",
+      "reason": "Local/private target has no public domain audit",
+      "raw_paths": [
+        "raw/domain_email.json"
+      ],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "name": "security",
+      "status": "ok",
+      "reason": "TLS not checked: supplied target uses HTTP; Local fixture security headers are not evidence about production hosting",
+      "raw_paths": [
+        "raw/security.json"
+      ],
+      "evidence": [
+        {
+          "id": "ev-security-001",
+          "source": "security",
+          "url": "http://127.0.0.1:18765/",
+          "description": "HTTP response security headers",
+          "data": {
+            "url": "http://127.0.0.1:18765/",
+            "status": 200,
+            "headers": {
+              "server": "SimpleHTTP/0.6 Python/3.12.13",
+              "date": "Sun, 18 Oct 2026 08:09:51 GMT",
+              "content-type": "text/html",
+              "content-length": "1684",
+              "last-modified": "Sun, 18 Oct 2026 07:38:04 GMT"
+            }
+          }
+        }
+      ],
+      "findings": [
+        {
+          "id": "security-004",
+          "title": "No explicit framing protection observed",
+          "category": "security",
+          "severity": "medium",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-security-001"
+          ],
+          "detail": "Neither X-Frame-Options nor CSP frame-ancestors was observed.",
+          "recommendation": "Set an appropriate frame-ancestors policy after checking embedding needs.",
+          "check_key": "framing-policy",
+          "urls": [],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P2",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "security-001",
+          "title": "Missing content-security-policy header",
+          "category": "security",
+          "severity": "low",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-security-001"
+          ],
+          "detail": "The sampled response did not include content-security-policy.",
+          "recommendation": "Constrain resource sources with a tested Content Security Policy.",
+          "check_key": "header-missing:content-security-policy",
+          "urls": [
+            "http://127.0.0.1:18765/"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P3",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "security-002",
+          "title": "Missing x-content-type-options header",
+          "category": "security",
+          "severity": "low",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-security-001"
+          ],
+          "detail": "The sampled response did not include x-content-type-options.",
+          "recommendation": "Set X-Content-Type-Options to nosniff.",
+          "check_key": "header-missing:x-content-type-options",
+          "urls": [
+            "http://127.0.0.1:18765/"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P3",
+          "ams_service": "Website improvement"
+        },
+        {
+          "id": "security-003",
+          "title": "Missing referrer-policy header",
+          "category": "security",
+          "severity": "low",
+          "kind": "problem",
+          "confidence": "confirmed",
+          "evidence_ids": [
+            "ev-security-001"
+          ],
+          "detail": "The sampled response did not include referrer-policy.",
+          "recommendation": "Choose a privacy-conscious Referrer-Policy.",
+          "check_key": "header-missing:referrer-policy",
+          "urls": [
+            "http://127.0.0.1:18765/"
+          ],
+          "likely_cause": "",
+          "business_impact": "",
+          "priority": "P3",
+          "ams_service": "Website improvement"
+        }
+      ]
+    },
+    {
+      "name": "performance",
+      "status": "skipped",
+      "reason": "PageSpeed/CrUX cannot access localhost",
+      "raw_paths": [
+        "raw/performance.json"
+      ],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "name": "observatory",
+      "status": "skipped",
+      "reason": "Observatory cannot scan local targets",
+      "raw_paths": [
+        "raw/observatory.json"
+      ],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "name": "dataforseo",
+      "status": "skipped",
+      "reason": "Missing DataForSEO credentials; disabled",
+      "raw_paths": [
+        "raw/dataforseo.json"
+      ],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "name": "gsc",
+      "status": "skipped",
+      "reason": "GSC requires --connect gsc and credentials; missing connection or credentials",
+      "raw_paths": [
+        "raw/gsc.json"
+      ],
+      "evidence": [],
+      "findings": []
+    }
+  ],
+  "ai": {
+    "status": "ok",
+    "provider": "claude",
+    "reason": "",
+    "warnings": [],
+    "executive_summary": "The assessment of the Harbour Demo Plumbing local fixture (five pages crawled, desktop and mobile rendering) found a small, generally well-structured site with a concentrated set of issues on the quote page. That page has no H1 and no meta description, shows a colour-contrast failure and an image without alternative text, and links through a vague \"Click here\" CTA to a URL that returns 404 (ev-browser-003, ev-browser-008, ev-siteone-012, ev-siteone-007, ev-siteone-020). The structured data phone number (+61 2 5550 0199) differs from the visible and tel: phone number (02 5550 0100), and LocalBusiness JSON-LD appears only on the home page (ev-browser-001, ev-browser-002). Security headers are missing or weak on the sampled response (ev-security-001, ev-siteone-014). This is a local fixture, so these observations do not establish production risk. Measurements such as performance, rankings and AI search visibility were not available and are treated as limitations.",
+    "sections": {},
+    "recommendations": [
+      "siteone-001",
+      "browser-001",
+      "browser-002",
+      "entity-phone-mismatch",
+      "siteone-003",
+      "siteone-002",
+      "cro-contact-form-submit",
+      "copy-quote-page-generic",
+      "local-schema-coverage",
+      "security-004",
+      "trust-signals-thin",
+      "geo-answer-readiness",
+      "contact-privacy-heading",
+      "siteone-004",
+      "siteone-005",
+      "siteone-006",
+      "siteone-007",
+      "siteone-008"
+    ],
+    "roadmap": {
+      "0-30 days": [
+        "siteone-001",
+        "browser-001",
+        "browser-002",
+        "entity-phone-mismatch",
+        "siteone-003",
+        "siteone-002",
+        "copy-quote-page-generic",
+        "cro-contact-form-submit"
+      ],
+      "30-90 days": [
+        "local-schema-coverage",
+        "security-004",
+        "siteone-004",
+        "siteone-006",
+        "siteone-007",
+        "siteone-008",
+        "siteone-005",
+        "trust-signals-thin"
+      ],
+      "90+ days": [
+        "geo-answer-readiness",
+        "contact-privacy-heading"
+      ]
+    }
+  },
+  "findings": [
+    {
+      "id": "browser-001",
+      "title": "Elements must meet minimum color contrast ratio thresholds",
+      "category": "accessibility",
+      "severity": "high",
+      "kind": "problem",
+      "confidence": "confirmed",
+      "evidence_ids": [
+        "ev-browser-003",
+        "ev-browser-008"
+      ],
+      "detail": "desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast).",
+      "recommendation": "Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology.",
+      "check_key": "axe:color-contrast",
+      "urls": [
+        "http://127.0.0.1:18765/quote.html"
+      ],
+      "likely_cause": "Hypothesis: low-contrast text colour or background styling applied to the quote details paragraph.",
+      "business_impact": "Visitors with low vision may be unable to read quote details, which could reduce enquiry completion on the key conversion page.",
+      "priority": "P1",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "browser-002",
+      "title": "Images must have alternative text",
+      "category": "accessibility",
+      "severity": "high",
+      "kind": "problem",
+      "confidence": "confirmed",
+      "evidence_ids": [
+        "ev-browser-003",
+        "ev-browser-008"
+      ],
+      "detail": "desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt).",
+      "recommendation": "Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology.",
+      "check_key": "axe:image-alt",
+      "urls": [
+        "http://127.0.0.1:18765/quote.html"
+      ],
+      "likely_cause": "Hypothesis: the work.svg image was added without an alt attribute.",
+      "business_impact": "Screen reader users miss the image content, and the page is less accessible and less clear to automated readers.",
+      "priority": "P1",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "siteone-001",
+      "title": "Broken or unavailable URLs",
+      "category": "technical",
+      "severity": "high",
+      "kind": "problem",
+      "confidence": "confirmed",
+      "evidence_ids": [
+        "ev-siteone-007"
+      ],
+      "detail": "HTTP 404 at http://127.0.0.1:18765/missing-offer.html.",
+      "recommendation": "Repair internal links and restore or redirect unavailable pages.",
+      "check_key": "broken-links",
+      "urls": [
+        "http://127.0.0.1:18765/missing-offer.html"
+      ],
+      "likely_cause": "Hypothesis: an offer page was removed or never published while the link remained.",
+      "business_impact": "The only CTA on the quote page leads to an error page, which interrupts the enquiry path.",
+      "priority": "P1",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "copy-quote-page-generic",
+      "title": "Quote page copy is generic and the CTA is non-descriptive",
+      "category": "copywriting",
+      "severity": "medium",
+      "kind": "problem",
+      "confidence": "subjective",
+      "evidence_ids": [
+        "ev-browser-003"
+      ],
+      "detail": "The page uses 'We do stuff', 'Quality solutions for all your needs.', 'Get in touch for more.' and a 'Click here' link. These do not state the service, area, what a quote includes or what happens next.",
+      "recommendation": "Rewrite with a specific H1 such as the quote service and Sydney area, describe the quote process, and use an action-led CTA label.",
+      "check_key": "copy-quote-page-generic",
+      "urls": [
+        "http://127.0.0.1:18765/quote.html"
+      ],
+      "likely_cause": "Hypothesis: placeholder copy was left in place.",
+      "business_impact": "Vague wording gives visitors and answer engines little to work with on the page meant to drive enquiries.",
+      "priority": "P2",
+      "ams_service": "Content and copywriting"
+    },
+    {
+      "id": "cro-contact-form-submit",
+      "title": "Contact form submit control has no accessible label and the quote page has no form",
+      "category": "cro_ux",
+      "severity": "medium",
+      "kind": "problem",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-browser-004",
+        "ev-browser-003"
+      ],
+      "detail": "The contact form's submit field reports no name or label, and the 'Request a quote' CTA has an empty href. The page states the demo form does not send messages. The Quote page has no form at all, and its CTA leads to a 404.",
+      "recommendation": "Give the submit button a clear value or label, confirm the form action works in production, and provide one working quote request path from the Quote page.",
+      "check_key": "cro-contact-form-submit",
+      "urls": [
+        "http://127.0.0.1:18765/contact.html",
+        "http://127.0.0.1:18765/quote.html"
+      ],
+      "likely_cause": "Hypothesis: the fixture form is intentionally static and unfinished.",
+      "business_impact": "Fragmented quote paths could add friction for visitors trying to enquire; actual behaviour was not measured.",
+      "priority": "P2",
+      "ams_service": "Conversion optimisation"
+    },
+    {
+      "id": "entity-phone-mismatch",
+      "title": "Structured data phone differs from visible phone number",
+      "category": "local_seo",
+      "severity": "medium",
+      "kind": "problem",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-browser-001",
+        "ev-browser-006"
+      ],
+      "detail": "Home page LocalBusiness JSON-LD lists telephone +61 2 5550 0199, while the visible footer text and tel: link use 02 5550 0100 (+61255500100). Name and address match between the footer and JSON-LD.",
+      "recommendation": "Confirm the correct number, then align the JSON-LD, visible text and tel: links, and check any external listings against it.",
+      "check_key": "entity-phone-mismatch",
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "likely_cause": "Hypothesis: the structured data was written separately from the page template and not updated.",
+      "business_impact": "Inconsistent business details can weaken entity consistency and may send callers to the wrong number.",
+      "priority": "P1",
+      "ams_service": "Local SEO"
+    },
+    {
+      "id": "security-004",
+      "title": "No explicit framing protection observed",
+      "category": "security",
+      "severity": "medium",
+      "kind": "problem",
+      "confidence": "confirmed",
+      "evidence_ids": [
+        "ev-security-001"
+      ],
+      "detail": "Neither X-Frame-Options nor CSP frame-ancestors was observed.",
+      "recommendation": "Set an appropriate frame-ancestors policy after checking embedding needs.",
+      "check_key": "framing-policy",
+      "urls": [],
+      "likely_cause": "Hypothesis: the basic development web server sends no hardening headers.",
+      "business_impact": "The site could potentially be framed by other origins, which raises clickjacking exposure if the production setup is the same.",
+      "priority": "P2",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "siteone-002",
+      "title": "Missing meta description",
+      "category": "seo",
+      "severity": "medium",
+      "kind": "problem",
+      "confidence": "confirmed",
+      "evidence_ids": [
+        "ev-siteone-012"
+      ],
+      "detail": "No meta description recorded at http://127.0.0.1:18765/quote.html.",
+      "recommendation": "Add a descriptive, page-specific meta description.",
+      "check_key": "missing-description",
+      "urls": [
+        "http://127.0.0.1:18765/quote.html"
+      ],
+      "likely_cause": "Hypothesis: the page was built from a minimal template.",
+      "business_impact": "Search engines may generate their own snippet, giving less control over how the quote page is presented.",
+      "priority": "P2",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "siteone-003",
+      "title": "Missing H1",
+      "category": "seo",
+      "severity": "medium",
+      "kind": "problem",
+      "confidence": "confirmed",
+      "evidence_ids": [
+        "ev-siteone-012"
+      ],
+      "detail": "No H1 recorded at http://127.0.0.1:18765/quote.html.",
+      "recommendation": "Add a descriptive, page-specific H1.",
+      "check_key": "missing-h1",
+      "urls": [
+        "http://127.0.0.1:18765/quote.html"
+      ],
+      "likely_cause": "Hypothesis: the heading level was chosen for styling rather than structure.",
+      "business_impact": "The page topic is less clear to users, assistive technology and search systems.",
+      "priority": "P2",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "trust-signals-thin",
+      "title": "Trust signals are limited and not specific",
+      "category": "cro_ux",
+      "severity": "low",
+      "kind": "opportunity",
+      "confidence": "subjective",
+      "evidence_ids": [
+        "ev-browser-001",
+        "ev-browser-002",
+        "ev-browser-003"
+      ],
+      "detail": "The home page tells visitors to ask about licence details and insurance rather than stating them. The only testimonial is labelled as a demo, with no name or source. The quote page shows only a privacy link as a trust signal. Part of this reflects the fixture being fictional.",
+      "recommendation": "For a real deployment, state licence and insurance details, add attributed reviews and service guarantees, and place them near quote CTAs.",
+      "check_key": "trust-signals-thin",
+      "urls": [
+        "http://127.0.0.1:18765/",
+        "http://127.0.0.1:18765/about.html"
+      ],
+      "likely_cause": "Hypothesis: fixture content is deliberately synthetic.",
+      "business_impact": "Visitors may need more reassurance before requesting a quote; effect was not measured.",
+      "priority": "P3",
+      "ams_service": "Conversion optimisation"
+    },
+    {
+      "id": "contact-privacy-heading",
+      "title": "Privacy policy is an H2 anchor on the contact page",
+      "category": "entity",
+      "severity": "low",
+      "kind": "problem",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-browser-004",
+        "ev-siteone-019"
+      ],
+      "detail": "The privacy policy is a short section (H2) within the contact page, reached via #privacy, rather than a dedicated page, and states that it does not collect submissions even though the form posts to /request-quote.",
+      "recommendation": "Provide a dedicated, accurate privacy policy that matches the real form handling before launch.",
+      "check_key": "contact-privacy-heading",
+      "urls": [
+        "http://127.0.0.1:18765/contact.html"
+      ],
+      "likely_cause": "Hypothesis: fixture simplification.",
+      "business_impact": "A policy that does not match the form's behaviour can undermine trust and compliance.",
+      "priority": "P3",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "geo-answer-readiness",
+      "title": "Service pages offer limited answer-ready content",
+      "category": "geo",
+      "severity": "low",
+      "kind": "opportunity",
+      "confidence": "subjective",
+      "evidence_ids": [
+        "ev-browser-005",
+        "ev-siteone-019"
+      ],
+      "detail": "The services page gives one-sentence descriptions for leak repairs and drain clearing, with no pricing guidance, service area detail, timeframes or FAQs. Heading structure is otherwise clean. No claim is made about AI search visibility, which was not measured.",
+      "recommendation": "Add concise factual sections covering what each service includes, typical process, areas served and common questions, supported by matching structured data.",
+      "check_key": "geo-answer-readiness",
+      "urls": [
+        "http://127.0.0.1:18765/services.html"
+      ],
+      "likely_cause": "Hypothesis: the fixture is intentionally minimal.",
+      "business_impact": "Richer, clearly structured answers can help both visitors and search or assistant systems understand the offer.",
+      "priority": "P3",
+      "ams_service": "Content and copywriting"
+    },
+    {
+      "id": "local-schema-coverage",
+      "title": "LocalBusiness structured data observed only on the home page",
+      "category": "local_seo",
+      "severity": "low",
+      "kind": "opportunity",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-browser-001",
+        "ev-browser-002",
+        "ev-browser-003",
+        "ev-browser-004",
+        "ev-browser-005"
+      ],
+      "detail": "JSON-LD was found on the home page only. The about, quote, contact and services pages had none. The home page markup also lacks fields such as url, openingHours, areaServed, email and sameAs.",
+      "recommendation": "Extend structured data with a complete LocalBusiness or Plumber entity, plus Service markup on the services page, and validate it.",
+      "check_key": "local-schema-coverage",
+      "urls": [
+        "http://127.0.0.1:18765/",
+        "http://127.0.0.1:18765/services.html"
+      ],
+      "likely_cause": "Hypothesis: markup was added manually to one template.",
+      "business_impact": "Entity and service information is less machine-readable on pages where users make decisions.",
+      "priority": "P2",
+      "ams_service": "Local SEO"
+    },
+    {
+      "id": "siteone-004",
+      "title": "Review content-security-policy header",
+      "category": "security",
+      "severity": "low",
+      "kind": "problem",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-security-001",
+        "ev-siteone-014"
+      ],
+      "detail": "Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy.",
+      "recommendation": "Review and test the header policy for the affected responses.",
+      "check_key": "header-missing:content-security-policy",
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "likely_cause": "Hypothesis: default server configuration with no hardening.",
+      "business_impact": "A missing CSP reduces defence in depth against script injection if production matches.",
+      "priority": "P3",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "siteone-005",
+      "title": "Review server header",
+      "category": "security",
+      "severity": "low",
+      "kind": "problem",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-siteone-015"
+      ],
+      "detail": "Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.",
+      "recommendation": "Review and test the header policy for the affected responses.",
+      "check_key": "header-review:server",
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "likely_cause": "Hypothesis: a local development server is in use.",
+      "business_impact": "Version disclosure can help attackers fingerprint the stack if present in production.",
+      "priority": "P3",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "siteone-006",
+      "title": "Review x-content-type-options header",
+      "category": "security",
+      "severity": "low",
+      "kind": "problem",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-security-001",
+        "ev-siteone-016"
+      ],
+      "detail": "X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options.",
+      "recommendation": "Review and test the header policy for the affected responses.",
+      "check_key": "header-missing:x-content-type-options",
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "likely_cause": "Hypothesis: default server configuration.",
+      "business_impact": "Browsers may MIME-sniff content, a minor hardening gap.",
+      "priority": "P3",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "siteone-007",
+      "title": "Review referrer-policy header",
+      "category": "security",
+      "severity": "low",
+      "kind": "problem",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-security-001",
+        "ev-siteone-017"
+      ],
+      "detail": "Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy.",
+      "recommendation": "Review and test the header policy for the affected responses.",
+      "check_key": "header-missing:referrer-policy",
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "likely_cause": "Hypothesis: default server configuration.",
+      "business_impact": "Referrer information sharing is left to browser defaults, a minor privacy gap.",
+      "priority": "P3",
+      "ams_service": "Website improvement"
+    },
+    {
+      "id": "siteone-008",
+      "title": "Review permissions-policy header",
+      "category": "security",
+      "severity": "low",
+      "kind": "problem",
+      "confidence": "needs_verification",
+      "evidence_ids": [
+        "ev-siteone-018"
+      ],
+      "detail": "Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.",
+      "recommendation": "Review and test the header policy for the affected responses.",
+      "check_key": "header-missing:permissions-policy",
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "likely_cause": "Hypothesis: default server configuration.",
+      "business_impact": "Browser features are not explicitly restricted, a minor hardening gap.",
+      "priority": "P3",
+      "ams_service": "Website improvement"
+    }
+  ],
+  "limitations": [
+    "domain_email: no successful evidence collection; category was not assessed",
+    "performance: no successful evidence collection; category was not assessed",
+    "Local fixture demonstration: observations do not describe a live business"
+  ],
+  "future": [
+    {
+      "name": "Elmo AI visibility",
+      "description": "Measured AI search visibility",
+      "requirement": "Provider integration and measurement budget",
+      "status": "future"
+    },
+    {
+      "name": "Houtini SEO Audit",
+      "description": "Additional SEO audit",
+      "requirement": "Provider integration",
+      "status": "future"
+    },
+    {
+      "name": "OpenSEO",
+      "description": "Additional SEO tooling",
+      "requirement": "Provider integration",
+      "status": "future"
+    },
+    {
+      "name": "Google Business Profile API",
+      "description": "Verified listing data",
+      "requirement": "OAuth and listing access",
+      "status": "future"
+    },
+    {
+      "name": "GA4",
+      "description": "Analytics",
+      "requirement": "Read-only property access",
+      "status": "future"
+    },
+    {
+      "name": "WP-CLI / Site Health",
+      "description": "WordPress configuration",
+      "requirement": "Approved hosting access",
+      "status": "future"
+    },
+    {
+      "name": "Google Workspace (ScubaGoggles)",
+      "description": "Workspace posture",
+      "requirement": "Approved tenant access",
+      "status": "future"
+    },
+    {
+      "name": "M365 (ScubaGear)",
+      "description": "Microsoft tenant posture",
+      "requirement": "Approved tenant access",
+      "status": "future"
+    },
+    {
+      "name": "Social/platform SEO",
+      "description": "Platform discovery",
+      "requirement": "Account/API access",
+      "status": "future"
+    },
+    {
+      "name": "Digital PR",
+      "description": "Authority and earned media",
+      "requirement": "Research scope and source access",
+      "status": "future"
+    },
+    {
+      "name": "A/B testing",
+      "description": "Controlled conversion experiments",
+      "requirement": "Consent, traffic and experiment design",
+      "status": "future"
+    },
+    {
+      "name": "Heatmaps/behaviour",
+      "description": "Behavioural analysis",
+      "requirement": "Consent and analytics access",
+      "status": "future"
+    }
+  ],
+  "report_files": [
+    "report.md",
+    "report.html",
+    "report.pdf"
+  ],
+  "status": "partial"
+}

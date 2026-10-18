@@ -1,0 +1,396 @@
+[
+  {
+    "id": "browser-001",
+    "title": "Elements must meet minimum color contrast ratio thresholds",
+    "category": "accessibility",
+    "severity": "high",
+    "kind": "problem",
+    "confidence": "confirmed",
+    "evidence_ids": [
+      "ev-browser-003",
+      "ev-browser-008"
+    ],
+    "detail": "desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast).",
+    "recommendation": "Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology.",
+    "check_key": "axe:color-contrast",
+    "urls": [
+      "http://127.0.0.1:18765/quote.html"
+    ],
+    "likely_cause": "Hypothesis: low-contrast text colour or background styling applied to the quote details paragraph.",
+    "business_impact": "Visitors with low vision may be unable to read quote details, which could reduce enquiry completion on the key conversion page.",
+    "priority": "P1",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "browser-002",
+    "title": "Images must have alternative text",
+    "category": "accessibility",
+    "severity": "high",
+    "kind": "problem",
+    "confidence": "confirmed",
+    "evidence_ids": [
+      "ev-browser-003",
+      "ev-browser-008"
+    ],
+    "detail": "desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt).",
+    "recommendation": "Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology.",
+    "check_key": "axe:image-alt",
+    "urls": [
+      "http://127.0.0.1:18765/quote.html"
+    ],
+    "likely_cause": "Hypothesis: the work.svg image was added without an alt attribute.",
+    "business_impact": "Screen reader users miss the image content, and the page is less accessible and less clear to automated readers.",
+    "priority": "P1",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "siteone-001",
+    "title": "Broken or unavailable URLs",
+    "category": "technical",
+    "severity": "high",
+    "kind": "problem",
+    "confidence": "confirmed",
+    "evidence_ids": [
+      "ev-siteone-007"
+    ],
+    "detail": "HTTP 404 at http://127.0.0.1:18765/missing-offer.html.",
+    "recommendation": "Repair internal links and restore or redirect unavailable pages.",
+    "check_key": "broken-links",
+    "urls": [
+      "http://127.0.0.1:18765/missing-offer.html"
+    ],
+    "likely_cause": "Hypothesis: an offer page was removed or never published while the link remained.",
+    "business_impact": "The only CTA on the quote page leads to an error page, which interrupts the enquiry path.",
+    "priority": "P1",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "copy-quote-page-generic",
+    "title": "Quote page copy is generic and the CTA is non-descriptive",
+    "category": "copywriting",
+    "severity": "medium",
+    "kind": "problem",
+    "confidence": "subjective",
+    "evidence_ids": [
+      "ev-browser-003"
+    ],
+    "detail": "The page uses 'We do stuff', 'Quality solutions for all your needs.', 'Get in touch for more.' and a 'Click here' link. These do not state the service, area, what a quote includes or what happens next.",
+    "recommendation": "Rewrite with a specific H1 such as the quote service and Sydney area, describe the quote process, and use an action-led CTA label.",
+    "check_key": "copy-quote-page-generic",
+    "urls": [
+      "http://127.0.0.1:18765/quote.html"
+    ],
+    "likely_cause": "Hypothesis: placeholder copy was left in place.",
+    "business_impact": "Vague wording gives visitors and answer engines little to work with on the page meant to drive enquiries.",
+    "priority": "P2",
+    "ams_service": "Content and copywriting"
+  },
+  {
+    "id": "cro-contact-form-submit",
+    "title": "Contact form submit control has no accessible label and the quote page has no form",
+    "category": "cro_ux",
+    "severity": "medium",
+    "kind": "problem",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-browser-004",
+      "ev-browser-003"
+    ],
+    "detail": "The contact form's submit field reports no name or label, and the 'Request a quote' CTA has an empty href. The page states the demo form does not send messages. The Quote page has no form at all, and its CTA leads to a 404.",
+    "recommendation": "Give the submit button a clear value or label, confirm the form action works in production, and provide one working quote request path from the Quote page.",
+    "check_key": "cro-contact-form-submit",
+    "urls": [
+      "http://127.0.0.1:18765/contact.html",
+      "http://127.0.0.1:18765/quote.html"
+    ],
+    "likely_cause": "Hypothesis: the fixture form is intentionally static and unfinished.",
+    "business_impact": "Fragmented quote paths could add friction for visitors trying to enquire; actual behaviour was not measured.",
+    "priority": "P2",
+    "ams_service": "Conversion optimisation"
+  },
+  {
+    "id": "entity-phone-mismatch",
+    "title": "Structured data phone differs from visible phone number",
+    "category": "local_seo",
+    "severity": "medium",
+    "kind": "problem",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-browser-001",
+      "ev-browser-006"
+    ],
+    "detail": "Home page LocalBusiness JSON-LD lists telephone +61 2 5550 0199, while the visible footer text and tel: link use 02 5550 0100 (+61255500100). Name and address match between the footer and JSON-LD.",
+    "recommendation": "Confirm the correct number, then align the JSON-LD, visible text and tel: links, and check any external listings against it.",
+    "check_key": "entity-phone-mismatch",
+    "urls": [
+      "http://127.0.0.1:18765/"
+    ],
+    "likely_cause": "Hypothesis: the structured data was written separately from the page template and not updated.",
+    "business_impact": "Inconsistent business details can weaken entity consistency and may send callers to the wrong number.",
+    "priority": "P1",
+    "ams_service": "Local SEO"
+  },
+  {
+    "id": "security-004",
+    "title": "No explicit framing protection observed",
+    "category": "security",
+    "severity": "medium",
+    "kind": "problem",
+    "confidence": "confirmed",
+    "evidence_ids": [
+      "ev-security-001"
+    ],
+    "detail": "Neither X-Frame-Options nor CSP frame-ancestors was observed.",
+    "recommendation": "Set an appropriate frame-ancestors policy after checking embedding needs.",
+    "check_key": "framing-policy",
+    "urls": [],
+    "likely_cause": "Hypothesis: the basic development web server sends no hardening headers.",
+    "business_impact": "The site could potentially be framed by other origins, which raises clickjacking exposure if the production setup is the same.",
+    "priority": "P2",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "siteone-002",
+    "title": "Missing meta description",
+    "category": "seo",
+    "severity": "medium",
+    "kind": "problem",
+    "confidence": "confirmed",
+    "evidence_ids": [
+      "ev-siteone-012"
+    ],
+    "detail": "No meta description recorded at http://127.0.0.1:18765/quote.html.",
+    "recommendation": "Add a descriptive, page-specific meta description.",
+    "check_key": "missing-description",
+    "urls": [
+      "http://127.0.0.1:18765/quote.html"
+    ],
+    "likely_cause": "Hypothesis: the page was built from a minimal template.",
+    "business_impact": "Search engines may generate their own snippet, giving less control over how the quote page is presented.",
+    "priority": "P2",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "siteone-003",
+    "title": "Missing H1",
+    "category": "seo",
+    "severity": "medium",
+    "kind": "problem",
+    "confidence": "confirmed",
+    "evidence_ids": [
+      "ev-siteone-012"
+    ],
+    "detail": "No H1 recorded at http://127.0.0.1:18765/quote.html.",
+    "recommendation": "Add a descriptive, page-specific H1.",
+    "check_key": "missing-h1",
+    "urls": [
+      "http://127.0.0.1:18765/quote.html"
+    ],
+    "likely_cause": "Hypothesis: the heading level was chosen for styling rather than structure.",
+    "business_impact": "The page topic is less clear to users, assistive technology and search systems.",
+    "priority": "P2",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "trust-signals-thin",
+    "title": "Trust signals are limited and not specific",
+    "category": "cro_ux",
+    "severity": "low",
+    "kind": "opportunity",
+    "confidence": "subjective",
+    "evidence_ids": [
+      "ev-browser-001",
+      "ev-browser-002",
+      "ev-browser-003"
+    ],
+    "detail": "The home page tells visitors to ask about licence details and insurance rather than stating them. The only testimonial is labelled as a demo, with no name or source. The quote page shows only a privacy link as a trust signal. Part of this reflects the fixture being fictional.",
+    "recommendation": "For a real deployment, state licence and insurance details, add attributed reviews and service guarantees, and place them near quote CTAs.",
+    "check_key": "trust-signals-thin",
+    "urls": [
+      "http://127.0.0.1:18765/",
+      "http://127.0.0.1:18765/about.html"
+    ],
+    "likely_cause": "Hypothesis: fixture content is deliberately synthetic.",
+    "business_impact": "Visitors may need more reassurance before requesting a quote; effect was not measured.",
+    "priority": "P3",
+    "ams_service": "Conversion optimisation"
+  },
+  {
+    "id": "contact-privacy-heading",
+    "title": "Privacy policy is an H2 anchor on the contact page",
+    "category": "entity",
+    "severity": "low",
+    "kind": "problem",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-browser-004",
+      "ev-siteone-019"
+    ],
+    "detail": "The privacy policy is a short section (H2) within the contact page, reached via #privacy, rather than a dedicated page, and states that it does not collect submissions even though the form posts to /request-quote.",
+    "recommendation": "Provide a dedicated, accurate privacy policy that matches the real form handling before launch.",
+    "check_key": "contact-privacy-heading",
+    "urls": [
+      "http://127.0.0.1:18765/contact.html"
+    ],
+    "likely_cause": "Hypothesis: fixture simplification.",
+    "business_impact": "A policy that does not match the form's behaviour can undermine trust and compliance.",
+    "priority": "P3",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "geo-answer-readiness",
+    "title": "Service pages offer limited answer-ready content",
+    "category": "geo",
+    "severity": "low",
+    "kind": "opportunity",
+    "confidence": "subjective",
+    "evidence_ids": [
+      "ev-browser-005",
+      "ev-siteone-019"
+    ],
+    "detail": "The services page gives one-sentence descriptions for leak repairs and drain clearing, with no pricing guidance, service area detail, timeframes or FAQs. Heading structure is otherwise clean. No claim is made about AI search visibility, which was not measured.",
+    "recommendation": "Add concise factual sections covering what each service includes, typical process, areas served and common questions, supported by matching structured data.",
+    "check_key": "geo-answer-readiness",
+    "urls": [
+      "http://127.0.0.1:18765/services.html"
+    ],
+    "likely_cause": "Hypothesis: the fixture is intentionally minimal.",
+    "business_impact": "Richer, clearly structured answers can help both visitors and search or assistant systems understand the offer.",
+    "priority": "P3",
+    "ams_service": "Content and copywriting"
+  },
+  {
+    "id": "local-schema-coverage",
+    "title": "LocalBusiness structured data observed only on the home page",
+    "category": "local_seo",
+    "severity": "low",
+    "kind": "opportunity",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-browser-001",
+      "ev-browser-002",
+      "ev-browser-003",
+      "ev-browser-004",
+      "ev-browser-005"
+    ],
+    "detail": "JSON-LD was found on the home page only. The about, quote, contact and services pages had none. The home page markup also lacks fields such as url, openingHours, areaServed, email and sameAs.",
+    "recommendation": "Extend structured data with a complete LocalBusiness or Plumber entity, plus Service markup on the services page, and validate it.",
+    "check_key": "local-schema-coverage",
+    "urls": [
+      "http://127.0.0.1:18765/",
+      "http://127.0.0.1:18765/services.html"
+    ],
+    "likely_cause": "Hypothesis: markup was added manually to one template.",
+    "business_impact": "Entity and service information is less machine-readable on pages where users make decisions.",
+    "priority": "P2",
+    "ams_service": "Local SEO"
+  },
+  {
+    "id": "siteone-004",
+    "title": "Review content-security-policy header",
+    "category": "security",
+    "severity": "low",
+    "kind": "problem",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-security-001",
+      "ev-siteone-014"
+    ],
+    "detail": "Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy.",
+    "recommendation": "Review and test the header policy for the affected responses.",
+    "check_key": "header-missing:content-security-policy",
+    "urls": [
+      "http://127.0.0.1:18765/"
+    ],
+    "likely_cause": "Hypothesis: default server configuration with no hardening.",
+    "business_impact": "A missing CSP reduces defence in depth against script injection if production matches.",
+    "priority": "P3",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "siteone-005",
+    "title": "Review server header",
+    "category": "security",
+    "severity": "low",
+    "kind": "problem",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-siteone-015"
+    ],
+    "detail": "Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.",
+    "recommendation": "Review and test the header policy for the affected responses.",
+    "check_key": "header-review:server",
+    "urls": [
+      "http://127.0.0.1:18765/"
+    ],
+    "likely_cause": "Hypothesis: a local development server is in use.",
+    "business_impact": "Version disclosure can help attackers fingerprint the stack if present in production.",
+    "priority": "P3",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "siteone-006",
+    "title": "Review x-content-type-options header",
+    "category": "security",
+    "severity": "low",
+    "kind": "problem",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-security-001",
+      "ev-siteone-016"
+    ],
+    "detail": "X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options.",
+    "recommendation": "Review and test the header policy for the affected responses.",
+    "check_key": "header-missing:x-content-type-options",
+    "urls": [
+      "http://127.0.0.1:18765/"
+    ],
+    "likely_cause": "Hypothesis: default server configuration.",
+    "business_impact": "Browsers may MIME-sniff content, a minor hardening gap.",
+    "priority": "P3",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "siteone-007",
+    "title": "Review referrer-policy header",
+    "category": "security",
+    "severity": "low",
+    "kind": "problem",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-security-001",
+      "ev-siteone-017"
+    ],
+    "detail": "Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy.",
+    "recommendation": "Review and test the header policy for the affected responses.",
+    "check_key": "header-missing:referrer-policy",
+    "urls": [
+      "http://127.0.0.1:18765/"
+    ],
+    "likely_cause": "Hypothesis: default server configuration.",
+    "business_impact": "Referrer information sharing is left to browser defaults, a minor privacy gap.",
+    "priority": "P3",
+    "ams_service": "Website improvement"
+  },
+  {
+    "id": "siteone-008",
+    "title": "Review permissions-policy header",
+    "category": "security",
+    "severity": "low",
+    "kind": "problem",
+    "confidence": "needs_verification",
+    "evidence_ids": [
+      "ev-siteone-018"
+    ],
+    "detail": "Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.",
+    "recommendation": "Review and test the header policy for the affected responses.",
+    "check_key": "header-missing:permissions-policy",
+    "urls": [
+      "http://127.0.0.1:18765/"
+    ],
+    "likely_cause": "Hypothesis: default server configuration.",
+    "business_impact": "Browser features are not explicitly restricted, a minor hardening gap.",
+    "priority": "P3",
+    "ams_service": "Website improvement"
+  }
+]

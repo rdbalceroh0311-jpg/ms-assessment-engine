@@ -54,6 +54,8 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             if category in ctx.categories
         }
     )
+    # Findings from unassessed categories must not reach recommendations or the roadmap.
+    findings = [f for f in findings if f.category in assessed]
     limitations = [
         f"{c}: no successful evidence collection; category was not assessed"
         for c in sorted(ctx.categories - set(assessed))

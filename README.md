@@ -37,8 +37,8 @@ ANTHROPIC_API_KEY= uv run ams-assess run --customer fixture-ai \
 
 The five-page synthetic fixture includes a broken link, missing H1/meta description/alt text, low
 contrast, a weak CTA and a structured-data telephone mismatch. It contains no real customer data.
-The AI-generated sample is pending CLI authentication; it will be committed under
-`examples/fixture-report/` after a successful authenticated fixture run.
+An AI-generated sample from an authenticated fixture run is committed under
+[`examples/fixture-report/`](examples/fixture-report/) (report, results, findings and evidence).
 
 ## Integrations and credentials
 

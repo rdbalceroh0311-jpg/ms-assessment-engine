@@ -66,10 +66,23 @@ def run(ctx: Context) -> ModuleResult:
             if urlsplit(url).netloc == urlsplit(ctx.target).netloc:
                 ctx.pages.append(url)
         eid = result.add_evidence(url, "SiteOne HTTP response", row)
-        if status >= 400 or status == 0:
+        if status == 0 or status == 429 or status >= 500:
+            # No response, throttling or server errors may be transient; recheck before repair.
+            result.finding(
+                "unavailable-urls",
+                "Unavailable or throttled URLs",
+                "technical",
+                [eid],
+                f"HTTP {status} at {url}." if status else f"No response at {url}.",
+                "Recheck these URLs; restore or redirect any that remain unavailable.",
+                severity="high",
+                confidence="needs_verification",
+                urls=[url],
+            )
+        elif status >= 400:
             result.finding(
                 "broken-links",
-                "Broken or unavailable URLs",
+                "Broken URLs",
                 "technical",
                 [eid],
                 f"HTTP {status} at {url}.",

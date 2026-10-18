@@ -1,5 +1,6 @@
 import re
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 from ams_assess.models import Context, ModuleResult
@@ -73,6 +74,8 @@ def run(ctx: Context) -> ModuleResult:
                     viewport={"width": width, "height": height},
                     is_mobile=viewport == "mobile",
                     service_workers="block",
+                    # Strict CSPs would otherwise block the injected axe-core script.
+                    bypass_csp=True,
                 )
                 # Observational only: no form submissions or background writes from page scripts.
                 session.route(
@@ -96,7 +99,11 @@ def run(ctx: Context) -> ModuleResult:
                         ),
                     )
                     try:
-                        page.goto(url, wait_until="networkidle", timeout=25000)
+                        try:
+                            page.goto(url, wait_until="networkidle", timeout=25000)
+                        except PlaywrightTimeoutError:
+                            # Persistent polling can prevent network idle; check the loaded page.
+                            page.goto(url, wait_until="load", timeout=25000)
                         record = {
                             "url": page.url,
                             "viewport": viewport,
