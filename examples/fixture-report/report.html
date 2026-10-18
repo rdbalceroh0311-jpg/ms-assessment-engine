@@ -1,0 +1,557 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>AMS Assessment Report</title><style>@page { size: A4; margin: 18mm 17mm 20mm; }
+body { font-family: Arial, sans-serif; color: #20303d; font-size: 10pt; line-height: 1.48;
+       max-width: 960px; margin: 32px auto; padding: 0 20px; }
+h1 { color: #143c52; font-size: 29pt; line-height: 1.12; border-bottom: 4px solid #16a59b;
+     padding-bottom: 14px; margin-bottom: 20px; }
+h2 { color: #143c52; font-size: 16pt; margin-top: 26px; border-bottom: 1px solid #cbd8df;
+     padding-bottom: 6px; break-after: avoid; }
+h3 { color: #195b68; font-size: 12pt; margin-top: 20px; break-after: avoid; }
+h3 + p, h3 + p + p { break-after: avoid; }
+p,li { orphans: 3; widows: 3; overflow-wrap: anywhere; }
+a { color: #166c7c; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; font-size: 8pt; table-layout: fixed; }
+th:first-child { width: 20%; } th:nth-child(2) { width: 12%; }
+table:has(th:nth-child(4)) th:nth-child(3) { width: 38%; }
+th,td { border: 1px solid #cfdae0; padding: 6px; text-align: left; vertical-align: top;
+        overflow-wrap: anywhere; }
+th { background: #eaf2f5; } tr { break-inside: avoid; }
+code { font-size: 8pt; overflow-wrap: anywhere; }
+blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
+ background: #f3f8fa; }
+@media print { body { margin: 0; padding: 0; max-width: none; }
+  h2 { margin-top: 22px; } a { text-decoration: none; } }
+</style></head><body><h1 id="ai-managed-services">AI Managed Services</h1>
+<h2 id="website-assessment-report">Website assessment report</h2>
+<p><strong>Customer:</strong> Harbour Demo Plumbing<br>
+<strong>Assessment date (UTC):</strong> 2026-10-18<br>
+<strong>Target:</strong> http://127.0.0.1:18765/<br>
+<strong>Scope:</strong> Functionality &amp; accessibility; Copywriting &amp; messaging; CRO &amp; UX/UI; Domain, DNS &amp; email health; Entity &amp; brand authority; GEO / AI search readiness; Local SEO; Website performance; Security observations; SEO findings; Website technical health</p>
+<blockquote>
+<p>Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.</p>
+</blockquote>
+<h2 id="executive-summary">Executive summary</h2>
+<p>The assessment of the Harbour Demo Plumbing local fixture (five pages crawled, desktop and mobile rendering) found a small, generally well-structured site with a concentrated set of issues on the quote page. That page has no H1 and no meta description, shows a colour-contrast failure and an image without alternative text, and links through a vague "Click here" CTA to a URL that returns 404 (ev-browser-003, ev-browser-008, ev-siteone-012, ev-siteone-007, ev-siteone-020). The structured data phone number (+61 2 5550 0199) differs from the visible and tel: phone number (02 5550 0100), and LocalBusiness JSON-LD appears only on the home page (ev-browser-001, ev-browser-002). Security headers are missing or weak on the sampled response (ev-security-001, ev-siteone-014). This is a local fixture, so these observations do not establish production risk. Measurements such as performance, rankings and AI search visibility were not available and are treated as limitations.</p>
+<h2 id="website-technical-health">Website technical health</h2>
+<h3 id="siteone-001-broken-or-unavailable-urls">siteone-001: Broken or unavailable URLs</h3>
+<p><strong>Severity:</strong> high | <strong>Confidence:</strong> confirmed | <strong>Type:</strong> problem | <strong>Priority:</strong> P1</p>
+<p>HTTP 404 at http://127.0.0.1:18765/missing-offer.html.</p>
+<p><strong>Recommended action:</strong> Repair internal links and restore or redirect unavailable pages.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: an offer page was removed or never published while the link remained.</p>
+<p><strong>Potential business impact:</strong> The only CTA on the quote page leads to an error page, which interrupts the enquiry path.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/missing-offer.html</p>
+<p><strong>Evidence:</strong> ev-siteone-007</p>
+<h2 id="seo-findings">SEO findings</h2>
+<h3 id="siteone-002-missing-meta-description">siteone-002: Missing meta description</h3>
+<p><strong>Severity:</strong> medium | <strong>Confidence:</strong> confirmed | <strong>Type:</strong> problem | <strong>Priority:</strong> P2</p>
+<p>No meta description recorded at http://127.0.0.1:18765/quote.html.</p>
+<p><strong>Recommended action:</strong> Add a descriptive, page-specific meta description.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: the page was built from a minimal template.</p>
+<p><strong>Potential business impact:</strong> Search engines may generate their own snippet, giving less control over how the quote page is presented.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/quote.html</p>
+<p><strong>Evidence:</strong> ev-siteone-012</p>
+<h3 id="siteone-003-missing-h1">siteone-003: Missing H1</h3>
+<p><strong>Severity:</strong> medium | <strong>Confidence:</strong> confirmed | <strong>Type:</strong> problem | <strong>Priority:</strong> P2</p>
+<p>No H1 recorded at http://127.0.0.1:18765/quote.html.</p>
+<p><strong>Recommended action:</strong> Add a descriptive, page-specific H1.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: the heading level was chosen for styling rather than structure.</p>
+<p><strong>Potential business impact:</strong> The page topic is less clear to users, assistive technology and search systems.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/quote.html</p>
+<p><strong>Evidence:</strong> ev-siteone-012</p>
+<h2 id="geo-ai-search-readiness">GEO / AI search readiness</h2>
+<h3 id="geo-answer-readiness-service-pages-offer-limited-answer-ready-content">geo-answer-readiness: Service pages offer limited answer-ready content</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> subjective | <strong>Type:</strong> opportunity | <strong>Priority:</strong> P3</p>
+<p>The services page gives one-sentence descriptions for leak repairs and drain clearing, with no pricing guidance, service area detail, timeframes or FAQs. Heading structure is otherwise clean. No claim is made about AI search visibility, which was not measured.</p>
+<p><strong>Recommended action:</strong> Add concise factual sections covering what each service includes, typical process, areas served and common questions, supported by matching structured data.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: the fixture is intentionally minimal.</p>
+<p><strong>Potential business impact:</strong> Richer, clearly structured answers can help both visitors and search or assistant systems understand the offer.</p>
+<p><strong>Suggested AMS service:</strong> Content and copywriting</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/services.html</p>
+<p><strong>Evidence:</strong> ev-browser-005, ev-siteone-019</p>
+<h2 id="local-seo">Local SEO</h2>
+<h3 id="entity-phone-mismatch-structured-data-phone-differs-from-visible-phone-number">entity-phone-mismatch: Structured data phone differs from visible phone number</h3>
+<p><strong>Severity:</strong> medium | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> problem | <strong>Priority:</strong> P1</p>
+<p>Home page LocalBusiness JSON-LD lists telephone +61 2 5550 0199, while the visible footer text and tel: link use 02 5550 0100 (+61255500100). Name and address match between the footer and JSON-LD.</p>
+<p><strong>Recommended action:</strong> Confirm the correct number, then align the JSON-LD, visible text and tel: links, and check any external listings against it.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: the structured data was written separately from the page template and not updated.</p>
+<p><strong>Potential business impact:</strong> Inconsistent business details can weaken entity consistency and may send callers to the wrong number.</p>
+<p><strong>Suggested AMS service:</strong> Local SEO</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
+<p><strong>Evidence:</strong> ev-browser-001, ev-browser-006</p>
+<h3 id="local-schema-coverage-localbusiness-structured-data-observed-only-on-the-home-page">local-schema-coverage: LocalBusiness structured data observed only on the home page</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> opportunity | <strong>Priority:</strong> P2</p>
+<p>JSON-LD was found on the home page only. The about, quote, contact and services pages had none. The home page markup also lacks fields such as url, openingHours, areaServed, email and sameAs.</p>
+<p><strong>Recommended action:</strong> Extend structured data with a complete LocalBusiness or Plumber entity, plus Service markup on the services page, and validate it.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: markup was added manually to one template.</p>
+<p><strong>Potential business impact:</strong> Entity and service information is less machine-readable on pages where users make decisions.</p>
+<p><strong>Suggested AMS service:</strong> Local SEO</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/; http://127.0.0.1:18765/services.html</p>
+<p><strong>Evidence:</strong> ev-browser-001, ev-browser-002, ev-browser-003, ev-browser-004, ev-browser-005</p>
+<h2 id="entity-brand-authority">Entity &amp; brand authority</h2>
+<h3 id="contact-privacy-heading-privacy-policy-is-an-h2-anchor-on-the-contact-page">contact-privacy-heading: Privacy policy is an H2 anchor on the contact page</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> problem | <strong>Priority:</strong> P3</p>
+<p>The privacy policy is a short section (H2) within the contact page, reached via #privacy, rather than a dedicated page, and states that it does not collect submissions even though the form posts to /request-quote.</p>
+<p><strong>Recommended action:</strong> Provide a dedicated, accurate privacy policy that matches the real form handling before launch.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: fixture simplification.</p>
+<p><strong>Potential business impact:</strong> A policy that does not match the form's behaviour can undermine trust and compliance.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/contact.html</p>
+<p><strong>Evidence:</strong> ev-browser-004, ev-siteone-019</p>
+<h2 id="functionality-accessibility">Functionality &amp; accessibility</h2>
+<h3 id="browser-001-elements-must-meet-minimum-color-contrast-ratio-thresholds">browser-001: Elements must meet minimum color contrast ratio thresholds</h3>
+<p><strong>Severity:</strong> high | <strong>Confidence:</strong> confirmed | <strong>Type:</strong> problem | <strong>Priority:</strong> P1</p>
+<p>desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast).</p>
+<p><strong>Recommended action:</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: low-contrast text colour or background styling applied to the quote details paragraph.</p>
+<p><strong>Potential business impact:</strong> Visitors with low vision may be unable to read quote details, which could reduce enquiry completion on the key conversion page.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/quote.html</p>
+<p><strong>Evidence:</strong> ev-browser-003, ev-browser-008</p>
+<h3 id="browser-002-images-must-have-alternative-text">browser-002: Images must have alternative text</h3>
+<p><strong>Severity:</strong> high | <strong>Confidence:</strong> confirmed | <strong>Type:</strong> problem | <strong>Priority:</strong> P1</p>
+<p>desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt).</p>
+<p><strong>Recommended action:</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: the work.svg image was added without an alt attribute.</p>
+<p><strong>Potential business impact:</strong> Screen reader users miss the image content, and the page is less accessible and less clear to automated readers.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/quote.html</p>
+<p><strong>Evidence:</strong> ev-browser-003, ev-browser-008</p>
+<h2 id="cro-uxui">CRO &amp; UX/UI</h2>
+<h3 id="cro-contact-form-submit-contact-form-submit-control-has-no-accessible-label-and-the-quote-page-has-no-form">cro-contact-form-submit: Contact form submit control has no accessible label and the quote page has no form</h3>
+<p><strong>Severity:</strong> medium | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> problem | <strong>Priority:</strong> P2</p>
+<p>The contact form's submit field reports no name or label, and the 'Request a quote' CTA has an empty href. The page states the demo form does not send messages. The Quote page has no form at all, and its CTA leads to a 404.</p>
+<p><strong>Recommended action:</strong> Give the submit button a clear value or label, confirm the form action works in production, and provide one working quote request path from the Quote page.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: the fixture form is intentionally static and unfinished.</p>
+<p><strong>Potential business impact:</strong> Fragmented quote paths could add friction for visitors trying to enquire; actual behaviour was not measured.</p>
+<p><strong>Suggested AMS service:</strong> Conversion optimisation</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/contact.html; http://127.0.0.1:18765/quote.html</p>
+<p><strong>Evidence:</strong> ev-browser-004, ev-browser-003</p>
+<h3 id="trust-signals-thin-trust-signals-are-limited-and-not-specific">trust-signals-thin: Trust signals are limited and not specific</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> subjective | <strong>Type:</strong> opportunity | <strong>Priority:</strong> P3</p>
+<p>The home page tells visitors to ask about licence details and insurance rather than stating them. The only testimonial is labelled as a demo, with no name or source. The quote page shows only a privacy link as a trust signal. Part of this reflects the fixture being fictional.</p>
+<p><strong>Recommended action:</strong> For a real deployment, state licence and insurance details, add attributed reviews and service guarantees, and place them near quote CTAs.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: fixture content is deliberately synthetic.</p>
+<p><strong>Potential business impact:</strong> Visitors may need more reassurance before requesting a quote; effect was not measured.</p>
+<p><strong>Suggested AMS service:</strong> Conversion optimisation</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/; http://127.0.0.1:18765/about.html</p>
+<p><strong>Evidence:</strong> ev-browser-001, ev-browser-002, ev-browser-003</p>
+<h2 id="copywriting-messaging">Copywriting &amp; messaging</h2>
+<h3 id="copy-quote-page-generic-quote-page-copy-is-generic-and-the-cta-is-non-descriptive">copy-quote-page-generic: Quote page copy is generic and the CTA is non-descriptive</h3>
+<p><strong>Severity:</strong> medium | <strong>Confidence:</strong> subjective | <strong>Type:</strong> problem | <strong>Priority:</strong> P2</p>
+<p>The page uses 'We do stuff', 'Quality solutions for all your needs.', 'Get in touch for more.' and a 'Click here' link. These do not state the service, area, what a quote includes or what happens next.</p>
+<p><strong>Recommended action:</strong> Rewrite with a specific H1 such as the quote service and Sydney area, describe the quote process, and use an action-led CTA label.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: placeholder copy was left in place.</p>
+<p><strong>Potential business impact:</strong> Vague wording gives visitors and answer engines little to work with on the page meant to drive enquiries.</p>
+<p><strong>Suggested AMS service:</strong> Content and copywriting</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/quote.html</p>
+<p><strong>Evidence:</strong> ev-browser-003</p>
+<h2 id="security-observations">Security observations</h2>
+<h3 id="security-004-no-explicit-framing-protection-observed">security-004: No explicit framing protection observed</h3>
+<p><strong>Severity:</strong> medium | <strong>Confidence:</strong> confirmed | <strong>Type:</strong> problem | <strong>Priority:</strong> P2</p>
+<p>Neither X-Frame-Options nor CSP frame-ancestors was observed.</p>
+<p><strong>Recommended action:</strong> Set an appropriate frame-ancestors policy after checking embedding needs.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: the basic development web server sends no hardening headers.</p>
+<p><strong>Potential business impact:</strong> The site could potentially be framed by other origins, which raises clickjacking exposure if the production setup is the same.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Evidence:</strong> ev-security-001</p>
+<h3 id="siteone-004-review-content-security-policy-header">siteone-004: Review content-security-policy header</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> problem | <strong>Priority:</strong> P3</p>
+<p>Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy.</p>
+<p><strong>Recommended action:</strong> Review and test the header policy for the affected responses.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: default server configuration with no hardening.</p>
+<p><strong>Potential business impact:</strong> A missing CSP reduces defence in depth against script injection if production matches.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
+<p><strong>Evidence:</strong> ev-security-001, ev-siteone-014</p>
+<h3 id="siteone-005-review-server-header">siteone-005: Review server header</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> problem | <strong>Priority:</strong> P3</p>
+<p>Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.</p>
+<p><strong>Recommended action:</strong> Review and test the header policy for the affected responses.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: a local development server is in use.</p>
+<p><strong>Potential business impact:</strong> Version disclosure can help attackers fingerprint the stack if present in production.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
+<p><strong>Evidence:</strong> ev-siteone-015</p>
+<h3 id="siteone-006-review-x-content-type-options-header">siteone-006: Review x-content-type-options header</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> problem | <strong>Priority:</strong> P3</p>
+<p>X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options.</p>
+<p><strong>Recommended action:</strong> Review and test the header policy for the affected responses.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: default server configuration.</p>
+<p><strong>Potential business impact:</strong> Browsers may MIME-sniff content, a minor hardening gap.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
+<p><strong>Evidence:</strong> ev-security-001, ev-siteone-016</p>
+<h3 id="siteone-007-review-referrer-policy-header">siteone-007: Review referrer-policy header</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> problem | <strong>Priority:</strong> P3</p>
+<p>Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy.</p>
+<p><strong>Recommended action:</strong> Review and test the header policy for the affected responses.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: default server configuration.</p>
+<p><strong>Potential business impact:</strong> Referrer information sharing is left to browser defaults, a minor privacy gap.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
+<p><strong>Evidence:</strong> ev-security-001, ev-siteone-017</p>
+<h3 id="siteone-008-review-permissions-policy-header">siteone-008: Review permissions-policy header</h3>
+<p><strong>Severity:</strong> low | <strong>Confidence:</strong> needs_verification | <strong>Type:</strong> problem | <strong>Priority:</strong> P3</p>
+<p>Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.</p>
+<p><strong>Recommended action:</strong> Review and test the header policy for the affected responses.</p>
+<p><strong>Likely cause (interpretation):</strong> Hypothesis: default server configuration.</p>
+<p><strong>Potential business impact:</strong> Browser features are not explicitly restricted, a minor hardening gap.</p>
+<p><strong>Suggested AMS service:</strong> Website improvement</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
+<p><strong>Evidence:</strong> ev-siteone-018</p>
+<h2 id="prioritised-recommendations">Prioritised recommendations</h2>
+<ol>
+<li><strong>P1 - Broken or unavailable URLs (siteone-001):</strong> Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-007.</li>
+<li><strong>P1 - Elements must meet minimum color contrast ratio thresholds (browser-001):</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-003, ev-browser-008.</li>
+<li><strong>P1 - Images must have alternative text (browser-002):</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-003, ev-browser-008.</li>
+<li><strong>P1 - Structured data phone differs from visible phone number (entity-phone-mismatch):</strong> Confirm the correct number, then align the JSON-LD, visible text and tel: links, and check any external listings against it. Evidence: ev-browser-001, ev-browser-006.</li>
+<li><strong>P2 - Missing H1 (siteone-003):</strong> Add a descriptive, page-specific H1. Evidence: ev-siteone-012.</li>
+<li><strong>P2 - Missing meta description (siteone-002):</strong> Add a descriptive, page-specific meta description. Evidence: ev-siteone-012.</li>
+<li><strong>P2 - Contact form submit control has no accessible label and the quote page has no form (cro-contact-form-submit):</strong> Give the submit button a clear value or label, confirm the form action works in production, and provide one working quote request path from the Quote page. Evidence: ev-browser-004, ev-browser-003.</li>
+<li><strong>P2 - Quote page copy is generic and the CTA is non-descriptive (copy-quote-page-generic):</strong> Rewrite with a specific H1 such as the quote service and Sydney area, describe the quote process, and use an action-led CTA label. Evidence: ev-browser-003.</li>
+<li><strong>P2 - LocalBusiness structured data observed only on the home page (local-schema-coverage):</strong> Extend structured data with a complete LocalBusiness or Plumber entity, plus Service markup on the services page, and validate it. Evidence: ev-browser-001, ev-browser-002, ev-browser-003, ev-browser-004, ev-browser-005.</li>
+<li><strong>P2 - No explicit framing protection observed (security-004):</strong> Set an appropriate frame-ancestors policy after checking embedding needs. Evidence: ev-security-001.</li>
+<li><strong>P3 - Trust signals are limited and not specific (trust-signals-thin):</strong> For a real deployment, state licence and insurance details, add attributed reviews and service guarantees, and place them near quote CTAs. Evidence: ev-browser-001, ev-browser-002, ev-browser-003.</li>
+<li><strong>P3 - Service pages offer limited answer-ready content (geo-answer-readiness):</strong> Add concise factual sections covering what each service includes, typical process, areas served and common questions, supported by matching structured data. Evidence: ev-browser-005, ev-siteone-019.</li>
+<li><strong>P3 - Privacy policy is an H2 anchor on the contact page (contact-privacy-heading):</strong> Provide a dedicated, accurate privacy policy that matches the real form handling before launch. Evidence: ev-browser-004, ev-siteone-019.</li>
+<li><strong>P3 - Review content-security-policy header (siteone-004):</strong> Review and test the header policy for the affected responses. Evidence: ev-security-001, ev-siteone-014.</li>
+<li><strong>P3 - Review server header (siteone-005):</strong> Review and test the header policy for the affected responses. Evidence: ev-siteone-015.</li>
+<li><strong>P3 - Review x-content-type-options header (siteone-006):</strong> Review and test the header policy for the affected responses. Evidence: ev-security-001, ev-siteone-016.</li>
+<li><strong>P3 - Review referrer-policy header (siteone-007):</strong> Review and test the header policy for the affected responses. Evidence: ev-security-001, ev-siteone-017.</li>
+<li><strong>P3 - Review permissions-policy header (siteone-008):</strong> Review and test the header policy for the affected responses. Evidence: ev-siteone-018.</li>
+</ol>
+<h2 id="proposed-implementation-roadmap">Proposed implementation roadmap</h2>
+<h3 id="0-30-days">0-30 days</h3>
+<ul>
+<li>Broken or unavailable URLs (siteone-001). Evidence: ev-siteone-007.</li>
+<li>Elements must meet minimum color contrast ratio thresholds (browser-001). Evidence: ev-browser-003, ev-browser-008.</li>
+<li>Images must have alternative text (browser-002). Evidence: ev-browser-003, ev-browser-008.</li>
+<li>Structured data phone differs from visible phone number (entity-phone-mismatch). Evidence: ev-browser-001, ev-browser-006.</li>
+<li>Missing H1 (siteone-003). Evidence: ev-siteone-012.</li>
+<li>Missing meta description (siteone-002). Evidence: ev-siteone-012.</li>
+<li>Quote page copy is generic and the CTA is non-descriptive (copy-quote-page-generic). Evidence: ev-browser-003.</li>
+<li>Contact form submit control has no accessible label and the quote page has no form (cro-contact-form-submit). Evidence: ev-browser-004, ev-browser-003.</li>
+</ul>
+<h3 id="30-90-days">30-90 days</h3>
+<ul>
+<li>LocalBusiness structured data observed only on the home page (local-schema-coverage). Evidence: ev-browser-001, ev-browser-002, ev-browser-003, ev-browser-004, ev-browser-005.</li>
+<li>No explicit framing protection observed (security-004). Evidence: ev-security-001.</li>
+<li>Review content-security-policy header (siteone-004). Evidence: ev-security-001, ev-siteone-014.</li>
+<li>Review x-content-type-options header (siteone-006). Evidence: ev-security-001, ev-siteone-016.</li>
+<li>Review referrer-policy header (siteone-007). Evidence: ev-security-001, ev-siteone-017.</li>
+<li>Review permissions-policy header (siteone-008). Evidence: ev-siteone-018.</li>
+<li>Review server header (siteone-005). Evidence: ev-siteone-015.</li>
+<li>Trust signals are limited and not specific (trust-signals-thin). Evidence: ev-browser-001, ev-browser-002, ev-browser-003.</li>
+</ul>
+<h3 id="90-days">90+ days</h3>
+<ul>
+<li>Service pages offer limited answer-ready content (geo-answer-readiness). Evidence: ev-browser-005, ev-siteone-019.</li>
+<li>Privacy policy is an H2 anchor on the contact page (contact-privacy-heading). Evidence: ev-browser-004, ev-siteone-019.</li>
+</ul>
+<h2 id="data-sources-missing-data-limitations">Data sources, missing data &amp; limitations</h2>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Status</th>
+<th>Coverage or limitation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>siteone</td>
+<td>ok</td>
+<td>Completed within the stated scope</td>
+</tr>
+<tr>
+<td>browser</td>
+<td>ok</td>
+<td>Completed within the stated scope</td>
+</tr>
+<tr>
+<td>domain_email</td>
+<td>skipped</td>
+<td>Local/private target has no public domain audit</td>
+</tr>
+<tr>
+<td>security</td>
+<td>ok</td>
+<td>TLS not checked: supplied target uses HTTP; Local fixture security headers are not evidence about production hosting</td>
+</tr>
+<tr>
+<td>performance</td>
+<td>skipped</td>
+<td>PageSpeed/CrUX cannot access localhost</td>
+</tr>
+<tr>
+<td>observatory</td>
+<td>skipped</td>
+<td>Observatory cannot scan local targets</td>
+</tr>
+<tr>
+<td>dataforseo</td>
+<td>skipped</td>
+<td>Missing DataForSEO credentials; disabled</td>
+</tr>
+<tr>
+<td>gsc</td>
+<td>skipped</td>
+<td>GSC requires --connect gsc and credentials; missing connection or credentials</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Crawl coverage: 5 successful HTML pages within a cap of 30 URLs (including assets).</li>
+<li>Browser coverage: 10 page/viewport observations, with at most six key pages at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.</li>
+<li>Observations are a point-in-time sample. Form submission, booking, payment and account journeys were not exercised.</li>
+<li>AI search visibility was <strong>NOT measured</strong>. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.</li>
+<li>Confidence labels: <strong>confirmed</strong> means directly observed by a deterministic check; <strong>needs_verification</strong> means a hypothesis or incomplete check; <strong>subjective</strong> means editorial or UX judgement. Likely causes and business impacts are interpretations, not measured outcomes.</li>
+<li>AI analysis: ok via claude. </li>
+<li>domain_email: no successful evidence collection; category was not assessed</li>
+<li>performance: no successful evidence collection; category was not assessed</li>
+<li>Local fixture demonstration: observations do not describe a live business</li>
+</ul>
+<h3 id="manual-verification-items">Manual verification items</h3>
+<ul>
+<li>entity-phone-mismatch: Structured data phone differs from visible phone number. Evidence: ev-browser-001, ev-browser-006.</li>
+<li>copy-quote-page-generic: Quote page copy is generic and the CTA is non-descriptive. Evidence: ev-browser-003.</li>
+<li>cro-contact-form-submit: Contact form submit control has no accessible label and the quote page has no form. Evidence: ev-browser-004, ev-browser-003.</li>
+<li>local-schema-coverage: LocalBusiness structured data observed only on the home page. Evidence: ev-browser-001, ev-browser-002, ev-browser-003, ev-browser-004, ev-browser-005.</li>
+<li>trust-signals-thin: Trust signals are limited and not specific. Evidence: ev-browser-001, ev-browser-002, ev-browser-003.</li>
+<li>contact-privacy-heading: Privacy policy is an H2 anchor on the contact page. Evidence: ev-browser-004, ev-siteone-019.</li>
+<li>geo-answer-readiness: Service pages offer limited answer-ready content. Evidence: ev-browser-005, ev-siteone-019.</li>
+<li>siteone-004: Review content-security-policy header. Evidence: ev-security-001, ev-siteone-014.</li>
+<li>siteone-005: Review server header. Evidence: ev-siteone-015.</li>
+<li>siteone-006: Review x-content-type-options header. Evidence: ev-security-001, ev-siteone-016.</li>
+<li>siteone-007: Review referrer-policy header. Evidence: ev-security-001, ev-siteone-017.</li>
+<li>siteone-008: Review permissions-policy header. Evidence: ev-siteone-018.</li>
+</ul>
+<h3 id="future-capabilities-outside-this-assessment">Future capabilities outside this assessment</h3>
+<ul>
+<li><strong>Elmo AI visibility:</strong> Measured AI search visibility. Requires Provider integration and measurement budget. Not implemented or measured.</li>
+<li><strong>Houtini SEO Audit:</strong> Additional SEO audit. Requires Provider integration. Not implemented or measured.</li>
+<li><strong>OpenSEO:</strong> Additional SEO tooling. Requires Provider integration. Not implemented or measured.</li>
+<li><strong>Google Business Profile API:</strong> Verified listing data. Requires OAuth and listing access. Not implemented or measured.</li>
+<li><strong>GA4:</strong> Analytics. Requires Read-only property access. Not implemented or measured.</li>
+<li><strong>WP-CLI / Site Health:</strong> WordPress configuration. Requires Approved hosting access. Not implemented or measured.</li>
+<li><strong>Google Workspace (ScubaGoggles):</strong> Workspace posture. Requires Approved tenant access. Not implemented or measured.</li>
+<li><strong>M365 (ScubaGear):</strong> Microsoft tenant posture. Requires Approved tenant access. Not implemented or measured.</li>
+<li><strong>Social/platform SEO:</strong> Platform discovery. Requires Account/API access. Not implemented or measured.</li>
+<li><strong>Digital PR:</strong> Authority and earned media. Requires Research scope and source access. Not implemented or measured.</li>
+<li><strong>A/B testing:</strong> Controlled conversion experiments. Requires Consent, traffic and experiment design. Not implemented or measured.</li>
+<li><strong>Heatmaps/behaviour:</strong> Behavioural analysis. Requires Consent and analytics access. Not implemented or measured.</li>
+</ul>
+<h2 id="appendix-evidence-index">Appendix: evidence index</h2>
+<p>The machine-readable evidence.json retains the observed snippets and links to raw source artefacts. Evidence IDs below are the stable references used throughout this report.</p>
+<table>
+<thead>
+<tr>
+<th>Evidence ID</th>
+<th>Source</th>
+<th>Observation</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ev-siteone-001</td>
+<td>siteone</td>
+<td>SiteOne HTTP response</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-002</td>
+<td>siteone</td>
+<td>SiteOne HTTP response</td>
+<td>http://127.0.0.1:18765/contact.html</td>
+</tr>
+<tr>
+<td>ev-siteone-003</td>
+<td>siteone</td>
+<td>SiteOne HTTP response</td>
+<td>http://127.0.0.1:18765/style.css</td>
+</tr>
+<tr>
+<td>ev-siteone-004</td>
+<td>siteone</td>
+<td>SiteOne HTTP response</td>
+<td>http://127.0.0.1:18765/about.html</td>
+</tr>
+<tr>
+<td>ev-siteone-005</td>
+<td>siteone</td>
+<td>SiteOne HTTP response</td>
+<td>http://127.0.0.1:18765/services.html</td>
+</tr>
+<tr>
+<td>ev-siteone-006</td>
+<td>siteone</td>
+<td>SiteOne HTTP response</td>
+<td>http://127.0.0.1:18765/quote.html</td>
+</tr>
+<tr>
+<td>ev-siteone-007</td>
+<td>siteone</td>
+<td>SiteOne HTTP response</td>
+<td>http://127.0.0.1:18765/missing-offer.html</td>
+</tr>
+<tr>
+<td>ev-siteone-008</td>
+<td>siteone</td>
+<td>SiteOne HTTP response</td>
+<td>http://127.0.0.1:18765/work.svg</td>
+</tr>
+<tr>
+<td>ev-siteone-009</td>
+<td>siteone</td>
+<td>SiteOne SEO metadata</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-010</td>
+<td>siteone</td>
+<td>SiteOne SEO metadata</td>
+<td>http://127.0.0.1:18765/about.html</td>
+</tr>
+<tr>
+<td>ev-siteone-011</td>
+<td>siteone</td>
+<td>SiteOne SEO metadata</td>
+<td>http://127.0.0.1:18765/contact.html</td>
+</tr>
+<tr>
+<td>ev-siteone-012</td>
+<td>siteone</td>
+<td>SiteOne SEO metadata</td>
+<td>http://127.0.0.1:18765/quote.html</td>
+</tr>
+<tr>
+<td>ev-siteone-013</td>
+<td>siteone</td>
+<td>SiteOne SEO metadata</td>
+<td>http://127.0.0.1:18765/services.html</td>
+</tr>
+<tr>
+<td>ev-siteone-014</td>
+<td>siteone</td>
+<td>SiteOne header analysis (crawl aggregate)</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-015</td>
+<td>siteone</td>
+<td>SiteOne header analysis (crawl aggregate)</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-016</td>
+<td>siteone</td>
+<td>SiteOne header analysis (crawl aggregate)</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-017</td>
+<td>siteone</td>
+<td>SiteOne header analysis (crawl aggregate)</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-018</td>
+<td>siteone</td>
+<td>SiteOne header analysis (crawl aggregate)</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-019</td>
+<td>siteone</td>
+<td>SiteOne seo-headings table</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-020</td>
+<td>siteone</td>
+<td>SiteOne 404 table</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-021</td>
+<td>siteone</td>
+<td>SiteOne headers table</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-022</td>
+<td>siteone</td>
+<td>SiteOne headers-values table</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-browser-001</td>
+<td>browser</td>
+<td>Rendered page evidence (desktop)</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-browser-002</td>
+<td>browser</td>
+<td>Rendered page evidence (desktop)</td>
+<td>http://127.0.0.1:18765/about.html</td>
+</tr>
+<tr>
+<td>ev-browser-003</td>
+<td>browser</td>
+<td>Rendered page evidence (desktop)</td>
+<td>http://127.0.0.1:18765/quote.html</td>
+</tr>
+<tr>
+<td>ev-browser-004</td>
+<td>browser</td>
+<td>Rendered page evidence (desktop)</td>
+<td>http://127.0.0.1:18765/contact.html</td>
+</tr>
+<tr>
+<td>ev-browser-005</td>
+<td>browser</td>
+<td>Rendered page evidence (desktop)</td>
+<td>http://127.0.0.1:18765/services.html</td>
+</tr>
+<tr>
+<td>ev-browser-006</td>
+<td>browser</td>
+<td>Rendered page evidence (mobile)</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-browser-007</td>
+<td>browser</td>
+<td>Rendered page evidence (mobile)</td>
+<td>http://127.0.0.1:18765/about.html</td>
+</tr>
+<tr>
+<td>ev-browser-008</td>
+<td>browser</td>
+<td>Rendered page evidence (mobile)</td>
+<td>http://127.0.0.1:18765/quote.html</td>
+</tr>
+<tr>
+<td>ev-browser-009</td>
+<td>browser</td>
+<td>Rendered page evidence (mobile)</td>
+<td>http://127.0.0.1:18765/contact.html</td>
+</tr>
+<tr>
+<td>ev-browser-010</td>
+<td>browser</td>
+<td>Rendered page evidence (mobile)</td>
+<td>http://127.0.0.1:18765/services.html</td>
+</tr>
+<tr>
+<td>ev-security-001</td>
+<td>security</td>
+<td>HTTP response security headers</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+</tbody>
+</table></body></html>
