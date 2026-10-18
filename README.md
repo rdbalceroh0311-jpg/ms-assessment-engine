@@ -13,6 +13,7 @@ and Linux arm64/x64. Tool downloads are pinned to SiteOne 2.5.1 and axe-core 4.1
 ```sh
 ./scripts/setup.sh                       # dependencies, Chromium, SiteOne, axe; safe to repeat
 uv run ams-assess modules                # requirements and future capabilities
+uv run ams-assess gsc-auth --client-secrets /path/to/desktop-client.json
 uv run ams-assess run --customer acme --customer-name 'Acme Ltd' --target https://example.com
 uv run ams-assess run --customer acme --target example.com \
   --categories domain_email,security,performance --no-ai
@@ -55,8 +56,8 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | Security | HTTP headers and verified TLS certificate issuer/expiry/protocol/hostname. Not a penetration test. |
 | MDN Observatory | Public v2 scan; aggregate grade only. Failure and localhost are explicit skips. |
 | PageSpeed/CrUX | Mobile/desktop PageSpeed v5 with available URL/origin CrUX fields. Optional `PAGESPEED_API_KEY`. Separate CrUX only with `CRUX_API_KEY` or `GOOGLE_API_KEY`. Localhost and exhausted keyless quota are skipped. |
-| DataForSEO | Disabled unless `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` and explicit `--dataforseo-max-usd` are present. One US/English domain rank overview request, one result, no retries/pagination. Estimated $0.0101 is recorded before the call; a lower cap is refused. Provider price changes are outside this client cap; verify [pricing](https://dataforseo.com/pricing/dataforseo-labs/dataforseo-labs-api) before enabling. No paid endpoint is used in tests. |
-| Google Search Console | Explicit `--connect gsc`, service-account `GOOGLE_APPLICATION_CREDENTIALS` or OAuth `AMS_GSC_TOKEN_FILE`, and an accessible matching property. Optional `AMS_GSC_PROPERTY`. Read-only: top 100 queries/pages over 28 complete days with 3-day lag, plus sitemaps. OAuth requires an authorized-user JSON file; interactive authorization is outside this CLI. |
+| DataForSEO | Disabled unless `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` and explicit `--dataforseo-max-usd` are present. One Australia/English domain rank overview request by default (`DATAFORSEO_LOCATION_CODE`, overridden by `--dataforseo-location-code`), one result, no retries/pagination. Estimated $0.0101 is recorded before the call; a lower cap is refused. Provider price changes are outside this client cap; verify [pricing](https://dataforseo.com/pricing/dataforseo-labs/dataforseo-labs-api) before enabling. No paid endpoint is used in tests. |
+| Google Search Console | Explicit `--connect gsc`, service-account `GOOGLE_APPLICATION_CREDENTIALS` or OAuth `AMS_GSC_TOKEN_FILE`, and an accessible matching property. Optional `AMS_GSC_PROPERTY`. Read-only: top 100 queries/pages over 28 complete days with 3-day lag, plus sitemaps. OAuth requires an authorized-user JSON file created by `gsc-auth`. |
 | AI | `ANTHROPIC_API_KEY` selects Anthropic SDK (billable; no retries); otherwise authenticated `claude -p --output-format json` with strict schema, tools/hooks/MCP disabled and 300-second timeout; otherwise deterministic fallback. `--no-ai` disables both. Prompt/raw responses stay in the run directory. |
 
 ## Outputs and interpretation

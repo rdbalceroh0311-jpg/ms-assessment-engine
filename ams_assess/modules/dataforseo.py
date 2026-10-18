@@ -31,13 +31,17 @@ def run(ctx: Context) -> ModuleResult:
         return ModuleResult(
             name=name, status="skipped", reason="DataForSEO requires a public domain"
         )
-    budget = {"estimated_usd": str(ESTIMATE_USD), "cap_usd": str(cap), "calls": 1}
+    market = {
+        "location_code": int(ctx.config.get("DATAFORSEO_LOCATION_CODE", "2036")),
+        "language_code": "en",
+    }
+    budget = {"estimated_usd": str(ESTIMATE_USD), "cap_usd": str(cap), "calls": 1, **market}
     ctx.raw("dataforseo-budget", budget)
     # Exactly one bounded request; no retries or pagination that could incur extra charges.
     response = httpx.post(
         "https://api.dataforseo.com/v3/dataforseo_labs/google/domain_rank_overview/live",
         auth=(ctx.config["DATAFORSEO_LOGIN"], ctx.config["DATAFORSEO_PASSWORD"]),
-        json=[{"target": ctx.host, "location_code": 2840, "language_code": "en", "limit": 1}],
+        json=[{"target": ctx.host, **market, "limit": 1}],
         timeout=30,
     )
     response.raise_for_status()
@@ -53,11 +57,14 @@ def run(ctx: Context) -> ModuleResult:
             "Provider charged above estimate/cap; no further calls made",
         )
         return result
+    coverage = f"location_code={market['location_code']}, language_code={market['language_code']}"
     result.add_evidence(
-        ctx.target, "DataForSEO domain rank overview (US, English)", tasks[0].get("result")
+        ctx.target,
+        f"DataForSEO domain rank overview ({coverage})",
+        {**market, "result": tasks[0].get("result")},
     )
     result.reason = (
-        "US/English database only. Estimates depend on provider pricing; "
+        f"Database: {coverage}. Estimates depend on provider pricing; "
         "no traffic or revenue guarantee."
     )
     return result

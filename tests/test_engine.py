@@ -149,6 +149,52 @@ def test_disabled_paid_integration_never_makes_requests(tmp_path, monkeypatch):
     assert "exceeds" in dataforseo.run(ctx).reason
 
 
+@pytest.mark.parametrize(
+    ("configured", "override", "expected"),
+    [(None, None, 2036), ("2840", None, 2840), ("2840", "2036", 2036)],
+)
+def test_dataforseo_market_default_config_and_cli(
+    tmp_path, monkeypatch, configured, override, expected
+):
+    settings = {"DATAFORSEO_LOGIN": "synthetic", "DATAFORSEO_PASSWORD": "synthetic"}
+    if configured is not None:
+        settings["DATAFORSEO_LOCATION_CODE"] = configured
+    monkeypatch.setattr(cli, "config", lambda: settings.copy())
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+
+    def fake_post(url, **kwargs):
+        assert kwargs["json"] == [
+            {"target": "example.com", "location_code": expected, "language_code": "en", "limit": 1}
+        ]
+        return httpx.Response(
+            200,
+            request=httpx.Request("POST", url),
+            json={
+                "status_code": 20000, "cost": 0.0101,
+                "tasks": [{"status_code": 20000, "result": []}],
+            },
+        )
+
+    def fake_run(ctx, **kwargs):
+        result = dataforseo.run(ctx)
+        assert result.status == "ok"
+        assert result.evidence[0].data == {
+            "location_code": expected, "language_code": "en", "result": [],
+        }
+        assert f"location_code={expected}, language_code=en" in result.evidence[0].description
+        assert f"location_code={expected}, language_code=en" in result.reason
+        budget = json.loads((ctx.run_dir / "raw/dataforseo-budget.json").read_text())
+        assert budget["location_code"] == expected and budget["language_code"] == "en"
+        return {"status": "complete", "findings": []}
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr(cli, "run", fake_run)
+    args = ["run", "--customer", "test", "--target", "example.com", "--dataforseo-max-usd", "0.02"]
+    if override is not None:
+        args += ["--dataforseo-location-code", override]
+    assert cli.main(args) == 0
+
+
 def test_claude_json_transport_and_auth_failure_fallback(tmp_path, monkeypatch):
     calls = []
     output = {

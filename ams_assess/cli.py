@@ -1,12 +1,14 @@
 import argparse
+import json
 import math
 import os
 from pathlib import Path
 
 from dotenv import dotenv_values
+from google_auth_oauthlib.flow import InstalledAppFlow
 
 from ams_assess.models import CATEGORIES, Context, create_run_dir, normalize_target
-from ams_assess.modules import FUTURE, REGISTRY
+from ams_assess.modules import FUTURE, REGISTRY, gsc
 from ams_assess.report import render
 from ams_assess.runner import run
 
@@ -18,7 +20,9 @@ ENV_KEYS = [
     "GOOGLE_API_KEY",
     "DATAFORSEO_LOGIN",
     "DATAFORSEO_PASSWORD",
+    "DATAFORSEO_LOCATION_CODE",
     "GOOGLE_APPLICATION_CREDENTIALS",
+    "AMS_GSC_CLIENT_SECRETS",
     "AMS_GSC_TOKEN_FILE",
     "AMS_GSC_PROPERTY",
 ]
@@ -43,12 +47,75 @@ def csv(value: str) -> set[str]:
     return {s.strip() for s in value.split(",") if s.strip()}
 
 
+def gsc_auth(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    try:
+        settings = config()
+        client_value = args.client_secrets or settings.get("AMS_GSC_CLIENT_SECRETS")
+        client = Path(client_value).expanduser().resolve() if client_value else None
+        token = Path(
+            args.token_file
+            or settings.get("AMS_GSC_TOKEN_FILE")
+            or "~/.config/ams-assess/gsc-token.json"
+        ).expanduser().resolve()
+        if token.is_relative_to(ROOT.resolve()):
+            parser.error("GSC token file must be outside the git repository root")
+        if client and (
+            token == client or (token.exists() and client.exists() and token.samefile(client))
+        ):
+            parser.error("GSC token file must differ from the client-secrets file")
+        if not args.verify:
+            if client is None:
+                parser.error("--client-secrets or AMS_GSC_CLIENT_SECRETS is required")
+            client_data = json.loads(client.read_text())
+            if (
+                not isinstance(client_data, dict)
+                or not isinstance(client_data.get("installed"), dict)
+                or "web" in client_data
+            ):
+                parser.error("GSC client secrets must be a Google Desktop OAuth JSON (installed)")
+            auth = InstalledAppFlow.from_client_secrets_file(str(client), scopes=[gsc.SCOPE])
+            creds = auth.run_local_server(
+                port=0,
+                open_browser=True,
+                access_type="offline",
+                prompt="consent",
+                # The default URL message includes the client ID; keep it out of output.
+                authorization_prompt_message="",
+            )
+            if not creds.refresh_token:
+                parser.error("GSC authorization returned no refresh token; consent is required")
+            gsc.save_token(token, creds)
+        sites = gsc.verify_token(token)
+    except Exception:
+        # OAuth and HTTP exceptions can contain client secrets or tokens.
+        parser.error(
+            "GSC authorization or verification failed; check OAuth files and property access"
+        )
+    for site in sites:
+        print(f"{site['siteUrl']} {site['permissionLevel']}")
+    if not sites:
+        print("no properties")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="ams-assess", description="AMS evidence-backed assessment"
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("modules", help="List available, connected and future capabilities")
+    auth = commands.add_parser(
+        "gsc-auth", help="Authorize or verify read-only Search Console access"
+    )
+    auth.add_argument(
+        "--client-secrets", type=Path, help="Desktop OAuth JSON; AMS_GSC_CLIENT_SECRETS"
+    )
+    auth.add_argument(
+        "--token-file", type=Path, help="AMS_GSC_TOKEN_FILE or ~/.config/ams-assess/gsc-token.json"
+    )
+    auth.add_argument(
+        "--verify", action="store_true", help="Verify the existing token without a browser"
+    )
     assess = commands.add_parser("run", help="Assess a website without modifying it")
     assess.add_argument("--customer", required=True)
     assess.add_argument("--customer-name")
@@ -57,12 +124,15 @@ def main(argv: list[str] | None = None) -> int:
     assess.add_argument("--connect", action="append", choices=["gsc"], default=[])
     assess.add_argument("--max-pages", type=int, default=100)
     assess.add_argument("--dataforseo-max-usd", type=float)
+    assess.add_argument("--dataforseo-location-code", type=int)
     assess.add_argument("--no-ai", action="store_true")
     assess.add_argument("--formats", default="md,html,pdf")
     report = commands.add_parser("report", help="Regenerate reports from one existing run")
     report.add_argument("run_dir", type=Path)
     report.add_argument("--formats", default="md,html,pdf")
     args = parser.parse_args(argv)
+    if args.command == "gsc-auth":
+        return gsc_auth(args, parser)
     if args.command == "modules":
         for module in REGISTRY.values():
             print(
@@ -91,6 +161,13 @@ def main(argv: list[str] | None = None) -> int:
         not math.isfinite(args.dataforseo_max_usd) or args.dataforseo_max_usd <= 0
     ):
         parser.error("--dataforseo-max-usd must be a finite positive amount")
+    settings = config()
+    if args.dataforseo_location_code is not None:
+        settings["DATAFORSEO_LOCATION_CODE"] = str(args.dataforseo_location_code)
+    try:
+        int(settings.get("DATAFORSEO_LOCATION_CODE", "2036"))
+    except ValueError:
+        parser.error("DATAFORSEO_LOCATION_CODE must be an integer")
     try:
         target = normalize_target(args.target)
         directory = create_run_dir(ROOT / "data/customers", args.customer)
@@ -102,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
         target=target,
         categories=categories,
         connections=set(args.connect),
-        config=config(),
+        config=settings,
         run_dir=directory,
         tools_dir=ROOT / "tools",
         max_pages=args.max_pages,
