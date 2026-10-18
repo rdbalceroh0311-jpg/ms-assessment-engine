@@ -64,11 +64,7 @@ def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
                 assigned.add(fid)
     for finding in findings:
         if finding.id not in assigned:
-            phase = (
-                "0-30 days"
-                if finding.severity in {"critical", "high"}
-                else ("30-90 days" if finding.severity == "medium" else "90+ days")
-            )
+            phase = {"P1": "0-30 days", "P2": "30-90 days", "P3": "90+ days"}[finding.priority]
             roadmap[phase].append(finding)
     env = Environment(
         loader=FileSystemLoader(Path(__file__).parent / "templates"),
@@ -88,6 +84,9 @@ def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
         sections={k: title for k, title in CATEGORIES.items() if k in data["assessed_categories"]},
         recommendations=[by_id[i] for i in order],
         roadmap=roadmap,
+        scope_titles=[CATEGORIES[c] for c in data["selected_categories"]],
+        collected_sources={e.source for e in evidence},
+        browser_observations=sum(e.source == "browser" for e in evidence),
     )
     written = []
     if "md" in formats:

@@ -4,7 +4,7 @@
 **Customer:** {{ data.customer_name | text }}<br>
 **Assessment date (UTC):** {{ data.created_at[:10] | text }}<br>
 **Target:** {{ data.target | text }}<br>
-**Scope:** {{ data.selected_categories | join(', ') | text }}
+**Scope:** {{ scope_titles | join('; ') | text }}
 
 > Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.
 
@@ -80,8 +80,13 @@ No evidence-backed actions could be prioritised. Resolve the missing data before
 | {{ module.name | text }} | {{ module.status }} | {{ (module.reason or 'Completed within the stated scope') | text }} |
 {% endfor %}
 
-- Crawl cap: {{ data.max_pages }} URLs (including assets). Browser sample: at most six successfully crawled key pages, desktop and mobile. Automated accessibility checks are not a full accessibility audit.
-- Observations are a point-in-time sample. Form structure was inspected; form submission, booking, payment and account journeys were not exercised.
+{% if 'siteone' in collected_sources %}
+- Crawl coverage: {{ data.pages | length }} successful HTML pages within a cap of {{ data.max_pages }} URLs (including assets).
+{% endif %}
+{% if 'browser' in collected_sources %}
+- Browser coverage: {{ browser_observations }} page/viewport observations, with at most six key pages at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.
+{% endif %}
+- Observations are a point-in-time sample. Form submission, booking, payment and account journeys were not exercised.
 - AI search visibility was **NOT measured**. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.
 - Confidence labels: **confirmed** means directly observed by a deterministic check; **needs_verification** means a hypothesis or incomplete check; **subjective** means editorial or UX judgement. Likely causes and business impacts are interpretations, not measured outcomes.
 - AI analysis: {{ ai.status | text }}{% if ai.get('provider') %} via {{ ai.provider | text }}{% endif %}. {{ ai.get('reason', '') | text }}

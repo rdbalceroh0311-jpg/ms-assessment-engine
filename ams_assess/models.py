@@ -78,6 +78,11 @@ class ModuleResult(BaseModel):
         recommendation: str,
         **kwargs: Any,
     ) -> None:
+        severity = kwargs.get("severity", "medium")
+        kwargs.setdefault(
+            "priority",
+            "P1" if severity in {"critical", "high"} else ("P2" if severity == "medium" else "P3"),
+        )
         self.findings.append(
             Finding(
                 id=f"{self.name}-{len(self.findings) + 1:03d}",

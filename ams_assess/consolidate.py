@@ -18,6 +18,7 @@ def consolidate(findings: list[Finding], evidence: list[Evidence]) -> list[Findi
             current.detail += " " + finding.detail
         if SEVERITIES[finding.severity] < SEVERITIES[current.severity]:
             current.severity = finding.severity
+        current.priority = min(current.priority, finding.priority)
         if finding.confidence != "confirmed":
             current.confidence = finding.confidence
     return sorted(merged.values(), key=lambda f: (SEVERITIES[f.severity], f.category, f.id))

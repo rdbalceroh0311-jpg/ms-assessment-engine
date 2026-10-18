@@ -3,7 +3,7 @@ from typing import Any
 
 from ams_assess.ai import analyse
 from ams_assess.consolidate import consolidate
-from ams_assess.models import Context, ModuleResult, write_json
+from ams_assess.models import CATEGORIES, Context, ModuleResult, write_json
 from ams_assess.modules import FUTURE, REGISTRY
 from ams_assess.report import render
 
@@ -62,10 +62,12 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         limitations.append(
             "Local fixture demonstration: observations do not describe a live business"
         )
-    if ai["status"] != "ok":
+    heuristics = ctx.categories & {"local_seo", "entity", "cro_ux", "copywriting", "geo"}
+    if ai["status"] != "ok" and heuristics:
         limitations.append(
-            "AI heuristic analysis is unavailable; local SEO, entity, CRO, copy and GEO "
-            "interpretations require manual review of collected page evidence"
+            "AI interpretation is unavailable for "
+            + ", ".join(CATEGORIES[c] for c in sorted(heuristics))
+            + "; collect or review page evidence manually"
         )
     future = [
         {"name": n, "description": d, "requirement": req, "status": "future"}

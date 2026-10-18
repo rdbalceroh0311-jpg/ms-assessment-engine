@@ -75,11 +75,13 @@ def test_consolidation_merges_pages_and_sources_without_losing_citations():
         urls=["https://example.test/b"],
         detail="Observed on page B",
         severity="high",
+        priority="P1",
     )
     merged = consolidate([first, second], [sample_evidence(), sample_evidence("ev-other-001")])
     assert len(merged) == 1
     assert set(merged[0].evidence_ids) == {"ev-source-001", "ev-other-001"}
     assert len(merged[0].urls) == 2 and merged[0].severity == "high"
+    assert merged[0].priority == "P1"
     assert first.evidence_ids == ["ev-source-001"]
     with pytest.raises(ValueError, match="missing evidence"):
         consolidate([second], [sample_evidence()])
@@ -245,6 +247,9 @@ def test_module_failure_isolated_and_only_selected_modules_run(tmp_path, monkeyp
     assert result["modules"][1]["status"] == "error"
     assert result["modules"][2]["status"] == "ok"
     assert "secret-looking" not in (ctx.run_dir / "report.md").read_text()
+    assert "Form structure was inspected" not in (ctx.run_dir / "report.md").read_text()
+    assert "Crawl coverage:" not in (ctx.run_dir / "report.md").read_text()
+    assert not any("AI interpretation" in item for item in result["limitations"])
     assert (ctx.run_dir / "report.html").is_file()
 
 
@@ -319,6 +324,10 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert set(results["selected_categories"]) == set(CATEGORIES)
     report = (directory / "report.md").read_text()
     report_html = (directory / "report.html").read_text()
+    assert "Crawl coverage: 5 successful HTML pages" in report
+    assert "Browser coverage: 10 page/viewport observations" in report
+    assert all(f["priority"] == "P1" for f in results["findings"] if f["severity"] == "high")
+    assert all(f["priority"] == "P3" for f in results["findings"] if f["severity"] == "low")
     assert report_html.count("<td>") == 4 * len(evidence) + 3 * len(results["modules"])
     for finding in results["findings"]:
         assert finding["evidence_ids"] and set(finding["evidence_ids"]) <= known
