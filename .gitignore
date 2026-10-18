@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+data/
+tools/
+tmp/
+.env
+.env.*
+!.env.example
+*credentials*.json
+*token*.json
+dist/
+*.egg-info/
+.DS_Store

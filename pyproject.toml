@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ams-assess"
+version = "0.1.0"
+description = "Evidence-backed website assessments for AI Managed Services"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.28,<1", "dnspython>=2.7,<3", "checkdmarc>=5.9,<6",
+  "playwright>=1.50,<2", "jinja2>=3.1,<4", "markdown>=3.7,<4",
+  "pydantic>=2.10,<3", "python-dotenv>=1,<2", "anthropic>=0.50,<1",
+  "google-auth[requests]>=2.38,<3",
+]
+
+[project.scripts]
+ams-assess = "ams_assess.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1", "ty>=0.0.1", "pypdf>=5,<7", "pymupdf>=1.25,<2"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,117 @@
+# AI Managed Services
+## Website assessment report
+
+**Customer:** {{ data.customer_name | text }}<br>
+**Assessment date (UTC):** {{ data.created_at[:10] | text }}<br>
+**Target:** {{ data.target | text }}<br>
+**Scope:** {{ data.selected_categories | join(', ') | text }}
+
+> Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.
+
+## Executive summary
+
+{% if ai.get('executive_summary') %}
+{{ ai.executive_summary | text }}
+{% else %}
+The assessment recorded {{ findings | length }} evidence-backed findings across {{ data.assessed_categories | length }} categories with available evidence. The recommendations below prioritise the observed issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
+{% endif %}
+
+{% for category, title in sections.items() %}
+## {{ title }}
+
+{% if ai.get('sections', {}).get(category) %}
+{{ ai.sections[category] | text }}
+{% endif %}
+{% for finding in findings if finding.category == category %}
+### {{ finding.id | text }}: {{ finding.title | text }}
+
+**Severity:** {{ finding.severity }} | **Confidence:** {{ finding.confidence }} | **Type:** {{ finding.kind }} | **Priority:** {{ finding.priority }}
+
+{{ finding.detail | text }}
+
+**Recommended action:** {{ finding.recommendation | text }}
+
+{% if finding.likely_cause %}
+**Likely cause (interpretation):** {{ finding.likely_cause | text }}
+
+{% endif %}
+{% if finding.business_impact %}
+**Potential business impact:** {{ finding.business_impact | text }}
+
+{% endif %}
+**Suggested AMS service:** {{ finding.ams_service | text }}
+
+{% if finding.urls %}
+**Affected URLs:** {{ finding.urls | join('; ') | text }}
+
+{% endif %}
+**Evidence:** {{ finding.evidence_ids | join(', ') }}
+
+{% else %}
+No reportable findings were established from the available checks in this category. This does not establish that the category is free of issues; coverage and missing data are listed below.
+
+{% endfor %}
+{% endfor %}
+## Prioritised recommendations
+
+{% for f in recommendations %}
+{{ loop.index }}. **{{ f.priority }} - {{ f.title | text }} ({{ f.id }}):** {{ f.recommendation | text }} Evidence: {{ f.evidence_ids | join(', ') }}.
+{% else %}
+No evidence-backed actions could be prioritised. Resolve the missing data before proposing work.
+{% endfor %}
+
+## Proposed implementation roadmap
+
+{% for phase, items in roadmap.items() %}
+### {{ phase }}
+
+{% for f in items %}
+- {{ f.title | text }} ({{ f.id }}). Evidence: {{ f.evidence_ids | join(', ') }}.
+{% else %}
+- Reassess after earlier work and agree any further scope.
+{% endfor %}
+
+{% endfor %}
+## Data sources, missing data & limitations
+
+| Source | Status | Coverage or limitation |
+| --- | --- | --- |
+{% for module in data.modules %}
+| {{ module.name | text }} | {{ module.status }} | {{ (module.reason or 'Completed within the stated scope') | text }} |
+{% endfor %}
+
+- Crawl cap: {{ data.max_pages }} URLs (including assets). Browser sample: at most six successfully crawled key pages, desktop and mobile. Automated accessibility checks are not a full accessibility audit.
+- Observations are a point-in-time sample. Form structure was inspected; form submission, booking, payment and account journeys were not exercised.
+- AI search visibility was **NOT measured**. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.
+- Confidence labels: **confirmed** means directly observed by a deterministic check; **needs_verification** means a hypothesis or incomplete check; **subjective** means editorial or UX judgement. Likely causes and business impacts are interpretations, not measured outcomes.
+- AI analysis: {{ ai.status | text }}{% if ai.get('provider') %} via {{ ai.provider | text }}{% endif %}. {{ ai.get('reason', '') | text }}
+{% for warning in ai.get('warnings', []) %}
+- AI validation: {{ warning | text }}.
+{% endfor %}
+{% for limitation in data.limitations %}
+- {{ limitation | text }}
+{% endfor %}
+
+### Manual verification items
+
+{% for f in findings if f.confidence != 'confirmed' %}
+- {{ f.id }}: {{ f.title | text }}. Evidence: {{ f.evidence_ids | join(', ') }}.
+{% else %}
+- Verify the automated observations in the production environment and with the website owner before implementation.
+{% endfor %}
+
+### Future capabilities outside this assessment
+
+{% for item in data.future %}
+- **{{ item.name | text }}:** {{ item.description | text }}. Requires {{ item.requirement | text }}. Not implemented or measured.
+{% endfor %}
+
+## Appendix: evidence index
+
+The machine-readable evidence.json retains the observed snippets and links to raw source artefacts. Evidence IDs below are the stable references used throughout this report.
+
+| Evidence ID | Source | Observation | URL |
+| --- | --- | --- | --- |
+{% for e in evidence %}
+| {{ e.id }} | {{ e.source | text }} | {{ e.description | text }} | {{ e.url | text }} |
+{% endfor %}
