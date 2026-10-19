@@ -2,6 +2,7 @@ import argparse
 import json
 import math
 import os
+import re
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -25,6 +26,8 @@ ENV_KEYS = [
     "AMS_GSC_CLIENT_SECRETS",
     "AMS_GSC_TOKEN_FILE",
     "AMS_GSC_PROPERTY",
+    "AMS_DKIM_SELECTORS",
+    "SPAMHAUS_DQS_KEY",
 ]
 
 
@@ -125,6 +128,12 @@ def main(argv: list[str] | None = None) -> int:
     assess.add_argument("--max-pages", type=int, default=100)
     assess.add_argument("--dataforseo-max-usd", type=float)
     assess.add_argument("--dataforseo-location-code", type=int)
+    assess.add_argument("--dkim-selectors", help="Comma-separated DKIM selectors to check")
+    assess.add_argument(
+        "--mail-tls-check",
+        action="store_true",
+        help="Opt in to a bounded EHLO/STARTTLS probe of up to two MX hosts on port 25",
+    )
     assess.add_argument("--no-ai", action="store_true")
     assess.add_argument("--formats", default="md,html,pdf")
     report = commands.add_parser("report", help="Regenerate reports from one existing run")
@@ -168,6 +177,15 @@ def main(argv: list[str] | None = None) -> int:
         int(settings.get("DATAFORSEO_LOCATION_CODE", "2036"))
     except ValueError:
         parser.error("DATAFORSEO_LOCATION_CODE must be an integer")
+    if args.dkim_selectors is not None:
+        settings["AMS_DKIM_SELECTORS"] = args.dkim_selectors
+    if not all(
+        re.fullmatch(r"[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*", s)
+        for s in csv(settings.get("AMS_DKIM_SELECTORS", ""))
+    ):
+        parser.error("DKIM selectors must be DNS labels separated by commas")
+    if args.mail_tls_check:
+        settings["AMS_MAIL_TLS_CHECK"] = "1"
     try:
         target = normalize_target(args.target)
         directory = create_run_dir(ROOT / "data/customers", args.customer)
