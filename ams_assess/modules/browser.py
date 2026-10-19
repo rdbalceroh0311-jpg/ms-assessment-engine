@@ -46,6 +46,11 @@ EXTRACT = r"""() => {
      'script:not([src]):not([type="application/ld+json"]),noscript')]
      .map(e => e.textContent.trim().slice(0,3000)).filter(Boolean).slice(0,40),
    resource_links: [...document.querySelectorAll('link[href]')].map(e => e.href).slice(0,60),
+   // Scripts a consent manager holds back (type=text/plain or CMP blocking attributes).
+   gated_scripts: [...document.scripts].filter(e => /^text\/plain$/i.test(e.type)
+     || e.hasAttribute('data-cookieconsent') || e.hasAttribute('data-cookiecategory')
+     || e.hasAttribute('data-consent') || /optanon-category|cmplz/i.test(e.className))
+     .map(e => (e.src || e.textContent.trim()).slice(0,300)).slice(0,40),
    links: [...new Set([...document.querySelectorAll('a[href]')].map(e => e.href)
      .filter(h => /^https?:/.test(h)))].slice(0,300)
  };

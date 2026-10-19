@@ -382,27 +382,46 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
         assert rows and all(len(re.findall(r"<td[ >]", row)) == width for row in rows)
     presence = results["digital_presence"]
     platforms = {r["key"]: r for r in presence["platforms"]}
-    assert {k: platforms[k]["status"] for k in ["gsc", "ga4", "gtm", "clarity"]} == dict.fromkeys(
-        ["gsc", "ga4", "gtm", "clarity"], "Detected"
-    )
-    assert platforms["ga4"]["ids"] == ["G-FIXTURE001"]
+    assert platforms["gsc"]["status"] == "Detected"
+    # Fixture tags are consent-gated (type="text/plain") and never load: IDs kept, status Unknown.
+    for key, tag_id in [("ga4", "G-FIXTURE001"), ("gtm", "GTM-FIXTURE1"), ("clarity", "fixture01")]:
+        assert platforms[key]["status"] == "Unknown" and platforms[key]["ids"] == [tag_id]
+    assert platforms["google_ads"]["status"] == "Unknown"
     assert platforms["wordpress"]["status"] == "Not detected"
     assert platforms["m365"]["status"] == "NOT ASSESSED"
     listings = {r["key"]: r["status"] for r in presence["listings"]}
     assert listings["google_business_profile"] == "Detected (linked from website)"
     assert listings["yellow_pages"] == listings["instagram"] == "Detected (linked from website)"
     assert not any("WordPress" in item["service"] for item in presence["checklist"])
-    assert {"nap-inconsistent", "canonical-missing", "listing:sameas-incomplete"} <= keys
+    sitemap = next(r for r in presence["signals"] if r["signal"] == "XML sitemap")
+    assert sitemap["status"] == "PASS" and "lists 5 URLs" in sitemap["detail"]
+    assert {
+        "nap-inconsistent",
+        "canonical-missing",
+        "listing:sameas-incomplete",
+        "tracking:unconfirmed",
+    } <= keys
     pdf_text = "".join(page.extract_text() for page in PdfReader(directory / "report.pdf").pages)
-    for heading in [
-        "Local SEO & digital presence",
-        "Business listings & platform opportunities",
-        "Analytics & tracking readiness",
-        "Connected assessment opportunities",
-        "Customer access requirements",
-    ]:
-        assert f"## {heading}" in report and heading.replace("&", "&amp;") in report_html
-        assert heading in pdf_text
+    numbered = [
+        "1. Executive summary",
+        "2. Website, technical SEO & infrastructure findings",
+        "3. Local SEO & digital presence",
+        "4. Business listings & platform opportunities",
+        "5. Analytics & tracking readiness",
+        "6. Connected assessment opportunities",
+        "7. Customer access requirements",
+        "8. Prioritised recommendations",
+        "9. Proposed implementation roadmap",
+    ]
+    top_level = re.findall(r"^## (.+)$", report, re.M)
+    assert top_level[1:10] == numbered
+    assert top_level[10:] == [
+        "Data sources, missing data & limitations",
+        "Appendix: evidence index",
+    ]
+    for heading in numbered:
+        assert heading.replace("&", "&amp;") in report_html
+        assert heading.split(". ", 1)[1] in pdf_text
     for finding in results["findings"]:
         assert finding["evidence_ids"] and set(finding["evidence_ids"]) <= known
         block = report.split(f"### {finding['id']}:", 1)[1].split("###", 1)[0]

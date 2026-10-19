@@ -10,6 +10,8 @@ from playwright.sync_api import sync_playwright
 from ams_assess.ai import PHASES
 from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding
 
+LOCAL = {"local_seo", "entity", "presence"}
+
 CSS = """@page { size: A4; margin: 18mm 17mm 20mm; }
 body { font-family: Arial, sans-serif; color: #20303d; font-size: 10pt; line-height: 1.48;
        max-width: 960px; margin: 32px auto; padding: 0 20px; }
@@ -87,7 +89,11 @@ def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
         ai=ai,
         evidence=evidence,
         findings=findings,
-        sections={k: title for k, title in CATEGORIES.items() if k in shown},
+        # Sections 2 and 3 of the report; presence renders from data["digital_presence"].
+        web_sections={k: t for k, t in CATEGORIES.items() if k in shown and k not in LOCAL},
+        local_sections={
+            k: t for k, t in CATEGORIES.items() if k in shown & {"local_seo", "entity"}
+        },
         recommendations=[by_id[i] for i in order],
         roadmap=roadmap,
         scope_titles=[CATEGORIES[c] for c in data["selected_categories"]],

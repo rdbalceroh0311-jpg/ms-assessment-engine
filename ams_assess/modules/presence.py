@@ -1,13 +1,17 @@
 """Digital platform, listing-link and connected-assessment readiness from collected evidence.
 
-No requests are made here: page signals come from the browser module (SiteOne page list), header
-signals from SiteOne, email-platform and DNS verification signals from domain_email, and the
-connection state from the gsc module. Statuses are deterministic; AI may only summarise them.
+Page signals come from the browser module (SiteOne page list), header signals from SiteOne,
+email-platform and DNS verification signals from domain_email, and the connection state from the
+gsc module. The only requests made here are the bounded same-origin robots.txt and sitemap fetch,
+and only after SiteOne reached the site. Statuses are deterministic; AI may only summarise them.
 """
 
 import re
+import time
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
+
+import httpx
 
 from ams_assess.models import Context, ModuleResult
 
@@ -16,7 +20,7 @@ categories = {"presence"}
 requires = [
     "browser page evidence",
     "domain_email DNS evidence (email platform, DNS verification)",
-    "no additional requests",
+    "one bounded same-origin robots.txt + sitemap fetch after a SiteOne crawl",
 ]
 
 DETECTED, NOT_DETECTED, UNKNOWN, NOT_ASSESSED = (
@@ -30,10 +34,14 @@ UNKNOWN_MANUAL = "Unknown - manual verification"
 OWNERSHIP = "Ownership confirmation needed"
 NOT_CONNECTED = "Not connected"
 PLACEHOLDER_EMAIL = "[AMS access account - set AMS_ACCESS_EMAIL]"
+PASS, WARNING = "PASS", "WARNING"
+SITEMAP_TIMEOUT, SITEMAP_MAX_BYTES = 10, 2_000_000
 
 # key: (label, group, patterns). A first capture group, when it matched, is recorded as an ID.
 # Matched against script URLs, inline script/noscript text, <link> URLs, request URLs,
 # "meta:<name>=<content>" and "header:<name>=<value>" lines; never against visible text or anchors.
+# IDs only count inside tag-specific context (gtag calls, tag URLs, the GTM loader), so an
+# "AW-12345678" product code or similar string elsewhere in a script is not a detection.
 SIGNATURES: dict[str, tuple[str, str, list[str]]] = {
     "gsc": ("Google Search Console", "search", [r"meta:google-site-verification=(\S+)"]),
     "bing_wmt": ("Bing Webmaster Tools", "search", [r"meta:msvalidate\.01=(\S+)"]),
@@ -49,14 +57,20 @@ SIGNATURES: dict[str, tuple[str, str, list[str]]] = {
     "ua": (
         "Universal Analytics (legacy)",
         "analytics",
-        [r"['\"=](UA-\d{4,10}-\d{1,4})\b", r"google-analytics\.com/(?:analytics|ga)\.js"],
+        [
+            r"gtag/js\?id=(UA-\d{4,10}-\d{1,4})\b",
+            r"\b(?:gtag|ga)\(\s*['\"](?:config|create)['\"]\s*,\s*['\"](UA-\d{4,10}-\d{1,4})['\"]",
+            r"_setAccount['\"]\s*,\s*['\"](UA-\d{4,10}-\d{1,4})['\"]",
+            r"google-analytics\.com/(?:analytics|ga)\.js",
+        ],
     ),
     "gtm": (
         "Google Tag Manager",
         "analytics",
         [
             r"googletagmanager\.com/(?:gtm\.js|ns\.html)\?id=(GTM-[A-Z0-9]{4,})",
-            r"['\"](GTM-[A-Z0-9]{4,})['\"]",
+            # Standard loader: (window,document,'script','dataLayer','GTM-XXXX').
+            r"['\"]script['\"]\s*,\s*['\"]\w+['\"]\s*,\s*['\"](GTM-[A-Z0-9]{4,})['\"]",
         ],
     ),
     "clarity": (
@@ -74,7 +88,8 @@ SIGNATURES: dict[str, tuple[str, str, list[str]]] = {
         "advertising",
         [
             r"gtag/js\?id=(AW-\d{6,})",
-            r"['\"](AW-\d{6,})['\"]",
+            r"gtag\(\s*['\"](?:config|event)['\"]\s*,\s*['\"](AW-\d{6,})",
+            r"send_to['\"]?\s*:\s*['\"](AW-\d{6,})",
             r"googleadservices\.com/pagead/conversion",
         ],
     ),
@@ -165,6 +180,16 @@ EMAIL_PLATFORMS = {
 }
 # Tags commonly injected by GTM or held back by a consent manager until the visitor opts in.
 TAG_GROUPS = {"analytics", "advertising"}
+CONSENT_MANAGERS = {
+    "Cookiebot": r"consent\.cookiebot\.com|data-cookieconsent",
+    "OneTrust": r"cdn\.cookielaw\.org|otSDKStub|optanon",
+    "CookieYes": r"cdn-cookieyes\.com",
+    "Complianz": r"cmplz",
+    "Usercentrics": r"usercentrics\.eu",
+    "iubenda": r"cdn\.iubenda\.com",
+    "Osano": r"cmp\.osano\.com",
+    "Termly": r"app\.termly\.io",
+}
 CONNECTABLE = {"gsc", "bing_wmt", "ga4", "clarity", "wordpress", "google_workspace", "m365"}
 ACTIONS = {
     "gsc": ("Request access (customer access checklist)", "Confirm whether a property exists"),
@@ -225,6 +250,7 @@ LOCATION_PAGE = re.compile(
     re.I,
 )
 PHONE = re.compile(r"(?:\+?61|\b0)[\d ()-]{7,14}\d")
+POSTCODE = re.compile(r"\b(?:NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\s+(\d{4})\b")
 READINESS = [
     ("gsc", "Google Search Console", "Search queries, clicks, impressions, indexing and sitemaps"),
     ("ga4", "Google Analytics 4", "Traffic sources, key events/conversions and engagement"),
@@ -274,26 +300,53 @@ def detect(sources: list[tuple[str, str, list[str]]]) -> dict[str, dict[str, lis
     """Match SIGNATURES against (evidence_id, url, lines) sources."""
     found: dict[str, dict[str, set[str]]] = {}
     for eid, url, lines in sources:
-        text = "\n".join(lines)
-        for key, (_, _, patterns) in SIGNATURES.items():
-            for pattern in patterns:
-                for match in re.finditer(pattern, text):
-                    hit = found.setdefault(
-                        key, {"ids": set(), "signals": set(), "evidence_ids": set(), "urls": set()}
-                    )
-                    if match.groups() and match.group(1):
-                        hit["ids"].add(match.group(1))
-                    hit["signals"].add(match.group(0)[:120])
-                    hit["evidence_ids"].add(eid)
-                    hit["urls"].add(url)
+        for line in lines:
+            for key, (_, _, patterns) in SIGNATURES.items():
+                for pattern in patterns:
+                    for match in re.finditer(pattern, line):
+                        hit = found.setdefault(
+                            key,
+                            {
+                                "ids": set(),
+                                "signals": set(),
+                                "evidence_ids": set(),
+                                "urls": set(),
+                                "loaded": set(),
+                            },
+                        )
+                        if match.groups() and match.group(1):
+                            hit["ids"].add(match.group(1))
+                        hit["signals"].add(match.group(0)[:120])
+                        hit["evidence_ids"].add(eid)
+                        hit["urls"].add(url)
+                        # Only a request the page actually made confirms that a tag loaded.
+                        if line.startswith("request:"):
+                            hit["loaded"].add(match.group(0)[:120])
     return {key: {k: sorted(v) for k, v in hit.items()} for key, hit in found.items()}
 
 
+def resolve(href: Any, base: str) -> str | None:
+    """Absolute http(s) URL for a link or sameAs value, or None when it is unusable."""
+    if not isinstance(href, str) or not href.strip():
+        return None
+    try:
+        url = urljoin(base, href.strip())
+        parts = urlsplit(url)
+        _ = parts.port  # Raises ValueError for a malformed port.
+    except ValueError:
+        return None
+    return url if parts.scheme in {"http", "https"} and parts.hostname else None
+
+
 def classify_listing(url: str) -> str | None:
-    parts = urlsplit(str(url).strip())
+    try:
+        parts = urlsplit(str(url).strip())
+        hostname = parts.hostname
+    except ValueError:
+        return None
     if parts.scheme not in {"http", "https"}:
         return None
-    host = (parts.hostname or "").removeprefix("www.")
+    host = (hostname or "").removeprefix("www.")
     for key, hosts, path in LISTINGS:
         if re.fullmatch(hosts, host) and re.search(path, parts.path or "/"):
             return key
@@ -328,67 +381,96 @@ def page_lines(record: dict[str, Any]) -> list[str]:
     ]
     for key in ["script_srcs", "tag_snippets", "resource_links"]:
         lines += [str(v) for v in page.get(key, [])]
-    return lines + [str(v) for v in record.get("requests", [])]
+    return lines + [f"request:{v}" for v in record.get("requests", [])]
+
+
+def consent_context(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
+    """Consent managers and consent-gated scripts seen on the sampled pages."""
+    managers, gated = set(), set()
+    for _, record in pages:
+        page = record.get("page", {})
+        text = "\n".join(page_lines(record) + [str(v) for v in page.get("gated_scripts", [])])
+        managers |= {n for n, p in CONSENT_MANAGERS.items() if re.search(p, text, re.I)}
+        gated |= {str(v)[:120] for v in page.get("gated_scripts", [])}
+    return {"managers": sorted(managers), "gated_scripts": sorted(gated)}
 
 
 def nap_check(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
-    entities, site_phones, text = [], {}, ""
+    """Compare structured NAP with observed values.
+
+    Only a concretely different observed value is a conflict. A value missing from the
+    (possibly truncated) visible text is "not_found", which is never a confirmed mismatch.
+    """
+    entities, site_phones, postcodes, text = [], {}, set(), ""
     for _, record in pages:
         page = record.get("page", {})
         for node in jsonld_nodes(page.get("json_ld", [])):
-            types = [str(t) for t in as_list(node.get("@type"))]
-            if "PostalAddress" in types or not (node.get("telephone") or node.get("address")):
+            try:
+                types = [str(t) for t in as_list(node.get("@type"))]
+                if "PostalAddress" in types or not (node.get("telephone") or node.get("address")):
+                    continue
+                address = next((a for a in as_list(node.get("address")) if isinstance(a, dict)), {})
+                entity = {
+                    "type": types,
+                    "name": str(node.get("name") or ""),
+                    "telephone": [str(t) for t in as_list(node.get("telephone"))],
+                    "street": str(address.get("streetAddress") or ""),
+                    "postcode": str(address.get("postalCode") or ""),
+                }
+            except (AttributeError, TypeError):
                 continue
-            address = next((a for a in as_list(node.get("address")) if isinstance(a, dict)), {})
-            entity = {
-                "type": types,
-                "name": str(node.get("name") or ""),
-                "telephone": [str(t) for t in as_list(node.get("telephone"))],
-                "street": str(address.get("streetAddress") or ""),
-                "postcode": str(address.get("postalCode") or ""),
-            }
             if entity not in entities:
                 entities.append(entity)
         for contact in page.get("contacts", []):
             href = str(contact.get("href", ""))
             if href.startswith("tel:"):
                 site_phones.setdefault(phone_key(href), contact.get("text") or href[4:])
-        visible = str(page.get("visible_text_summary", ""))
-        for match in PHONE.finditer(visible):
+        observed = "\n".join(
+            [str(page.get("visible_text_summary", ""))]
+            + [str(v) for v in page.get("nap_candidates", [])]
+        )
+        for match in PHONE.finditer(observed):
             site_phones.setdefault(phone_key(match.group(0)), match.group(0).strip())
-        text += "\n" + visible
+        postcodes |= set(POSTCODE.findall(observed))
+        text += "\n" + observed
     folded = " ".join(text.casefold().split())
     checks = []
+
+    def add(field: str, value: str, result: str, observed: list[str] | None = None) -> None:
+        checks.append(
+            {"field": field, "structured": value, "result": result, "observed": observed or []}
+        )
+
     for entity in entities:
         for phone in entity["telephone"]:
-            matched = phone_key(phone) in site_phones
-            checks.append(
-                {
-                    "field": "telephone",
-                    "structured": phone,
-                    "matched": matched,
-                    "site_values": sorted(site_phones.values()),
-                    "comparable": bool(site_phones),
-                }
-            )
-        for field in ["name", "street", "postcode"]:
+            if phone_key(phone) in site_phones:
+                add("telephone", phone, "match")
+            elif site_phones:
+                add("telephone", phone, "conflict", sorted(site_phones.values()))
+            else:
+                add("telephone", phone, "not_found")
+        postcode = entity["postcode"]
+        if postcode:
+            if postcode in postcodes:
+                add("postcode", postcode, "match")
+            elif postcodes:
+                add("postcode", postcode, "conflict", sorted(postcodes))
+            else:
+                add("postcode", postcode, "not_found")
+        for field in ["name", "street"]:
             value = entity[field]
             if value:
-                checks.append(
-                    {
-                        "field": field,
-                        "structured": value,
-                        "matched": " ".join(value.casefold().split()) in folded,
-                        "comparable": bool(folded),
-                    }
-                )
-    comparable = [c for c in checks if c["comparable"]]
+                found = " ".join(value.casefold().split()) in folded
+                add(field, value, "match" if found else "not_found")
+    results = {c["result"] for c in checks}
     if not entities:
         status = "Unknown (no structured business data)"
-    elif not comparable:
+    elif "conflict" in results:
+        status = "Inconsistent"
+    elif "not_found" in results or not checks:
         status = UNKNOWN
     else:
-        status = "Consistent" if all(c["matched"] for c in comparable) else "Inconsistent"
+        status = "Consistent"
     return {"status": status, "entities": entities, "checks": checks}
 
 
@@ -471,9 +553,11 @@ def checklist(readiness: list[dict[str, Any]], email: str) -> list[dict[str, Any
             if status == DETECTED:
                 action = f"Grant {email} the Viewer role on the GA4 property ({ids})."
             elif status == UNKNOWN:
+                seen = f" ({ids})" if ids else ""
                 action = (
-                    "GA4 was not seen directly; confirm whether it runs through Google Tag "
-                    f"Manager. If it does, grant {email} the Viewer role on the GA4 property."
+                    f"GA4{seen} could not be confirmed loading (consent-gated or via Google Tag "
+                    f"Manager). Confirm with the customer; if used, grant {email} the Viewer role "
+                    "on the GA4 property."
                 )
             else:
                 action = (
@@ -494,7 +578,7 @@ def checklist(readiness: list[dict[str, Any]], email: str) -> list[dict[str, Any
                 "if not, the customer can import it from Search Console.",
                 "Read-only user",
             )
-        elif status != DETECTED:
+        elif status != DETECTED and not (key == "clarity" and status == UNKNOWN and ids):
             continue
         elif key == "wordpress":
             action, role = (
@@ -505,7 +589,11 @@ def checklist(readiness: list[dict[str, Any]], email: str) -> list[dict[str, Any
                 "Dedicated revocable account",
             )
         elif key == "clarity":
-            action, role = (f"Add {email} as a Team member on the Clarity project.", "Team member")
+            action, role = (
+                f"Confirm the Clarity project ({ids}) is in use, then add {email} as a Team "
+                "member.",
+                "Team member",
+            )
         elif key == "google_workspace":
             action, role = (
                 "Only if security review is in scope: run ScubaGoggles with a customer "
@@ -530,6 +618,113 @@ def checklist(readiness: list[dict[str, Any]], email: str) -> list[dict[str, Any
             }
         )
     return items
+
+
+def fetch(url: str) -> dict[str, Any]:
+    """One bounded GET: same-origin redirects only (two at most), 10 s deadline, 2 MB cap."""
+    deadline = time.monotonic() + SITEMAP_TIMEOUT
+    try:
+        with httpx.Client(timeout=SITEMAP_TIMEOUT, follow_redirects=False) as client:
+            for _ in range(3):
+                with client.stream("GET", url) as response:
+                    location = response.headers.get("location", "")
+                    if response.is_redirect and location:
+                        target = urljoin(url, location)
+                        parts = urlsplit(target)
+                        if (parts.hostname or "", parts.port) != (
+                            urlsplit(url).hostname or "",
+                            urlsplit(url).port,
+                        ) or parts.scheme not in {"http", "https"}:
+                            return {"url": url, "status": response.status_code, "redirect": target}
+                        url = target
+                        continue
+                    body, truncated = b"", False
+                    for chunk in response.iter_bytes():
+                        body += chunk
+                        if len(body) > SITEMAP_MAX_BYTES or time.monotonic() > deadline:
+                            truncated = True
+                            break
+                    return {
+                        "url": url,
+                        "status": response.status_code,
+                        "content_type": response.headers.get("content-type", ""),
+                        "body": body[:SITEMAP_MAX_BYTES].decode("utf-8", "replace"),
+                        "truncated": truncated,
+                    }
+            return {"url": url, "error": "TooManyRedirects"}
+    except (httpx.HTTPError, ValueError) as exc:
+        return {"url": url, "error": type(exc).__name__}
+
+
+def parse_sitemap(body: str) -> tuple[str, int]:
+    """Root type and child count, by counting tags (no XML parser, no recursion)."""
+    if re.search(r"<(?:\w+:)?sitemapindex\b", body):
+        return "sitemapindex", len(re.findall(r"<(?:\w+:)?sitemap\b", body))
+    if re.search(r"<(?:\w+:)?urlset\b", body):
+        return "urlset", len(re.findall(r"<(?:\w+:)?loc\b", body))
+    return "other", 0
+
+
+def sitemap_check(ctx: Context) -> dict[str, Any]:
+    """robots.txt Sitemap lines, then the first same-origin sitemap (or /sitemap.xml), once each.
+
+    SiteOne loads robots.txt but does not keep its content, so robots.txt is fetched here.
+    """
+    parts = urlsplit(ctx.target)
+    origin = f"{parts.scheme}://{parts.netloc}"
+    robots = fetch(origin + "/robots.txt")
+    declared = []
+    if robots.get("status") == 200:
+        for match in re.finditer(r"(?im)^\s*sitemap\s*:\s*(\S+)", robots.get("body", "")):
+            url = resolve(match.group(1), origin + "/robots.txt")
+            if url:
+                declared.append(url)
+    data: dict[str, Any] = {
+        "robots_url": origin + "/robots.txt",
+        "robots_status": robots.get("status") or robots.get("error"),
+        "declared": declared,
+    }
+    same_origin = [u for u in declared if urlsplit(u).netloc == parts.netloc]
+    if declared and not same_origin:
+        return data | {
+            "status": NOT_ASSESSED,
+            "detail": "robots.txt declares a sitemap on another host; it was not fetched",
+        }
+    url = same_origin[0] if same_origin else origin + "/sitemap.xml"
+    response = fetch(url)
+    data |= {
+        "sitemap_url": url,
+        "source": "robots.txt Sitemap line" if same_origin else "default /sitemap.xml",
+        "http_status": response.get("status"),
+        "content_type": response.get("content_type", ""),
+        "truncated": response.get("truncated", False),
+    }
+    if "error" in response or response.get("redirect"):
+        reason = response.get("error") or f"redirect to {response['redirect']} not followed"
+        return data | {"status": NOT_ASSESSED, "detail": f"Sitemap fetch failed: {reason}"}
+    status_code = response["status"]
+    if status_code in {404, 410}:
+        return data | {
+            "status": WARNING,
+            "detail": f"No sitemap at {url} (HTTP {status_code})"
+            + ("" if declared else "; robots.txt declares none"),
+        }
+    if status_code != 200:
+        return data | {
+            "status": NOT_ASSESSED,
+            "detail": f"Sitemap fetch returned HTTP {status_code}",
+        }
+    kind, count = parse_sitemap(response.get("body", ""))
+    data |= {"kind": kind, "url_count" if kind == "urlset" else "child_sitemaps": count}
+    if kind == "other":
+        return data | {"status": WARNING, "detail": f"{url} is not an XML sitemap or index"}
+    noun = "URLs" if kind == "urlset" else "child sitemaps"
+    return data | {
+        "status": PASS,
+        "detail": f"{'Sitemap index' if kind == 'sitemapindex' else 'Sitemap'} at {url} "
+        f"({data['source']}) lists {count} {noun}"
+        + (" (truncated at 2 MB)" if data["truncated"] else ""),
+    }
 
 
 def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> dict[str, Any]:
@@ -562,6 +757,8 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
                 ]
                 sources.append((e.id, e.url, lines))
     hits = detect(sources)
+    consent = consent_context(pages)
+    gated = bool(consent["managers"] or consent["gated_scripts"])
     if dns and "TXT" in dns:
         eid, data = dns["TXT"]
         tokens = [
@@ -571,7 +768,9 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
             if m
         ]
         if tokens:
-            hit = hits.setdefault("gsc", {"ids": [], "signals": [], "evidence_ids": [], "urls": []})
+            hit = hits.setdefault(
+                "gsc", {"ids": [], "signals": [], "evidence_ids": [], "urls": [], "loaded": []}
+            )
             hit["ids"] = sorted(set(hit["ids"]) | set(tokens))
             hit["signals"] = sorted(set(hit["signals"]) | {"DNS TXT google-site-verification"})
             hit["evidence_ids"] = sorted(set(hit["evidence_ids"]) | {eid})
@@ -589,12 +788,20 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
             detail = "Seen on " + ", ".join(hit["urls"][:3])
             if key == "wordpress" and hit["ids"]:
                 detail += f"; version {hit['ids'][0]} publicly exposed (info)"
+            status = DETECTED
+            if group in TAG_GROUPS and gated and not hit["loaded"]:
+                # Markup alone does not show the tag runs when consent can hold it back.
+                status = UNKNOWN
+                detail = (
+                    f"Tag present on {', '.join(hit['urls'][:3])} but consent-gated and not seen "
+                    "loading on the sampled pages"
+                )
             platforms.append(
                 platform_row(
                     key,
                     label,
                     group,
-                    DETECTED,
+                    status,
                     # Verification tokens and the WordPress version are not account IDs.
                     ids=[] if key in {"gsc", "bing_wmt", "wordpress"} else hit["ids"],
                     signals=hit["signals"][:5],
@@ -606,6 +813,18 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
             platforms.append(
                 platform_row(
                     key, label, group, NOT_ASSESSED, detail="No rendered page evidence collected"
+                )
+            )
+        elif group in TAG_GROUPS and gated:
+            platforms.append(
+                platform_row(
+                    key,
+                    label,
+                    group,
+                    UNKNOWN,
+                    evidence_ids=[coverage],
+                    detail="Not seen, but a consent manager or consent-gated tags are present; "
+                    "the tag may load only after consent",
                 )
             )
         elif key == "ga4" and "gtm" in hits:
@@ -633,8 +852,8 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
             )
     for row in platforms:
         if row["key"] == "gsc":
+            # Connection state only; GSC data stays in the authorised findings below.
             row["connected"] = gsc_text
-            row["evidence_ids"] = row["evidence_ids"] + gsc_eids
     for key, (label, mx_patterns, txt_patterns) in EMAIL_PLATFORMS.items():
         if dns is None or not {"MX", "TXT"} <= dns.keys():
             platforms.append(
@@ -681,10 +900,14 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
 
     links: dict[str, list[dict[str, str]]] = {}
 
-    def add_link(href: str, page: str, source: str, eid: str) -> None:
-        key = classify_listing(href)
-        if key and all(
-            (item["href"], item["source"]) != (href, source) for item in links.get(key, [])
+    def add_link(value: Any, page: str, source: str, eid: str) -> None:
+        # Resolved and classified per item: one malformed URL never stops the rest.
+        href = resolve(value, page or ctx.target)
+        key = classify_listing(href) if href else None
+        if (
+            href
+            and key
+            and all((item["href"], item["source"]) != (href, source) for item in links.get(key, []))
         ):
             links.setdefault(key, []).append(
                 {"href": href, "page": page, "source": source, "source_evidence_id": eid}
@@ -693,17 +916,21 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
     same_as: set[str] = set()
     for eid, record in pages:
         page = record.get("page", {})
+        page_url = str(record.get("url", "")) or ctx.target
         for href in page.get("links", []):
-            add_link(str(href), str(record.get("url", "")), "website link", eid)
+            add_link(href, page_url, "website link", eid)
         for node in jsonld_nodes(page.get("json_ld", [])):
             for href in as_list(node.get("sameAs")):
-                same_as.add(str(href))
-                add_link(str(href), str(record.get("url", "")), "JSON-LD sameAs", eid)
+                resolved = resolve(href, page_url)
+                if resolved:
+                    same_as.add(resolved)
+                add_link(href, page_url, "JSON-LD sameAs", eid)
     if pages and siteone:
         for e in siteone.evidence:
             if e.description == "SiteOne external-urls table" and isinstance(e.data, list):
                 for item in e.data:
-                    add_link(str(item.get("url", "")), "", "crawl external link", e.id)
+                    if isinstance(item, dict):
+                        add_link(item.get("url"), "", "crawl external link", e.id)
     listings = []
     for key, label in LISTING_LABELS.items():
         found = links.get(key, [])
@@ -728,16 +955,23 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
             }
         )
 
-    signals = []
+    signals: list[dict[str, Any]] = []
     if pages:
         nap = nap_check(pages)
         nap_eid = result.add_evidence(ctx.target, "NAP consistency comparison", nap)
-        mismatched = [c for c in nap["checks"] if c["comparable"] and not c["matched"]]
+        conflicts = [c for c in nap["checks"] if c["result"] == "conflict"]
+        unseen = [c for c in nap["checks"] if c["result"] == "not_found"]
         detail = "; ".join(
-            f"{c['field']} '{c['structured']}' in structured data not found on the sampled pages"
-            + (f" (site shows {', '.join(c['site_values'])})" if c.get("site_values") else "")
-            for c in mismatched
-        ) or ("Structured name, phone and address match the sampled pages" if nap["checks"] else "")
+            f"structured {c['field']} '{c['structured']}' differs from the site "
+            f"({', '.join(c['observed'])})"
+            for c in conflicts
+        ) or "; ".join(
+            f"structured {c['field']} '{c['structured']}' not seen in the sampled page text "
+            "(text may be truncated)"
+            for c in unseen
+        )
+        if not detail and nap["checks"]:
+            detail = "Structured name, phone and address match the sampled pages"
         signals.append(
             {
                 "signal": "NAP consistency (structured data vs visible text and phone links)",
@@ -793,28 +1027,22 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
                         "evidence_ids": [e.id],
                     }
                 )
+    if siteone and siteone.status == "ok":
+        sitemap = sitemap_check(ctx)
+        sitemap_eid = result.add_evidence(
+            sitemap.get("sitemap_url") or ctx.target,
+            "Bounded robots.txt and XML sitemap fetch",
+            sitemap,
+        )
+        signals.append(
+            {
+                "signal": "XML sitemap",
+                "status": sitemap["status"],
+                "detail": sitemap["detail"],
+                "evidence_ids": [sitemap_eid],
+            }
+        )
     gsc_module = modules.get("gsc")
-    if gsc_eids and gsc_module:
-        sitemaps = gsc_module.evidence[0].data.get("sitemaps", {}).get("sitemap", [])
-        signals.append(
-            {
-                "signal": "XML sitemap",
-                "status": DETECTED if sitemaps else NOT_DETECTED,
-                "detail": f"{len(sitemaps)} sitemap(s) submitted in Search Console",
-                "evidence_ids": gsc_eids,
-            }
-        )
-    elif siteone:
-        signals.append(
-            {
-                "signal": "XML sitemap",
-                "status": UNKNOWN,
-                "detail": "The crawl records robots.txt status but not its Sitemap directive; "
-                "verify /sitemap.xml and the robots.txt Sitemap line manually",
-                "evidence_ids": [],
-            }
-        )
-
     readiness = []
     for key, service, insight in READINESS:
         if key == "google_business_profile":
@@ -836,7 +1064,7 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
         if status == DETECTED and ids:
             public += ": " + ", ".join(ids)
         elif status == UNKNOWN and source.get("detail"):
-            public += f": {source['detail']}"
+            public += (f" ({', '.join(ids)})" if ids else "") + f": {source['detail']}"
         readiness.append(
             {
                 "key": key,
@@ -876,12 +1104,39 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
                 "evidence_ids": gsc_eids,
             }
         )
+        sitemaps = data.get("sitemaps", {}).get("sitemap", [])
+        authorised.append(
+            {
+                "source": "Google Search Console sitemaps",
+                "detail": f"{len(sitemaps)} sitemap(s) submitted"
+                + (
+                    ": " + ", ".join(str(m.get("path", "")) for m in sitemaps[:3])
+                    if sitemaps
+                    else ""
+                )
+                + ".",
+                "evidence_ids": gsc_eids,
+            }
+        )
 
     if pages:
         add_findings(result, by_key, listings, signals, same_as, coverage, refs)
+    sitemap_row = next((r for r in signals if r["signal"] == "XML sitemap"), None)
+    if sitemap_row and sitemap_row["status"] == WARNING:
+        result.finding(
+            "sitemap-missing",
+            "XML sitemap missing or invalid",
+            "seo",
+            sitemap_row["evidence_ids"],
+            sitemap_row["detail"] + ".",
+            "Publish an XML sitemap of indexable pages and declare it in robots.txt.",
+            severity="low",
+            urls=[ctx.target],
+        )
     return {
         "status": "assessed" if assessed else NOT_ASSESSED,
         "pages_sampled": page_urls,
+        "consent": consent,
         "platforms": platforms,
         "listings": listings,
         "signals": signals,
@@ -905,6 +1160,7 @@ def add_findings(
 ) -> None:
     nap = next((s for s in signals if s["signal"].startswith("NAP")), None)
     if nap and nap["status"] == "Inconsistent":
+        # One deterministic finding per mismatch; AI is told to enrich it, not repeat it.
         result.finding(
             "nap-inconsistent",
             "Business name, address or phone differs between structured data and the page",
@@ -913,6 +1169,18 @@ def add_findings(
             nap["detail"] + ".",
             "Use one canonical name, address and phone number in structured data, the footer, "
             "contact page and external listings.",
+            ams_service="Local SEO",
+        )
+    elif nap and nap["status"] == UNKNOWN:
+        result.finding(
+            "nap-unverified",
+            "Structured business details not confirmed on the page",
+            "local_seo",
+            nap["evidence_ids"],
+            nap["detail"] + ".",
+            "Check that the structured name, address and phone appear on the website exactly.",
+            severity="low",
+            confidence="needs_verification",
             ams_service="Local SEO",
         )
     tags = ["ga4", "ua", "gtm", "clarity", "hotjar"]
@@ -930,15 +1198,16 @@ def add_findings(
             confidence="needs_verification",
             ams_service="Analytics & tracking",
         )
-    if platforms["ga4"]["status"] == UNKNOWN:
+    unknown = [r for r in platforms.values() if r["group"] in TAG_GROUPS and r["status"] == UNKNOWN]
+    if unknown:
         result.finding(
-            "tracking:ga4-unconfirmed",
-            "GA4 not seen directly; Google Tag Manager present",
+            "tracking:unconfirmed",
+            "Analytics or tracking tags could not be confirmed",
             "presence",
-            [refs["gtm"], coverage],
-            "A GTM container was detected but no GA4 measurement ID was visible on the sampled "
-            "pages.",
-            "Verify in GTM or Tag Assistant which tags fire and whether GA4 is configured.",
+            sorted({e for r in unknown for e in r["evidence_ids"]}),
+            "; ".join(f"{r['platform']}: {r['detail']}" for r in unknown) + ".",
+            "Verify with the customer in Google Tag Manager, Tag Assistant or the consent "
+            "manager which tags run after consent.",
             severity="low",
             kind="opportunity",
             confidence="needs_verification",
@@ -993,7 +1262,15 @@ def add_findings(
 
 def run(ctx: Context) -> ModuleResult:
     result = ModuleResult(name=name)
-    tables = build(ctx, ctx.results, result)
+    try:
+        tables = build(ctx, ctx.results, result)
+    except Exception as exc:
+        # Fail soft: the report shows NOT ASSESSED presence tables instead of losing the run.
+        return ModuleResult(
+            name=name,
+            status="error",
+            reason=f"Presence analysis failed ({type(exc).__name__}); other results unaffected",
+        )
     if tables["status"] == NOT_ASSESSED:
         return ModuleResult(
             name=name,

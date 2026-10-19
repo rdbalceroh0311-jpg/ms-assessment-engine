@@ -1,5 +1,5 @@
 {% macro finding_block(finding) %}
-### {{ finding.id | text }}: {{ finding.title | text }}
+#### {{ finding.id | text }}: {{ finding.title | text }}
 
 **Severity:** {{ finding.severity }} | **Confidence:** {{ finding.confidence }} | **Type:** {{ finding.kind }} | **Priority:** {{ finding.priority }}
 
@@ -30,32 +30,14 @@
 | {{ r.platform | text }}{% if r.ids %} ({{ r.ids | join(', ') | text }}){% endif %} | {{ r.status | text }} | {{ r.connected | text }} | {{ r.detail | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %} | {{ r.action | text }} |
 {% endfor %}
 {% endmacro %}
-# AI Managed Services
-## Website assessment report
-
-**Customer:** {{ data.customer_name | text }}<br>
-**Assessment date (UTC):** {{ data.created_at[:10] | text }}<br>
-**Target:** {{ data.target | text }}<br>
-**Scope:** {{ scope_titles | join('; ') | text }}
-
-> Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.
-
-## Executive summary
-
-{% if ai.get('executive_summary') %}
-{{ ai.executive_summary | text }}
-{% else %}
-The assessment recorded {{ findings | length }} evidence-backed findings across {{ data.assessed_categories | length }} categories with available evidence. The recommendations below prioritise the observed issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
-{% endif %}
-
-{% for category, title in sections.items() if category != 'presence' %}
-## {{ title }}
+{% macro category_section(category, title) %}
+### {{ title }}
 
 {% if ai.get('sections', {}).get(category) %}
 {{ ai.sections[category] | text }}
 {% endif %}
 {% if category == 'domain_email' and data.get('domain_email_health') %}
-### Domain, DNS & Email Health summary
+#### Domain, DNS & Email Health summary
 
 | Check area | Status | What is wrong | Evidence |
 | --- | --- | --- | --- |
@@ -83,16 +65,47 @@ The assessment recorded {{ findings | length }} evidence-backed findings across 
 No reportable findings were established from the available checks in this category. This does not establish that the category is free of issues; coverage and missing data are listed below.
 
 {% endfor %}
+{% endmacro %}
+# AI Managed Services
+## Website assessment report
+
+**Customer:** {{ data.customer_name | text }}<br>
+**Assessment date (UTC):** {{ data.created_at[:10] | text }}<br>
+**Target:** {{ data.target | text }}<br>
+**Scope:** {{ scope_titles | join('; ') | text }}
+
+> Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.
+
+## 1. Executive summary
+
+{% if ai.get('executive_summary') %}
+{{ ai.executive_summary | text }}
+{% else %}
+The assessment recorded {{ findings | length }} evidence-backed findings across {{ data.assessed_categories | length }} categories with available evidence. The recommendations below prioritise the observed issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
+{% endif %}
+
+## 2. Website, technical SEO & infrastructure findings
+
+{% for category, title in web_sections.items() %}
+{{ category_section(category, title) }}
+{% else %}
+No website, technical or infrastructure category was assessed in this run.
+
 {% endfor %}
 {% set p = data.get('digital_presence') %}
+## 3. Local SEO & digital presence
+
+{% for category, title in local_sections.items() %}
+{{ category_section(category, title) }}
+{% endfor %}
 {% if p %}
-## Local SEO & digital presence
+### Search & local presence signals
 
 {% if ai.get('sections', {}).get('presence') %}
 {{ ai.sections.presence | text }}
 
 {% endif %}
-Public assessment only: statuses below come from the sampled pages ({{ p.pages_sampled | length }}), the crawl and public DNS, without additional requests.{% if p.status != 'assessed' %} **NOT ASSESSED:** {{ p.get('reason', '') | text }}.{% endif %}
+Public assessment: statuses below come from the sampled pages ({{ p.pages_sampled | length }}), the crawl, public DNS and one bounded robots.txt/sitemap fetch.{% if p.status != 'assessed' %} **NOT ASSESSED:** {{ p.get('reason', '') | text }}.{% endif %}
 
 
 {% for note in p.notes %}
@@ -107,8 +120,13 @@ Public assessment only: statuses below come from the sampled pages ({{ p.pages_s
 | Search and local presence signals | NOT ASSESSED | No page or crawl evidence collected | - |
 {% endfor %}
 
-## Business listings & platform opportunities
+{% elif not local_sections %}
+Local SEO and digital presence were not assessed in this run.
 
+{% endif %}
+## 4. Business listings & platform opportunities
+
+{% if p %}
 ### Business listings linked from the website
 
 | Listing | Status | Source | Evidence URL | Ownership | Evidence |
@@ -129,14 +147,28 @@ Other website platforms not detected on the sampled pages: {{ cms_missing | map(
 {% for finding in findings if finding.category == 'presence' and not finding.check_key.startswith('tracking:') %}
 {{ finding_block(finding) }}
 {% endfor %}
-## Analytics & tracking readiness
+{% else %}
+Digital presence was not in the selected scope.
 
+{% endif %}
+## 5. Analytics & tracking readiness
+
+{% if p %}
+{% if p.consent.managers or p.consent.gated_scripts %}
+Consent management observed ({{ (p.consent.managers or ['consent-gated scripts']) | join(', ') | text }}): tags not seen loading are reported as Unknown rather than Detected or Not detected.
+
+{% endif %}
 {{ platform_table(p.platforms | selectattr('group', 'in', ['search', 'analytics', 'advertising']) | list) }}
 {% for finding in findings if finding.category == 'presence' and finding.check_key.startswith('tracking:') %}
 {{ finding_block(finding) }}
 {% endfor %}
-## Connected assessment opportunities
+{% else %}
+Digital presence was not in the selected scope.
 
+{% endif %}
+## 6. Connected assessment opportunities
+
+{% if p %}
 ### Public assessment
 
 | Service | Public evidence | Account / ownership | Authorised access | What access would provide | Customer next step |
@@ -153,8 +185,13 @@ Other website platforms not detected on the sampled pages: {{ cms_missing | map(
 No authorised connections were used in this assessment; every status above comes from public evidence.
 {% endfor %}
 
-## Customer access requirements
+{% else %}
+Digital presence was not in the selected scope.
 
+{% endif %}
+## 7. Customer access requirements
+
+{% if p %}
 {% for rule in p.rules %}
 - {{ rule | text }}
 {% endfor %}
@@ -166,9 +203,11 @@ No authorised connections were used in this assessment; every status above comes
 {{ loop.index }}. **{{ item.service | text }}** (access: {{ item.access | text }}{% if item.condition %}; {{ item.condition | text }}{% endif %}): {{ item.action | text }}{% if item.evidence_ids %} Evidence: {{ item.evidence_ids | join(', ') }}.{% endif %}
 
 {% endfor %}
-{% endif %}
+{% else %}
+Digital presence was not in the selected scope.
 
-## Prioritised recommendations
+{% endif %}
+## 8. Prioritised recommendations
 
 {% for f in recommendations %}
 {{ loop.index }}. **{{ f.priority }} - {{ f.title | text }} ({{ f.id }}):** {{ f.recommendation | text }} Evidence: {{ f.evidence_ids | join(', ') }}.
@@ -176,7 +215,7 @@ No authorised connections were used in this assessment; every status above comes
 No evidence-backed actions could be prioritised. Resolve the missing data before proposing work.
 {% endfor %}
 
-## Proposed implementation roadmap
+## 9. Proposed implementation roadmap
 
 {% for phase, items in roadmap.items() %}
 ### {{ phase }}

@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+# Relative because the fixture port changes per run; production sitemaps use absolute URLs.
+Sitemap: /sitemap.xml

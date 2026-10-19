@@ -40,6 +40,11 @@ def validate_analysis(
                 # Preserve observed facts and citations; enrich interpretation only.
                 for field in ["likely_cause", "business_impact", "priority", "ams_service"]:
                     setattr(base, field, getattr(finding, field))
+            elif finding.category == "presence" or all(
+                eid.startswith("ev-presence-") for eid in finding.evidence_ids
+            ):
+                # Platform, listing and readiness statuses are deterministic only.
+                raise ValueError("AI cannot create digital presence findings")
             else:
                 finding.check_key = finding.id
                 # Model-only heuristic conclusions remain explicitly provisional.
@@ -83,7 +88,8 @@ def compact_evidence(evidence: list[Evidence]) -> list[dict[str, Any]]:
             value["page"] = {
                 k: v
                 for k, v in value.get("page", {}).items()
-                if k not in {"script_srcs", "tag_snippets", "resource_links", "links"}
+                if k
+                not in {"script_srcs", "tag_snippets", "resource_links", "links", "gated_scripts"}
             }
             value["page"]["visible_text_summary"] = value["page"].get("visible_text_summary", "")[
                 :3500
@@ -133,7 +139,9 @@ keys are 0-30 days, 30-90 days, 90+ days with finding IDs. Propose realistic pha
 concise professional customer prose. No raw HTML or Markdown headings in narrative strings.
 Digital presence evidence (ev-presence-*) holds deterministic platform, listing and readiness
 statuses: cite it, but never invent detections, account ownership, listings, connections or
-scores. "Not detected" only means no public signal on the sampled pages.
+scores. "Not detected" only means no public signal on the sampled pages. Do not create findings
+in the presence category or findings cited only by ev-presence-* evidence; they are dropped. NAP
+mismatches are the deterministic nap-inconsistent finding: enrich it rather than repeating it.
 """
     payload = {
         "customer": ctx.customer_name,
