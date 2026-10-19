@@ -1,7 +1,7 @@
 import io
 import json
-import smtplib
 import ssl
+import threading
 import time
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -192,71 +192,94 @@ def test_rdap_expiry_thresholds(date, expected):
     assert domain_email.registration_check(events, "ev-1", now)["status"] == expected
 
 
+def mx_address(monkeypatch):
+    monkeypatch.setattr(
+        domain_email, "_lookup", lambda resolver, host, kind: ("ok", ["192.0.2.25"])
+    )
+
+
 def test_mail_tls_probe_is_bounded_and_blocked_port_is_not_assessed(monkeypatch):
     calls = []
 
     class FakeSMTP:
         banner = b"mx ESMTP"
-        slow = False
 
-        def __init__(self, host, port, **kwargs):
-            assert kwargs["timeout"] <= 10
-            calls.append(("connect", host, port))
+        def __init__(self, host, address, deadline, cancelled, holder, **kwargs):
+            assert deadline - time.monotonic() <= 10
+            calls.append(("connect", host, address))
             if host == "blocked.example.com":
                 raise TimeoutError
 
         def ehlo(self):
             calls.append(("ehlo",))
-            if self.slow:
-                time.sleep(1)
 
         def has_extn(self, name):
             return False
 
-        def quit(self):
-            calls.append(("quit",))
-
+    mx_address(monkeypatch)
     monkeypatch.setattr(domain_email, "_SMTP", FakeSMTP)
     result = ModuleResult(name="domain_email")
     hosts = ["mx1.example.com", "mx2.example.com", "mx3.example.com"]
     checks = domain_email.mail_tls_checks(result, hosts)
     assert status_of(checks, "STARTTLS") == "ERROR"
-    assert {c[0] for c in calls} == {"connect", "ehlo", "quit"}
+    assert {c[0] for c in calls} == {"connect", "ehlo"}
     assert len([c for c in calls if c[0] == "connect"]) == 2
     checks = domain_email.mail_tls_checks(result, ["blocked.example.com"])
     assert all(c["status"] == NOT_ASSESSED and "port 25" in c["detail"] for c in checks)
-    FakeSMTP.slow = True
-    started = time.monotonic()
-    assert "limit" in domain_email.smtp_tls("mx1.example.com", timeout=0.1)["error"]
-    assert time.monotonic() - started < 0.5
 
 
 class FakeSocket:
-    """Plain-text SMTP peer: greeting, EHLO advertising STARTTLS, STARTTLS go-ahead."""
+    """SMTP peer that serves `replies` line by line, then stalls until it is closed."""
 
-    def __init__(self):
-        self.sent = []
+    def __init__(self, replies):
+        self.replies, self.sent = list(replies), []
+        self.closed, self.shut = threading.Event(), False
 
     def makefile(self, mode):
-        return io.BytesIO(
-            b"220 mx.example.com ESMTP\r\n250-mx.example.com\r\n250 STARTTLS\r\n220 Go\r\n"
-        )
+        return self
+
+    def readline(self, limit=-1):
+        if self.replies:
+            return self.replies.pop(0)
+        self.closed.wait(5)
+        return b""
 
     def sendall(self, data):
+        if self.closed.is_set():
+            raise OSError("socket closed")
         self.sent.append(data)
 
+    def settimeout(self, timeout):
+        assert 0 < timeout <= 10
+
+    def shutdown(self, how):
+        self.shut = True
+        self.closed.set()
+
     def close(self):
-        pass
+        self.closed.set()
+
+    def commands(self):
+        return [line.split()[0].upper() for line in b"".join(self.sent).decode().splitlines()]
 
 
 def test_starttls_verifies_certificate_against_mx_hostname(monkeypatch):
-    plain, wrapped = FakeSocket(), {}
+    plain = FakeSocket(
+        [
+            b"220 mx.example.com ESMTP\r\n",
+            b"250-mx.example.com\r\n",
+            b"250 STARTTLS\r\n",
+            b"220 Go\r\n",
+        ]
+    )
+    wrapped = {}
     tls = MagicMock(spec=ssl.SSLSocket)
     tls.getpeercert.return_value = {"notAfter": "Jan  1 00:00:00 2099 GMT"}
     tls.makefile.return_value = io.BytesIO(b"221 Bye\r\n")
 
-    def get_socket(self, host, port, timeout):
-        wrapped.update(connect=(host, port, timeout))
+    def create_connection(address, timeout):
+        assert 0 < timeout <= 10
+        wrapped["connect"] = address
         return plain
 
     def wrap_socket(sock, server_hostname=None):
@@ -264,15 +287,30 @@ def test_starttls_verifies_certificate_against_mx_hostname(monkeypatch):
         wrapped["server_hostname"] = server_hostname
         return tls
 
-    monkeypatch.setattr(smtplib.SMTP, "_get_socket", get_socket)
+    mx_address(monkeypatch)
+    monkeypatch.setattr(domain_email.socket, "create_connection", create_connection)
     context = SimpleNamespace(wrap_socket=wrap_socket)
     monkeypatch.setattr(domain_email.ssl, "create_default_context", lambda: context)
     info = domain_email.smtp_tls("mx.example.com")
-    assert wrapped == {"connect": ("mx.example.com", 25, 10), "server_hostname": "mx.example.com"}
+    assert wrapped == {"connect": ("192.0.2.25", 25), "server_hostname": "mx.example.com"}
     assert info["banner"] == "mx.example.com ESMTP" and info["starttls"] is True
     assert info["certificate"]["verified"] is True and "error" not in info
-    commands = [line.split()[0].upper() for line in b"".join(plain.sent).decode().splitlines()]
-    assert commands == ["EHLO", "STARTTLS"]
+    assert plain.commands() == ["EHLO", "STARTTLS"]
+
+
+def test_slow_mx_is_cancelled_without_further_commands(monkeypatch):
+    # Greeting arrives, then the server stalls on the EHLO reply.
+    stalled = FakeSocket([b"220 mx.example.com ESMTP\r\n"])
+    mx_address(monkeypatch)
+    monkeypatch.setattr(domain_email.socket, "create_connection", lambda address, timeout: stalled)
+    started = time.monotonic()
+    info = domain_email.smtp_tls("slow.example.com", timeout=0.3)
+    assert "limit" in info["error"] and "banner" not in info
+    assert time.monotonic() - started < 1.5
+    assert stalled.shut and stalled.closed.is_set()
+    time.sleep(0.3)
+    assert stalled.commands() == ["EHLO"]  # no STARTTLS or QUIT after cancellation
+    assert not any(t.name == "smtp-probe-slow.example.com" for t in threading.enumerate())
 
 
 def test_mx_resolution_counts_only_hosts_that_resolved(tmp_path, monkeypatch):

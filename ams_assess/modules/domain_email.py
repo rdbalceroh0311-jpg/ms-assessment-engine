@@ -1,10 +1,13 @@
+import contextlib
 import ipaddress
 import json
 import smtplib
+import socket
 import ssl
 import subprocess
 import sys
 import threading
+import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -325,20 +328,58 @@ def dnsbl_checks(
 
 
 class _SMTP(smtplib.SMTP):
-    """Keeps the greeting banner, which smtplib.SMTP(host) otherwise discards."""
+    """SMTP client bounded by a shared deadline and cancellation flag.
+
+    Connects to a pre-resolved address while keeping the MX name for STARTTLS certificate
+    verification. Every reply read and command write first checks the deadline/flag and sets
+    the socket timeout to the remaining time, so nothing is sent after cancellation.
+    """
 
     banner = b""
+
+    def __init__(
+        self,
+        host: str,
+        address: str,
+        deadline: float,
+        cancelled: threading.Event,
+        holder: dict[str, Any],
+        **kwargs: Any,
+    ) -> None:
+        self.address, self.deadline, self.cancelled = address, deadline, cancelled
+        holder["client"] = self
+        super().__init__(host, 25, **kwargs)
+
+    def _remaining(self) -> float:
+        left = self.deadline - time.monotonic()
+        if self.cancelled.is_set() or left <= 0:
+            raise TimeoutError("SMTP probe cancelled or out of time")
+        if self.sock is not None:
+            self.sock.settimeout(left)
+        return left
+
+    def _get_socket(self, host, port, timeout):
+        return socket.create_connection((self.address, port), self._remaining())
 
     def connect(self, host="localhost", port=0, source_address=None):
         code, self.banner = super().connect(host, port, source_address)
         return code, self.banner
 
+    def getreply(self):
+        self._remaining()
+        return super().getreply()
 
-def _smtp_probe(host: str, timeout: float, info: dict[str, Any]) -> None:
-    smtp = None
+    def putcmd(self, cmd, args=""):
+        self._remaining()
+        super().putcmd(cmd, args)
+
+
+def _smtp_probe(
+    host: str, address: str, deadline: float, cancelled: threading.Event, holder: dict[str, Any]
+) -> dict[str, Any]:
+    info: dict[str, Any] = {}
     try:
-        # Constructing with the MX name sets the hostname STARTTLS verifies the certificate against.
-        smtp = _SMTP(host, 25, local_hostname="localhost", timeout=timeout)
+        smtp = _SMTP(host, address, deadline, cancelled, holder, local_hostname="localhost")
         info["banner"] = smtp.banner.decode(errors="replace")[:200]
         smtp.ehlo()
         info["starttls"] = smtp.has_extn("starttls")
@@ -362,23 +403,56 @@ def _smtp_probe(host: str, timeout: float, info: dict[str, Any]) -> None:
     except (OSError, ValueError, smtplib.SMTPException) as exc:
         info["error"] = type(exc).__name__
     finally:
-        if smtp is not None:
+        client = holder.get("client")
+        if client is not None:
             try:
-                smtp.quit()
+                client.quit()  # putcmd refuses to send QUIT once cancelled or out of time
             except (OSError, smtplib.SMTPException):
-                smtp.close()
+                client.close()
+    return info
 
 
 def smtp_tls(host: str, timeout: float = 10) -> dict[str, Any]:
-    """Banner, EHLO, STARTTLS, certificate, QUIT. Never MAIL, RCPT, VRFY, EXPN or DATA."""
-    info: dict[str, Any] = {"host": host}
-    # Socket timeouts are per operation; the join bounds the whole probe, cleanup included.
-    probe = threading.Thread(target=_smtp_probe, args=(host, timeout, info), daemon=True)
+    """Banner, EHLO, STARTTLS, certificate, QUIT. Never MAIL, RCPT, VRFY, EXPN or DATA.
+
+    The whole probe, DNS and cleanup included, is bounded by one wall-clock deadline.
+    """
+    deadline = time.monotonic() + timeout
+    address = None
+    for kind in ["A", "AAAA"]:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            break
+        status, records = _lookup(_resolver(timeout=min(left, 4)), host, kind)
+        if status == "ok":
+            address = records[0]
+            break
+    if address is None:
+        return {"host": host, "error": "MX address lookup failed"}
+    cancelled, lock, holder, done = threading.Event(), threading.Lock(), {}, {}
+
+    def work() -> None:
+        info = _smtp_probe(host, address, deadline, cancelled, holder)
+        with lock:
+            if not cancelled.is_set():
+                done["info"] = info
+
+    probe = threading.Thread(target=work, name=f"smtp-probe-{host}", daemon=True)
     probe.start()
-    probe.join(timeout)
-    if probe.is_alive():
-        return {"host": host, "error": f"probe exceeded {timeout:g}-second limit"}
-    return info
+    probe.join(max(0.0, deadline - time.monotonic()))
+    with lock:
+        if "info" in done:
+            return {"host": host, **done["info"]}
+        cancelled.set()  # under the lock: the worker can no longer publish a late result
+    # Force any blocking read/handshake to fail now rather than at its socket timeout.
+    sock = getattr(holder.get("client"), "sock", None)
+    if sock is not None:
+        with contextlib.suppress(OSError):
+            sock.shutdown(socket.SHUT_RDWR)
+        with contextlib.suppress(OSError):
+            sock.close()
+    probe.join(1)
+    return {"host": host, "error": f"probe exceeded {timeout:g}-second limit"}
 
 
 def mail_tls_checks(result: ModuleResult, hosts: list[str]) -> list[dict[str, Any]]:
