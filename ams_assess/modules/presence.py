@@ -701,11 +701,22 @@ def fetch(client: httpx.Client, url: str, origin: tuple, deadline: float) -> dic
 
 
 def parse_sitemap(body: bytes) -> tuple[str, int, str]:
-    """(kind, entries, problem) for a complete body; kind is urlset, sitemapindex or invalid."""
-    if b"<!DOCTYPE" in body.upper() or b"<!ENTITY" in body.upper():
+    """(kind, entries, problem) for a complete body; kind is urlset, sitemapindex or invalid.
+
+    Sitemaps must be UTF-8. Decoding first means the DTD scan sees the same text the parser does
+    (a UTF-16 body would otherwise hide its declarations from a byte scan).
+    """
+    try:
+        text = body.removeprefix(b"\xef\xbb\xbf").decode("utf-8")
+    except UnicodeDecodeError:
+        return "invalid", 0, "unsupported encoding (not valid UTF-8)"
+    declared = re.match(r"\s*<\?xml[^>]*?\bencoding\s*=\s*[\"']([^\"']+)", text)
+    if declared and declared.group(1).lower().replace("_", "-") not in {"utf-8", "utf8"}:
+        return "invalid", 0, f"unsupported encoding ({declared.group(1)})"
+    if re.search(r"<!(?:DOCTYPE|ENTITY)", text, re.I):
         return "invalid", 0, "document type declarations are not allowed in a sitemap"
     try:
-        root = ET.fromstring(body)
+        root = ET.fromstring(text)
     except ET.ParseError:
         return "invalid", 0, "not well-formed XML"
     for kind, child in [("urlset", "url"), ("sitemapindex", "sitemap")]:

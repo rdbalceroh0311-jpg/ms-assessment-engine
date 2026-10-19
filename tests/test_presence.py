@@ -393,6 +393,17 @@ def test_sitemap_parse_requires_sitemaps_org_root_with_locs():
         b'<!DOCTYPE x [<!ENTITY a "b">]><urlset/>',
     ]:
         assert presence.parse_sitemap(body)[0] == "invalid"
+    # A UTF-16 body hides "<!DOCTYPE" from a byte scan but ElementTree would still parse it.
+    dtd = '<!DOCTYPE urlset [<!ENTITY e "https://example.com/">]>'
+    utf16 = ('<?xml version="1.0" encoding="UTF-16"?>' + dtd + URLSET.decode()[21:]).replace(
+        "https://example.com/</loc>", "&e;</loc>"
+    )
+    assert presence.parse_sitemap(utf16.encode("utf-16"))[0] == "invalid"
+    assert "unsupported encoding" in presence.parse_sitemap(utf16.encode("utf-16"))[2]
+    declared_utf16 = URLSET.replace(b'version="1.0"', b'version="1.0" encoding="UTF-16"')
+    assert presence.parse_sitemap(declared_utf16)[2] == "unsupported encoding (UTF-16)"
+    assert presence.parse_sitemap(dtd.encode() + URLSET[21:])[0] == "invalid"
+    assert presence.parse_sitemap(b"\xef\xbb\xbf" + URLSET) == ("urlset", 2, "")
 
 
 def test_sitemap_statuses_follow_retrieval_and_robots_knowledge(tmp_path, monkeypatch):
