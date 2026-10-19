@@ -1,7 +1,12 @@
+import io
 import json
+import smtplib
+import ssl
+import time
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
+from unittest.mock import MagicMock
 
 import dns.name
 import dns.resolver
@@ -158,7 +163,7 @@ def test_null_mx_domain_is_not_an_email_failure(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        domain_email.smtplib, "SMTP", lambda **k: pytest.fail("Null MX has no host to probe")
+        domain_email, "_SMTP", lambda *a, **k: pytest.fail("Null MX has no host to probe")
     )
     result = domain_email.run(context(tmp_path, AMS_MAIL_TLS_CHECK="1"))
     rows = {r["key"]: r for r in result.checks}
@@ -191,17 +196,19 @@ def test_mail_tls_probe_is_bounded_and_blocked_port_is_not_assessed(monkeypatch)
     calls = []
 
     class FakeSMTP:
-        def __init__(self, **kwargs):
-            assert kwargs["timeout"] <= 10
+        banner = b"mx ESMTP"
+        slow = False
 
-        def connect(self, host, port):
+        def __init__(self, host, port, **kwargs):
+            assert kwargs["timeout"] <= 10
             calls.append(("connect", host, port))
             if host == "blocked.example.com":
                 raise TimeoutError
-            return 220, b"mx ESMTP"
 
         def ehlo(self):
             calls.append(("ehlo",))
+            if self.slow:
+                time.sleep(1)
 
         def has_extn(self, name):
             return False
@@ -209,7 +216,7 @@ def test_mail_tls_probe_is_bounded_and_blocked_port_is_not_assessed(monkeypatch)
         def quit(self):
             calls.append(("quit",))
 
-    monkeypatch.setattr(domain_email.smtplib, "SMTP", FakeSMTP)
+    monkeypatch.setattr(domain_email, "_SMTP", FakeSMTP)
     result = ModuleResult(name="domain_email")
     hosts = ["mx1.example.com", "mx2.example.com", "mx3.example.com"]
     checks = domain_email.mail_tls_checks(result, hosts)
@@ -218,6 +225,83 @@ def test_mail_tls_probe_is_bounded_and_blocked_port_is_not_assessed(monkeypatch)
     assert len([c for c in calls if c[0] == "connect"]) == 2
     checks = domain_email.mail_tls_checks(result, ["blocked.example.com"])
     assert all(c["status"] == NOT_ASSESSED and "port 25" in c["detail"] for c in checks)
+    FakeSMTP.slow = True
+    started = time.monotonic()
+    assert "limit" in domain_email.smtp_tls("mx1.example.com", timeout=0.1)["error"]
+    assert time.monotonic() - started < 0.5
+
+
+class FakeSocket:
+    """Plain-text SMTP peer: greeting, EHLO advertising STARTTLS, STARTTLS go-ahead."""
+
+    def __init__(self):
+        self.sent = []
+
+    def makefile(self, mode):
+        return io.BytesIO(
+            b"220 mx.example.com ESMTP\r\n250-mx.example.com\r\n250 STARTTLS\r\n220 Go\r\n"
+        )
+
+    def sendall(self, data):
+        self.sent.append(data)
+
+    def close(self):
+        pass
+
+
+def test_starttls_verifies_certificate_against_mx_hostname(monkeypatch):
+    plain, wrapped = FakeSocket(), {}
+    tls = MagicMock(spec=ssl.SSLSocket)
+    tls.getpeercert.return_value = {"notAfter": "Jan  1 00:00:00 2099 GMT"}
+    tls.makefile.return_value = io.BytesIO(b"221 Bye\r\n")
+
+    def get_socket(self, host, port, timeout):
+        wrapped.update(connect=(host, port, timeout))
+        return plain
+
+    def wrap_socket(sock, server_hostname=None):
+        # The real default context raises without server_hostname when check_hostname is on.
+        wrapped["server_hostname"] = server_hostname
+        return tls
+
+    monkeypatch.setattr(smtplib.SMTP, "_get_socket", get_socket)
+    context = SimpleNamespace(wrap_socket=wrap_socket)
+    monkeypatch.setattr(domain_email.ssl, "create_default_context", lambda: context)
+    info = domain_email.smtp_tls("mx.example.com")
+    assert wrapped == {"connect": ("mx.example.com", 25, 10), "server_hostname": "mx.example.com"}
+    assert info["banner"] == "mx.example.com ESMTP" and info["starttls"] is True
+    assert info["certificate"]["verified"] is True and "error" not in info
+    commands = [line.split()[0].upper() for line in b"".join(plain.sent).decode().splitlines()]
+    assert commands == ["EHLO", "STARTTLS"]
+
+
+def test_mx_resolution_counts_only_hosts_that_resolved(tmp_path, monkeypatch):
+    table = {
+        ("example.com", "MX"): ["10 mx1.example.com.", "20 mx2.example.com."],
+        ("mx1.example.com", "A"): ["192.0.2.25"],
+        ("mx2.example.com", "A"): dns.resolver.LifetimeTimeout(),
+        ("mx2.example.com", "AAAA"): dns.resolver.LifetimeTimeout(),
+    }
+    monkeypatch.setattr(dns.resolver, "Resolver", lambda configure=True: FakeResolver(table))
+    monkeypatch.setattr(
+        dns.resolver, "zone_for_name", lambda *a, **k: dns.name.from_text("example.com")
+    )
+    monkeypatch.setattr(
+        domain_email.subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(ValueError())
+    )
+    monkeypatch.setattr(
+        httpx, "get", lambda url, **k: (_ for _ in ()).throw(httpx.ConnectError("offline"))
+    )
+    result = domain_email.run(context(tmp_path))
+    mail = {
+        c["name"]: c for c in next(r for r in result.checks if r["key"] == "mail_server")["checks"]
+    }
+    assert mail["MX resolution"]["status"] == "PASS"
+    assert "mx1.example.com" in mail["MX resolution"]["detail"]
+    assert "mx2" not in mail["MX resolution"]["detail"]
+    assert mail["MX lookup"]["status"] == NOT_ASSESSED
+    assert "mx2.example.com" in mail["MX lookup"]["detail"]
+    assert not any(f.check_key.startswith("health:mail_server") for f in result.findings)
 
 
 def test_health_summary_renders_statuses_only_when_selected(tmp_path, monkeypatch):
@@ -275,3 +359,28 @@ def test_health_summary_renders_statuses_only_when_selected(tmp_path, monkeypatc
     data = runner.run(other, no_ai=True, formats={"md"})
     assert "domain_email_health" not in data
     assert "Email Health summary" not in (other.run_dir / "report.md").read_text()
+
+
+@pytest.mark.parametrize("outcome", ["error", "skipped"])
+def test_summary_renders_when_module_ran_even_on_error(tmp_path, monkeypatch, outcome):
+    def module(ctx):
+        if outcome == "error":
+            raise RuntimeError("synthetic failure")
+        return ModuleResult(name="domain_email", status="skipped", reason="Local target")
+
+    monkeypatch.setattr(
+        runner,
+        "REGISTRY",
+        {"domain_email": SimpleNamespace(categories={"domain_email"}, run=module)},
+    )
+    ctx = context(tmp_path)
+    data = runner.run(ctx, no_ai=True, formats={"md"})
+    assert data["assessed_categories"] == []
+    report = (ctx.run_dir / "report.md").read_text()
+    if outcome == "error":
+        assert "Email Health summary" in report
+        assert "| DNS configuration &amp; health | NOT ASSESSED |" in report
+        assert "domain\\_email module error: Module failed (RuntimeError)" in report
+    else:
+        assert "Email Health summary" not in report
+        assert "domain\\_email: no successful evidence collection" in report

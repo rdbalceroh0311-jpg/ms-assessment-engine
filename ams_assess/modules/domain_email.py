@@ -4,6 +4,7 @@ import smtplib
 import ssl
 import subprocess
 import sys
+import threading
 from datetime import UTC, datetime
 from typing import Any
 
@@ -323,13 +324,22 @@ def dnsbl_checks(
     return checks
 
 
-def smtp_tls(host: str, timeout: float = 10) -> dict[str, Any]:
-    """Banner, EHLO, STARTTLS, certificate, QUIT. Never MAIL, RCPT, VRFY, EXPN or DATA."""
-    info: dict[str, Any] = {"host": host}
-    smtp = smtplib.SMTP(local_hostname="localhost", timeout=timeout)
+class _SMTP(smtplib.SMTP):
+    """Keeps the greeting banner, which smtplib.SMTP(host) otherwise discards."""
+
+    banner = b""
+
+    def connect(self, host="localhost", port=0, source_address=None):
+        code, self.banner = super().connect(host, port, source_address)
+        return code, self.banner
+
+
+def _smtp_probe(host: str, timeout: float, info: dict[str, Any]) -> None:
+    smtp = None
     try:
-        _, banner = smtp.connect(host, 25)
-        info["banner"] = banner.decode(errors="replace")[:200]
+        # Constructing with the MX name sets the hostname STARTTLS verifies the certificate against.
+        smtp = _SMTP(host, 25, local_hostname="localhost", timeout=timeout)
+        info["banner"] = smtp.banner.decode(errors="replace")[:200]
         smtp.ehlo()
         info["starttls"] = smtp.has_extn("starttls")
         if info["starttls"]:
@@ -352,10 +362,22 @@ def smtp_tls(host: str, timeout: float = 10) -> dict[str, Any]:
     except (OSError, ValueError, smtplib.SMTPException) as exc:
         info["error"] = type(exc).__name__
     finally:
-        try:
-            smtp.quit()
-        except (OSError, smtplib.SMTPException):
-            smtp.close()
+        if smtp is not None:
+            try:
+                smtp.quit()
+            except (OSError, smtplib.SMTPException):
+                smtp.close()
+
+
+def smtp_tls(host: str, timeout: float = 10) -> dict[str, Any]:
+    """Banner, EHLO, STARTTLS, certificate, QUIT. Never MAIL, RCPT, VRFY, EXPN or DATA."""
+    info: dict[str, Any] = {"host": host}
+    # Socket timeouts are per operation; the join bounds the whole probe, cleanup included.
+    probe = threading.Thread(target=_smtp_probe, args=(host, timeout, info), daemon=True)
+    probe.start()
+    probe.join(timeout)
+    if probe.is_alive():
+        return {"host": host, "error": f"probe exceeded {timeout:g}-second limit"}
     return info
 
 
@@ -366,7 +388,8 @@ def mail_tls_checks(result: ModuleResult, hosts: list[str]) -> list[dict[str, An
     )
     connected = [p for p in probes if "banner" in p]
     if not connected:
-        reason = "port 25 blocked from assessment host or MX unreachable"
+        errors = ", ".join(sorted({p.get("error", "") for p in probes} - {""}))
+        reason = f"port 25 blocked from assessment host or MX unreachable ({errors})"
         return [
             check("STARTTLS", NOT_ASSESSED, reason, [eid]),
             check("MX certificate", NOT_ASSESSED, reason, [eid]),
@@ -789,30 +812,33 @@ def run(ctx: Context) -> ModuleResult:
     if mx_hosts:
         resolved = {h: {k: _lookup(resolver, h, k) for k in ["A", "AAAA"]} for h in mx_hosts[:5]}
         eid = result.add_evidence(f"dns:{ctx.host}", "MX host address resolution", resolved)
+        ok = [h for h, r in resolved.items() if any(s == "ok" for s, _ in r.values())]
         dead = [h for h, r in resolved.items() if all(s == "absent" for s, _ in r.values())]
+        failed = [h for h in resolved if h not in ok and h not in dead]
         for host, lookups in resolved.items():
             for ip in lookups["A"][1][:2] if lookups["A"][0] == "ok" else []:
                 if len(mx_ips) < 4:
                     mx_ips[ip] = f"MX {host}"
+        if ok:
+            rows["mail_server"].append(
+                check("MX resolution", "PASS", f"Resolves: {', '.join(ok)}.", [eid])
+            )
         if dead:
+            # Mail still flows through another MX when only some hosts are broken.
             rows["mail_server"].append(
                 check(
-                    "MX resolution",
-                    "ERROR",
+                    "MX unresolvable",
+                    "WARNING" if ok else "ERROR",
                     f"No address for {', '.join(dead)}.",
                     [eid],
                     "Correct the MX hostnames or their A/AAAA records.",
                     "MX hostname does not resolve",
-                    severity="high",
+                    severity="medium" if ok else "high",
                 )
             )
-        elif any(r["A"][0] == "ok" or r["AAAA"][0] == "ok" for r in resolved.values()):
+        if failed:
             rows["mail_server"].append(
-                check("MX resolution", "PASS", f"{len(resolved)} MX host(s) resolve.", [eid])
-            )
-        else:
-            rows["mail_server"].append(
-                check("MX resolution", NOT_ASSESSED, "lookups failed", [eid])
+                check("MX lookup", NOT_ASSESSED, f"lookup failed for {', '.join(failed)}", [eid])
             )
         if ctx.config.get("AMS_MAIL_TLS_CHECK") == "1":
             rows["mail_server"] += mail_tls_checks(result, mx_hosts)
