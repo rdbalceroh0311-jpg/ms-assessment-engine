@@ -374,7 +374,35 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert "Browser coverage: 10 page/viewport observations" in report
     assert all(f["priority"] == "P1" for f in results["findings"] if f["severity"] == "high")
     assert all(f["priority"] == "P3" for f in results["findings"] if f["severity"] == "low")
-    assert report_html.count("<td>") == 4 * len(evidence) + 3 * len(results["modules"])
+    assert report_html.count("<td>") >= 4 * len(evidence) + 3 * len(results["modules"])
+    # Escaped cell text must never split a Markdown table row into extra cells.
+    for table in re.findall(r"<table>.*?</table>", report_html, re.S):
+        width = len(re.findall(r"<th[ >]", table))
+        rows = re.findall(r"<tr>(.*?)</tr>", table, re.S)[1:]
+        assert rows and all(len(re.findall(r"<td[ >]", row)) == width for row in rows)
+    presence = results["digital_presence"]
+    platforms = {r["key"]: r for r in presence["platforms"]}
+    assert {k: platforms[k]["status"] for k in ["gsc", "ga4", "gtm", "clarity"]} == dict.fromkeys(
+        ["gsc", "ga4", "gtm", "clarity"], "Detected"
+    )
+    assert platforms["ga4"]["ids"] == ["G-FIXTURE001"]
+    assert platforms["wordpress"]["status"] == "Not detected"
+    assert platforms["m365"]["status"] == "NOT ASSESSED"
+    listings = {r["key"]: r["status"] for r in presence["listings"]}
+    assert listings["google_business_profile"] == "Detected (linked from website)"
+    assert listings["yellow_pages"] == listings["instagram"] == "Detected (linked from website)"
+    assert not any("WordPress" in item["service"] for item in presence["checklist"])
+    assert {"nap-inconsistent", "canonical-missing", "listing:sameas-incomplete"} <= keys
+    pdf_text = "".join(page.extract_text() for page in PdfReader(directory / "report.pdf").pages)
+    for heading in [
+        "Local SEO & digital presence",
+        "Business listings & platform opportunities",
+        "Analytics & tracking readiness",
+        "Connected assessment opportunities",
+        "Customer access requirements",
+    ]:
+        assert f"## {heading}" in report and heading.replace("&", "&amp;") in report_html
+        assert heading in pdf_text
     for finding in results["findings"]:
         assert finding["evidence_ids"] and set(finding["evidence_ids"]) <= known
         block = report.split(f"### {finding['id']}:", 1)[1].split("###", 1)[0]

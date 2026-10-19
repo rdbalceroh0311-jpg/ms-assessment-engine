@@ -11,18 +11,20 @@ from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, Field
 
+# Report order: website and technical findings, then local SEO and digital presence.
 CATEGORIES = {
     "technical": "Website technical health",
     "seo": "SEO findings",
     "geo": "GEO / AI search readiness",
-    "local_seo": "Local SEO",
-    "entity": "Entity & brand authority",
     "performance": "Website performance",
     "accessibility": "Functionality & accessibility",
     "cro_ux": "CRO & UX/UI",
     "copywriting": "Copywriting & messaging",
-    "domain_email": "Domain, DNS & email health",
     "security": "Security observations",
+    "domain_email": "Domain, DNS & email health",
+    "local_seo": "Local SEO",
+    "entity": "Entity & brand authority",
+    "presence": "Digital presence & integration readiness",
 }
 SEVERITIES = {v: i for i, v in enumerate(("critical", "high", "medium", "low", "info"))}
 
@@ -156,6 +158,8 @@ class Context:
     max_pages: int = 100
     dataforseo_max_usd: float | None = None
     pages: list[str] = field(default_factory=list)
+    # Results of modules that already ran, so later modules reuse evidence instead of refetching.
+    results: list[ModuleResult] = field(default_factory=list)
 
     @property
     def host(self) -> str:

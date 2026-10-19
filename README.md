@@ -21,8 +21,9 @@ uv run ams-assess report data/customers/acme/<timestamp>
 ```
 
 Options: `--max-pages 100` (a conservative **URL** cap including assets), `--formats md,html,pdf`,
-`--no-ai`, `--connect gsc`, `--dataforseo-max-usd X`, `--dkim-selectors a,b`, `--mail-tls-check`. Default categories: technical, seo, geo,
-performance, accessibility, domain_email, security, local_seo, entity, cro_ux, copywriting.
+`--no-ai`, `--connect gsc`, `--dataforseo-max-usd X`, `--dkim-selectors a,b`, `--mail-tls-check`. Default categories (report order): technical,
+seo, geo, performance, accessibility, cro_ux, copywriting, security, domain_email, local_seo, entity,
+presence.
 Only required modules run; a domain/security/performance-only run has no crawl. Customer IDs must be
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
@@ -37,7 +38,10 @@ ANTHROPIC_API_KEY= uv run ams-assess run --customer fixture-ai \
 ```
 
 The five-page synthetic fixture includes a broken link, missing H1/meta description/alt text, low
-contrast, a weak CTA and a structured-data telephone mismatch. It contains no real customer data.
+contrast, a weak CTA and a structured-data telephone mismatch. Its home page also carries fictional,
+non-loading (`type="text/plain"`) GA4, GTM and Clarity tags, a `google-site-verification` meta tag,
+JSON-LD `sameAs` and footer links to fictional Google Business Profile, Facebook and Yellow Pages
+listings. It contains no real customer data and makes no third-party requests.
 An AI-generated sample from an authenticated fixture run is committed under
 [`examples/fixture-report/`](examples/fixture-report/) (report, results, findings and evidence).
 
@@ -58,6 +62,7 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | PageSpeed/CrUX | Mobile/desktop PageSpeed v5 with available URL/origin CrUX fields. Optional `PAGESPEED_API_KEY`. Separate CrUX only with `CRUX_API_KEY` or `GOOGLE_API_KEY`. Localhost and exhausted keyless quota are skipped. |
 | DataForSEO | Disabled unless `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` and explicit `--dataforseo-max-usd` are present. One Australia/English domain rank overview request by default (`DATAFORSEO_LOCATION_CODE`, overridden by `--dataforseo-location-code`), one result, no retries/pagination. Estimated $0.0101 is recorded before the call; a lower cap is refused. Provider price changes are outside this client cap; verify [pricing](https://dataforseo.com/pricing/dataforseo-labs/dataforseo-labs-api) before enabling. No paid endpoint is used in tests. |
 | Google Search Console | Explicit `--connect gsc`, service-account `GOOGLE_APPLICATION_CREDENTIALS` or OAuth `AMS_GSC_TOKEN_FILE`, and an accessible matching property. Optional `AMS_GSC_PROPERTY`. Read-only: top 100 queries/pages over 28 complete days with 3-day lag, plus sitemaps. OAuth requires an authorized-user JSON file created by `gsc-auth`. |
+| Digital presence (`presence`) | No requests of its own: reuses browser DOM (meta tags, script URLs, inline tag snippets, `<link>` URLs, anchors, JSON-LD, request URLs), SiteOne headers/external URLs/robots.txt/canonical summary, domain_email MX/TXT and the GSC connection state. Detects Search Console/Bing verification, GA4, legacy UA, GTM, Clarity, Hotjar, Google Ads, Meta, LinkedIn, Bing UET, TikTok, WordPress/Shopify/Wix/Squarespace/Webflow/Joomla/Drupal and Google Workspace/Microsoft 365, with IDs as evidence. Listings (Google Business Profile, Bing, Apple Maps, Facebook, Instagram, LinkedIn and AU directories) only when the website links to them. Produces platform, listing, search/local signal (NAP, location pages, robots.txt, sitemap, canonicals), connected-readiness and customer access checklist tables. Statuses: Detected / Not detected (no public signal on sampled pages, never "no account") / Unknown (e.g. GTM present but GA4 not seen) / NOT ASSESSED. Listings always need ownership confirmation; no listing site is queried and no GBP lookup is made. `AMS_ACCESS_EMAIL` names the AMS account in the checklist (placeholder if unset). |
 | AI | `ANTHROPIC_API_KEY` selects Anthropic SDK (billable; no retries); otherwise authenticated `claude -p --output-format json` with strict schema, tools/hooks/MCP disabled and 300-second timeout; otherwise deterministic fallback. `--no-ai` disables both. Prompt/raw responses stay in the run directory. |
 
 ## Outputs and interpretation
@@ -68,7 +73,7 @@ data/customers/<customer>/<UTC timestamp>/
   screenshots/                 # bounded desktop/mobile sample
   evidence.json                # stable ev-<module>-NNN IDs within the run
   findings.json
-  results.json                 # scope, statuses, limitations, AI and findings
+  results.json                 # scope, statuses, limitations, AI, findings, digital_presence
   report.md                    # master Jinja2 template
   report.html                  # python-markdown + print CSS
   report.pdf                   # same HTML printed by Chromium
@@ -86,7 +91,9 @@ conversion lift, full manual accessibility assessment or assurance of security. 
 crawlability readiness; **AI search visibility is not measured**. No A/B or behavioural data. Local
 fixture headers say nothing about production hosting. Public quotas/outages may leave performance or
 Observatory unavailable. GSC, DataForSEO and the SDK path require credentials and are not proven live
-by the fixture. `modules` and report limitations list future capabilities (Elmo, Houtini, OpenSEO, GBP,
+by the fixture. Platform and listing detection only sees the sampled pages: tags behind consent or
+loaded from unsampled templates, and profiles not linked from the site, are reported as not detected
+or unknown, never as absent. The access checklist never requests passwords; customers keep ownership. `modules` and report limitations list future capabilities (Elmo, Houtini, OpenSEO, GBP,
 GA4, WP-CLI, Workspace/M365, social SEO, PR, A/B and heatmaps); none is implemented or measured.
 
 ## Development
@@ -103,5 +110,6 @@ uv run ty check ams_assess tests
 ```
 
 Tests cover consolidation, AI evidence rejection, customer separation, paid-call guards, GSC property
-matching, quota failure, module isolation and a real no-AI fixture run with PDF/citation checks.
+matching, quota failure, module isolation, platform/listing detection, readiness and access
+checklist rules, and a real no-AI fixture run with PDF/citation checks.
 The fixture test skips only when SiteOne, Chromium or axe is absent; run setup to exercise it.

@@ -1,3 +1,35 @@
+{% macro finding_block(finding) %}
+### {{ finding.id | text }}: {{ finding.title | text }}
+
+**Severity:** {{ finding.severity }} | **Confidence:** {{ finding.confidence }} | **Type:** {{ finding.kind }} | **Priority:** {{ finding.priority }}
+
+{{ finding.detail | text }}
+
+**Recommended action:** {{ finding.recommendation | text }}
+
+{% if finding.likely_cause %}
+**Likely cause (interpretation):** {{ finding.likely_cause | text }}
+
+{% endif %}
+{% if finding.business_impact %}
+**Potential business impact:** {{ finding.business_impact | text }}
+
+{% endif %}
+**Suggested AMS service:** {{ finding.ams_service | text }}
+
+{% if finding.urls %}
+**Affected URLs:** {{ finding.urls | join('; ') | text }}
+
+{% endif %}
+**Evidence:** {{ finding.evidence_ids | join(', ') }}
+{% endmacro %}
+{% macro platform_table(rows) %}
+| Platform | Status | Connected & verified | Evidence | Recommended next action |
+| --- | --- | --- | --- | --- |
+{% for r in rows %}
+| {{ r.platform | text }}{% if r.ids %} ({{ r.ids | join(', ') | text }}){% endif %} | {{ r.status | text }} | {{ r.connected | text }} | {{ r.detail | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %} | {{ r.action | text }} |
+{% endfor %}
+{% endmacro %}
 # AI Managed Services
 ## Website assessment report
 
@@ -16,7 +48,7 @@
 The assessment recorded {{ findings | length }} evidence-backed findings across {{ data.assessed_categories | length }} categories with available evidence. The recommendations below prioritise the observed issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
 {% endif %}
 
-{% for category, title in sections.items() %}
+{% for category, title in sections.items() if category != 'presence' %}
 ## {{ title }}
 
 {% if ai.get('sections', {}).get(category) %}
@@ -46,35 +78,96 @@ The assessment recorded {{ findings | length }} evidence-backed findings across 
 {% endfor %}
 {% endif %}
 {% for finding in findings if finding.category == category %}
-### {{ finding.id | text }}: {{ finding.title | text }}
-
-**Severity:** {{ finding.severity }} | **Confidence:** {{ finding.confidence }} | **Type:** {{ finding.kind }} | **Priority:** {{ finding.priority }}
-
-{{ finding.detail | text }}
-
-**Recommended action:** {{ finding.recommendation | text }}
-
-{% if finding.likely_cause %}
-**Likely cause (interpretation):** {{ finding.likely_cause | text }}
-
-{% endif %}
-{% if finding.business_impact %}
-**Potential business impact:** {{ finding.business_impact | text }}
-
-{% endif %}
-**Suggested AMS service:** {{ finding.ams_service | text }}
-
-{% if finding.urls %}
-**Affected URLs:** {{ finding.urls | join('; ') | text }}
-
-{% endif %}
-**Evidence:** {{ finding.evidence_ids | join(', ') }}
-
+{{ finding_block(finding) }}
 {% else %}
 No reportable findings were established from the available checks in this category. This does not establish that the category is free of issues; coverage and missing data are listed below.
 
 {% endfor %}
 {% endfor %}
+{% set p = data.get('digital_presence') %}
+{% if p %}
+## Local SEO & digital presence
+
+{% if ai.get('sections', {}).get('presence') %}
+{{ ai.sections.presence | text }}
+
+{% endif %}
+Public assessment only: statuses below come from the sampled pages ({{ p.pages_sampled | length }}), the crawl and public DNS, without additional requests.{% if p.status != 'assessed' %} **NOT ASSESSED:** {{ p.get('reason', '') | text }}.{% endif %}
+
+
+{% for note in p.notes %}
+> {{ note | text }}
+
+{% endfor %}
+| Signal | Status | Detail | Evidence |
+| --- | --- | --- | --- |
+{% for r in p.signals %}
+| {{ r.signal | text }} | {{ r.status | text }} | {{ r.detail | text }} | {{ r.evidence_ids | join(', ') or '-' }} |
+{% else %}
+| Search and local presence signals | NOT ASSESSED | No page or crawl evidence collected | - |
+{% endfor %}
+
+## Business listings & platform opportunities
+
+### Business listings linked from the website
+
+| Listing | Status | Source | Evidence URL | Ownership | Evidence |
+| --- | --- | --- | --- | --- | --- |
+{% for r in p.listings %}
+| {{ r.listing | text }} | {{ r.status | text }} | {{ r.sources | join(', ') | text or '-' }} | {{ r.urls | join('; ') | text or '-' }} | {{ r.ownership | text }} | {{ r.evidence_ids | join(', ') or '-' }} |
+{% endfor %}
+
+### Website and email platforms
+
+{% set cms = p.platforms | selectattr('group', 'in', ['cms', 'email']) | list %}
+{% set cms_missing = cms | selectattr('group', 'equalto', 'cms') | selectattr('status', 'equalto', 'Not detected') | list %}
+{{ platform_table(cms | rejectattr('platform', 'in', cms_missing | map(attribute='platform') | list) | list) }}
+{% if cms_missing %}
+Other website platforms not detected on the sampled pages: {{ cms_missing | map(attribute='platform') | join(', ') | text }} (evidence {{ cms_missing[0].evidence_ids | join(', ') }}).
+
+{% endif %}
+{% for finding in findings if finding.category == 'presence' and not finding.check_key.startswith('tracking:') %}
+{{ finding_block(finding) }}
+{% endfor %}
+## Analytics & tracking readiness
+
+{{ platform_table(p.platforms | selectattr('group', 'in', ['search', 'analytics', 'advertising']) | list) }}
+{% for finding in findings if finding.category == 'presence' and finding.check_key.startswith('tracking:') %}
+{{ finding_block(finding) }}
+{% endfor %}
+## Connected assessment opportunities
+
+### Public assessment
+
+| Service | Public evidence | Account / ownership | Authorised access | What access would provide | Customer next step |
+| --- | --- | --- | --- | --- | --- |
+{% for r in p.readiness %}
+| {{ r.service | text }} | {{ r.public_evidence | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %} | {{ r.confirmation | text }} | {{ r.access | text }} | {{ r.insights | text }} | {{ r.next_step | text }} |
+{% endfor %}
+
+### Authorised connection findings
+
+{% for r in p.authorised %}
+- **{{ r.source | text }}:** {{ r.detail | text }} Evidence: {{ r.evidence_ids | join(', ') }}.
+{% else %}
+No authorised connections were used in this assessment; every status above comes from public evidence.
+{% endfor %}
+
+## Customer access requirements
+
+{% for rule in p.rules %}
+- {{ rule | text }}
+{% endfor %}
+{% if not p.access_email_configured %}
+- The AMS access account is shown as a placeholder; set AMS\_ACCESS\_EMAIL before sending this checklist.
+{% endif %}
+
+{% for item in p.checklist %}
+{{ loop.index }}. **{{ item.service | text }}** (access: {{ item.access | text }}{% if item.condition %}; {{ item.condition | text }}{% endif %}): {{ item.action | text }}{% if item.evidence_ids %} Evidence: {{ item.evidence_ids | join(', ') }}.{% endif %}
+
+{% endfor %}
+{% endif %}
+
 ## Prioritised recommendations
 
 {% for f in recommendations %}

@@ -4,12 +4,12 @@ from typing import Any
 from ams_assess.ai import analyse
 from ams_assess.consolidate import consolidate
 from ams_assess.models import CATEGORIES, Context, ModuleResult, write_json
-from ams_assess.modules import FUTURE, REGISTRY, domain_email
+from ams_assess.modules import FUTURE, REGISTRY, domain_email, presence
 from ams_assess.report import render
 
 
 def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> dict[str, Any]:
-    results = []
+    results = ctx.results = []
     for name, module in REGISTRY.items():
         if not ctx.categories & module.categories:
             continue
@@ -98,6 +98,8 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
     }
     if "domain_email" in ctx.categories:
         data["domain_email_health"] = domain_email.health_summary(results, ctx.categories)
+    if "presence" in ctx.categories:
+        data["digital_presence"] = presence.summary(results, ctx)
     if any(r.status != "ok" or r.reason for r in results) or ai["status"] == "error":
         data["status"] = "partial" if evidence else "incomplete"
     write_json(ctx.run_dir / "findings.json", data["findings"])

@@ -78,8 +78,13 @@ def compact_evidence(evidence: list[Evidence]) -> list[dict[str, Any]]:
     for item in evidence:
         value = item.data
         if item.source == "browser":
-            value = {k: v for k, v in value.items() if k != "axe"}
-            value["page"] = dict(value.get("page", {}))
+            value = {k: v for k, v in value.items() if k not in {"axe", "requests"}}
+            # Raw tag/link signals are summarised by presence evidence; keep page text in budget.
+            value["page"] = {
+                k: v
+                for k, v in value.get("page", {}).items()
+                if k not in {"script_srcs", "tag_snippets", "resource_links", "links"}
+            }
             value["page"]["visible_text_summary"] = value["page"].get("visible_text_summary", "")[
                 :3500
             ]
@@ -126,6 +131,9 @@ A/B results or behaviour. State unavailable measurements as limitations, not def
 confirmed facts from likely causes. Recommendations are finding IDs ordered by priority. Roadmap
 keys are 0-30 days, 30-90 days, 90+ days with finding IDs. Propose realistic phases; write
 concise professional customer prose. No raw HTML or Markdown headings in narrative strings.
+Digital presence evidence (ev-presence-*) holds deterministic platform, listing and readiness
+statuses: cite it, but never invent detections, account ownership, listings, connections or
+scores. "Not detected" only means no public signal on the sampled pages.
 """
     payload = {
         "customer": ctx.customer_name,
