@@ -282,9 +282,10 @@ def test_starttls_verifies_certificate_against_mx_hostname(monkeypatch):
         wrapped["connect"] = address
         return plain
 
-    def wrap_socket(sock, server_hostname=None):
+    def wrap_socket(sock, server_hostname=None, do_handshake_on_connect=True):
         # The real default context raises without server_hostname when check_hostname is on.
         wrapped["server_hostname"] = server_hostname
+        assert do_handshake_on_connect is False
         return tls
 
     mx_address(monkeypatch)
@@ -296,6 +297,7 @@ def test_starttls_verifies_certificate_against_mx_hostname(monkeypatch):
     assert info["banner"] == "mx.example.com ESMTP" and info["starttls"] is True
     assert info["certificate"]["verified"] is True and "error" not in info
     assert plain.commands() == ["EHLO", "STARTTLS"]
+    tls.do_handshake.assert_called_once_with()
 
 
 def test_slow_mx_is_cancelled_without_further_commands(monkeypatch):
@@ -311,6 +313,54 @@ def test_slow_mx_is_cancelled_without_further_commands(monkeypatch):
     time.sleep(0.3)
     assert stalled.commands() == ["EHLO"]  # no STARTTLS or QUIT after cancellation
     assert not any(t.name == "smtp-probe-slow.example.com" for t in threading.enumerate())
+
+
+class StalledTLS(FakeSocket):
+    """TLS layer whose handshake blocks until the socket is shut down or closed."""
+
+    def __init__(self):
+        super().__init__([])
+        self.timeouts, self.handshake_ended = [], threading.Event()
+
+    def settimeout(self, timeout):
+        self.timeouts.append(timeout)
+
+    def do_handshake(self):
+        self.closed.wait(5)
+        self.handshake_ended.set()
+        raise ssl.SSLError("handshake aborted")
+
+
+def test_stalled_tls_handshake_is_cancelled_by_closing_tls_socket(monkeypatch):
+    plain = FakeSocket(
+        [
+            b"220 mx.example.com ESMTP\r\n",
+            b"250-mx.example.com\r\n",
+            b"250 STARTTLS\r\n",
+            b"220 Go\r\n",
+        ]
+    )
+    tls = StalledTLS()
+
+    def wrap_socket(sock, server_hostname=None, do_handshake_on_connect=True):
+        assert do_handshake_on_connect is False and server_hostname == "tls-stall.example.com"
+        return tls
+
+    mx_address(monkeypatch)
+    monkeypatch.setattr(domain_email.socket, "create_connection", lambda address, timeout: plain)
+    context = SimpleNamespace(wrap_socket=wrap_socket)
+    monkeypatch.setattr(domain_email.ssl, "create_default_context", lambda: context)
+    started = time.monotonic()
+    info = domain_email.smtp_tls("tls-stall.example.com", timeout=0.5)
+    elapsed = time.monotonic() - started
+    assert "limit" in info["error"] and "certificate" not in info
+    assert elapsed <= 0.5 + 0.3
+    # The caller shut down the TLS-layer socket, which is what aborted the handshake.
+    assert tls.shut and tls.closed.is_set() and tls.handshake_ended.wait(1)
+    assert tls.timeouts and all(0 < t <= 0.5 for t in tls.timeouts)
+    time.sleep(0.3)
+    assert plain.commands() == ["EHLO", "STARTTLS"] and tls.sent == []  # no QUIT
+    assert not any(t.name == "smtp-probe-tls-stall.example.com" for t in threading.enumerate())
 
 
 def test_mx_resolution_counts_only_hosts_that_resolved(tmp_path, monkeypatch):

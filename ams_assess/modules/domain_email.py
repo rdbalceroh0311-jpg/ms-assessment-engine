@@ -346,7 +346,9 @@ class _SMTP(smtplib.SMTP):
         holder: dict[str, Any],
         **kwargs: Any,
     ) -> None:
-        self.address, self.deadline, self.cancelled = address, deadline, cancelled
+        self.mx_host, self.address, self.deadline = host, address, deadline
+        self.cancelled = cancelled
+        self.lock: threading.Lock = holder["lock"]
         holder["client"] = self
         super().__init__(host, 25, **kwargs)
 
@@ -372,6 +374,30 @@ class _SMTP(smtplib.SMTP):
     def putcmd(self, cmd, args=""):
         self._remaining()
         super().putcmd(cmd, args)
+
+    def starttls(self, *, context=None):
+        """smtplib.starttls, but the TLS socket becomes cancellable before the handshake."""
+        resp, reply = self.docmd("STARTTLS")
+        if resp != 220:
+            raise smtplib.SMTPResponseException(resp, reply)
+        plain = self.sock
+        if plain is None:
+            raise smtplib.SMTPServerDisconnected("not connected")
+        context = context or ssl.create_default_context()
+        tls = context.wrap_socket(
+            plain, server_hostname=self.mx_host, do_handshake_on_connect=False
+        )
+        with self.lock:
+            if self.cancelled.is_set():
+                tls.close()
+                raise TimeoutError("SMTP probe cancelled")
+            self.sock = tls  # the caller's cancel path now shuts down the TLS socket
+        self._remaining()
+        tls.do_handshake()
+        self.file = None
+        self.helo_resp = self.ehlo_resp = None
+        self.esmtp_features, self.does_esmtp = {}, False
+        return resp, reply
 
 
 def _smtp_probe(
@@ -429,7 +455,8 @@ def smtp_tls(host: str, timeout: float = 10) -> dict[str, Any]:
             break
     if address is None:
         return {"host": host, "error": "MX address lookup failed"}
-    cancelled, lock, holder, done = threading.Event(), threading.Lock(), {}, {}
+    cancelled, lock, done = threading.Event(), threading.Lock(), {}
+    holder: dict[str, Any] = {"lock": lock}
 
     def work() -> None:
         info = _smtp_probe(host, address, deadline, cancelled, holder)
@@ -444,8 +471,9 @@ def smtp_tls(host: str, timeout: float = 10) -> dict[str, Any]:
         if "info" in done:
             return {"host": host, **done["info"]}
         cancelled.set()  # under the lock: the worker can no longer publish a late result
+        # The active socket (plain or TLS) is read under the same lock starttls publishes under.
+        sock = getattr(holder.get("client"), "sock", None)
     # Force any blocking read/handshake to fail now rather than at its socket timeout.
-    sock = getattr(holder.get("client"), "sock", None)
     if sock is not None:
         with contextlib.suppress(OSError):
             sock.shutdown(socket.SHUT_RDWR)
