@@ -378,7 +378,7 @@ def serve(routes, log=None, clock=None, cost=0.0):
     return httpx.MockTransport(handler)
 
 
-def test_sitemap_parse_requires_sitemaps_org_root_with_locs():
+def test_sitemap_parse_requires_sitemaps_org_root_with_locs(monkeypatch):
     assert presence.parse_sitemap(URLSET) == ("urlset", 2, "")
     index = (
         b'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
@@ -404,6 +404,15 @@ def test_sitemap_parse_requires_sitemaps_org_root_with_locs():
     assert presence.parse_sitemap(declared_utf16)[2] == "unsupported encoding (UTF-16)"
     assert presence.parse_sitemap(dtd.encode() + URLSET[21:])[0] == "invalid"
     assert presence.parse_sitemap(b"\xef\xbb\xbf" + URLSET) == ("urlset", 2, "")
+    # BOM-less UTF-16 is ASCII interleaved with NULs: valid UTF-8, invisible to the text scan.
+    bomless = (dtd + URLSET.decode()[21:]).replace("https://example.com/</loc>", "&e;</loc>")
+    for codec in ["utf-16-le", "utf-16-be"]:
+        kind, _, problem = presence.parse_sitemap(bomless.encode(codec))
+        assert kind == "invalid" and "unsupported encoding" in problem
+    # The parser itself rejects declarations the text scan would miss.
+    monkeypatch.setattr(presence.re, "search", lambda *a, **k: None)
+    kind, _, problem = presence.parse_sitemap(dtd.encode() + URLSET[21:])
+    assert kind == "invalid" and "document type declarations" in problem
 
 
 def test_sitemap_statuses_follow_retrieval_and_robots_knowledge(tmp_path, monkeypatch):

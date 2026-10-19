@@ -11,6 +11,7 @@ import time
 import xml.etree.ElementTree as ET
 from typing import Any
 from urllib.parse import urljoin, urlsplit
+from xml.parsers import expat
 
 import httpx
 
@@ -710,11 +711,28 @@ def parse_sitemap(body: bytes) -> tuple[str, int, str]:
         text = body.removeprefix(b"\xef\xbb\xbf").decode("utf-8")
     except UnicodeDecodeError:
         return "invalid", 0, "unsupported encoding (not valid UTF-8)"
+    if "\x00" in text:  # BOM-less UTF-16 decodes as "UTF-8" with NULs between characters.
+        return "invalid", 0, "unsupported encoding (NUL characters; likely UTF-16)"
     declared = re.match(r"\s*<\?xml[^>]*?\bencoding\s*=\s*[\"']([^\"']+)", text)
     if declared and declared.group(1).lower().replace("_", "-") not in {"utf-8", "utf8"}:
         return "invalid", 0, f"unsupported encoding ({declared.group(1)})"
-    if re.search(r"<!(?:DOCTYPE|ENTITY)", text, re.I):
+    if re.search(r"<!(?:DOCTYPE|ENTITY)", text, re.I):  # Fast path; the parser enforces it.
         return "invalid", 0, "document type declarations are not allowed in a sitemap"
+
+    def reject(*_: Any) -> None:
+        raise ValueError("document type declarations are not allowed in a sitemap")
+
+    # ElementTree's C parser does not expose its expat parser, so a bare expat pass over the
+    # same text aborts on any DOCTYPE or ENTITY declaration before the tree is built.
+    guard = expat.ParserCreate()
+    guard.StartDoctypeDeclHandler = reject
+    guard.EntityDeclHandler = reject
+    try:
+        guard.Parse(text, True)
+    except ValueError as exc:
+        return "invalid", 0, str(exc)
+    except expat.ExpatError:
+        return "invalid", 0, "not well-formed XML"
     try:
         root = ET.fromstring(text)
     except ET.ParseError:
