@@ -8,6 +8,7 @@ and only after SiteOne reached the site. Statuses are deterministic; AI may only
 
 import re
 import time
+import xml.etree.ElementTree as ET
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
@@ -36,6 +37,7 @@ NOT_CONNECTED = "Not connected"
 PLACEHOLDER_EMAIL = "[AMS access account - set AMS_ACCESS_EMAIL]"
 PASS, WARNING = "PASS", "WARNING"
 SITEMAP_TIMEOUT, SITEMAP_MAX_BYTES = 10, 2_000_000
+SITEMAP_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
 
 # key: (label, group, patterns). A first capture group, when it matched, is recorded as an ID.
 # Matched against script URLs, inline script/noscript text, <link> URLs, request URLs,
@@ -395,15 +397,44 @@ def consent_context(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
     return {"managers": sorted(managers), "gated_scripts": sorted(gated)}
 
 
-def nap_check(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
-    """Compare structured NAP with observed values.
+def nap_compare(
+    page: str, field: str, value: str, shown: dict[str, str], key: str, ambiguity: str
+) -> dict[str, Any]:
+    """Match, an unambiguous conflict, or unconfirmed (with the reason it cannot be confirmed)."""
+    result, reason = "match", ""
+    if key not in shown:
+        if not shown:
+            result, reason = "unconfirmed", "not seen on the page"
+        elif ambiguity or len(shown) > 1:
+            result, reason = "unconfirmed", ambiguity or f"{len(shown)} different values shown"
+        else:
+            result = "conflict"
+    return {
+        "page": page,
+        "field": field,
+        "structured": value,
+        "result": result,
+        "observed": sorted(shown.values()),
+        "reason": reason,
+    }
 
-    Only a concretely different observed value is a conflict. A value missing from the
-    (possibly truncated) visible text is "not_found", which is never a confirmed mismatch.
+
+def nap_check(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
+    """Compare structured NAP with what the same page shows.
+
+    A conflict is confirmed only when it is unambiguous: one business entity on the page, an
+    untruncated page, and exactly one distinct phone (or postcode) shown that differs. Anything
+    else that does not match (several entities or values, truncation, value not seen) is
+    "unconfirmed". Values from different pages are never compared.
     """
-    entities, site_phones, postcodes, text = [], {}, set(), ""
+    entities, checks, seen = [], [], set()
     for _, record in pages:
+        url = str(record.get("url", ""))
+        if url in seen:  # Desktop and mobile render the same page; compare it once.
+            continue
+        seen.add(url)
         page = record.get("page", {})
+        page_entities: list[dict[str, Any]] = []
         for node in jsonld_nodes(page.get("json_ld", [])):
             try:
                 types = [str(t) for t in as_list(node.get("@type"))]
@@ -411,6 +442,7 @@ def nap_check(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
                     continue
                 address = next((a for a in as_list(node.get("address")) if isinstance(a, dict)), {})
                 entity = {
+                    "page": url,
                     "type": types,
                     "name": str(node.get("name") or ""),
                     "telephone": [str(t) for t in as_list(node.get("telephone"))],
@@ -419,55 +451,61 @@ def nap_check(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
                 }
             except (AttributeError, TypeError):
                 continue
-            if entity not in entities:
-                entities.append(entity)
+            if entity not in page_entities:
+                page_entities.append(entity)
+        if not page_entities:
+            continue
+        entities += page_entities
+        phones: dict[str, str] = {}
         for contact in page.get("contacts", []):
             href = str(contact.get("href", ""))
             if href.startswith("tel:"):
-                site_phones.setdefault(phone_key(href), contact.get("text") or href[4:])
+                phones.setdefault(phone_key(href), contact.get("text") or href[4:])
         observed = "\n".join(
             [str(page.get("visible_text_summary", ""))]
             + [str(v) for v in page.get("nap_candidates", [])]
         )
         for match in PHONE.finditer(observed):
-            site_phones.setdefault(phone_key(match.group(0)), match.group(0).strip())
-        postcodes |= set(POSTCODE.findall(observed))
-        text += "\n" + observed
-    folded = " ".join(text.casefold().split())
-    checks = []
-
-    def add(field: str, value: str, result: str, observed: list[str] | None = None) -> None:
-        checks.append(
-            {"field": field, "structured": value, "result": result, "observed": observed or []}
+            phones.setdefault(phone_key(match.group(0)), match.group(0).strip())
+        postcodes = sorted(set(POSTCODE.findall(observed)))
+        folded = " ".join(observed.casefold().split())
+        # Why a non-match on this page cannot be confirmed, if it cannot.
+        ambiguity = (
+            "several business entities on the page"
+            if len(page_entities) > 1
+            else "page text truncated"
+            if page.get("visible_text_truncated")
+            else ""
         )
 
-    for entity in entities:
-        for phone in entity["telephone"]:
-            if phone_key(phone) in site_phones:
-                add("telephone", phone, "match")
-            elif site_phones:
-                add("telephone", phone, "conflict", sorted(site_phones.values()))
-            else:
-                add("telephone", phone, "not_found")
-        postcode = entity["postcode"]
-        if postcode:
-            if postcode in postcodes:
-                add("postcode", postcode, "match")
-            elif postcodes:
-                add("postcode", postcode, "conflict", sorted(postcodes))
-            else:
-                add("postcode", postcode, "not_found")
-        for field in ["name", "street"]:
-            value = entity[field]
-            if value:
-                found = " ".join(value.casefold().split()) in folded
-                add(field, value, "match" if found else "not_found")
+        for entity in page_entities:
+            for phone in entity["telephone"]:
+                checks.append(
+                    nap_compare(url, "telephone", phone, phones, phone_key(phone), ambiguity)
+                )
+            if entity["postcode"]:
+                shown = {c: c for c in postcodes}
+                code = entity["postcode"]
+                checks.append(nap_compare(url, "postcode", code, shown, code, ambiguity))
+            for field in ["name", "street"]:
+                value = entity[field]
+                if value and " ".join(value.casefold().split()) not in folded:
+                    checks.append(
+                        {
+                            "page": url,
+                            "field": field,
+                            "structured": value,
+                            "result": "unconfirmed",
+                            "observed": [],
+                            "reason": "not seen in the page text",
+                        }
+                    )
     results = {c["result"] for c in checks}
     if not entities:
         status = "Unknown (no structured business data)"
     elif "conflict" in results:
         status = "Inconsistent"
-    elif "not_found" in results or not checks:
+    elif "unconfirmed" in results or not checks:
         status = UNKNOWN
     else:
         status = "Consistent"
@@ -620,90 +658,127 @@ def checklist(readiness: list[dict[str, Any]], email: str) -> list[dict[str, Any
     return items
 
 
-def fetch(url: str) -> dict[str, Any]:
-    """One bounded GET: same-origin redirects only (two at most), 10 s deadline, 2 MB cap."""
-    deadline = time.monotonic() + SITEMAP_TIMEOUT
-    try:
-        with httpx.Client(timeout=SITEMAP_TIMEOUT, follow_redirects=False) as client:
-            for _ in range(3):
-                with client.stream("GET", url) as response:
-                    location = response.headers.get("location", "")
-                    if response.is_redirect and location:
-                        target = urljoin(url, location)
-                        parts = urlsplit(target)
-                        if (parts.hostname or "", parts.port) != (
-                            urlsplit(url).hostname or "",
-                            urlsplit(url).port,
-                        ) or parts.scheme not in {"http", "https"}:
-                            return {"url": url, "status": response.status_code, "redirect": target}
-                        url = target
-                        continue
-                    body, truncated = b"", False
-                    for chunk in response.iter_bytes():
-                        body += chunk
-                        if len(body) > SITEMAP_MAX_BYTES or time.monotonic() > deadline:
-                            truncated = True
-                            break
-                    return {
-                        "url": url,
-                        "status": response.status_code,
-                        "content_type": response.headers.get("content-type", ""),
-                        "body": body[:SITEMAP_MAX_BYTES].decode("utf-8", "replace"),
-                        "truncated": truncated,
-                    }
-            return {"url": url, "error": "TooManyRedirects"}
-    except (httpx.HTTPError, ValueError) as exc:
-        return {"url": url, "error": type(exc).__name__}
+def origin_of(url: str) -> tuple[str, str, int | None]:
+    parts = urlsplit(url)
+    port = parts.port or {"http": 80, "https": 443}.get(parts.scheme)
+    return parts.scheme, (parts.hostname or "").lower(), port
 
 
-def parse_sitemap(body: str) -> tuple[str, int]:
-    """Root type and child count, by counting tags (no XML parser, no recursion)."""
-    if re.search(r"<(?:\w+:)?sitemapindex\b", body):
-        return "sitemapindex", len(re.findall(r"<(?:\w+:)?sitemap\b", body))
-    if re.search(r"<(?:\w+:)?urlset\b", body):
-        return "urlset", len(re.findall(r"<(?:\w+:)?loc\b", body))
-    return "other", 0
+def fetch(client: httpx.Client, url: str, origin: tuple, deadline: float) -> dict[str, Any]:
+    """One GET plus at most one redirect, which must keep scheme, host and port.
 
-
-def sitemap_check(ctx: Context) -> dict[str, Any]:
-    """robots.txt Sitemap lines, then the first same-origin sitemap (or /sitemap.xml), once each.
-
-    SiteOne loads robots.txt but does not keep its content, so robots.txt is fetched here.
+    Every request gets the remaining shared deadline as its timeout; reading stops at the
+    deadline or the 2 MB cap and the result is then marked incomplete.
     """
+    for hop in range(2):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return {"url": url, "error": "DeadlineExceeded"}
+        try:
+            with client.stream("GET", url, timeout=httpx.Timeout(remaining)) as response:
+                if response.is_redirect:
+                    target = urljoin(url, response.headers.get("location", ""))
+                    if hop or origin_of(target) != origin:
+                        return {"url": url, "status": response.status_code, "redirect": target}
+                    url = target
+                    continue
+                body, complete = b"", True
+                for chunk in response.iter_bytes():
+                    body += chunk
+                    if len(body) > SITEMAP_MAX_BYTES or time.monotonic() > deadline:
+                        complete = False
+                        break
+                return {
+                    "url": url,
+                    "status": response.status_code,
+                    "content_type": response.headers.get("content-type", ""),
+                    "body": body[:SITEMAP_MAX_BYTES],
+                    "complete": complete,
+                }
+        except (httpx.HTTPError, ValueError) as exc:
+            return {"url": url, "error": type(exc).__name__}
+    return {"url": url, "error": "TooManyRedirects"}
+
+
+def parse_sitemap(body: bytes) -> tuple[str, int, str]:
+    """(kind, entries, problem) for a complete body; kind is urlset, sitemapindex or invalid."""
+    if b"<!DOCTYPE" in body.upper() or b"<!ENTITY" in body.upper():
+        return "invalid", 0, "document type declarations are not allowed in a sitemap"
+    try:
+        root = ET.fromstring(body)
+    except ET.ParseError:
+        return "invalid", 0, "not well-formed XML"
+    for kind, child in [("urlset", "url"), ("sitemapindex", "sitemap")]:
+        if root.tag == SITEMAP_NS + kind:
+            entries = [
+                e
+                for e in root.findall(SITEMAP_NS + child)
+                if (e.findtext(SITEMAP_NS + "loc") or "").strip()
+            ]
+            if not entries:
+                return "invalid", 0, f"<{kind}> has no <loc> entries"
+            return kind, len(entries), ""
+    return "invalid", 0, f"root element {root.tag} is not a sitemaps.org urlset or sitemapindex"
+
+
+def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[str, Any]:
+    """robots.txt, then its first same-origin Sitemap (else /sitemap.xml): two GETs at most.
+
+    SiteOne loads robots.txt but does not keep its content, so it is fetched here. All requests
+    share one 10-second deadline.
+    """
+    started = time.monotonic()
+    deadline = started + SITEMAP_TIMEOUT
+    origin = origin_of(ctx.target)
     parts = urlsplit(ctx.target)
-    origin = f"{parts.scheme}://{parts.netloc}"
-    robots = fetch(origin + "/robots.txt")
-    declared = []
-    if robots.get("status") == 200:
-        for match in re.finditer(r"(?im)^\s*sitemap\s*:\s*(\S+)", robots.get("body", "")):
-            url = resolve(match.group(1), origin + "/robots.txt")
-            if url:
-                declared.append(url)
-    data: dict[str, Any] = {
-        "robots_url": origin + "/robots.txt",
-        "robots_status": robots.get("status") or robots.get("error"),
-        "declared": declared,
-    }
-    same_origin = [u for u in declared if urlsplit(u).netloc == parts.netloc]
-    if declared and not same_origin:
-        return data | {
-            "status": NOT_ASSESSED,
-            "detail": "robots.txt declares a sitemap on another host; it was not fetched",
+    base = f"{parts.scheme}://{parts.netloc}"
+    with httpx.Client(follow_redirects=False, transport=transport) as client:
+        robots = fetch(client, base + "/robots.txt", origin, deadline)
+        declared: list[str] | None = None  # None: declarations unknown.
+        if robots.get("status") == 200 and robots.get("complete"):
+            text = robots["body"].decode("utf-8", "replace")
+            declared = [
+                url
+                for m in re.finditer(r"(?im)^\s*sitemap\s*:\s*(\S+)", text)
+                if (url := resolve(m.group(1), base + "/robots.txt"))
+            ]
+        elif robots.get("status") in {404, 410}:
+            declared = []
+        data: dict[str, Any] = {
+            "robots_url": base + "/robots.txt",
+            "robots_status": robots.get("status") or robots.get("error"),
+            "declared": declared if declared is not None else "unknown",
+            "confirmed": True,
         }
-    url = same_origin[0] if same_origin else origin + "/sitemap.xml"
-    response = fetch(url)
+        same_origin = [u for u in declared or [] if origin_of(u) == origin]
+        if declared and not same_origin:
+            return data | {
+                "status": NOT_ASSESSED,
+                "detail": "robots.txt declares a sitemap on another origin; it was not fetched",
+            }
+        url = same_origin[0] if same_origin else base + "/sitemap.xml"
+        response = fetch(client, url, origin, deadline)
     data |= {
         "sitemap_url": url,
         "source": "robots.txt Sitemap line" if same_origin else "default /sitemap.xml",
         "http_status": response.get("status"),
         "content_type": response.get("content_type", ""),
-        "truncated": response.get("truncated", False),
+        "complete": response.get("complete", False),
+        "elapsed_seconds": round(time.monotonic() - started, 2),
     }
     if "error" in response or response.get("redirect"):
         reason = response.get("error") or f"redirect to {response['redirect']} not followed"
         return data | {"status": NOT_ASSESSED, "detail": f"Sitemap fetch failed: {reason}"}
     status_code = response["status"]
     if status_code in {404, 410}:
+        if declared is None:
+            # Without robots.txt we cannot know whether a sitemap is declared elsewhere.
+            return data | {
+                "status": WARNING,
+                "confirmed": False,
+                "detail": f"No sitemap at {url} (HTTP {status_code}); robots.txt declarations "
+                "unknown (robots.txt not retrieved)",
+            }
         return data | {
             "status": WARNING,
             "detail": f"No sitemap at {url} (HTTP {status_code})"
@@ -714,16 +789,21 @@ def sitemap_check(ctx: Context) -> dict[str, Any]:
             "status": NOT_ASSESSED,
             "detail": f"Sitemap fetch returned HTTP {status_code}",
         }
-    kind, count = parse_sitemap(response.get("body", ""))
-    data |= {"kind": kind, "url_count" if kind == "urlset" else "child_sitemaps": count}
-    if kind == "other":
-        return data | {"status": WARNING, "detail": f"{url} is not an XML sitemap or index"}
+    if not response["complete"]:
+        return data | {
+            "status": NOT_ASSESSED,
+            "detail": f"Sitemap at {url} not fully retrieved (2 MB cap or 10-second deadline)",
+        }
+    kind, count, problem = parse_sitemap(response["body"])
+    data["kind"] = kind
+    if kind == "invalid":
+        return data | {"status": WARNING, "detail": f"Sitemap invalid at {url}: {problem}"}
     noun = "URLs" if kind == "urlset" else "child sitemaps"
     return data | {
+        "entries": count,
         "status": PASS,
         "detail": f"{'Sitemap index' if kind == 'sitemapindex' else 'Sitemap'} at {url} "
-        f"({data['source']}) lists {count} {noun}"
-        + (" (truncated at 2 MB)" if data["truncated"] else ""),
+        f"({data['source']}) lists {count} {noun}",
     }
 
 
@@ -960,15 +1040,15 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
         nap = nap_check(pages)
         nap_eid = result.add_evidence(ctx.target, "NAP consistency comparison", nap)
         conflicts = [c for c in nap["checks"] if c["result"] == "conflict"]
-        unseen = [c for c in nap["checks"] if c["result"] == "not_found"]
+        unconfirmed = [c for c in nap["checks"] if c["result"] == "unconfirmed"]
         detail = "; ".join(
-            f"structured {c['field']} '{c['structured']}' differs from the site "
-            f"({', '.join(c['observed'])})"
+            f"on {c['page']}, structured {c['field']} '{c['structured']}' differs from the only "
+            f"value shown ({', '.join(c['observed'])})"
             for c in conflicts
         ) or "; ".join(
-            f"structured {c['field']} '{c['structured']}' not seen in the sampled page text "
-            "(text may be truncated)"
-            for c in unseen
+            f"on {c['page']}, structured {c['field']} '{c['structured']}' not confirmed "
+            f"({c['reason']})"
+            for c in unconfirmed
         )
         if not detail and nap["checks"]:
             detail = "Structured name, phone and address match the sampled pages"
@@ -1039,6 +1119,7 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
                 "signal": "XML sitemap",
                 "status": sitemap["status"],
                 "detail": sitemap["detail"],
+                "confirmed": sitemap.get("confirmed", True),
                 "evidence_ids": [sitemap_eid],
             }
         )
@@ -1123,14 +1204,16 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
         add_findings(result, by_key, listings, signals, same_as, coverage, refs)
     sitemap_row = next((r for r in signals if r["signal"] == "XML sitemap"), None)
     if sitemap_row and sitemap_row["status"] == WARNING:
+        invalid = sitemap_row["detail"].startswith("Sitemap invalid")
         result.finding(
-            "sitemap-missing",
-            "XML sitemap missing or invalid",
+            "sitemap-invalid" if invalid else "sitemap-missing",
+            "XML sitemap invalid" if invalid else "XML sitemap not found",
             "seo",
             sitemap_row["evidence_ids"],
             sitemap_row["detail"] + ".",
-            "Publish an XML sitemap of indexable pages and declare it in robots.txt.",
+            "Publish a valid XML sitemap of indexable pages and declare it in robots.txt.",
             severity="low",
+            confidence="confirmed" if sitemap_row["confirmed"] else "needs_verification",
             urls=[ctx.target],
         )
     return {

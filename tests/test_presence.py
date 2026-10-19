@@ -2,6 +2,7 @@ import json
 import re
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from ams_assess import runner
@@ -354,44 +355,176 @@ def test_ai_cannot_create_presence_findings():
     assert sum("Dropped AI finding" in w for w in warnings) == 2
 
 
-def test_sitemap_parse_and_statuses(tmp_path, monkeypatch):
-    assert presence.parse_sitemap("<urlset><url><loc>a</loc></url><url><loc>b</loc></url>") == (
-        "urlset",
-        2,
+URLSET = (
+    b'<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    b"<url><loc>https://example.com/</loc></url><url><loc>https://example.com/a</loc></url>"
+    b"</urlset>"
+)
+
+
+def serve(routes, log=None, clock=None, cost=0.0):
+    """MockTransport answering {url: Response | Exception}; anything else is 404."""
+
+    def handler(request):
+        if log is not None:
+            log.append((str(request.url), request.extensions["timeout"]["read"]))
+        if clock is not None:
+            clock[0] += cost
+        answer = routes.get(str(request.url), httpx.Response(404))
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    return httpx.MockTransport(handler)
+
+
+def test_sitemap_parse_requires_sitemaps_org_root_with_locs():
+    assert presence.parse_sitemap(URLSET) == ("urlset", 2, "")
+    index = (
+        b'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        b"<sitemap><loc>https://example.com/s1.xml</loc></sitemap></sitemapindex>"
     )
-    assert presence.parse_sitemap(
-        "<sitemapindex><sitemap><loc>a</loc></sitemap></sitemapindex>"
-    ) == ("sitemapindex", 1)
-    assert presence.parse_sitemap("<html></html>") == ("other", 0)
+    assert presence.parse_sitemap(index) == ("sitemapindex", 1, "")
+    for body in [
+        b"<html><!-- <urlset><url><loc>x</loc></url></urlset> --></html>",
+        b"<urlset><url><loc>no namespace</loc></url></urlset>",
+        b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>',
+        b"<urlset",
+        b'<!DOCTYPE x [<!ENTITY a "b">]><urlset/>',
+    ]:
+        assert presence.parse_sitemap(body)[0] == "invalid"
+
+
+def test_sitemap_statuses_follow_retrieval_and_robots_knowledge(tmp_path, monkeypatch):
     ctx = context(tmp_path)
+    robots = "https://example.com/robots.txt"
+    declared = httpx.Response(200, text="Sitemap: /map.xml\n")
+    found = presence.sitemap_check(
+        ctx,
+        serve(
+            {robots: declared, "https://example.com/map.xml": httpx.Response(200, content=URLSET)}
+        ),
+    )
+    assert found["status"] == PASS and found["entries"] == 2
+    missing = presence.sitemap_check(ctx, serve({}))
+    assert missing["status"] == WARNING and missing["confirmed"]
+    assert "robots.txt declares none" in missing["detail"]
+    comment = httpx.Response(200, content=b"<html><!-- <urlset><loc>a</loc></urlset> --></html>")
+    invalid = presence.sitemap_check(ctx, serve({"https://example.com/sitemap.xml": comment}))
+    assert invalid["status"] == WARNING and invalid["detail"].startswith("Sitemap invalid")
+    monkeypatch.setattr(presence, "SITEMAP_MAX_BYTES", 50)
+    big = presence.sitemap_check(
+        ctx, serve({"https://example.com/sitemap.xml": httpx.Response(200, content=URLSET)})
+    )
+    assert big["status"] == NOT_ASSESSED and "not fully retrieved" in big["detail"]
+    # robots.txt timed out: a 404 at /sitemap.xml is never a confirmed missing sitemap.
+    timeout = httpx.ReadTimeout("slow")
+    unknown = presence.sitemap_check(ctx, serve({robots: timeout}))
+    assert unknown["status"] == WARNING and not unknown["confirmed"]
+    assert "robots.txt declarations unknown" in unknown["detail"]
+    assert "declares none" not in unknown["detail"]
+    monkeypatch.setattr(
+        presence, "sitemap_check", lambda c: presence_sitemap(c, serve({robots: timeout}))
+    )
+    ctx.results = [ModuleResult(name="siteone"), browser({})]
+    result = ModuleResult(name="presence")
+    presence.build(ctx, ctx.results, result)
+    finding = next(f for f in result.findings if f.check_key == "sitemap-missing")
+    assert finding.confidence == "needs_verification"
 
-    def serve(responses):
-        calls = []
 
-        def fetch(url):
-            calls.append(url)
-            return responses.get(url, {"url": url, "status": 404})
+presence_sitemap = presence.sitemap_check
 
-        monkeypatch.setattr(presence, "fetch", fetch)
-        return calls
 
-    serve(
+def test_sitemap_redirects_are_single_same_origin_and_downgrades_rejected(tmp_path):
+    ctx = context(tmp_path)
+    log = []
+    routes = {
+        # https -> http downgrade on the same host is refused.
+        "https://example.com/robots.txt": httpx.Response(
+            301, headers={"location": "http://example.com/robots.txt"}
+        ),
+        "https://example.com/sitemap.xml": httpx.Response(301, headers={"location": "/s2.xml"}),
+        "https://example.com/s2.xml": httpx.Response(301, headers={"location": "/s3.xml"}),
+        "https://example.com/s3.xml": httpx.Response(200, content=URLSET),
+    }
+    data = presence.sitemap_check(ctx, serve(routes, log))
+    assert data["robots_status"] == 301 and data["declared"] == "unknown"
+    assert data["status"] == NOT_ASSESSED and "/s3.xml" in data["detail"]
+    assert [url for url, _ in log] == [
+        "https://example.com/robots.txt",
+        "https://example.com/sitemap.xml",
+        "https://example.com/s2.xml",
+    ]
+    other_port = {
+        "https://example.com/robots.txt": httpx.Response(404),
+        "https://example.com/sitemap.xml": httpx.Response(
+            302, headers={"location": "https://example.com:8443/sitemap.xml"}
+        ),
+    }
+    assert presence.sitemap_check(ctx, serve(other_port))["status"] == NOT_ASSESSED
+
+
+def test_sitemap_requests_share_one_deadline(tmp_path, monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(presence, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    ctx = context(tmp_path)
+    log = []
+    routes = {"https://example.com/sitemap.xml": httpx.Response(200, content=URLSET)}
+    data = presence.sitemap_check(ctx, serve(routes, log, clock, cost=6.0))
+    # Each request's timeout is what remains of the single 10-second budget.
+    assert [t for _, t in log] == [10.0, 4.0]
+    assert data["status"] == NOT_ASSESSED and "not fully retrieved" in data["detail"]
+    clock[0], log[:] = 0.0, []
+    data = presence.sitemap_check(ctx, serve(routes, log, clock, cost=11.0))
+    assert len(log) == 1 and "DeadlineExceeded" in data["detail"]
+
+
+@pytest.mark.parametrize(
+    "page",
+    [
+        # Two locations on one page: which phone belongs to which entity is ambiguous.
         {
-            "https://example.com/robots.txt": {"status": 200, "body": "Sitemap: /map.xml\n"},
-            "https://example.com/map.xml": {"status": 200, "body": "<urlset><loc>a</loc></urlset>"},
-        }
-    )
-    found = presence.sitemap_check(ctx)
-    assert found["status"] == PASS and found["url_count"] == 1
-    assert found["source"] == "robots.txt Sitemap line"
-    calls = serve({})
-    missing = presence.sitemap_check(ctx)
-    assert missing["status"] == WARNING and "robots.txt declares none" in missing["detail"]
-    assert calls == ["https://example.com/robots.txt", "https://example.com/sitemap.xml"]
-    serve({"https://example.com/sitemap.xml": {"url": "x", "error": "ConnectTimeout"}})
-    assert presence.sitemap_check(ctx)["status"] == NOT_ASSESSED
-    calls = serve(
-        {"https://example.com/robots.txt": {"status": 200, "body": "Sitemap: https://cdn.test/s"}}
-    )
-    assert presence.sitemap_check(ctx)["status"] == NOT_ASSESSED
-    assert calls == ["https://example.com/robots.txt"]
+            "json_ld": [
+                {"@type": "LocalBusiness", "name": "Acme North", "telephone": "02 9999 0001"},
+                {"@type": "LocalBusiness", "name": "Acme South", "telephone": "02 9999 0002"},
+            ],
+            "visible_text_summary": "Acme North Acme South call 02 5550 0100",
+        },
+        # One entity but two different phones shown.
+        {
+            "json_ld": [{"@type": "LocalBusiness", "name": "Acme", "telephone": "02 9999 0001"}],
+            "visible_text_summary": "Acme sales 02 5550 0100 service 02 5550 0200",
+        },
+        # One entity, one phone, but the page text was truncated.
+        {
+            "json_ld": [{"@type": "LocalBusiness", "name": "Acme", "telephone": "02 9999 0001"}],
+            "visible_text_summary": "Acme 02 5550 0100",
+            "visible_text_truncated": True,
+        },
+    ],
+)
+def test_ambiguous_nap_is_never_a_confirmed_mismatch(tmp_path, page):
+    ctx = context(tmp_path)
+    ctx.results = [browser(page)]
+    keys = {f.check_key: f for f in presence.run(ctx).findings}
+    assert "nap-inconsistent" not in keys
+    assert keys["nap-unverified"].confidence == "needs_verification"
+
+
+def test_nap_values_from_different_pages_are_not_compared(tmp_path):
+    ctx = context(tmp_path)
+    ctx.results = [
+        browser(
+            {
+                "url": "https://example.com/",
+                "json_ld": [
+                    {"@type": "LocalBusiness", "name": "Acme", "telephone": "02 9999 0001"}
+                ],
+                "visible_text_summary": "Acme 02 9999 0001",
+            },
+            {"url": "https://example.com/contact", "visible_text_summary": "Call 02 5550 0100"},
+        )
+    ]
+    nap = presence.nap_check(presence.page_evidence(ctx.results[0]))
+    assert nap["status"] == "Consistent"
