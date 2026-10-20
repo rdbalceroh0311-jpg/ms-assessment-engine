@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 from urllib.parse import urljoin, urlsplit
 
@@ -14,6 +15,7 @@ categories = {
     "cro_ux",
     "copywriting",
     "accessibility",
+    "presence",
 }
 requires = ["tools/siteone/siteone-crawler/siteone-crawler"]
 
@@ -151,7 +153,45 @@ def run(ctx: Context) -> ModuleResult:
             severity="low" if ctx.local or header == "server" else "medium",
             urls=[ctx.target],
         )
-    for table in ["seo-headings", "redirects", "404", "headers", "headers-values"]:
+    for item in data.get("summary", {}).get("items", []):
+        code, text = str(item.get("aplCode", "")), str(item.get("text", ""))
+        if code.startswith("robots-txt-"):
+            eid = result.add_evidence(ctx.target, "SiteOne robots.txt load", item)
+            status = re.search(r"status code (\d+)", text)
+            if status and status.group(1) != "200":
+                result.finding(
+                    "robots-txt-missing",
+                    "robots.txt not available",
+                    "seo",
+                    [eid],
+                    text,
+                    "Publish a robots.txt that allows public pages and declares the XML sitemap.",
+                    severity="low",
+                    confidence="needs_verification",
+                    urls=[ctx.target],
+                )
+        elif code == "seo-canonical-missing":
+            eid = result.add_evidence(ctx.target, "SiteOne canonical link summary", item)
+            if item.get("status") != "OK":
+                result.finding(
+                    "canonical-missing",
+                    "Pages without a canonical link",
+                    "seo",
+                    [eid],
+                    text,
+                    "Add a self-referencing rel=canonical to each indexable page.",
+                    severity="low",
+                    kind="opportunity",
+                    urls=[ctx.target],
+                )
+    for table in [
+        "seo-headings",
+        "redirects",
+        "404",
+        "headers",
+        "headers-values",
+        "external-urls",
+    ]:
         if tables.get(table, {}).get("rows"):
             result.add_evidence(ctx.target, f"SiteOne {table} table", tables[table]["rows"])
     if not ctx.pages:

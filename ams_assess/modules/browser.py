@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlsplit
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
@@ -6,7 +7,7 @@ from playwright.sync_api import sync_playwright
 from ams_assess.models import Context, ModuleResult
 
 name = "browser"
-categories = {"accessibility", "geo", "local_seo", "entity", "cro_ux", "copywriting"}
+categories = {"accessibility", "geo", "local_seo", "entity", "cro_ux", "copywriting", "presence"}
 requires = ["Chromium", "tools/axe.min.js", "SiteOne page list"]
 
 EXTRACT = r"""() => {
@@ -37,7 +38,21 @@ EXTRACT = r"""() => {
      /\d{3,}|street|road|avenue|pty|ltd/i.test(t)).slice(0,30),
    nav_links: select('nav a', link),
    trust_signals: body.split('\n').filter(t =>
-     /review|testimonial|accredit|licen[cs]|insured|privacy|guarantee/i.test(t)).slice(0,30)
+     /review|testimonial|accredit|licen[cs]|insured|privacy|guarantee/i.test(t)).slice(0,30),
+   canonical: document.querySelector('link[rel="canonical"]')?.href || '',
+   // Platform/listing signals for the presence module; read from the same DOM, no navigation.
+   script_srcs: [...document.scripts].map(e => e.src).filter(Boolean).slice(0,100),
+   tag_snippets: [...document.querySelectorAll(
+     'script:not([src]):not([type="application/ld+json"]),noscript')]
+     .map(e => e.textContent.trim().slice(0,3000)).filter(Boolean).slice(0,40),
+   resource_links: [...document.querySelectorAll('link[href]')].map(e => e.href).slice(0,60),
+   // Scripts a consent manager holds back (type=text/plain or CMP blocking attributes).
+   gated_scripts: [...document.scripts].filter(e => /^text\/plain$/i.test(e.type)
+     || e.hasAttribute('data-cookieconsent') || e.hasAttribute('data-cookiecategory')
+     || e.hasAttribute('data-consent') || /optanon-category|cmplz/i.test(e.className))
+     .map(e => (e.src || e.textContent.trim()).slice(0,300)).slice(0,40),
+   links: [...new Set([...document.querySelectorAll('a[href]')].map(e => e.href)
+     .filter(h => /^https?:/.test(h)))].slice(0,300)
  };
 }"""
 
@@ -88,7 +103,13 @@ def run(ctx: Context) -> ModuleResult:
                 )
                 for index, url in enumerate(select_pages(ctx.pages, ctx.target)):
                     page = session.new_page()
-                    console = []
+                    console, requested = [], []
+                    page.on(
+                        "request",
+                        lambda request, requested=requested: (
+                            requested.append(request.url[:300]) if len(requested) < 300 else None
+                        ),
+                    )
                     page.on(
                         "pageerror", lambda error, console=console: console.append(str(error)[:500])
                     )
@@ -109,6 +130,7 @@ def run(ctx: Context) -> ModuleResult:
                             "viewport": viewport,
                             "page": page.evaluate(EXTRACT),
                             "console_errors": console,
+                            "requests": list(dict.fromkeys(requested)),
                         }
                         shot = f"screenshots/{index + 1:02d}-{viewport}.png"
                         page.screenshot(path=str(ctx.run_dir / shot), full_page=True)
@@ -144,6 +166,23 @@ def run(ctx: Context) -> ModuleResult:
                                 f"Apply the guidance at {violation['helpUrl']} and "
                                 "verify with keyboard and assistive technology.",
                                 severity=severity,
+                                urls=[url],
+                            )
+                        canonical = record["page"].get("canonical", "")
+                        actual = urlsplit(record["url"])
+                        target = urlsplit(canonical)
+                        if canonical and (target.scheme, target.netloc) != (
+                            actual.scheme,
+                            actual.netloc,
+                        ):
+                            result.finding(
+                                "canonical-mismatch",
+                                "Canonical URL points to a different host or protocol",
+                                "seo",
+                                [eid],
+                                f"{url} declares canonical {canonical}.",
+                                "Point canonical links at the preferred public HTTPS host.",
+                                confidence="needs_verification",
                                 urls=[url],
                             )
                         if console:
