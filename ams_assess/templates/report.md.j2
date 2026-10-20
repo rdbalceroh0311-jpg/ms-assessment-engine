@@ -22,6 +22,29 @@ The assessment recorded {{ findings | length }} evidence-backed findings across 
 {% if ai.get('sections', {}).get(category) %}
 {{ ai.sections[category] | text }}
 {% endif %}
+{% if category == 'domain_email' and data.get('domain_email_health') %}
+### Domain, DNS & Email Health summary
+
+| Check area | Status | What is wrong | Evidence |
+| --- | --- | --- | --- |
+{% for r in data.domain_email_health.rows %}
+| {{ r.area | text }} | {{ r.status }} | {{ r.issue | text }} | {{ r.evidence_ids | join(', ') or '-' }} |
+{% endfor %}
+
+{% for limitation in data.domain_email_health.limitations %}
+> {{ limitation | text }}
+
+{% endfor %}
+{% for r in data.domain_email_health.rows %}
+**{{ r.area | text }}: {{ r.status }}.** Checked: {{ r.checked | text }}. Why it matters: {{ r.why | text }} Recommended correction: {{ r.recommendation | text }}
+
+{% for c in r.checks %}
+- {{ c.name | text }}: {{ c.status }}. {{ c.detail | text }}.{% if c.evidence_ids %} Evidence: {{ c.evidence_ids | join(', ') }}.{% endif %}
+
+{% endfor %}
+
+{% endfor %}
+{% endif %}
 {% for finding in findings if finding.category == category %}
 ### {{ finding.id | text }}: {{ finding.title | text }}
 

@@ -76,12 +76,18 @@ def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
     )
     env.filters["text"] = mdtext
     template = env.get_template("report.md.j2")
+    shown = set(data["assessed_categories"])
+    # The health summary explains NOT ASSESSED rows whenever domain_email ran, even on error.
+    if data.get("domain_email_health") and any(
+        m["name"] == "domain_email" and m["status"] != "skipped" for m in data["modules"]
+    ):
+        shown.add("domain_email")
     content = template.render(
         data=data,
         ai=ai,
         evidence=evidence,
         findings=findings,
-        sections={k: title for k, title in CATEGORIES.items() if k in data["assessed_categories"]},
+        sections={k: title for k, title in CATEGORIES.items() if k in shown},
         recommendations=[by_id[i] for i in order],
         roadmap=roadmap,
         scope_titles=[CATEGORIES[c] for c in data["selected_categories"]],

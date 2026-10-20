@@ -21,7 +21,7 @@ uv run ams-assess report data/customers/acme/<timestamp>
 ```
 
 Options: `--max-pages 100` (a conservative **URL** cap including assets), `--formats md,html,pdf`,
-`--no-ai`, `--connect gsc`, `--dataforseo-max-usd X`. Default categories: technical, seo, geo,
+`--no-ai`, `--connect gsc`, `--dataforseo-max-usd X`, `--dkim-selectors a,b`, `--mail-tls-check`. Default categories: technical, seo, geo,
 performance, accessibility, domain_email, security, local_seo, entity, cro_ux, copywriting.
 Only required modules run; a domain/security/performance-only run has no crawl. Customer IDs must be
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
@@ -52,7 +52,7 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | --- | --- |
 | SiteOne | Local binary; one crawl, 2 workers, 5 requests/second, robots honoured, no shared crawl cache or uploads. JSON includes broken links, redirects, SEO and headers. |
 | Browser + axe | Chromium + `tools/axe.min.js`; up to 6 successful crawled pages, desktop/mobile. Screenshots, console errors, headings/text, forms, CTAs, contacts, JSON-LD/microdata, trust signals. No form submissions. |
-| Domain/email | Public DNS A/AAAA/MX/NS/TXT/CAA, checkdmarc SPF/DMARC/MX/DNSSEC, RDAP registrar/expiry; bounded DNS timeouts and 60-second checkdmarc ceiling; no SMTP probing. |
+| Domain/email | Public DNS A/AAAA/MX/NS/SOA/TXT/CAA, checkdmarc SPF/DMARC/DNSSEC, RDAP registrar/expiry (expired = ERROR, <30 days = WARNING), DKIM (`--dkim-selectors`/`AMS_DKIM_SELECTORS`, otherwise 8 common selectors; unknown selector = NOT ASSESSED), A/MX/NS/SPF agreement across 1.1.1.1, 8.8.8.8 and 9.9.9.9, and DNSBL lookups of up to 4 MX and 2 website IPv4 addresses (at most 30 queries) on SpamCop, Barracuda (free resolver registration required, otherwise refused = NOT ASSESSED) and PSBL. Spamhaus ZEN only with `SPAMHAUS_DQS_KEY`. SMTP only with `--mail-tls-check`: at most 2 MX hosts, banner/EHLO/STARTTLS/certificate/QUIT, 10-second timeout, never MAIL/RCPT/VRFY/EXPN/DATA. Produces the Domain, DNS & Email Health summary (PASS / WARNING / ERROR / NOT ASSESSED), which reuses Security/Observatory evidence for TLS and headers. Does not measure inbox placement. |
 | Security | HTTP headers and verified TLS certificate issuer/expiry/protocol/hostname. Not a penetration test. |
 | MDN Observatory | Public v2 scan; aggregate grade only. Failure and localhost are explicit skips. |
 | PageSpeed/CrUX | Mobile/desktop PageSpeed v5 with available URL/origin CrUX fields. Optional `PAGESPEED_API_KEY`. Separate CrUX only with `CRUX_API_KEY` or `GOOGLE_API_KEY`. Localhost and exhausted keyless quota are skipped. |

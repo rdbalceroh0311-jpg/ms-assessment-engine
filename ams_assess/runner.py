@@ -4,7 +4,7 @@ from typing import Any
 from ams_assess.ai import analyse
 from ams_assess.consolidate import consolidate
 from ams_assess.models import CATEGORIES, Context, ModuleResult, write_json
-from ams_assess.modules import FUTURE, REGISTRY
+from ams_assess.modules import FUTURE, REGISTRY, domain_email
 from ams_assess.report import render
 
 
@@ -60,6 +60,8 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         f"{c}: no successful evidence collection; category was not assessed"
         for c in sorted(ctx.categories - set(assessed))
     ]
+    if "domain_email" in ctx.categories:
+        limitations.append(domain_email.DELIVERABILITY_NOTE)
     if ctx.local:
         limitations.append(
             "Local fixture demonstration: observations do not describe a live business"
@@ -94,6 +96,8 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         "report_files": [],
         "status": "complete" if evidence else "incomplete",
     }
+    if "domain_email" in ctx.categories:
+        data["domain_email_health"] = domain_email.health_summary(results, ctx.categories)
     if any(r.status != "ok" or r.reason for r in results) or ai["status"] == "error":
         data["status"] = "partial" if evidence else "incomplete"
     write_json(ctx.run_dir / "findings.json", data["findings"])

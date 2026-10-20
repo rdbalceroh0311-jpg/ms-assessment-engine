@@ -60,6 +60,8 @@ class ModuleResult(BaseModel):
     raw_paths: list[str] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+    # Optional structured per-area check rows (domain_email health summary).
+    checks: list[dict[str, Any]] = Field(default_factory=list)
 
     def add_evidence(self, url: str, description: str, data: Any) -> str:
         eid = f"ev-{self.name}-{len(self.evidence) + 1:03d}"
