@@ -3,6 +3,10 @@
 
 **Severity:** {{ finding.severity }} | **Confidence:** {{ finding.confidence }} | **Type:** {{ finding.kind }} | **Priority:** {{ finding.priority }}
 
+{% if finding.provenance != 'technical_evidence' %}
+**Basis:** {{ 'Customer statement, not independently verified' if finding.provenance == 'customer_statement' else 'Assumption, not verified' }}.
+
+{% endif %}
 {{ finding.detail | text }}
 
 **Recommended action:** {{ finding.recommendation | text }}
@@ -71,8 +75,9 @@ No reportable findings were established from the available checks in this catego
 
 **Customer:** {{ data.customer_name | text }}<br>
 **Assessment date (UTC):** {{ data.created_at[:10] | text }}<br>
-**Target:** {{ data.target | text }}<br>
-**Scope:** {{ scope_titles | join('; ') | text }}
+**Target:** {{ (data.target or 'No website assessed') | text }}<br>
+**Scope:** {{ scope_titles | join('; ') | text }}{% if data.get('stages') %}<br>
+**Stages completed:** {{ data.stages | join('; ') | text }}{% endif %}
 
 > Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.
 
@@ -207,6 +212,23 @@ Digital presence was not in the selected scope.
 Digital presence was not in the selected scope.
 
 {% endif %}
+{% if discovery %}
+## Business discovery: customer-provided information
+
+> The statements below were provided by the customer during discovery. They are not technical evidence and have not been independently verified; findings that rest on them are labelled as such.
+
+{% for section in discovery.sections %}
+### {{ section.title | text }}
+
+{% for s in section.statements %}
+- {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
+{% endfor %}
+
+{% endfor %}
+{% for finding in findings if finding.category == 'discovery' %}
+{{ finding_block(finding) }}
+{% endfor %}
+{% endif %}
 ## 8. Prioritised recommendations
 
 {% for f in recommendations %}
@@ -273,5 +295,5 @@ The machine-readable evidence.json retains the observed snippets and links to ra
 | Evidence ID | Source | Observation | URL |
 | --- | --- | --- | --- |
 {% for e in evidence %}
-| {{ e.id }} | {{ e.source | text }} | {{ e.description | text }} | {{ e.url | text }} |
+| {{ e.id }} | {{ e.source | text }} | {{ e.description | text }}{% if e.provenance != 'technical_evidence' %} ({{ e.provenance | replace('_', ' ') }}){% endif %} | {{ e.url | text }} |
 {% endfor %}

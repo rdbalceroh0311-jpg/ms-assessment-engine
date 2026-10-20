@@ -30,6 +30,62 @@ Only required modules run; a domain/security/performance-only run has no crawl. 
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
 
+### Progressive assessment: one customer, one evolving assessment
+
+Each customer has a store at `data/customers/<customer>/assessment.json` (`schema_version` 2, mode
+0600 in a 0700 directory, gitignored, written atomically). Stages can run in any order and any number
+of times; none is a prerequisite for another:
+
+1. **Public technical** (`run`): as above. The per-run timestamp directory is unchanged, and the run
+   is also merged into the store.
+2. **Connected** (`run --connect gsc`): authorised evidence enriches the same assessment.
+3. **Business discovery** (`discover`): structured customer notes.
+
+```sh
+uv run ams-assess run --customer acme --target https://example.com        # stage 1
+uv run ams-assess discover --customer acme --notes notes.json              # stage 3, exits 0
+uv run ams-assess report --customer acme                                   # report at any stage
+```
+
+`report --customer` regenerates `report.md/html/pdf` in `data/customers/<customer>/` from the store
+(and records them in its `report_files`); `report <run-dir>` still renders one run. Discovery notes:
+
+```json
+{
+  "sections": {
+    "sales_quoting": [
+      "Quotes are built by hand",
+      {"statement": "Jobs are re-keyed into Xero", "frequency": "daily",
+       "systems": ["Xero"], "owner": "Office manager", "impact": "~5 h/week"}
+    ]
+  },
+  "findings": [
+    {"title": "Quote automation", "kind": "opportunity", "severity": "medium",
+     "detail": "Quotes are built manually", "recommendation": "Automate quote generation",
+     "ams_service": "AI & Automation", "cites": ["sales_quoting:0", "sales_quoting:1"]}
+  ]
+}
+```
+
+Sections: `enquiries_communication`, `sales_quoting`, `bookings_scheduling`, `systems_in_use`,
+`manual_duplicated_tasks`, `existing_automations`, `pain_points_bottlenecks`; statements are strings
+or objects with optional `frequency`, `systems`, `owner`, `impact`. A finding must cite statements
+(`section` or `section:N`, 0-based) and its `ams_service` is one of AI & Automation, Business
+Systems, Digital Growth, Managed IT & Technology. Invalid notes exit 2 and write nothing. Discovery is
+not a crawler module and is never sent to AI.
+
+**Evidence IDs are namespaced per run in the store** (`ev-gsc-001` becomes `ev-gsc-r2-001`; discovery
+statements are `ev-discovery-rN-NNN`); every citation (findings, AI narrative, summaries) is rewritten
+with the same mapping. Findings consolidate across runs by category and check key: the worst
+severity and priority win and `needs_verification`/`subjective` confidence sticks. The store is
+cumulative: a finding from an earlier run stays until superseded, so re-run and review rather than
+assuming a missing finding was fixed.
+
+**Provenance.** Evidence is `technical_evidence` (default), `customer_statement` or `assumption`. A
+finding takes the worst provenance of the evidence it cites and can never be `confirmed` unless all
+of it is technical; the report labels customer statements and AI cannot upgrade provenance. A
+discovery section appears in the report only when discovery notes exist.
+
 ### Local demonstration
 
 ```sh

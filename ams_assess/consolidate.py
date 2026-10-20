@@ -1,11 +1,11 @@
-from ams_assess.models import SEVERITIES, Evidence, Finding
+from ams_assess.models import SEVERITIES, Evidence, Finding, worst_provenance
 
 
 def consolidate(findings: list[Finding], evidence: list[Evidence]) -> list[Finding]:
-    known = {e.id for e in evidence}
+    provenance = {e.id: e.provenance for e in evidence}
     merged: dict[tuple[str, str], Finding] = {}
     for finding in findings:
-        if not finding.evidence_ids or not set(finding.evidence_ids) <= known:
+        if not finding.evidence_ids or not set(finding.evidence_ids) <= provenance.keys():
             raise ValueError(f"Finding {finding.id} has missing evidence")
         key = (finding.category, finding.check_key or finding.id)
         if key not in merged:
@@ -21,4 +21,13 @@ def consolidate(findings: list[Finding], evidence: list[Evidence]) -> list[Findi
         current.priority = min(current.priority, finding.priority)
         if finding.confidence != "confirmed":
             current.confidence = finding.confidence
+        current.provenance = worst_provenance([current.provenance, finding.provenance])
+    for current in merged.values():
+        # Worst-of the cited evidence; a claimed weaker provenance is kept, never upgraded.
+        current.provenance = worst_provenance(
+            [current.provenance, *(provenance[eid] for eid in current.evidence_ids)]
+        )
+        if current.provenance != "technical_evidence" and current.confidence == "confirmed":
+            # "confirmed" means directly observed by a deterministic check.
+            current.confidence = "needs_verification"
     return sorted(merged.values(), key=lambda f: (SEVERITIES[f.severity], f.category, f.id))

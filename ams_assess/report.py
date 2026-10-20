@@ -2,13 +2,15 @@ import html
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import markdown
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from playwright.sync_api import sync_playwright
 
 from ams_assess.ai import PHASES
-from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding
+from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding, customer_path
+from ams_assess.store import load, report_data, set_report_files
 
 LOCAL = {"local_seo", "entity", "presence"}
 
@@ -43,11 +45,32 @@ def mdtext(value: object) -> str:
 
 
 def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
-    formats = formats or {"md", "html", "pdf"}
     data = json.loads((run_dir / "results.json").read_text())
     evidence = [
         Evidence.model_validate(e) for e in json.loads((run_dir / "evidence.json").read_text())
     ]
+    return render_data(run_dir, data, evidence, formats)
+
+
+def render_customer(root: Path, customer: str, formats: set[str] | None = None) -> list[str]:
+    """Regenerate the customer-level report from the store, whichever stages have run."""
+    store = load(root, customer)
+    if store is None:
+        raise ValueError("No assessment store for this customer")
+    data, evidence, discovery = report_data(store)
+    written = render_data(customer_path(root, customer), data, evidence, formats, discovery)
+    set_report_files(root, customer, written)
+    return written
+
+
+def render_data(
+    run_dir: Path,
+    data: dict[str, Any],
+    evidence: list[Evidence],
+    formats: set[str] | None = None,
+    discovery: dict[str, Any] | None = None,
+) -> list[str]:
+    formats = formats or {"md", "html", "pdf"}
     findings = [Finding.model_validate(f) for f in data["findings"]]
     known = {e.id for e in evidence}
     if any(not set(f.evidence_ids) <= known for f in findings):
@@ -96,7 +119,9 @@ def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
         },
         recommendations=[by_id[i] for i in order],
         roadmap=roadmap,
-        scope_titles=[CATEGORIES[c] for c in data["selected_categories"]],
+        scope_titles=[CATEGORIES[c] for c in data["selected_categories"]]
+        + (["Business discovery (customer statements)"] if discovery else []),
+        discovery=discovery,
         collected_sources={e.source for e in evidence},
         browser_observations=sum(e.source == "browser" for e in evidence),
     )

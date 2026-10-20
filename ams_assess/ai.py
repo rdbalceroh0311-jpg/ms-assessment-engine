@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from ams_assess.models import Context, Evidence, Finding
+from ams_assess.models import Context, Evidence, Finding, worst_provenance
 
 LOG = logging.getLogger(__name__)
 PHASES = ["0-30 days", "30-90 days", "90+ days"]
@@ -28,6 +28,7 @@ def validate_analysis(
     data: dict[str, Any], evidence: list[Evidence], categories: set[str], original: list[Finding]
 ) -> tuple[dict[str, Any], list[Finding], list[str]]:
     known = {e.id for e in evidence}
+    provenance = {e.id: e.provenance for e in evidence}
     existing = {f.id: f.model_copy(deep=True) for f in original}
     warnings = []
     for index, item in enumerate(data.get("findings", [])):
@@ -37,7 +38,7 @@ def validate_analysis(
                 raise ValueError("unknown evidence or unselected category")
             if finding.id in existing:
                 base = existing[finding.id]
-                # Preserve observed facts and citations; enrich interpretation only.
+                # Preserve observed facts, citations and provenance; enrich interpretation only.
                 for field in ["likely_cause", "business_impact", "priority", "ams_service"]:
                     setattr(base, field, getattr(finding, field))
             elif finding.category == "presence" or all(
@@ -47,6 +48,12 @@ def validate_analysis(
                 raise ValueError("AI cannot create digital presence findings")
             else:
                 finding.check_key = finding.id
+                # Provenance is derived from the cited evidence; the model cannot upgrade it.
+                finding.provenance = worst_provenance(
+                    [finding.provenance, *(provenance[eid] for eid in finding.evidence_ids)]
+                )
+                if finding.provenance != "technical_evidence":
+                    finding.confidence = "needs_verification"
                 # Model-only heuristic conclusions remain explicitly provisional.
                 if finding.confidence == "confirmed":
                     finding.confidence = "needs_verification"
@@ -101,6 +108,7 @@ def compact_evidence(evidence: list[Evidence]) -> list[dict[str, Any]]:
                 "source": item.source,
                 "url": item.url,
                 "description": item.description,
+                "provenance": item.provenance,
                 "data": serialized[:10000],
                 "truncated": len(serialized) > 10000,
             }
@@ -140,7 +148,9 @@ concise professional customer prose. No raw HTML or Markdown headings in narrati
 Digital presence evidence (ev-presence-*) holds deterministic platform, listing and readiness
 statuses: cite it, but never invent detections, account ownership, listings, connections or
 scores. "Not detected" only means no public signal on the sampled pages. Do not create findings
-in the presence category or findings cited only by ev-presence-* evidence; they are dropped. NAP
+in the presence category or findings cited only by ev-presence-* evidence; they are dropped.
+Evidence with provenance customer_statement is what the customer said, not a measured fact:
+never present it as confirmed and never change any provenance. NAP
 mismatches are the deterministic nap-inconsistent finding: enrich it rather than repeating it.
 """
     payload = {

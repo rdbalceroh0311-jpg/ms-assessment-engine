@@ -1,9 +1,17 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from ams_assess import store
 from ams_assess.ai import analyse
 from ams_assess.consolidate import consolidate
-from ams_assess.models import CATEGORIES, Context, ModuleResult, write_json
+from ams_assess.models import (
+    CATEGORIES,
+    DISCOVERY_CATEGORY,
+    Context,
+    Evidence,
+    ModuleResult,
+    write_json,
+)
 from ams_assess.modules import FUTURE, REGISTRY, domain_email, presence
 from ams_assess.report import render
 
@@ -55,7 +63,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         }
     )
     # Findings from unassessed categories must not reach recommendations or the roadmap.
-    findings = [f for f in findings if f.category in assessed]
+    findings = [f for f in findings if f.category in assessed or f.category == DISCOVERY_CATEGORY]
     limitations = [
         f"{c}: no successful evidence collection; category was not assessed"
         for c in sorted(ctx.categories - set(assessed))
@@ -115,4 +123,32 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             if (ctx.run_dir / f"report.{ext}").is_file()
         ]
     write_json(ctx.run_dir / "results.json", data)
+    if ctx.store_root is not None:
+        merge_into_store(ctx, data, evidence, results)
     return data
+
+
+def merge_into_store(
+    ctx: Context, data: dict[str, Any], evidence: list[Evidence], results: list[ModuleResult]
+) -> None:
+    """Enrich the customer's evolving assessment; the per-run directory is already complete."""
+    ok = {r.name for r in results if r.status == "ok" and r.evidence}
+    stages = [
+        stage
+        for stage, present in (("public", bool(ok - {"gsc"})), ("connected", "gsc" in ok))
+        if present
+    ]
+    try:
+        assert ctx.store_root is not None
+        store.merge_run(
+            ctx.store_root,
+            ctx.customer_id,
+            ctx.customer_name,
+            data,
+            evidence,
+            ctx.run_dir.name,
+            stages,
+        )
+    except Exception as exc:
+        # The run directory stays the source of truth; a store failure must not fail the run.
+        print(f"[store] merge failed ({type(exc).__name__}); run directory is intact", flush=True)
