@@ -22,17 +22,34 @@ QUALIFIERS = {
     ),
     "assumption": re.compile(r"assum|hypothes|estimate|unverified|not verified", re.I),
 }
-# Phrases that DISCLAIM verification are fine; only affirmative confirmation claims are unsafe.
-DISCLAIMERS = re.compile(
-    r"\b(not|never|un)[- ]?(independently |technically |yet )?"
-    r"(verified|confirmed|measured|validated)",
+# Verification vocabulary: verbs, nouns and "technical checks" claims alike. A term is safe only
+# when negated ("not independently verified", "no independent confirmation"); a negative form
+# ("unverified") is a disclaimer, but negating it again ("not unverified") is a claim.
+VERIFICATION = re.compile(
+    r"\b(?P<neg>un|non-?)?(?:confirm\w*|verif\w*|measured|measurement\w*|validat\w*|corroborat\w*"
+    r"|substantiat\w*|establish\w*|authenticat\w*|certif\w*|proof|prov(?:e|es|ed|en|ing))\b"
+    r"|\btechnical(?:ly)?\s+(?:check|test|evidence|analysis|audit)\w*",
     re.I,
 )
-CONFIRMS = re.compile(
-    r"\b(confirm(s|ed)?|verif(y|ies|ied)|measured|validated|proven?)\b"
-    r"|\btechnical(ly)? (check|test|evidence|analysis|audit)",
+NEGATION = re.compile(
+    r"(?:\b(?:not|never|no|without|lacks?|lacking|cannot|neither|nor|pending|awaiting)|n't)"
+    r"(?:\s+(?:been|be|being|independently|technically|yet|fully|formally|currently|any|a|an|the"
+    r"|of|further|external|independent|technical|formal))*\s*$",
     re.I,
 )
+
+
+def claims_verification(text: str) -> bool:
+    for match in VERIFICATION.finditer(text):
+        negated = bool(NEGATION.search(text[max(0, match.start() - 60) : match.start()]))
+        if match.group("neg"):
+            if negated:  # double negative: "not unverified"
+                return True
+        elif not negated:
+            return True
+    return False
+
+
 PHASES = ["0-30 days", "30-90 days", "90+ days"]
 
 
@@ -95,7 +112,7 @@ def validate_analysis(
             label = LABELS[weakest]
             body = value.removeprefix(label)
             qualified = body != value or QUALIFIERS[weakest].search(value)
-            if CONFIRMS.search(DISCLAIMERS.sub("", body)) or not qualified:
+            if claims_verification(body) or not qualified:
                 reason = "unqualified customer statement"
             elif body == value:
                 value = label + value

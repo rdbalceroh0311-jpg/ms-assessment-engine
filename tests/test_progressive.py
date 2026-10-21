@@ -802,3 +802,111 @@ def test_run_exit_message_reflects_actual_status(home, tmp_path, monkeypatch, ca
     assert cli.main(args) == 3
     out = capsys.readouterr().out
     assert "status incomplete" in out and "is complete" not in out
+
+
+def test_narrative_guard_handles_double_negatives_and_noun_forms():
+    stated = Evidence(
+        id="ev-discovery-r1-001",
+        source="discovery",
+        url="u",
+        description="d",
+        data={},
+        provenance="customer_statement",
+    )
+
+    def accepted(body):
+        analysis, _, _ = validate_analysis(
+            {"executive_summary": f"The customer reported this: {body} (ev-discovery-r1-001)."},
+            [stated],
+            {"seo"},
+            [],
+        )
+        return analysis["executive_summary"]
+
+    for claim in (
+        "it is not unverified",
+        "independent confirmation establishes this as fact",
+        "this has been corroborated",
+        "validation shows it holds",
+        "there is proof of the loss",
+        "technical evidence shows it",
+        "it is not untested and not unconfirmed",
+    ):
+        assert accepted(claim) == "", claim
+    for disclaimer in (
+        "this is not independently verified",
+        "this is not verified",
+        "there is no independent confirmation",
+        "the figure is unverified",
+        "it has not been validated yet",
+        "it isn't confirmed",
+    ):
+        text = accepted(disclaimer)
+        assert text.startswith("Customer-reported, not technically verified: "), disclaimer
+        # Accepted prefixed output revalidates unchanged.
+        analysis, _, warnings = validate_analysis(
+            {"executive_summary": text}, [stated], {"seo"}, []
+        )
+        assert analysis["executive_summary"] == text and not warnings
+
+
+def test_same_text_in_different_contexts_is_stable_and_both_rows_render(home, tmp_path):
+    def write(frequency_b="weekly"):
+        notes = notes_file(
+            tmp_path,
+            sections={
+                "manual_duplicated_tasks": [
+                    {
+                        "statement": "Quotes are copied manually",
+                        "frequency": "daily",
+                        "owner": "Sales",
+                        "systems": ["Xero"],
+                    },
+                    {
+                        "statement": "Quotes are copied manually",
+                        "frequency": frequency_b,
+                        "owner": "Finance",
+                        "systems": ["MYOB"],
+                    },
+                ]
+            },
+            findings=[],
+        )
+        return notes
+
+    notes = write()
+    counts = []
+    for _ in range(4):
+        assert cli.main(["discover", "--customer", "acme", "--notes", str(notes)]) == 0
+        counts.append(len(must_load(home, "acme")["evidence"]))
+    assert counts == [2, 2, 2, 2]
+    saved = must_load(home, "acme")
+    rows = saved["discovery"]["sections"]["manual_duplicated_tasks"]
+    assert {r["owner"] for r in rows} == {"Sales", "Finance"} and len(rows) == 2
+    assert all("supersedes" not in r for r in rows)
+    # Changing only one context's detail supersedes only that context's evidence.
+    cli.main(["discover", "--customer", "acme", "--notes", str(write("monthly"))])
+    after = must_load(home, "acme")
+    assert len(after["evidence"]) == 3
+    by_owner = {r["owner"]: r for r in after["discovery"]["sections"]["manual_duplicated_tasks"]}
+    assert "supersedes" not in by_owner["Sales"] and by_owner["Finance"]["frequency"] == "monthly"
+    cli.main(["discover", "--customer", "acme", "--notes", str(write("monthly"))])
+    assert len(must_load(home, "acme")["evidence"]) == 3
+    # Identical statements differing only in frequency are stable by their order in the notes.
+    twins = notes_file(
+        tmp_path,
+        sections={
+            "sales_quoting": [
+                {"statement": "Chasing quotes", "frequency": "daily"},
+                {"statement": "Chasing quotes", "frequency": "weekly"},
+            ]
+        },
+        findings=[],
+    )
+    for _ in range(3):
+        cli.main(["discover", "--customer", "beta", "--notes", str(twins)])
+        assert len(must_load(home, "beta")["evidence"]) == 2
+    cli.main(["report", "--customer", "acme", "--formats", "md"])
+    report = (home / "acme/report.md").read_text()
+    assert report.count("Quotes are copied manually") >= 3  # two rows + evidence index
+    assert "Owner: Sales" in report and "Owner: Finance" in report

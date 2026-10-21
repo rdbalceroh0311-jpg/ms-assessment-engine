@@ -10,6 +10,7 @@ import json
 import os
 import re
 import tempfile
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,19 @@ NO_AI = {"status": "skipped", "provider": None, "reason": "Discovery notes are n
 
 def now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def identity(fields: dict[str, Any]) -> tuple[str, str, tuple[str, ...]]:
+    """What makes a statement the same one across ingestions: its text and who/what it concerns.
+
+    Frequency and impact are detail that can change (a new version supersedes the old evidence);
+    owner and systems are context, so the same words in another context are a distinct statement.
+    """
+    return (
+        " ".join(fields["statement"].lower().split()),
+        " ".join(fields.get("owner", "").lower().split()),
+        tuple(sorted(" ".join(x.lower().split()) for x in fields.get("systems", []))),
+    )
 
 
 def remap(value: Any, mapping: dict[str, str]) -> Any:
@@ -228,10 +242,14 @@ def add_discovery(
     added = 0
     for section, statements in notes.statements().items():
         stored = discovery["sections"].setdefault(section, [])
-        known = {" ".join(s["statement"].lower().split()): s for s in stored}
+        known = {(*identity(s), s.get("slot", 0)): s for s in stored}
+        seen: Counter[tuple[str, str, tuple[str, ...]]] = Counter()
         for statement in statements:
             fields = statement.model_dump()
-            norm = " ".join(statement.statement.lower().split())
+            base = identity(fields)
+            slot = seen[base]  # n-th statement with this identity in the notes (stable order)
+            seen[base] += 1
+            norm = (*base, slot)
             previous = known.get(norm)
             if previous is not None:
                 merged = {**{k: previous[k] for k in fields}}
@@ -267,7 +285,13 @@ def add_discovery(
                     ingested_at=stamp,
                 )
             else:
-                entry = {"evidence_id": eid, "run_id": run_id, "ingested_at": stamp, **fields}
+                entry = {
+                    "evidence_id": eid,
+                    "run_id": run_id,
+                    "ingested_at": stamp,
+                    "slot": slot,
+                    **fields,
+                }
                 stored.append(entry)
                 known[norm] = entry
             cited.setdefault(section, []).append(eid)
