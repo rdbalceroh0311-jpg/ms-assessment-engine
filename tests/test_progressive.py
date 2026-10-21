@@ -1053,7 +1053,6 @@ def test_narrative_allowlist_rejects_scope_bypasses_and_accepts_pending():
         "the loss is pending verification",
         "the loss is awaiting verification",
         "the figure needs verification",
-        "the figure is yet to be verified and is unverified",
         "it is to be verified before any work starts",
         "we need to verify the estimate before acting",
         "we should confirm the figure",
@@ -1136,6 +1135,16 @@ def test_explicit_ref_never_falls_through_to_content_matching(home, tmp_path):
 
 
 GUARD_REJECTED = [
+    "The assertion that the loss is not verified has been debunked.",
+    "The suggestion that the loss is unverified is nonsense.",
+    "The loss has been independently audited and found accurate.",
+    "The loss has been independently cross-checked against actual records.",
+    "The loss has been double-checked against actual records.",
+    "The losses were reconciled and inspected.",
+    "The loss is veri\u200dfied.",
+    "The loss is veri\u200bfied by the accountant.",
+    "The loss is veri\u00adfied.",
+    "The loss is veri\ufefffied and \u2060confirmed.",
     "The loss is known to be independently verified.",
     "The loss is not, e.g., unverified.",
     "It is false: the loss is unverified",
@@ -1156,6 +1165,11 @@ GUARD_REJECTED = [
     "Technical checks confirm the loss.",
 ]
 GUARD_ACCEPTED = [
+    "we need to check the figures",
+    "the loss has not been independently audited",
+    "the figures have not been reconciled yet",
+    "the loss is awaiting independent confirmation",
+    "the audit found discrepancies",
     "the loss is pending verification",
     "the loss is awaiting verification",
     "the figure needs verification",

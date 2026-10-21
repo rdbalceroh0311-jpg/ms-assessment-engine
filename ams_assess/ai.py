@@ -32,6 +32,8 @@ QUALIFIERS = {
 # Bare business nouns ("authentication", "certification") are deliberately not vocabulary.
 VOCABULARY = re.compile(
     r"\b(?:un|non-?)?(?:confirm\w*|verif\w*|validat\w*|corroborat\w*|substantiat\w*|attest\w*"
+    r"|audited|auditing|reconcil\w*|inspected|inspecting|tested|(?:cross-|double-|re-?)?checked"
+    r"|(?:cross-|double-|re-?)check\w*"
     r"|measure|measured|measurement\w*|proof|prov(?:e|es|ed|en|ing)"
     r"|authenticat(?:e|es|ed|ing)|certif(?:y|ies|ied|ying)"
     r"|establish(?:es|ed)?(?=\s+(?:this|that|it|the|as)\b))\b"
@@ -44,12 +46,16 @@ _ADV = (
 )
 _PART = (
     r"(?:verified|confirmed|validated|measured|proven|corroborated|substantiated"
-    r"|authenticated|certified|attested)"
+    r"|authenticated|certified|attested|audited|reconciled|inspected|tested"
+    r"|(?:cross-|double-|re-?)?checked)"
 )
-_NOUN = r"(?:verification|confirmation|validation|corroboration|substantiation|measurement|proof)"
+_NOUN = (
+    r"(?:verification|confirmation|validation|corroboration|substantiation|measurement|proof"
+    r"|audit|check|reconciliation|inspection)"
+)
 _VERB = (
     r"(?:verify|confirm|validate|measure|prove|corroborate|substantiate|authenticate|certify"
-    r"|attest)"
+    r"|attest|audit|check|reconcile|inspect|test)"
 )
 _TAIL = r"(?P<t> .*)?"
 _X = r"(?:(?P<x>.+?) )?"
@@ -83,7 +89,9 @@ ALLOWED: list[tuple[re.Pattern[str], int]] = [
 ]
 NEGATION = re.compile(
     r"\b(?:not|never|no|none|nothing|nobody|without|lack\w*|absence|cannot|neither|nor|unable"
-    r"|fail\w*|false|untrue|incorrect\w*|wrong|myth|den(?:y|ies|ied)|refut\w*|doubt\w*)\b|n't",
+    r"|fail\w*|false|untrue|incorrect\w*|inaccurate|wrong|myth|den(?:y|ies|ied)|refut\w*"
+    r"|doubt\w*|debunk\w*|nonsense|exaggerat\w*|overstat\w*|mislead\w*|fabricat\w*|invent\w*"
+    r"|contradict\w*|baseless|unfounded)\b|n't",
     re.I,
 )
 ABBREVIATION = re.compile(r"\b(e\.g|i\.e|etc|vs|dr|mr|mrs|ms|approx)\.", re.I)
@@ -92,6 +100,12 @@ APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u00b
 
 def normalise(text: str) -> str:
     text = unicodedata.normalize("NFKC", text).translate(APOSTROPHES).casefold()
+    # Zero-width, soft-hyphen and other format characters (Unicode Cf) would split a word.
+    text = "".join(
+        " " if unicodedata.category(c) == "Cc" else c
+        for c in text
+        if unicodedata.category(c) != "Cf"
+    )
     text = ABBREVIATION.sub(lambda m: m.group(1).replace(".", ""), text)
     return " ".join(text.split())
 
