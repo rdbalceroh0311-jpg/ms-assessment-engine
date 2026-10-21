@@ -1135,6 +1135,10 @@ def test_explicit_ref_never_falls_through_to_content_matching(home, tmp_path):
 
 
 GUARD_REJECTED = [
+    "The independent audit found the reported loss accurate.",
+    "The independent inspection found the figure correct.",
+    "The review showed the numbers are reliable.",
+    "A test revealed the total is exact.",
     "The assertion that the loss is not verified has been debunked.",
     "The suggestion that the loss is unverified is nonsense.",
     "The loss has been independently audited and found accurate.",
@@ -1165,6 +1169,9 @@ GUARD_REJECTED = [
     "Technical checks confirm the loss.",
 ]
 GUARD_ACCEPTED = [
+    "our records show a different total",
+    "the inspection revealed damage",
+    "the audit found the figure inaccurate",
     "we need to check the figures",
     "the loss has not been independently audited",
     "the figures have not been reconciled yet",
@@ -1231,3 +1238,17 @@ def test_guard_accepts_only_not_verified_and_todo_wordings(fine):
 def test_guard_normalises_unicode_and_abbreviations():
     assert ai.normalise("It isn’t  Confirmed, e.g. now.") == "it isn't confirmed, eg now."
     assert ai.claims_verification("IT IS NOT UNVERIFIED")
+
+
+def test_guard_rejects_captures_containing_negation_or_refutation_words():
+    # Defense in depth: even a wording that would otherwise anchor-match is rejected when its
+    # subject or tail carries a negation/refutation word, independent of the negation count.
+    for text in (
+        "the claim is false and the loss is pending verification",
+        "the loss is pending verification, which is nonsense",
+        "the loss is pending verification without doubt",
+    ):
+        assert ai.claims_verification(text), text
+    assert not ai.claims_verification("the loss is pending verification")
+    assert ai.asserts_verification_outcome("the audit found the loss accurate")
+    assert not ai.asserts_verification_outcome("the audit found discrepancies")
