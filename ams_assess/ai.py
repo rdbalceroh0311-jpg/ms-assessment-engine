@@ -22,41 +22,61 @@ QUALIFIERS = {
     ),
     "assumption": re.compile(r"assum|hypothes|estimate|unverified|not verified", re.I),
 }
-# Verification vocabulary: verbs, nouns and "technical checks" claims alike. Negations are
-# counted in the clause before a term (plus its own un-/non- prefix): odd means a disclaimer
-# ("not independently verified", "no independent confirmation", "unverified"); even means a
-# claim, including compound negation ("not unverified", "no lack of proof", "cannot not confirm").
+# Verification vocabulary: verbs, nouns and "technical checks" claims alike.
 VERIFICATION = re.compile(
-    r"\b(?P<neg>un|non-?)?(?P<term>confirm\w*|verif\w*|measured|measurement\w*|validat\w*"
+    r"\b(?:un|non-?)?(?:confirm\w*|verif\w*|measured|measurement\w*|validat\w*"
     r"|corroborat\w*|substantiat\w*|proof|prov(?:e|es|ed|en|ing)"
     r"|establish(?:es|ed)?(?=\s+(?:this|that|it|the|as)\b))\b"
     r"|\btechnical(?:ly)?\s+(?:check|test|evidence|analysis|audit)\w*",
     re.I,
 )
-NEGATIONS = re.compile(
+_PART = r"(?:verified|confirmed|validated|measured|proven|corroborated|substantiated)"
+_NOUN = r"(?:verification|confirmation|validation|corroboration|substantiation|measurement|proof)"
+_VERB = r"(?:verify|confirm|validate|measure|prove|corroborate|substantiate)"
+_ADV = r"(?:(?:independently|technically|yet|formally|fully|further|independent|technical)\s+)*"
+# The ONLY wordings allowed to mention verification in a narrative citing non-technical
+# evidence: they state that verification has NOT happened or is still to do. Anything else
+# containing a verification term is an unsupported claim and is rejected.
+ALLOWED = [
+    re.compile(rf"(?:\b(?:not|never)|n't)\s+(?:yet\s+)?(?:been\s+)?{_ADV}{_PART}\b", re.I),
+    re.compile(
+        rf"\b(?:pending|awaiting|requires?|needs?|needing|subject to)\s+{_ADV}{_NOUN}\b", re.I
+    ),
+    re.compile(rf"\b(?:no|without|lacks?|lacking)\s+{_ADV}{_NOUN}\b", re.I),
+    re.compile(
+        rf"\b(?:to be|yet to be|still to be|needs? to be|should be|must be)\s+{_ADV}{_PART}\b",
+        re.I,
+    ),
+    re.compile(
+        rf"\b(?:(?:need|needs|should|must|plan|plans|want|wants|will)\s+to|should|must|will)"
+        rf"\s+(?:independently\s+)?{_VERB}\b",
+        re.I,
+    ),
+]
+UNFORM = re.compile(r"\b(?:un|non-?)(?:verified|confirmed|validated|measured|proven)\b", re.I)
+NEGATION = re.compile(
     r"\b(?:not|never|no|none|nothing|without|lack|lacks|lacking|absence|cannot|neither|nor"
-    r"|unable|fail|fails|failed)\b|n't|\bcan't",
+    r"|unable|fail|fails|failed|false|untrue|incorrect|wrong|myth|deny|denies|denied|refute\w*"
+    r"|doubt\w*)\b|n't",
     re.I,
 )
-CLAUSE_END = re.compile(
-    r"[.;:!?]|\b(?:and|but|however|although|though|because|while|so|then)\b", re.I
-)
-# "need to verify", "should confirm": an intention, not a completed verification.
-INTENT = re.compile(
-    r"\b(?:to|should|must|will|would|need|needs|plan|plans|want|wants|going)\s+(?:\w+\s+){0,2}$",
-    re.I,
-)
-BASE_VERBS = {"verify", "confirm", "validate", "measure", "prove", "corroborate", "substantiate"}
+SENTENCE = re.compile(r"[.;:!?\n]+")
 
 
 def claims_verification(text: str) -> bool:
-    for match in VERIFICATION.finditer(text):
-        before = CLAUSE_END.split(text[: match.start()])[-1].split()[-6:]
-        window = " ".join(before) + " "
-        if (match.group("term") or "").lower() in BASE_VERBS and INTENT.search(window):
-            continue
-        negations = len(NEGATIONS.findall(window)) + bool(match.group("neg"))
-        if negations % 2 == 0:
+    """Fail closed: whole-sentence scan, allowlisted not-verified/to-do wordings only."""
+    for sentence in SENTENCE.split(text):
+        used = False
+        for pattern in ALLOWED:
+            sentence, count = pattern.subn(" ", sentence)
+            used = used or bool(count)
+        if not NEGATION.search(sentence):
+            # "unverified" standing alone describes the statement itself; negated it is a claim.
+            sentence, count = UNFORM.subn(" ", sentence)
+            used = used or bool(count)
+        if VERIFICATION.search(sentence):
+            return True
+        if used and NEGATION.search(sentence):  # compound negation or refutation: ambiguous
             return True
     return False
 

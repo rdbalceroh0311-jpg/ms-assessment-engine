@@ -1020,3 +1020,116 @@ def test_unambiguous_change_supersedes_and_refs_update_explicitly(home, tmp_path
     duplicate = _statements(tmp_path, {"ref": "x"}, {"ref": "x"}, name="dup.json")
     with pytest.raises(SystemExit):
         cli.main(["discover", "--customer", "acme", "--notes", str(duplicate)])
+
+
+def test_narrative_allowlist_rejects_scope_bypasses_and_accepts_pending():
+    stated = Evidence(
+        id="ev-discovery-r1-001",
+        source="discovery",
+        url="u",
+        description="d",
+        data={},
+        provenance="customer_statement",
+    )
+
+    def accepted(body):
+        analysis, _, _ = validate_analysis(
+            {"executive_summary": f"The customer reported this: {body} (ev-discovery-r1-001)."},
+            [stated],
+            {"seo"},
+            [],
+        )
+        return analysis["executive_summary"]
+
+    for claim in (
+        "The loss is not, in the opinion of the customer, unverified.",
+        "There is no doubt the loss was verified.",
+        "The figures we need confirm the loss.",
+        "Describing this as unverified is false.",
+        "It is not the case that the loss is not verified.",
+    ):
+        assert accepted(claim) == "", claim
+    for fine in (
+        "the loss is pending verification",
+        "the loss is awaiting verification",
+        "the figure needs verification",
+        "the figure is yet to be verified and is unverified",
+        "it is to be verified before any work starts",
+        "we need to verify the estimate before acting",
+        "we should confirm the figure",
+    ):
+        text = accepted(fine)
+        assert text.startswith("Customer-reported, not technically verified: "), fine
+        again, _, warnings = validate_analysis({"executive_summary": text}, [stated], {"seo"}, [])
+        assert again["executive_summary"] == text and not warnings
+
+
+def test_discovery_citations_do_not_depend_on_notes_order(home, tmp_path):
+    def write(rows, name, cite=None):
+        notes = {
+            "sections": {"sales_quoting": [{"statement": "Chasing quotes", **r} for r in rows]}
+        }
+        if cite is not None:
+            notes["findings"] = [
+                {
+                    "title": "Chasing",
+                    "detail": "d",
+                    "recommendation": "r",
+                    "ams_service": "AI & Automation",
+                    "cites": [f"sales_quoting:{cite}"],
+                }
+            ]
+        path = tmp_path / name
+        path.write_text(json.dumps(notes))
+        return path
+
+    seed = write([{"ref": "quotes", "frequency": "daily"}], "seed.json")
+    ref_weekly = {"ref": "quotes", "frequency": "weekly"}
+    plain_daily = {"frequency": "daily"}
+    # The finding always cites the plain "daily" statement, wherever it sits in the notes.
+    for customer, rows, cite in (
+        ("acme", [ref_weekly, plain_daily], 1),
+        ("beta", [plain_daily, ref_weekly], 0),
+    ):
+        cli.main(["discover", "--customer", customer, "--notes", str(seed)])
+        notes = write(rows, f"{customer}.json", cite)
+        assert cli.main(["discover", "--customer", customer, "--notes", str(notes)]) == 0
+        saved = must_load(home, customer)
+        by_id = {e["id"]: e for e in saved["evidence"]}
+        [finding] = saved["findings"]
+        assert [by_id[i]["data"]["frequency"] for i in finding["evidence_ids"]] == ["daily"]
+        assert len(saved["evidence"]) == 3  # seed + weekly update + distinct plain daily
+        rows_ = saved["discovery"]["sections"]["sales_quoting"]
+        assert {(r["ref"], r["frequency"]) for r in rows_} == {("quotes", "weekly"), ("", "daily")}
+        plain = next(r for r in rows_ if not r["ref"])
+        assert finding["evidence_ids"] == [plain["evidence_id"]]
+
+
+def test_explicit_ref_never_falls_through_to_content_matching(home, tmp_path):
+    def ingest(*rows):
+        path = tmp_path / "n.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "sections": {
+                        "sales_quoting": [{"statement": "Chasing quotes", **r} for r in rows]
+                    }
+                }
+            )
+        )
+        assert cli.main(["discover", "--customer", "acme", "--notes", str(path)]) == 0
+        saved = must_load(home, "acme")
+        return saved, saved["discovery"]["sections"]["sales_quoting"]
+
+    saved, rows = ingest({"ref": "first", "frequency": "daily"})
+    first_id = rows[0]["evidence_id"]
+    saved, rows = ingest(
+        {"ref": "first", "frequency": "daily"}, {"ref": "second", "frequency": "daily"}
+    )
+    assert [r["ref"] for r in rows] == ["first", "second"] and len(saved["evidence"]) == 2
+    assert rows[0]["evidence_id"] == first_id
+    saved, rows = ingest({"ref": "second", "frequency": "weekly"})
+    by_ref = {r["ref"]: r for r in rows}
+    assert by_ref["second"]["frequency"] == "weekly" and "supersedes" in by_ref["second"]
+    assert by_ref["first"]["frequency"] == "daily" and by_ref["first"]["evidence_id"] == first_id
+    assert "supersedes" not in by_ref["first"] and len(saved["evidence"]) == 3

@@ -81,11 +81,16 @@ the stored one only when unambiguous (one new version, one stored candidate): it
 evidence ID that records `supersedes`, while the old evidence stays intact for findings that cite it.
 If several same-identity versions exist the change fails closed: it is added as a distinct entry and
 nothing is rewritten. To update a specific statement explicitly, give it a stable `"ref"` (unique
-per section); the same ref always supersedes that statement, with all its fields as submitted.
+per section). A ref always takes precedence over content: a ref that matches a stored statement
+updates exactly that statement (all fields as submitted); a ref that matches none creates a new
+entry bound to that ref, even if its content equals another entry. Matching and citations are
+computed from the pre-ingestion state, so the order of the notes never changes them.
 Limitation: changing or omitting `owner`/`systems` makes a new contextual entry; the old entry stays
 and history is not rewritten. Narrative guard: AI text citing customer statements or assumptions
-is dropped if it claims verification (including double negatives such as "not unverified"); intent
-("we need to verify") and disclaimers ("not independently verified") are allowed.
+is dropped unless every mention of verification is an allowlisted not-verified or to-do wording
+("not (independently) verified", "pending/awaiting verification", "needs verification", "to be
+verified", "we need to verify", "no independent confirmation", a bare "unverified"); any other use
+of a verification term, or any compound negation or refutation around one, is rejected.
 
 **Evidence IDs are namespaced per run in the store** (`ev-gsc-001` becomes `ev-gsc-r2-001`; discovery
 statements are `ev-discovery-rN-NNN`); every citation (findings, AI narrative, summaries) is rewritten

@@ -6,6 +6,7 @@ cites an evidence ID is remapped with the same mapping.
 """
 
 import contextlib
+import copy
 import json
 import os
 import re
@@ -277,33 +278,45 @@ def add_discovery(
 
     for section, statements in notes.statements().items():
         stored = discovery["sections"].setdefault(section, [])
+        # Every decision below reads this snapshot only, never the entries being updated, so the
+        # statement -> evidence mapping cannot depend on the order of the notes.
+        snapshot = copy.deepcopy(stored)
         fields_list = [st.model_dump() for st in statements]
-        # Plan against the stored entries as they were before this ingestion, so the outcome
-        # never depends on the order of the notes: ("reuse"|"supersede"|"new", index).
         plan: list[tuple[str, int]] = [("new", -1)] * len(fields_list)
         claimed: set[int] = set()
+        rewritten: set[int] = set()
+        for i, fields in enumerate(fields_list):
+            if not fields["ref"]:
+                continue
+            # An explicit ref always takes precedence: it updates its own entry, or creates a
+            # new entry bound to that ref. It never falls through to matching by content.
+            j = next((k for k, e in enumerate(snapshot) if e.get("ref") == fields["ref"]), None)
+            if j is not None:
+                changed = not same(snapshot[j], fields)
+                plan[i] = ("supersede" if changed else "reuse", j)
+                claimed.add(j)
+                if changed:
+                    rewritten.add(j)
         pending: list[int] = []
         for i, fields in enumerate(fields_list):
-            ref = fields["ref"]
-            by_ref = next((j for j, e in enumerate(stored) if ref and e.get("ref") == ref), None)
-            if by_ref is not None:  # explicit ref: this is an update of exactly that statement
-                plan[i] = ("reuse" if same(stored[by_ref], fields) else "supersede", by_ref)
-                claimed.add(by_ref)
+            if fields["ref"]:
                 continue
-            exact = next((j for j, e in enumerate(stored) if same(e, fields)), None)
+            exact = next(
+                (k for k, e in enumerate(snapshot) if k not in rewritten and same(e, fields)), None
+            )
             if exact is not None:
                 plan[i] = ("reuse", exact)
                 claimed.add(exact)
-            elif not ref:
+            else:
                 pending.append(i)
         groups: dict[tuple[str, str, tuple[str, ...]], list[int]] = {}
         for i in pending:
             groups.setdefault(identity(fields_list[i]), []).append(i)
         for base, members in groups.items():
             candidates = [
-                j
-                for j, e in enumerate(stored)
-                if not e.get("ref") and identity(e) == base and j not in claimed
+                k
+                for k, e in enumerate(snapshot)
+                if not e.get("ref") and identity(e) == base and k not in claimed
             ]
             # Supersede only when unambiguous (one new version, one candidate); else fail closed
             # and keep the new version as a distinct entry rather than rewrite any history.
@@ -311,24 +324,22 @@ def add_discovery(
                 plan[members[0]] = ("supersede", candidates[0])
         for i, fields in enumerate(fields_list):
             kind, j = plan[i]
+            if kind == "supersede" and not fields["ref"]:
+                # Unreferenced re-ingest only adds detail; omitted fields keep their value.
+                fields = {
+                    k: v if k == "statement" else (v or snapshot[j][k]) for k, v in fields.items()
+                }
+                if same(snapshot[j], fields):
+                    kind = "reuse"
             if kind == "reuse":
-                cited.setdefault(section, []).append(stored[j]["evidence_id"])
+                cited.setdefault(section, []).append(snapshot[j]["evidence_id"])
                 continue
             if kind == "supersede":
-                previous = stored[j]
-                if not fields["ref"]:
-                    # Unreferenced re-ingest only adds detail; omitted fields keep their value.
-                    fields = {
-                        k: (v or previous[k]) if k != "statement" else v for k, v in fields.items()
-                    }
-                    if same(previous, fields):
-                        cited.setdefault(section, []).append(previous["evidence_id"])
-                        continue
-                eid = mint(section, fields, previous["evidence_id"])
-                previous.update(fields)
-                previous.update(
+                eid = mint(section, fields, snapshot[j]["evidence_id"])
+                stored[j].update(fields)
+                stored[j].update(
                     evidence_id=eid,
-                    supersedes=previous["evidence_id"],
+                    supersedes=snapshot[j]["evidence_id"],
                     run_id=run_id,
                     ingested_at=stamp,
                 )
