@@ -701,16 +701,104 @@ def test_ai_narratives_cannot_present_customer_statements_as_technical(caplog):
     assert sum("unqualified customer statement" in w for w in warnings) == 2
 
 
-def test_discovery_refresh_updates_minted_evidence(home, tmp_path):
+def test_discovery_refresh_supersedes_evidence_and_keeps_cited_originals(home, tmp_path):
     notes = notes_file(tmp_path)
     cli.main(["discover", "--customer", "acme", "--notes", str(notes)])
+    before = must_load(home, "acme")
+    [finding] = before["findings"]
+    old_ids = list(finding["evidence_ids"])
+    originals = {e["id"]: e for e in before["evidence"] if e["id"] in old_ids}
+    # Refresh a statement the finding cites, plus an uncited one, without re-deriving findings.
     data = json.loads(notes.read_text())
+    data["sections"]["sales_quoting"] = [
+        {
+            "statement": "Quotes are built by hand in spreadsheets",
+            "frequency": "weekly",
+            "impact": "one hour",
+        }
+    ]
     data["sections"]["enquiries_communication"][0]["frequency"] = "weekly"
+    data["findings"] = []
     notes.write_text(json.dumps(data))
     cli.main(["discover", "--customer", "acme", "--notes", str(notes)])
     saved = must_load(home, "acme")
-    entry = saved["discovery"]["sections"]["enquiries_communication"][0]
-    assert entry["frequency"] == "weekly" and len(saved["evidence"]) == 4
-    evidence = next(e for e in saved["evidence"] if e["id"] == entry["evidence_id"])
-    assert evidence["data"]["frequency"] == "weekly"
-    assert evidence["provenance"] == "customer_statement"
+    by_id = {e["id"]: e for e in saved["evidence"]}
+    # The old finding still cites its original evidence, with the original values intact.
+    [finding] = saved["findings"]
+    assert finding["evidence_ids"] == old_ids
+    for eid in old_ids:
+        assert by_id[eid] == originals[eid]
+    quoting = next(e for e in by_id.values() if e["id"] == old_ids[0] or e["id"] in old_ids)
+    assert "weekly" not in json.dumps(quoting["data"])
+    # The discovery index points at new evidence that supersedes the old.
+    entry = saved["discovery"]["sections"]["sales_quoting"][0]
+    assert entry["evidence_id"] not in old_ids and entry["frequency"] == "weekly"
+    assert by_id[entry["evidence_id"]]["data"]["supersedes"] in old_ids
+    assert by_id[entry["evidence_id"]]["data"]["impact"] == "one hour"
+    comms = saved["discovery"]["sections"]["enquiries_communication"][0]
+    assert by_id[comms["evidence_id"]]["data"]["frequency"] == "weekly"
+    assert by_id[comms["evidence_id"]]["provenance"] == "customer_statement"
+    # A third, identical ingestion is a no-op.
+    cli.main(["discover", "--customer", "acme", "--notes", str(notes)])
+    assert len(must_load(home, "acme")["evidence"]) == len(saved["evidence"])
+    # Re-deriving the finding now cites the refreshed evidence as well as the original.
+    data["findings"] = json.loads(notes_file(tmp_path).read_text())["findings"]
+    notes.write_text(json.dumps(data))
+    cli.main(["discover", "--customer", "acme", "--notes", str(notes)])
+    [merged] = must_load(home, "acme")["findings"]
+    assert set(old_ids) < set(merged["evidence_ids"])
+
+
+def test_narrative_label_follows_weakest_provenance_and_revalidates():
+    technical = Evidence(id="ev-a-001", source="a", url="u", description="d", data={})
+    stated = technical.model_copy(
+        update={"id": "ev-discovery-r1-001", "provenance": "customer_statement"}
+    )
+    assumed = technical.model_copy(update={"id": "ev-discovery-r1-002", "provenance": "assumption"})
+    evidence = [technical, stated, assumed]
+
+    def check(summary):
+        analysis, _, warnings = validate_analysis(
+            {"executive_summary": summary}, evidence, {"seo"}, []
+        )
+        return analysis["executive_summary"], warnings
+
+    assert check("Titles are missing (ev-a-001).") == ("Titles are missing (ev-a-001).", [])
+    reported, _ = check("The customer reported 20 hours lost (ev-a-001, ev-discovery-r1-001).")
+    assert reported.startswith("Customer-reported, not technically verified: ")
+    assumption, _ = check("We assume quoting costs 20 hours weekly (ev-discovery-r1-002).")
+    assert assumption.startswith("Assumption, not verified: ")
+    assert "Customer-reported" not in assumption
+    # Mixed statement + assumption takes the weaker (assumption) label.
+    mixed, _ = check("We assume 20 hours is lost (ev-discovery-r1-001, ev-discovery-r1-002).")
+    assert mixed.startswith("Assumption, not verified: ")
+    # Accepted, prefixed narratives revalidate cleanly and are not double-prefixed.
+    for text in (reported, assumption, mixed):
+        again, warnings = check(text)
+        assert again == text and not warnings
+    # Disclaimers are not confirmation claims; affirmative claims still are.
+    ok, warnings = check(
+        "The customer reported 20 hours, not independently verified (ev-discovery-r1-001)."
+    )
+    assert ok and not warnings
+    for bad in (
+        "The customer reported it and technical checks confirm it (ev-discovery-r1-001).",
+        "We assume it, and it is verified (ev-discovery-r1-002).",
+        "20 hours are lost (ev-discovery-r1-002).",
+    ):
+        assert check(bad)[0] == ""
+
+
+def test_run_exit_message_reflects_actual_status(home, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "config", lambda: {})
+    monkeypatch.setattr(runner, "REGISTRY", {"security": fake_module()})
+    monkeypatch.setattr(store, "merge_run", lambda *a, **k: 1 / 0)
+    monkeypatch.setattr(
+        cli,
+        "run",
+        lambda ctx, **k: {"status": "incomplete", "findings": [], "store_status": "failed"},
+    )
+    args = ["run", "--customer", "acme", "--target", "example.com", "--categories", "security"]
+    assert cli.main(args) == 3
+    out = capsys.readouterr().out
+    assert "status incomplete" in out and "is complete" not in out

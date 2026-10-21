@@ -11,12 +11,28 @@ from pydantic import BaseModel, Field, ValidationError
 from ams_assess.models import Context, Evidence, Finding, worst_provenance
 
 LOG = logging.getLogger(__name__)
-NARRATIVE_LABEL = "Customer-reported, not technically verified: "
-# A narrative citing customer statements must say so and must not claim confirmation.
-QUALIFIED = re.compile(
-    r"customer[- ](stated|reported|statement|says|said)|according to the customer|assum", re.I
+# Narratives citing non-technical evidence carry the label of the WEAKEST cited provenance.
+LABELS = {
+    "customer_statement": "Customer-reported, not technically verified: ",
+    "assumption": "Assumption, not verified: ",
+}
+QUALIFIERS = {
+    "customer_statement": re.compile(
+        r"customer[- ](stated|reported|statement|says|said)|according to the customer", re.I
+    ),
+    "assumption": re.compile(r"assum|hypothes|estimate|unverified|not verified", re.I),
+}
+# Phrases that DISCLAIM verification are fine; only affirmative confirmation claims are unsafe.
+DISCLAIMERS = re.compile(
+    r"\b(not|never|un)[- ]?(independently |technically |yet )?"
+    r"(verified|confirmed|measured|validated)",
+    re.I,
 )
-CONFIRMS = re.compile(r"confirm|verified|measured|technical(ly)?\b|validated|proven", re.I)
+CONFIRMS = re.compile(
+    r"\b(confirm(s|ed)?|verif(y|ies|ied)|measured|validated|proven?)\b"
+    r"|\btechnical(ly)? (check|test|evidence|analysis|audit)",
+    re.I,
+)
 PHASES = ["0-30 days", "30-90 days", "90+ days"]
 
 
@@ -74,12 +90,15 @@ def validate_analysis(
         reason = ""
         if not refs or not refs <= known:
             reason = "uncited or invalid"
-        elif any(provenance[r] != "technical_evidence" for r in refs):
+        elif (weakest := worst_provenance(provenance[r] for r in refs)) != "technical_evidence":
             # Same guard as findings: customer statements and assumptions are never technical fact.
-            if CONFIRMS.search(value) or not QUALIFIED.search(value):
+            label = LABELS[weakest]
+            body = value.removeprefix(label)
+            qualified = body != value or QUALIFIERS[weakest].search(value)
+            if CONFIRMS.search(DISCLAIMERS.sub("", body)) or not qualified:
                 reason = "unqualified customer statement"
-            elif not value.startswith(NARRATIVE_LABEL):
-                value = NARRATIVE_LABEL + value
+            elif body == value:
+                value = label + value
                 if key == "summary":
                     summary = value
                 else:

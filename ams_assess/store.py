@@ -232,34 +232,44 @@ def add_discovery(
         for statement in statements:
             fields = statement.model_dump()
             norm = " ".join(statement.statement.lower().split())
-            if norm in known:
-                # Re-ingested statement: refresh optional detail, keep its evidence ID.
-                entry = known[norm]
-                entry.update({k: v for k, v in fields.items() if k != "statement" and v})
-                refresh = {k: entry[k] for k in fields}
-                for i, item in enumerate(evidence):
-                    if item.id == entry["evidence_id"]:
-                        evidence[i] = Evidence.model_validate(
-                            {**item.model_dump(), "data": {"section": section, **refresh}}
-                        )
-                cited.setdefault(section, []).append(entry["evidence_id"])
-                continue
+            previous = known.get(norm)
+            if previous is not None:
+                merged = {**{k: previous[k] for k in fields}}
+                merged.update({k: v for k, v in fields.items() if k != "statement" and v})
+                if merged == {k: previous[k] for k in fields}:
+                    cited.setdefault(section, []).append(previous["evidence_id"])
+                    continue
+                # Changed detail supersedes: findings citing the old evidence keep its original
+                # values, so mint a new ID and point the discovery index at it.
+                fields = merged
             counter += 1
             eid = f"ev-discovery-{run_id}-{counter:03d}"
             title = DISCOVERY_SECTIONS[section]
+            data = {"section": section, **fields}
+            if previous is not None:
+                data["supersedes"] = previous["evidence_id"]
             evidence.append(
                 Evidence(
                     id=eid,
                     source="discovery",
                     url="customer-discovery-notes",
-                    description=f"Customer statement ({title}): {statement.statement[:140]}",
-                    data={"section": section, **fields},
+                    description=f"Customer statement ({title}): {fields['statement'][:140]}",
+                    data=data,
                     provenance="customer_statement",
                 )
             )
-            entry = {"evidence_id": eid, "run_id": run_id, "ingested_at": stamp, **fields}
-            stored.append(entry)
-            known[norm] = entry
+            if previous is not None:
+                previous.update(fields)
+                previous.update(
+                    evidence_id=eid,
+                    supersedes=previous["evidence_id"],
+                    run_id=run_id,
+                    ingested_at=stamp,
+                )
+            else:
+                entry = {"evidence_id": eid, "run_id": run_id, "ingested_at": stamp, **fields}
+                stored.append(entry)
+                known[norm] = entry
             cited.setdefault(section, []).append(eid)
             added += 1
     discovery["ingested_at"] = stamp
