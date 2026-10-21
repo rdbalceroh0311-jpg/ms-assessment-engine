@@ -1252,3 +1252,78 @@ def test_guard_rejects_captures_containing_negation_or_refutation_words():
     assert not ai.claims_verification("the loss is pending verification")
     assert ai.asserts_verification_outcome("the audit found the loss accurate")
     assert not ai.asserts_verification_outcome("the audit found discrepancies")
+
+
+NOUNS = ["audit", "inspection", "review", "assessment", "appraisal"]
+VERBS = ["revealed", "reveal", "demonstrated", "established", "confirmed", "found"]
+COMPLEMENTS = ["accurate", "correct", "genuine", "rightly calculated", "exactly right"]
+BOUNDARIES = [" and ", "; ", ": ", ". ", "\n", ", "]
+
+
+def _guard_summary(text):
+    stated = Evidence(
+        id="ev-discovery-r1-001",
+        source="discovery",
+        url="u",
+        description="d",
+        data={},
+        provenance="customer_statement",
+    )
+    analysis, _, _ = validate_analysis(
+        {"executive_summary": f"The customer reported this: {text} (ev-discovery-r1-001)."},
+        [stated],
+        {"seo"},
+        [],
+    )
+    return analysis["executive_summary"]
+
+
+def test_collocation_rule_survives_boundaries_synonyms_and_invisible_characters():
+    # Self-fuzz: noun x verb x complement x boundary, all through the real guard.
+    variants = [
+        f"The {n} {v} the reported loss{b}it is {c}."
+        for n in NOUNS
+        for v in VERBS
+        for c in COMPLEMENTS
+        for b in BOUNDARIES
+    ]
+    assert len(variants) == 900
+    assert all(ai.claims_verification(v) for v in variants)
+    # Zero-width characters inside every word class; prefix + claim patterns.
+    zw = "\u200b"
+    hidden = [
+        f"The aud{zw}it found the loss accur{zw}ate.",
+        f"The inspect{zw}ion reve{zw}aled the loss cor{zw}rect.",
+        f"The re{zw}view demonstr{zw}ated the figure gen{zw}uine.",
+        f"The {zw}assessment est{zw}ablished the loss ri{zw}ghtly.",
+        "The customer reported a loss. The audit found it accurate.",
+        "The customer reported a loss.\nThe appraisal demonstrated it is correct.",
+        "The independent audits reveal the reported loss is correct.",
+        "The audit demonstrated that the figures are correct.",
+        "The audit found the loss genuine.",
+        "The audit found the reported loss; it is accurate.",
+        "The audit found the loss: it was accurate.",
+        "The audit found the loss. It was accurate.",
+    ]
+    assert all(ai.claims_verification(h) for h in hidden)
+    for text in hidden:
+        assert _guard_summary(text) == "", text
+    for text in variants[::37]:
+        assert _guard_summary(text) == "", text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "the audit found the loss legitimate",
+        "the audit found the loss plausible",
+        "the audit found discrepancies",
+        "the inspection revealed damage",
+        "the audit found the figure inaccurate",
+        "our records show a different total",
+        "we need to check the figures",
+        "the loss is awaiting independent confirmation",
+    ],
+)
+def test_collocation_rule_keeps_hedged_and_unrelated_wordings(text):
+    assert not ai.claims_verification(text)

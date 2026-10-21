@@ -110,27 +110,26 @@ def normalise(text: str) -> str:
     return " ".join(text.split())
 
 
-# Collocation rule: an event noun + a conclusion verb + a positive-accuracy complement in one
-# sentence ("the audit found the loss accurate") asserts the outcome of a verification event.
+# Co-occurrence rule: an event noun + a conclusion verb + a positive-accuracy word anywhere in the
+# narrative ("the audit found the loss accurate") asserts the outcome of a verification event.
 EVENT_NOUN = re.compile(
     r"\b(?:audits?|audited|inspections?|reviews?|reviewed|checks?|checked|verifications?"
     r"|confirmations?|validations?|assessments?|appraisals?|tests?|testing|tested)\b"
 )
 CONCLUSION_VERB = re.compile(
-    r"\b(?:found|finds?|shows?|showed|shown|revealed?|reveals|established|confirmed|confirms?"
+    r"\b(?:found|finds?|shows?|showed|shown|reveal(?:s|ed|ing)?|establish(?:es|ed|ing)?"
+    r"|demonstrat(?:e|es|ed|ing)|confirmed|confirms?"
     r"|determined|concluded|proved|proves|proven)\b"
 )
 POSITIVE = re.compile(
     r"\b(?:accurate|accuracy|correct|correctness|true|valid|right|verified|validated|confirmed"
-    r"|precise|exact|reliable|sound)\b"
+    r"|precise|exact|reliable|sound|genuine|rightly|correctly)\b"
 )
 
 
 def asserts_verification_outcome(text: str) -> bool:
-    return any(
-        EVENT_NOUN.search(s) and CONCLUSION_VERB.search(s) and POSITIVE.search(s)
-        for s in re.split(r"[.;:!?]+", text)
-    )
+    """Co-occurrence over the WHOLE narrative, so no punctuation can split the three parts."""
+    return bool(EVENT_NOUN.search(text) and CONCLUSION_VERB.search(text) and POSITIVE.search(text))
 
 
 def claims_verification(text: str) -> bool:
