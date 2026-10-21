@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import unicodedata
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
@@ -22,63 +23,98 @@ QUALIFIERS = {
     ),
     "assumption": re.compile(r"assum|hypothes|estimate|unverified|not verified", re.I),
 }
-# Verification vocabulary: verbs, nouns and "technical checks" claims alike.
-VERIFICATION = re.compile(
-    r"\b(?:un|non-?)?(?:confirm\w*|verif\w*|measured|measurement\w*|validat\w*"
-    r"|corroborat\w*|substantiat\w*|proof|prov(?:e|es|ed|en|ing)"
+# Narrative guard for text citing customer statements or assumptions. Design (fail closed):
+# 1. normalise (Unicode apostrophes, case, whitespace, abbreviation dots);
+# 2. any verification term must sit in a clause that ANCHOR-MATCHES (whole clause) one of a few
+#    "not verified yet / still to do" wordings; everything else is an unsupported claim;
+# 3. negations are counted over the WHOLE narrative and must equal exactly the negations the
+#    matched wordings carry, so any other negation or refutation anywhere rejects the narrative.
+# Bare business nouns ("authentication", "certification") are deliberately not vocabulary.
+VOCABULARY = re.compile(
+    r"\b(?:un|non-?)?(?:confirm\w*|verif\w*|validat\w*|corroborat\w*|substantiat\w*|attest\w*"
+    r"|measure|measured|measurement\w*|proof|prov(?:e|es|ed|en|ing)"
+    r"|authenticat(?:e|es|ed|ing)|certif(?:y|ies|ied|ying)"
     r"|establish(?:es|ed)?(?=\s+(?:this|that|it|the|as)\b))\b"
     r"|\btechnical(?:ly)?\s+(?:check|test|evidence|analysis|audit)\w*",
     re.I,
 )
-_PART = r"(?:verified|confirmed|validated|measured|proven|corroborated|substantiated)"
+_ADV = (
+    r"(?:(?:independently|technically|yet|formally|fully|further|independent|technical|formal"
+    r"|external) )*"
+)
+_PART = (
+    r"(?:verified|confirmed|validated|measured|proven|corroborated|substantiated"
+    r"|authenticated|certified|attested)"
+)
 _NOUN = r"(?:verification|confirmation|validation|corroboration|substantiation|measurement|proof)"
-_VERB = r"(?:verify|confirm|validate|measure|prove|corroborate|substantiate)"
-_ADV = r"(?:(?:independently|technically|yet|formally|fully|further|independent|technical)\s+)*"
-# The ONLY wordings allowed to mention verification in a narrative citing non-technical
-# evidence: they state that verification has NOT happened or is still to do. Anything else
-# containing a verification term is an unsupported claim and is rejected.
-ALLOWED = [
-    re.compile(rf"(?:\b(?:not|never)|n't)\s+(?:yet\s+)?(?:been\s+)?{_ADV}{_PART}\b", re.I),
-    re.compile(
-        rf"\b(?:pending|awaiting|requires?|needs?|needing|subject to)\s+{_ADV}{_NOUN}\b", re.I
-    ),
-    re.compile(rf"\b(?:no|without|lacks?|lacking)\s+{_ADV}{_NOUN}\b", re.I),
-    re.compile(
-        rf"\b(?:to be|yet to be|still to be|needs? to be|should be|must be)\s+{_ADV}{_PART}\b",
-        re.I,
-    ),
-    re.compile(
-        rf"\b(?:(?:need|needs|should|must|plan|plans|want|wants|will)\s+to|should|must|will)"
-        rf"\s+(?:independently\s+)?{_VERB}\b",
-        re.I,
-    ),
+_VERB = (
+    r"(?:verify|confirm|validate|measure|prove|corroborate|substantiate|authenticate|certify"
+    r"|attest)"
+)
+_TAIL = r"(?P<t> .*)?"
+_X = r"(?:(?P<x>.+?) )?"
+_BE = r"is|are|was|were|remains?"
+_UN = r"(?:unverified|unconfirmed|unvalidated|unproven|unmeasured)"
+_WAIT = r"(?:pending|awaiting|subject to)"
+_HAS = r"(?:is|are|was|were|has been|have been|has|have)"
+_CONTRACTED = r"(?:isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't)"
+_NEED = r"(?:(?:need|needs|plan|plans|want|wants) to|should|must)"
+_THERE = r"(?:(?:there (?:is|are|was|were)|with|has|have|had) )?"
+# (anchored whole-clause pattern, number of negations the wording itself carries)
+ALLOWED: list[tuple[re.Pattern[str], int]] = [
+    (re.compile(p, re.I), neg)
+    for p, neg in [
+        # <X> is pending/awaiting/subject to (independent) verification
+        (rf"(?:{_X}(?:{_BE}) )?(?:still |currently )?{_WAIT} {_ADV}{_NOUN}{_TAIL}", 0),
+        # <X> needs/requires (independent) verification
+        (rf"{_X}(?:needs?|requires?) {_ADV}{_NOUN}{_TAIL}", 0),
+        # <X> is (yet) to be verified
+        (rf"(?:{_X}(?:is|are|was|were) )?(?:yet |still )?to be {_ADV}{_PART}{_TAIL}", 0),
+        # <X> has not been (independently) verified; is not verified; isn't confirmed
+        (rf"{_X}(?:{_HAS} )?not (?:yet )?(?:been )?{_ADV}{_PART}{_TAIL}", 1),
+        (rf"{_X}{_CONTRACTED} (?:yet )?(?:been )?{_ADV}{_PART}{_TAIL}", 1),
+        # <X> is unverified / unconfirmed (only when the narrative has no other negation)
+        (rf"(?:{_X}(?:{_BE}) )?(?:still |currently )?{_UN}{_TAIL}", 0),
+        # we need to / should / must verify <X>
+        (rf"{_X}{_NEED} (?:independently )?{_VERB}{_TAIL}", 0),
+        # there is no (independent) verification of <X>
+        (rf"{_X}{_THERE}no {_ADV}{_NOUN}{_TAIL}", 1),
+    ]
 ]
-UNFORM = re.compile(r"\b(?:un|non-?)(?:verified|confirmed|validated|measured|proven)\b", re.I)
 NEGATION = re.compile(
-    r"\b(?:not|never|no|none|nothing|without|lack|lacks|lacking|absence|cannot|neither|nor"
-    r"|unable|fail|fails|failed|false|untrue|incorrect|wrong|myth|deny|denies|denied|refute\w*"
-    r"|doubt\w*)\b|n't",
+    r"\b(?:not|never|no|none|nothing|nobody|without|lack\w*|absence|cannot|neither|nor|unable"
+    r"|fail\w*|false|untrue|incorrect\w*|wrong|myth|den(?:y|ies|ied)|refut\w*|doubt\w*)\b|n't",
     re.I,
 )
-SENTENCE = re.compile(r"[.;:!?\n]+")
+ABBREVIATION = re.compile(r"\b(e\.g|i\.e|etc|vs|dr|mr|mrs|ms|approx)\.", re.I)
+APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u00b4": "'", "`": "'"})
+
+
+def normalise(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text).translate(APOSTROPHES).casefold()
+    text = ABBREVIATION.sub(lambda m: m.group(1).replace(".", ""), text)
+    return " ".join(text.split())
 
 
 def claims_verification(text: str) -> bool:
-    """Fail closed: whole-sentence scan, allowlisted not-verified/to-do wordings only."""
-    for sentence in SENTENCE.split(text):
-        used = False
-        for pattern in ALLOWED:
-            sentence, count = pattern.subn(" ", sentence)
-            used = used or bool(count)
-        if not NEGATION.search(sentence):
-            # "unverified" standing alone describes the statement itself; negated it is a claim.
-            sentence, count = UNFORM.subn(" ", sentence)
-            used = used or bool(count)
-        if VERIFICATION.search(sentence):
-            return True
-        if used and NEGATION.search(sentence):  # compound negation or refutation: ambiguous
-            return True
-    return False
+    """True unless every verification term is in an allowed not-verified / to-do wording."""
+    text = normalise(text)
+    if not VOCABULARY.search(text):
+        return False
+    own = 0
+    for sentence in re.split(r"[.;:!?]+", text):
+        for clause in re.split(r",|\band\b|\bbut\b|\bor\b|\bthen\b", sentence):
+            clause = clause.strip()
+            if not VOCABULARY.search(clause):
+                continue
+            for pattern, negations in ALLOWED:
+                match = pattern.fullmatch(clause)
+                if match and not any(VOCABULARY.search(match.group(g) or "") for g in ("x", "t")):
+                    own += negations
+                    break
+            else:
+                return True
+    return len(NEGATION.findall(text)) != own
 
 
 PHASES = ["0-30 days", "30-90 days", "90+ days"]

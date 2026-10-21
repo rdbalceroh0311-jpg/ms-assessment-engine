@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from ams_assess import cli, runner, store
+from ams_assess import ai, cli, runner, store
 from ams_assess.ai import validate_analysis
 from ams_assess.consolidate import consolidate
 from ams_assess.models import (
@@ -1133,3 +1133,87 @@ def test_explicit_ref_never_falls_through_to_content_matching(home, tmp_path):
     assert by_ref["second"]["frequency"] == "weekly" and "supersedes" in by_ref["second"]
     assert by_ref["first"]["frequency"] == "daily" and by_ref["first"]["evidence_id"] == first_id
     assert "supersedes" not in by_ref["first"] and len(saved["evidence"]) == 3
+
+
+GUARD_REJECTED = [
+    "The loss is known to be independently verified.",
+    "The loss is not, e.g., unverified.",
+    "It is false: the loss is unverified",
+    "The loss isn’t unverified.",
+    "The reported losses have been independently authenticated.",
+    "It is not the case that the loss is not verified.",
+    "There is no doubt the loss was verified.",
+    "The figures we need confirm the loss.",
+    "It is not untested and not unconfirmed.",
+    "There is no lack of proof of the loss.",
+    "This is not without independent confirmation.",
+    "We cannot not confirm the loss.",
+    "Describing this as unverified is false.",
+    "The loss is not, in the opinion of the customer, unverified.",
+    "We don’t have the figures, pending verification.",
+    "The loss was certified by the accountant.",
+    "This has been attested.",
+    "Technical checks confirm the loss.",
+]
+GUARD_ACCEPTED = [
+    "the loss is pending verification",
+    "the loss is awaiting verification",
+    "the figure needs verification",
+    "this is not independently verified",
+    "there is no independent confirmation",
+    "the figure is unverified",
+    "it has not been validated yet",
+    "it isn’t confirmed",
+    "it is to be verified before any work starts",
+    "the loss is yet to be verified",
+    "we need to verify the estimate before acting",
+    "we should confirm the figure",
+    "we should confirm the figure and plan to validate it",
+    "authentication failures increased",
+    "an established customer lost 20 hours",
+    "20 hours were lost, not independently verified",
+]
+
+
+@pytest.mark.parametrize("claim", GUARD_REJECTED)
+def test_guard_rejects_affirmative_and_ambiguous_verification(claim):
+    assert ai.claims_verification(claim)
+    stated = Evidence(
+        id="ev-discovery-r1-001",
+        source="discovery",
+        url="u",
+        description="d",
+        data={},
+        provenance="customer_statement",
+    )
+    analysis, _, _ = validate_analysis(
+        {"executive_summary": f"The customer reported this: {claim} (ev-discovery-r1-001)."},
+        [stated],
+        {"seo"},
+        [],
+    )
+    assert analysis["executive_summary"] == ""
+
+
+@pytest.mark.parametrize("fine", GUARD_ACCEPTED)
+def test_guard_accepts_only_not_verified_and_todo_wordings(fine):
+    assert not ai.claims_verification(fine)
+    stated = Evidence(
+        id="ev-discovery-r1-001",
+        source="discovery",
+        url="u",
+        description="d",
+        data={},
+        provenance="customer_statement",
+    )
+    summary = f"The customer reported this: {fine} (ev-discovery-r1-001)."
+    analysis, _, warnings = validate_analysis({"executive_summary": summary}, [stated], {"seo"}, [])
+    text = analysis["executive_summary"]
+    assert text.startswith("Customer-reported, not technically verified: ") and not warnings
+    again, _, warnings = validate_analysis({"executive_summary": text}, [stated], {"seo"}, [])
+    assert again["executive_summary"] == text and not warnings
+
+
+def test_guard_normalises_unicode_and_abbreviations():
+    assert ai.normalise("It isn’t  Confirmed, e.g. now.") == "it isn't confirmed, eg now."
+    assert ai.claims_verification("IT IS NOT UNVERIFIED")

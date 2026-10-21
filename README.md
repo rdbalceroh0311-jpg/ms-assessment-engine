@@ -87,10 +87,15 @@ entry bound to that ref, even if its content equals another entry. Matching and 
 computed from the pre-ingestion state, so the order of the notes never changes them.
 Limitation: changing or omitting `owner`/`systems` makes a new contextual entry; the old entry stays
 and history is not rewritten. Narrative guard: AI text citing customer statements or assumptions
-is dropped unless every mention of verification is an allowlisted not-verified or to-do wording
-("not (independently) verified", "pending/awaiting verification", "needs verification", "to be
-verified", "we need to verify", "no independent confirmation", a bare "unverified"); any other use
-of a verification term, or any compound negation or refutation around one, is rejected.
+is dropped unless every verification term (verify/confirm/validate/measure/prove/corroborate/
+substantiate/authenticate/certify/attest forms) sits in a clause that fully matches an allowlisted
+wording: "X is pending/awaiting verification", "X needs verification", "X is (yet) to be verified",
+"X has not been / is not / isn't (independently) verified", "X is unverified", "we need to /
+should / must verify X", "there is no independent confirmation of X". Text is normalised first
+(Unicode apostrophes, case, abbreviation dots). Negations are counted over the WHOLE narrative and
+must be exactly the ones those wordings carry, so any other negation or refutation anywhere (even
+an unrelated "we don't have the figures, pending verification") makes the narrative be dropped:
+this is deliberately conservative. Nouns such as "authentication" are not verification terms.
 
 **Evidence IDs are namespaced per run in the store** (`ev-gsc-001` becomes `ev-gsc-r2-001`; discovery
 statements are `ev-discovery-rN-NNN`); every citation (findings, AI narrative, summaries) is rewritten
