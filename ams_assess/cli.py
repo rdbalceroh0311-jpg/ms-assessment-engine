@@ -245,6 +245,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     data = run(ctx, no_ai=args.no_ai, formats=formats)
     print(f"Run directory: {directory}\nStatus: {data['status']}; {len(data['findings'])} findings")
+    if data.get("store_status") == "failed":
+        print("Store: merge failed; the run directory is complete but the customer store is stale")
+        return 3
     return 1 if data["status"] == "incomplete" else 0
 
 

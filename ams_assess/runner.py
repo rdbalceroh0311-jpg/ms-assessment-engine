@@ -123,14 +123,15 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             if (ctx.run_dir / f"report.{ext}").is_file()
         ]
     write_json(ctx.run_dir / "results.json", data)
-    if ctx.store_root is not None:
-        merge_into_store(ctx, data, evidence, results)
+    if ctx.store_root is not None and not merge_into_store(ctx, data, evidence, results):
+        # Only on the returned dict: results.json keeps its per-run contract.
+        data["store_status"] = "failed"
     return data
 
 
 def merge_into_store(
     ctx: Context, data: dict[str, Any], evidence: list[Evidence], results: list[ModuleResult]
-) -> None:
+) -> bool:
     """Enrich the customer's evolving assessment; the per-run directory is already complete."""
     ok = {r.name for r in results if r.status == "ok" and r.evidence}
     stages = [
@@ -149,6 +150,8 @@ def merge_into_store(
             ctx.run_dir.name,
             stages,
         )
+        return True
     except Exception as exc:
-        # The run directory stays the source of truth; a store failure must not fail the run.
+        # The run directory stays the source of truth; the caller sees store_status=failed.
         print(f"[store] merge failed ({type(exc).__name__}); run directory is intact", flush=True)
+        return False

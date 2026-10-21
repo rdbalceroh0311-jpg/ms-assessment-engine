@@ -44,7 +44,7 @@ def fake_module(severity="medium", confidence="confirmed", name="security", extr
     return SimpleNamespace(categories={"security"}, run=run)
 
 
-def assess(tmp_path, monkeypatch, customer="acme", registry=None, **module):
+def assess(tmp_path, monkeypatch, customer="acme", registry=None, connections=(), **module):
     monkeypatch.setattr(runner, "REGISTRY", registry or {"security": fake_module(**module)})
     root = tmp_path / "data/customers"
     ctx = Context(
@@ -52,7 +52,7 @@ def assess(tmp_path, monkeypatch, customer="acme", registry=None, **module):
         customer_name=customer.title(),
         target="https://example.com/",
         categories={"security"},
-        connections=set(),
+        connections=set(connections),
         config={},
         run_dir=create_run_dir(root, customer),
         tools_dir=tmp_path,
@@ -244,8 +244,18 @@ def test_store_failure_never_fails_the_run(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(store, "merge_run", boom)
     _, data, ctx = assess(tmp_path, monkeypatch)
     assert data["status"] == "complete" and (ctx.run_dir / "results.json").is_file()
+    assert data["store_status"] == "failed"
+    assert "store_status" not in json.loads((ctx.run_dir / "results.json").read_text())
     out = capsys.readouterr().out
     assert "merge failed" in out and "secret-token-123" not in out
+
+
+def test_cli_exits_3_when_store_merge_fails(home, tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "config", lambda: {})
+    monkeypatch.setattr(runner, "REGISTRY", {"security": fake_module()})
+    monkeypatch.setattr(store, "merge_run", lambda *a, **k: 1 / 0)
+    args = ["run", "--customer", "acme", "--target", "example.com", "--categories", "security"]
+    assert cli.main([*args, "--no-ai", "--formats", "md"]) == 3
 
 
 def test_provenance_is_worst_of_cited_evidence_and_never_confirmed():
@@ -527,3 +537,180 @@ def test_discovery_findings_survive_the_assessed_category_filter(tmp_path, monke
     )
     _, data, _ = assess(tmp_path, monkeypatch)
     assert "discovery-x" in {f["id"] for f in data["findings"]}
+
+
+def gsc_module():
+    def run(ctx):
+        result = ModuleResult(name="gsc")
+        eid = result.add_evidence("https://example.test/", "Search Console clicks", {"clicks": 5})
+        result.finding("gsc-clicks", "Low clicks", "security", [eid], "d", "r", severity="low")
+        return result
+
+    return SimpleNamespace(categories={"security"}, run=run)
+
+
+@pytest.mark.parametrize("order", ["123", "132", "213"])
+def test_connected_stage_sequences_render(home, tmp_path, monkeypatch, order):
+    registry = {"security": fake_module(), "gsc": gsc_module()}
+    for step in order:
+        if step == "3":
+            cli.main(["discover", "--customer", "acme", "--notes", str(notes_file(tmp_path))])
+        elif step == "2":
+            assess(tmp_path, monkeypatch, registry=registry, connections={"gsc"})
+        else:
+            assess(tmp_path, monkeypatch, registry={"security": fake_module()})
+    assert cli.main(["report", "--customer", "acme", "--formats", "md"]) == 0
+    saved = must_load(home, "acme")
+    assert saved["stages_assessed"] == ["public", "connected", "discovery"]
+    report = (home / "acme/report.md").read_text()
+    assert "Low clicks" in report and "Business discovery" in report
+    known = {e["id"] for e in saved["evidence"]}
+    assert len(known) == len(saved["evidence"])
+    assert set(re.findall(r"ev-[a-z_]+-r\d+-\d+", report)) <= known
+
+
+def test_report_refuses_symlinked_outputs_and_never_overwrites_other_customers(
+    home, tmp_path, monkeypatch
+):
+    assess(tmp_path, monkeypatch, customer="acme")
+    cli.main(["discover", "--customer", "beta", "--notes", str(notes_file(tmp_path))])
+    beta_store = (home / "beta/assessment.json").read_text()
+    for ext in ("md", "html", "pdf"):
+        (home / f"acme/report.{ext}").symlink_to(home / "beta/assessment.json")
+        with pytest.raises(SystemExit):
+            cli.main(["report", "--customer", "acme", "--formats", ext])
+        (home / f"acme/report.{ext}").unlink()
+    assert (home / "beta/assessment.json").read_text() == beta_store
+    # Run-dir mode enforces the same rule.
+    _, _, ctx = assess(tmp_path, monkeypatch, customer="acme")
+    (ctx.run_dir / "report.html").symlink_to(home / "beta/assessment.json")
+    with pytest.raises(SystemExit):
+        cli.main(["report", str(ctx.run_dir), "--formats", "html"])
+    assert (home / "beta/assessment.json").read_text() == beta_store
+
+
+def test_collision_rename_stays_within_id_limit_and_store_stays_valid(tmp_path):
+    root = tmp_path
+    long_id = "a" * 64
+    evidence = [
+        Evidence(id="ev-security-001", source="security", url="u", description="d", data={})
+    ]
+
+    def data_for(category, fid, key):
+        finding = Finding(
+            id=fid,
+            title="t",
+            category=category,
+            evidence_ids=["ev-security-001"],
+            detail="d",
+            recommendation="r",
+            check_key=key,
+        )
+        return {
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "status": "complete",
+            "target": "https://example.com/",
+            "selected_categories": [category],
+            "assessed_categories": [category],
+            "ai": {"status": "skipped"},
+            "modules": [],
+            "pages": [],
+            "max_pages": 1,
+            "limitations": [],
+            "future": [],
+            "report_files": [],
+            "findings": [finding.model_dump()],
+        }
+
+    store.merge_run(root, "acme", "Acme", data_for("seo", long_id, "k0"), evidence, "r-0", [])
+    for n in range(1, 8):
+        # Each run reuses the same 64-char ID for a different check, in different categories.
+        saved = store.merge_run(
+            root, "acme", "Acme", data_for(f"cat{n}", long_id, f"k{n}"), evidence, f"r-{n}", []
+        )
+    ids = [f["id"] for f in saved["findings"]]
+    assert len(ids) == len(set(ids)) == 8
+    assert all(len(i) <= 64 for i in ids)
+    for f in saved["findings"]:
+        Finding.model_validate(f)
+    must_load(root, "acme")
+    store.report_data(saved)  # later renders/merges still validate
+
+
+def test_collision_rename_preserves_fallback_key_so_repeat_merges_consolidate(tmp_path):
+    evidence = [Evidence(id="ev-x-001", source="x", url="u", description="d", data={})]
+
+    def data_for(category):
+        finding = Finding(
+            id="same",
+            title="t",
+            category=category,
+            evidence_ids=["ev-x-001"],
+            detail="d",
+            recommendation="r",
+        )
+        return {
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "status": "complete",
+            "target": "t",
+            "selected_categories": [category],
+            "assessed_categories": [category],
+            "ai": {"status": "skipped"},
+            "modules": [],
+            "pages": [],
+            "max_pages": 1,
+            "limitations": [],
+            "future": [],
+            "report_files": [],
+            "findings": [finding.model_dump()],
+        }
+
+    store.merge_run(tmp_path, "acme", "Acme", data_for("seo"), evidence, "a", [])
+    store.merge_run(tmp_path, "acme", "Acme", data_for("security"), evidence, "b", [])
+    saved = store.merge_run(tmp_path, "acme", "Acme", data_for("security"), evidence, "c", [])
+    assert sorted(f["id"] for f in saved["findings"]) == ["same", "same-r2"]
+    security = next(f for f in saved["findings"] if f["category"] == "security")
+    assert len(security["evidence_ids"]) == 2  # r2 and r3 evidence consolidated into one record
+
+
+def test_ai_narratives_cannot_present_customer_statements_as_technical(caplog):
+    technical = Evidence(id="ev-a-001", source="a", url="u", description="d", data={})
+    statement = Evidence(
+        id="ev-discovery-r1-001",
+        source="discovery",
+        url="u",
+        description="d",
+        data={},
+        provenance="customer_statement",
+    )
+    bad = "Technical checks confirm 20 hours lost weekly (ev-a-001, ev-discovery-r1-001)."
+    plain = "20 hours are lost weekly (ev-a-001, ev-discovery-r1-001)."
+    good = "The customer reported 20 hours lost weekly (ev-discovery-r1-001)."
+    analysis, _, warnings = validate_analysis(
+        {
+            "executive_summary": bad,
+            "sections": {"seo": plain, "geo": good},
+        },
+        [technical, statement],
+        {"seo", "geo"},
+        [],
+    )
+    assert analysis["executive_summary"] == ""
+    assert "seo" not in analysis["sections"]
+    assert analysis["sections"]["geo"].startswith("Customer-reported, not technically verified: ")
+    assert sum("unqualified customer statement" in w for w in warnings) == 2
+
+
+def test_discovery_refresh_updates_minted_evidence(home, tmp_path):
+    notes = notes_file(tmp_path)
+    cli.main(["discover", "--customer", "acme", "--notes", str(notes)])
+    data = json.loads(notes.read_text())
+    data["sections"]["enquiries_communication"][0]["frequency"] = "weekly"
+    notes.write_text(json.dumps(data))
+    cli.main(["discover", "--customer", "acme", "--notes", str(notes)])
+    saved = must_load(home, "acme")
+    entry = saved["discovery"]["sections"]["enquiries_communication"][0]
+    assert entry["frequency"] == "weekly" and len(saved["evidence"]) == 4
+    evidence = next(e for e in saved["evidence"] if e["id"] == entry["evidence_id"])
+    assert evidence["data"]["frequency"] == "weekly"
+    assert evidence["provenance"] == "customer_statement"

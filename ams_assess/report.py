@@ -52,6 +52,14 @@ def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
     return render_data(run_dir, data, evidence, formats)
 
 
+def output_path(directory: Path, name: str) -> Path:
+    """A report destination inside the directory; symlinked or escaping targets are refused."""
+    target = directory / name
+    if target.is_symlink() or target.resolve().parent != directory.resolve():
+        raise ValueError(f"Report output {name} must not be a symlink or leave its directory")
+    return target
+
+
 def render_customer(root: Path, customer: str, formats: set[str] | None = None) -> list[str]:
     """Regenerate the customer-level report from the store, whichever stages have run."""
     store = load(root, customer)
@@ -126,8 +134,9 @@ def render_data(
         browser_observations=sum(e.source == "browser" for e in evidence),
     )
     written = []
+    targets = {ext: output_path(run_dir, f"report.{ext}") for ext in formats}
     if "md" in formats:
-        (run_dir / "report.md").write_text(content)
+        targets["md"].write_text(content)
         written.append("report.md")
     body = markdown.markdown(content, extensions=["tables", "toc"])
     document = (
@@ -141,7 +150,7 @@ def render_data(
         + "</body></html>"
     )
     if "html" in formats:
-        (run_dir / "report.html").write_text(document)
+        targets["html"].write_text(document)
         written.append("report.html")
     if "pdf" in formats:
         with sync_playwright() as p:
@@ -151,7 +160,7 @@ def render_data(
                 page.route("**/*", lambda route: route.abort())
                 page.set_content(document, wait_until="load")
                 page.pdf(
-                    path=str(run_dir / "report.pdf"),
+                    path=str(targets["pdf"]),
                     format="A4",
                     print_background=True,
                     display_header_footer=True,

@@ -11,6 +11,12 @@ from pydantic import BaseModel, Field, ValidationError
 from ams_assess.models import Context, Evidence, Finding, worst_provenance
 
 LOG = logging.getLogger(__name__)
+NARRATIVE_LABEL = "Customer-reported, not technically verified: "
+# A narrative citing customer statements must say so and must not claim confirmation.
+QUALIFIED = re.compile(
+    r"customer[- ](stated|reported|statement|says|said)|according to the customer|assum", re.I
+)
+CONFIRMS = re.compile(r"confirm|verified|measured|technical(ly)?\b|validated|proven", re.I)
 PHASES = ["0-30 days", "30-90 days", "90+ days"]
 
 
@@ -64,9 +70,22 @@ def validate_analysis(
     summary = str(data.get("executive_summary", ""))
     sections = {k: str(v) for k, v in data.get("sections", {}).items() if k in categories}
     for key, value in [("summary", summary), *sections.items()]:
-        refs = set(re.findall(r"ev-[a-z_]+-\d+", value))
+        refs = set(re.findall(r"ev-[a-z_]+(?:-r\d+)?-\d+", value))
+        reason = ""
         if not refs or not refs <= known:
-            warnings.append(f"Dropped uncited or invalid AI narrative: {key}")
+            reason = "uncited or invalid"
+        elif any(provenance[r] != "technical_evidence" for r in refs):
+            # Same guard as findings: customer statements and assumptions are never technical fact.
+            if CONFIRMS.search(value) or not QUALIFIED.search(value):
+                reason = "unqualified customer statement"
+            elif not value.startswith(NARRATIVE_LABEL):
+                value = NARRATIVE_LABEL + value
+                if key == "summary":
+                    summary = value
+                else:
+                    sections[key] = value
+        if reason:
+            warnings.append(f"Dropped {reason} AI narrative: {key}")
             if key == "summary":
                 summary = ""
             else:
@@ -150,7 +169,8 @@ statuses: cite it, but never invent detections, account ownership, listings, con
 scores. "Not detected" only means no public signal on the sampled pages. Do not create findings
 in the presence category or findings cited only by ev-presence-* evidence; they are dropped.
 Evidence with provenance customer_statement is what the customer said, not a measured fact:
-never present it as confirmed and never change any provenance. NAP
+never present it as confirmed and never change any provenance. Narratives that cite it must
+say it was customer-reported and must not say technical checks confirmed it. NAP
 mismatches are the deterministic nap-inconsistent finding: enrich it rather than repeating it.
 """
     payload = {

@@ -124,6 +124,18 @@ def _finish(
     store["stages_assessed"] = [s for s in STAGES if s in {*store["stages_assessed"], *stages}]
 
 
+def unique_id(original: str, run_id: str, taken: set[str]) -> str:
+    """Deterministic collision rename that always stays within the 64-character ID limit."""
+    if original not in taken:
+        return original
+    for n in range(len(taken) + 2):
+        suffix = f"-{run_id}" + (f"x{n}" if n else "")
+        candidate = original[: 64 - len(suffix)] + suffix
+        if candidate not in taken:
+            return candidate
+    raise ValueError("Cannot allocate a unique finding ID")
+
+
 def _combine(
     store: dict[str, Any], incoming: list[Finding], evidence: list[Evidence], run_id: str
 ) -> tuple[list[Finding], dict[str, str]]:
@@ -137,14 +149,13 @@ def _combine(
         key = (finding.category, finding.check_key or finding.id)
         final = by_key.get(key)
         if final is None:
-            final = finding.id
-            while final in taken:
-                final = f"{finding.id}-{run_id}"[:64]
-                if final in taken:
-                    final = f"{final[:60]}-x{len(taken)}"
+            final = unique_id(finding.id, run_id, taken)
             taken.add(final)
         id_map[finding.id] = final
-        renamed.append(finding.model_copy(update={"id": final}))
+        # Rebuild through the constructor (validated); keep the original fallback key stable.
+        renamed.append(
+            Finding.model_validate({**finding.model_dump(), "id": final, "check_key": key[1]})
+        )
     return consolidate(existing + renamed, evidence), id_map
 
 
@@ -223,8 +234,15 @@ def add_discovery(
             norm = " ".join(statement.statement.lower().split())
             if norm in known:
                 # Re-ingested statement: refresh optional detail, keep its evidence ID.
-                known[norm].update({k: v for k, v in fields.items() if v})
-                cited.setdefault(section, []).append(known[norm]["evidence_id"])
+                entry = known[norm]
+                entry.update({k: v for k, v in fields.items() if k != "statement" and v})
+                refresh = {k: entry[k] for k in fields}
+                for i, item in enumerate(evidence):
+                    if item.id == entry["evidence_id"]:
+                        evidence[i] = Evidence.model_validate(
+                            {**item.model_dump(), "data": {"section": section, **refresh}}
+                        )
+                cited.setdefault(section, []).append(entry["evidence_id"])
                 continue
             counter += 1
             eid = f"ev-discovery-{run_id}-{counter:03d}"
