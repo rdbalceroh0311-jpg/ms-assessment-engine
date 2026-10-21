@@ -30,6 +30,8 @@ class Statement(BaseModel):
     systems: list[str] = Field(default_factory=list, max_length=30)
     owner: str = Field(default="", max_length=200)
     impact: str = Field(default="", max_length=500)
+    # Optional stable reference: re-ingesting the same ref explicitly updates that statement.
+    ref: str = Field(default="", pattern=r"^[a-z0-9][a-z0-9_-]{0,49}$|^$")
 
     @field_validator("systems", mode="before")
     @classmethod
@@ -99,6 +101,10 @@ def load_notes(path: Path) -> Notes:
         raise ValueError("Notes contain no statements")
     if sum(len(v) for v in statements.values()) > MAX_STATEMENTS:
         raise ValueError(f"Notes contain more than {MAX_STATEMENTS} statements")
+    for key, items in statements.items():
+        refs = [st.ref for st in items if st.ref]
+        if len(refs) != len(set(refs)):
+            raise ValueError(f"Duplicate statement ref in section {key}")
     for finding in notes.findings:
         for cite in finding.cites:
             section, _, index = cite.partition(":")

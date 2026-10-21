@@ -910,3 +910,113 @@ def test_same_text_in_different_contexts_is_stable_and_both_rows_render(home, tm
     report = (home / "acme/report.md").read_text()
     assert report.count("Quotes are copied manually") >= 3  # two rows + evidence index
     assert "Owner: Sales" in report and "Owner: Finance" in report
+
+
+def test_compound_negation_fails_closed_and_intent_is_not_a_claim():
+    stated = Evidence(
+        id="ev-discovery-r1-001",
+        source="discovery",
+        url="u",
+        description="d",
+        data={},
+        provenance="customer_statement",
+    )
+
+    def accepted(body):
+        analysis, _, _ = validate_analysis(
+            {"executive_summary": f"The customer reported this: {body} (ev-discovery-r1-001)."},
+            [stated],
+            {"seo"},
+            [],
+        )
+        return analysis["executive_summary"]
+
+    for claim in (
+        "There is no lack of proof of the loss.",
+        "This is not without independent confirmation.",
+        "We cannot not confirm the loss.",
+        "it is not unverified",
+        "independent confirmation establishes this as fact",
+    ):
+        assert accepted(claim) == "", claim
+    for fine in (
+        "authentication failures increased",
+        "we need to verify the estimate before acting",
+        "we should confirm the figure and plan to validate it",
+        "this is not independently verified",
+        "there is no independent confirmation",
+        "the figure is unverified",
+        "it has not been validated yet",
+        "it isn't confirmed",
+        "an established customer lost 20 hours",
+    ):
+        assert accepted(fine).startswith("Customer-reported, not technically verified: "), fine
+
+
+def _statements(tmp_path, *rows, name="notes.json"):
+    path = tmp_path / name
+    path.write_text(
+        json.dumps(
+            {"sections": {"sales_quoting": [{"statement": "Chasing quotes", **r} for r in rows]}}
+        )
+    )
+    return path
+
+
+def test_discovery_identity_is_order_independent_and_subset_safe(home, tmp_path):
+    daily, weekly = {"frequency": "daily"}, {"frequency": "weekly"}
+
+    def ingest(*rows):
+        notes = _statements(tmp_path, *rows)
+        assert cli.main(["discover", "--customer", "acme", "--notes", str(notes)]) == 0
+        saved = must_load(home, "acme")
+        return saved, saved["discovery"]["sections"]["sales_quoting"]
+
+    saved, rows = ingest(daily, weekly)
+    assert len(saved["evidence"]) == 2
+    ids = {r["frequency"]: r["evidence_id"] for r in rows}
+    # (a) Reordering never changes anything, however often it alternates.
+    for order in ((weekly, daily), (daily, weekly), (weekly, daily)):
+        saved, rows = ingest(*order)
+        assert len(saved["evidence"]) == 2
+        assert {r["frequency"]: r["evidence_id"] for r in rows} == ids
+    # (b) A subset is idempotent and does not overwrite the other version.
+    for subset in ([weekly], [daily]):
+        saved, rows = ingest(*subset)
+        assert len(saved["evidence"]) == 2
+        assert {r["frequency"]: r["evidence_id"] for r in rows} == ids
+        assert not any("supersedes" in r for r in rows)
+    # (c) Ambiguous change fails closed: a third version is added, nothing is superseded.
+    saved, rows = ingest({"frequency": "monthly"})
+    assert len(saved["evidence"]) == 3 and len(rows) == 3
+    assert not any("supersedes" in r for r in rows)
+    saved, rows = ingest({"frequency": "monthly"})
+    assert len(saved["evidence"]) == 3
+
+
+def test_unambiguous_change_supersedes_and_refs_update_explicitly(home, tmp_path):
+    def ingest(*rows):
+        notes = _statements(tmp_path, *rows)
+        assert cli.main(["discover", "--customer", "acme", "--notes", str(notes)]) == 0
+        saved = must_load(home, "acme")
+        return saved, saved["discovery"]["sections"]["sales_quoting"]
+
+    saved, rows = ingest({"frequency": "daily"})
+    old = rows[0]["evidence_id"]
+    saved, rows = ingest({"frequency": "weekly"})
+    assert len(rows) == 1 and rows[0]["supersedes"] == old and len(saved["evidence"]) == 2
+    # Both versions in one file are distinct statements, not a correction of the stored one.
+    saved, rows = ingest({"frequency": "weekly"}, {"frequency": "daily"})
+    assert len(saved["evidence"]) == 3 and len(rows) == 2
+    # An explicit ref updates exactly that statement, even when text and owner change.
+    saved, rows = ingest({"ref": "chase", "frequency": "monthly", "owner": "Ops"})
+    assert len(rows) == 3
+    saved, rows = ingest({"ref": "chase", "frequency": "yearly", "owner": "Ops"})
+    ref_row = next(r for r in rows if r.get("ref") == "chase")
+    assert ref_row["frequency"] == "yearly" and "supersedes" in ref_row and len(rows) == 3
+    count = len(saved["evidence"])
+    saved, rows = ingest({"ref": "chase", "frequency": "yearly", "owner": "Ops"})
+    assert len(saved["evidence"]) == count
+    duplicate = _statements(tmp_path, {"ref": "x"}, {"ref": "x"}, name="dup.json")
+    with pytest.raises(SystemExit):
+        cli.main(["discover", "--customer", "acme", "--notes", str(duplicate)])

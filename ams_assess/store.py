@@ -10,7 +10,6 @@ import json
 import os
 import re
 import tempfile
-from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -47,6 +46,18 @@ def identity(fields: dict[str, Any]) -> tuple[str, str, tuple[str, ...]]:
         " ".join(fields.get("owner", "").lower().split()),
         tuple(sorted(" ".join(x.lower().split()) for x in fields.get("systems", []))),
     )
+
+
+def same(entry: dict[str, Any], fields: dict[str, Any]) -> bool:
+    """Whether a stored entry already says exactly this (identity plus frequency and impact)."""
+
+    def detail(f: dict[str, Any]) -> tuple[str, str]:
+        return (
+            " ".join(f.get("frequency", "").lower().split()),
+            " ".join(f.get("impact", "").lower().split()),
+        )
+
+    return identity(entry) == identity(fields) and detail(entry) == detail(fields)
 
 
 def remap(value: Any, mapping: dict[str, str]) -> Any:
@@ -240,43 +251,80 @@ def add_discovery(
     counter = sum(e.source == "discovery" for e in evidence)
     cited: dict[str, list[str]] = {}
     added = 0
+
+    def mint(section: str, fields: dict[str, Any], supersedes: str | None) -> str:
+        nonlocal counter, added
+        counter += 1
+        added += 1
+        eid = f"ev-discovery-{run_id}-{counter:03d}"
+        data = {"section": section, **fields}
+        if supersedes:
+            data["supersedes"] = supersedes
+        evidence.append(
+            Evidence(
+                id=eid,
+                source="discovery",
+                url="customer-discovery-notes",
+                description=(
+                    f"Customer statement ({DISCOVERY_SECTIONS[section]}): "
+                    f"{fields['statement'][:140]}"
+                ),
+                data=data,
+                provenance="customer_statement",
+            )
+        )
+        return eid
+
     for section, statements in notes.statements().items():
         stored = discovery["sections"].setdefault(section, [])
-        known = {(*identity(s), s.get("slot", 0)): s for s in stored}
-        seen: Counter[tuple[str, str, tuple[str, ...]]] = Counter()
-        for statement in statements:
-            fields = statement.model_dump()
-            base = identity(fields)
-            slot = seen[base]  # n-th statement with this identity in the notes (stable order)
-            seen[base] += 1
-            norm = (*base, slot)
-            previous = known.get(norm)
-            if previous is not None:
-                merged = {**{k: previous[k] for k in fields}}
-                merged.update({k: v for k, v in fields.items() if k != "statement" and v})
-                if merged == {k: previous[k] for k in fields}:
-                    cited.setdefault(section, []).append(previous["evidence_id"])
-                    continue
-                # Changed detail supersedes: findings citing the old evidence keep its original
-                # values, so mint a new ID and point the discovery index at it.
-                fields = merged
-            counter += 1
-            eid = f"ev-discovery-{run_id}-{counter:03d}"
-            title = DISCOVERY_SECTIONS[section]
-            data = {"section": section, **fields}
-            if previous is not None:
-                data["supersedes"] = previous["evidence_id"]
-            evidence.append(
-                Evidence(
-                    id=eid,
-                    source="discovery",
-                    url="customer-discovery-notes",
-                    description=f"Customer statement ({title}): {fields['statement'][:140]}",
-                    data=data,
-                    provenance="customer_statement",
-                )
-            )
-            if previous is not None:
+        fields_list = [st.model_dump() for st in statements]
+        # Plan against the stored entries as they were before this ingestion, so the outcome
+        # never depends on the order of the notes: ("reuse"|"supersede"|"new", index).
+        plan: list[tuple[str, int]] = [("new", -1)] * len(fields_list)
+        claimed: set[int] = set()
+        pending: list[int] = []
+        for i, fields in enumerate(fields_list):
+            ref = fields["ref"]
+            by_ref = next((j for j, e in enumerate(stored) if ref and e.get("ref") == ref), None)
+            if by_ref is not None:  # explicit ref: this is an update of exactly that statement
+                plan[i] = ("reuse" if same(stored[by_ref], fields) else "supersede", by_ref)
+                claimed.add(by_ref)
+                continue
+            exact = next((j for j, e in enumerate(stored) if same(e, fields)), None)
+            if exact is not None:
+                plan[i] = ("reuse", exact)
+                claimed.add(exact)
+            elif not ref:
+                pending.append(i)
+        groups: dict[tuple[str, str, tuple[str, ...]], list[int]] = {}
+        for i in pending:
+            groups.setdefault(identity(fields_list[i]), []).append(i)
+        for base, members in groups.items():
+            candidates = [
+                j
+                for j, e in enumerate(stored)
+                if not e.get("ref") and identity(e) == base and j not in claimed
+            ]
+            # Supersede only when unambiguous (one new version, one candidate); else fail closed
+            # and keep the new version as a distinct entry rather than rewrite any history.
+            if len(members) == 1 and len(candidates) == 1:
+                plan[members[0]] = ("supersede", candidates[0])
+        for i, fields in enumerate(fields_list):
+            kind, j = plan[i]
+            if kind == "reuse":
+                cited.setdefault(section, []).append(stored[j]["evidence_id"])
+                continue
+            if kind == "supersede":
+                previous = stored[j]
+                if not fields["ref"]:
+                    # Unreferenced re-ingest only adds detail; omitted fields keep their value.
+                    fields = {
+                        k: (v or previous[k]) if k != "statement" else v for k, v in fields.items()
+                    }
+                    if same(previous, fields):
+                        cited.setdefault(section, []).append(previous["evidence_id"])
+                        continue
+                eid = mint(section, fields, previous["evidence_id"])
                 previous.update(fields)
                 previous.update(
                     evidence_id=eid,
@@ -285,17 +333,11 @@ def add_discovery(
                     ingested_at=stamp,
                 )
             else:
-                entry = {
-                    "evidence_id": eid,
-                    "run_id": run_id,
-                    "ingested_at": stamp,
-                    "slot": slot,
-                    **fields,
-                }
-                stored.append(entry)
-                known[norm] = entry
+                eid = mint(section, fields, None)
+                stored.append(
+                    {"evidence_id": eid, "run_id": run_id, "ingested_at": stamp, **fields}
+                )
             cited.setdefault(section, []).append(eid)
-            added += 1
     discovery["ingested_at"] = stamp
     store["discovery"] = discovery
     incoming = []

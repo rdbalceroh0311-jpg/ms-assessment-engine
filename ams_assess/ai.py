@@ -22,30 +22,41 @@ QUALIFIERS = {
     ),
     "assumption": re.compile(r"assum|hypothes|estimate|unverified|not verified", re.I),
 }
-# Verification vocabulary: verbs, nouns and "technical checks" claims alike. A term is safe only
-# when negated ("not independently verified", "no independent confirmation"); a negative form
-# ("unverified") is a disclaimer, but negating it again ("not unverified") is a claim.
+# Verification vocabulary: verbs, nouns and "technical checks" claims alike. Negations are
+# counted in the clause before a term (plus its own un-/non- prefix): odd means a disclaimer
+# ("not independently verified", "no independent confirmation", "unverified"); even means a
+# claim, including compound negation ("not unverified", "no lack of proof", "cannot not confirm").
 VERIFICATION = re.compile(
-    r"\b(?P<neg>un|non-?)?(?:confirm\w*|verif\w*|measured|measurement\w*|validat\w*|corroborat\w*"
-    r"|substantiat\w*|establish\w*|authenticat\w*|certif\w*|proof|prov(?:e|es|ed|en|ing))\b"
+    r"\b(?P<neg>un|non-?)?(?P<term>confirm\w*|verif\w*|measured|measurement\w*|validat\w*"
+    r"|corroborat\w*|substantiat\w*|proof|prov(?:e|es|ed|en|ing)"
+    r"|establish(?:es|ed)?(?=\s+(?:this|that|it|the|as)\b))\b"
     r"|\btechnical(?:ly)?\s+(?:check|test|evidence|analysis|audit)\w*",
     re.I,
 )
-NEGATION = re.compile(
-    r"(?:\b(?:not|never|no|without|lacks?|lacking|cannot|neither|nor|pending|awaiting)|n't)"
-    r"(?:\s+(?:been|be|being|independently|technically|yet|fully|formally|currently|any|a|an|the"
-    r"|of|further|external|independent|technical|formal))*\s*$",
+NEGATIONS = re.compile(
+    r"\b(?:not|never|no|none|nothing|without|lack|lacks|lacking|absence|cannot|neither|nor"
+    r"|unable|fail|fails|failed)\b|n't|\bcan't",
     re.I,
 )
+CLAUSE_END = re.compile(
+    r"[.;:!?]|\b(?:and|but|however|although|though|because|while|so|then)\b", re.I
+)
+# "need to verify", "should confirm": an intention, not a completed verification.
+INTENT = re.compile(
+    r"\b(?:to|should|must|will|would|need|needs|plan|plans|want|wants|going)\s+(?:\w+\s+){0,2}$",
+    re.I,
+)
+BASE_VERBS = {"verify", "confirm", "validate", "measure", "prove", "corroborate", "substantiate"}
 
 
 def claims_verification(text: str) -> bool:
     for match in VERIFICATION.finditer(text):
-        negated = bool(NEGATION.search(text[max(0, match.start() - 60) : match.start()]))
-        if match.group("neg"):
-            if negated:  # double negative: "not unverified"
-                return True
-        elif not negated:
+        before = CLAUSE_END.split(text[: match.start()])[-1].split()[-6:]
+        window = " ".join(before) + " "
+        if (match.group("term") or "").lower() in BASE_VERBS and INTENT.search(window):
+            continue
+        negations = len(NEGATIONS.findall(window)) + bool(match.group("neg"))
+        if negations % 2 == 0:
             return True
     return False
 

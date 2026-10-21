@@ -69,10 +69,23 @@ uv run ams-assess report --customer acme                                   # rep
 
 Sections: `enquiries_communication`, `sales_quoting`, `bookings_scheduling`, `systems_in_use`,
 `manual_duplicated_tasks`, `existing_automations`, `pain_points_bottlenecks`; statements are strings
-or objects with optional `frequency`, `systems`, `owner`, `impact`. A finding must cite statements
+or objects with optional `frequency`, `systems`, `owner`, `impact`, `ref`. A finding must cite statements
 (`section` or `section:N`, 0-based) and its `ams_service` is one of AI & Automation, Business
 Systems, Digital Growth, Managed IT & Technology. Invalid notes exit 2 and write nothing. Discovery is
 not a crawler module and is never sent to AI.
+
+**Re-ingesting discovery notes.** A statement is identified by its text plus `owner` and `systems`
+(context); `frequency` and `impact` are detail. Order in the notes never matters and submitting a
+subset is safe. An identical statement is reused (no new evidence). A changed version supersedes
+the stored one only when unambiguous (one new version, one stored candidate): it gets a new
+evidence ID that records `supersedes`, while the old evidence stays intact for findings that cite it.
+If several same-identity versions exist the change fails closed: it is added as a distinct entry and
+nothing is rewritten. To update a specific statement explicitly, give it a stable `"ref"` (unique
+per section); the same ref always supersedes that statement, with all its fields as submitted.
+Limitation: changing or omitting `owner`/`systems` makes a new contextual entry; the old entry stays
+and history is not rewritten. Narrative guard: AI text citing customer statements or assumptions
+is dropped if it claims verification (including double negatives such as "not unverified"); intent
+("we need to verify") and disclaimers ("not independently verified") are allowed.
 
 **Evidence IDs are namespaced per run in the store** (`ev-gsc-001` becomes `ev-gsc-r2-001`; discovery
 statements are `ev-discovery-rN-NNN`); every citation (findings, AI narrative, summaries) is rewritten
