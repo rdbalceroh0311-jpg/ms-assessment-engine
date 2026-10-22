@@ -384,6 +384,14 @@ def discover(
     sampled = datetime.now(UTC).date().isoformat()
 
     def add(key: str, url: str, found: dict[str, Any], source: str, eid: str) -> None:
+        # The one promotion path for every source (website links, organic and Maps results): a
+        # URL without a business or place identifier (e.g. a map search) is never likely.
+        if not identifies(url):
+            found = {
+                **found,
+                "state": FOUND_VERIFY,
+                "matched": [*found["matched"], "no business or place identifier"],
+            }
         entry = candidates.setdefault(key, {}).setdefault(
             url_key(url),
             {
@@ -417,13 +425,7 @@ def discover(
             add(
                 key,
                 link["href"],
-                # A map search or directions link names no business: it needs verification.
-                {"state": FOUND_LIKELY, "matched": ["linked from the website"]}
-                if identifies(link["href"])
-                else {
-                    "state": FOUND_VERIFY,
-                    "matched": ["linked from the website (no business or place identifier)"],
-                },
+                {"state": FOUND_LIKELY, "matched": ["linked from the website"]},
                 link["source"],
                 link["source_evidence_id"],
             )
