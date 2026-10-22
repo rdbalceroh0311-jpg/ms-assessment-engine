@@ -4,13 +4,160 @@ import os
 import re
 import shutil
 import subprocess
+import unicodedata
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from ams_assess.models import Context, Evidence, Finding
+from ams_assess.models import Context, Evidence, Finding, worst_provenance
 
 LOG = logging.getLogger(__name__)
+# Narratives citing non-technical evidence carry the label of the WEAKEST cited provenance.
+LABELS = {
+    "customer_statement": "Customer-reported, not technically verified: ",
+    "assumption": "Assumption, not verified: ",
+}
+QUALIFIERS = {
+    "customer_statement": re.compile(
+        r"customer[- ](stated|reported|statement|says|said)|according to the customer", re.I
+    ),
+    "assumption": re.compile(r"assum|hypothes|estimate|unverified|not verified", re.I),
+}
+# Narrative guard for text citing customer statements or assumptions. Design (fail closed):
+# 1. normalise (Unicode apostrophes, case, whitespace, abbreviation dots);
+# 2. any verification term must sit in a clause that ANCHOR-MATCHES (whole clause) one of a few
+#    "not verified yet / still to do" wordings; everything else is an unsupported claim;
+# 3. negations are counted over the WHOLE narrative and must equal exactly the negations the
+#    matched wordings carry, so any other negation or refutation anywhere rejects the narrative.
+# Bare business nouns ("authentication", "certification") are deliberately not vocabulary.
+VOCABULARY = re.compile(
+    r"\b(?:un|non-?)?(?:confirm\w*|verif\w*|validat\w*|corroborat\w*|substantiat\w*|attest\w*"
+    r"|audited|auditing|reconcil\w*|inspected|inspecting|tested|(?:cross-|double-|re-?)?checked"
+    r"|(?:cross-|double-|re-?)check\w*"
+    r"|measure|measured|measurement\w*|proof|prov(?:e|es|ed|en|ing)"
+    r"|authenticat(?:e|es|ed|ing)|certif(?:y|ies|ied|ying)"
+    r"|establish(?:es|ed)?(?=\s+(?:this|that|it|the|as)\b))\b"
+    r"|\btechnical(?:ly)?\s+(?:check|test|evidence|analysis|audit)\w*",
+    re.I,
+)
+_ADV = (
+    r"(?:(?:independently|technically|yet|formally|fully|further|independent|technical|formal"
+    r"|external) )*"
+)
+_PART = (
+    r"(?:verified|confirmed|validated|measured|proven|corroborated|substantiated"
+    r"|authenticated|certified|attested|audited|reconciled|inspected|tested"
+    r"|(?:cross-|double-|re-?)?checked)"
+)
+_NOUN = (
+    r"(?:verification|confirmation|validation|corroboration|substantiation|measurement|proof"
+    r"|audit|check|reconciliation|inspection)"
+)
+_VERB = (
+    r"(?:verify|confirm|validate|measure|prove|corroborate|substantiate|authenticate|certify"
+    r"|attest|audit|check|reconcile|inspect|test)"
+)
+_TAIL = r"(?P<t> .*)?"
+_X = r"(?:(?P<x>.+?) )?"
+_BE = r"is|are|was|were|remains?"
+_UN = r"(?:unverified|unconfirmed|unvalidated|unproven|unmeasured)"
+_WAIT = r"(?:pending|awaiting|subject to)"
+_HAS = r"(?:is|are|was|were|has been|have been|has|have)"
+_CONTRACTED = r"(?:isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't)"
+_NEED = r"(?:(?:need|needs|plan|plans|want|wants) to|should|must)"
+_THERE = r"(?:(?:there (?:is|are|was|were)|with|has|have|had) )?"
+# (anchored whole-clause pattern, number of negations the wording itself carries)
+ALLOWED: list[tuple[re.Pattern[str], int]] = [
+    (re.compile(p, re.I), neg)
+    for p, neg in [
+        # <X> is pending/awaiting/subject to (independent) verification
+        (rf"(?:{_X}(?:{_BE}) )?(?:still |currently )?{_WAIT} {_ADV}{_NOUN}{_TAIL}", 0),
+        # <X> needs/requires (independent) verification
+        (rf"{_X}(?:needs?|requires?) {_ADV}{_NOUN}{_TAIL}", 0),
+        # <X> is (yet) to be verified
+        (rf"(?:{_X}(?:is|are|was|were) )?(?:yet |still )?to be {_ADV}{_PART}{_TAIL}", 0),
+        # <X> has not been (independently) verified; is not verified; isn't confirmed
+        (rf"{_X}(?:{_HAS} )?not (?:yet )?(?:been )?{_ADV}{_PART}{_TAIL}", 1),
+        (rf"{_X}{_CONTRACTED} (?:yet )?(?:been )?{_ADV}{_PART}{_TAIL}", 1),
+        # <X> is unverified / unconfirmed (only when the narrative has no other negation)
+        (rf"(?:{_X}(?:{_BE}) )?(?:still |currently )?{_UN}{_TAIL}", 0),
+        # we need to / should / must verify <X>
+        (rf"{_X}{_NEED} (?:independently )?{_VERB}{_TAIL}", 0),
+        # there is no (independent) verification of <X>
+        (rf"{_X}{_THERE}no {_ADV}{_NOUN}{_TAIL}", 1),
+    ]
+]
+NEGATION = re.compile(
+    r"\b(?:not|never|no|none|nothing|nobody|without|lack\w*|absence|cannot|neither|nor|unable"
+    r"|fail\w*|false|untrue|incorrect\w*|inaccurate|wrong|myth|den(?:y|ies|ied)|refut\w*"
+    r"|doubt\w*|debunk\w*|nonsense|exaggerat\w*|overstat\w*|mislead\w*|fabricat\w*|invent\w*"
+    r"|contradict\w*|baseless|unfounded)\b|n't",
+    re.I,
+)
+ABBREVIATION = re.compile(r"\b(e\.g|i\.e|etc|vs|dr|mr|mrs|ms|approx)\.", re.I)
+APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u00b4": "'", "`": "'"})
+
+
+def normalise(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text).translate(APOSTROPHES).casefold()
+    # Zero-width, soft-hyphen and other format characters (Unicode Cf) would split a word.
+    text = "".join(
+        " " if unicodedata.category(c) == "Cc" else c
+        for c in text
+        if unicodedata.category(c) != "Cf"
+    )
+    text = ABBREVIATION.sub(lambda m: m.group(1).replace(".", ""), text)
+    return " ".join(text.split())
+
+
+# Co-occurrence rule: an event noun + a conclusion verb + a positive-accuracy word anywhere in the
+# narrative ("the audit found the loss accurate") asserts the outcome of a verification event.
+EVENT_NOUN = re.compile(
+    r"\b(?:audits?|audited|inspections?|reviews?|reviewed|checks?|checked|verifications?"
+    r"|confirmations?|validations?|assessments?|appraisals?|tests?|testing|tested)\b"
+)
+CONCLUSION_VERB = re.compile(
+    r"\b(?:found|finds?|shows?|showed|shown|reveal(?:s|ed|ing)?|establish(?:es|ed|ing)?"
+    r"|demonstrat(?:e|es|ed|ing)|confirmed|confirms?"
+    r"|determined|concluded|proved|proves|proven)\b"
+)
+POSITIVE = re.compile(
+    r"\b(?:accurate|accuracy|correct|correctness|true|valid|right|verified|validated|confirmed"
+    r"|precise|exact|reliable|sound|genuine|rightly|correctly)\b"
+)
+
+
+def asserts_verification_outcome(text: str) -> bool:
+    """Co-occurrence over the WHOLE narrative, so no punctuation can split the three parts."""
+    return bool(EVENT_NOUN.search(text) and CONCLUSION_VERB.search(text) and POSITIVE.search(text))
+
+
+def claims_verification(text: str) -> bool:
+    """True unless every verification term is in an allowed not-verified / to-do wording."""
+    text = normalise(text)
+    if asserts_verification_outcome(text):
+        return True
+    if not VOCABULARY.search(text):
+        return False
+    own = 0
+    for sentence in re.split(r"[.;:!?]+", text):
+        for clause in re.split(r",|\band\b|\bbut\b|\bor\b|\bthen\b", sentence):
+            clause = clause.strip()
+            if not VOCABULARY.search(clause):
+                continue
+            for pattern, negations in ALLOWED:
+                match = pattern.fullmatch(clause)
+                captures = [match.group(g) or "" for g in ("x", "t")] if match else []
+                if any(NEGATION.search(c) for c in captures):
+                    return True  # a negation/refutation word around the wording: ambiguous
+                if match and not any(VOCABULARY.search(c) for c in captures):
+                    own += negations
+                    break
+            else:
+                return True
+    return len(NEGATION.findall(text)) != own
+
+
 PHASES = ["0-30 days", "30-90 days", "90+ days"]
 
 
@@ -28,6 +175,7 @@ def validate_analysis(
     data: dict[str, Any], evidence: list[Evidence], categories: set[str], original: list[Finding]
 ) -> tuple[dict[str, Any], list[Finding], list[str]]:
     known = {e.id for e in evidence}
+    provenance = {e.id: e.provenance for e in evidence}
     existing = {f.id: f.model_copy(deep=True) for f in original}
     warnings = []
     for index, item in enumerate(data.get("findings", [])):
@@ -37,7 +185,7 @@ def validate_analysis(
                 raise ValueError("unknown evidence or unselected category")
             if finding.id in existing:
                 base = existing[finding.id]
-                # Preserve observed facts and citations; enrich interpretation only.
+                # Preserve observed facts, citations and provenance; enrich interpretation only.
                 for field in ["likely_cause", "business_impact", "priority", "ams_service"]:
                     setattr(base, field, getattr(finding, field))
             elif finding.category == "presence" or all(
@@ -47,6 +195,12 @@ def validate_analysis(
                 raise ValueError("AI cannot create digital presence findings")
             else:
                 finding.check_key = finding.id
+                # Provenance is derived from the cited evidence; the model cannot upgrade it.
+                finding.provenance = worst_provenance(
+                    [finding.provenance, *(provenance[eid] for eid in finding.evidence_ids)]
+                )
+                if finding.provenance != "technical_evidence":
+                    finding.confidence = "needs_verification"
                 # Model-only heuristic conclusions remain explicitly provisional.
                 if finding.confidence == "confirmed":
                     finding.confidence = "needs_verification"
@@ -57,9 +211,25 @@ def validate_analysis(
     summary = str(data.get("executive_summary", ""))
     sections = {k: str(v) for k, v in data.get("sections", {}).items() if k in categories}
     for key, value in [("summary", summary), *sections.items()]:
-        refs = set(re.findall(r"ev-[a-z_]+-\d+", value))
+        refs = set(re.findall(r"ev-[a-z_]+(?:-r\d+)?-\d+", value))
+        reason = ""
         if not refs or not refs <= known:
-            warnings.append(f"Dropped uncited or invalid AI narrative: {key}")
+            reason = "uncited or invalid"
+        elif (weakest := worst_provenance(provenance[r] for r in refs)) != "technical_evidence":
+            # Same guard as findings: customer statements and assumptions are never technical fact.
+            label = LABELS[weakest]
+            body = value.removeprefix(label)
+            qualified = body != value or QUALIFIERS[weakest].search(value)
+            if claims_verification(body) or not qualified:
+                reason = "unqualified customer statement"
+            elif body == value:
+                value = label + value
+                if key == "summary":
+                    summary = value
+                else:
+                    sections[key] = value
+        if reason:
+            warnings.append(f"Dropped {reason} AI narrative: {key}")
             if key == "summary":
                 summary = ""
             else:
@@ -101,6 +271,7 @@ def compact_evidence(evidence: list[Evidence]) -> list[dict[str, Any]]:
                 "source": item.source,
                 "url": item.url,
                 "description": item.description,
+                "provenance": item.provenance,
                 "data": serialized[:10000],
                 "truncated": len(serialized) > 10000,
             }
@@ -140,7 +311,10 @@ concise professional customer prose. No raw HTML or Markdown headings in narrati
 Digital presence evidence (ev-presence-*) holds deterministic platform, listing and readiness
 statuses: cite it, but never invent detections, account ownership, listings, connections or
 scores. "Not detected" only means no public signal on the sampled pages. Do not create findings
-in the presence category or findings cited only by ev-presence-* evidence; they are dropped. NAP
+in the presence category or findings cited only by ev-presence-* evidence; they are dropped.
+Evidence with provenance customer_statement is what the customer said, not a measured fact:
+never present it as confirmed and never change any provenance. Narratives that cite it must
+say it was customer-reported and must not say technical checks confirmed it. NAP
 mismatches are the deterministic nap-inconsistent finding: enrich it rather than repeating it.
 """
     payload = {

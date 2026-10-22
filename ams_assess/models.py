@@ -3,10 +3,11 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, Field
@@ -27,6 +28,27 @@ CATEGORIES = {
     "presence": "Digital presence & integration readiness",
 }
 SEVERITIES = {v: i for i, v in enumerate(("critical", "high", "medium", "low", "info"))}
+# Business discovery findings are not a crawler category: they come from customer statements.
+DISCOVERY_CATEGORY = "discovery"
+AMS_SERVICES = (
+    "AI & Automation",
+    "Business Systems",
+    "Digital Growth",
+    "Managed IT & Technology",
+)
+Provenance = Literal["technical_evidence", "customer_statement", "assumption"]
+# Lower is stronger; a finding is only as strong as its weakest cited evidence.
+PROVENANCE_RANK: dict[str, int] = {
+    "technical_evidence": 0,
+    "customer_statement": 1,
+    "assumption": 2,
+}
+_STRONGEST = "technical_evidence"
+CUSTOMER_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
+
+
+def worst_provenance(values: Iterable[str]) -> Provenance:
+    return cast(Provenance, max(values, key=PROVENANCE_RANK.__getitem__, default=_STRONGEST))
 
 
 class Evidence(BaseModel):
@@ -35,6 +57,7 @@ class Evidence(BaseModel):
     url: str
     description: str
     data: Any
+    provenance: Provenance = "technical_evidence"
 
 
 class Finding(BaseModel):
@@ -53,6 +76,8 @@ class Finding(BaseModel):
     business_impact: str = ""
     priority: Literal["P1", "P2", "P3"] = "P2"
     ams_service: str = "Website improvement"
+    # Derived worst-of from cited evidence by consolidate(); never trusted from AI output.
+    provenance: Provenance = "technical_evidence"
 
 
 class ModuleResult(BaseModel):
@@ -130,13 +155,18 @@ def is_local(host: str) -> bool:
         return "." not in host
 
 
-def create_run_dir(root: Path, customer: str) -> Path:
-    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", customer):
+def customer_path(root: Path, customer: str) -> Path:
+    """The only way to address a customer's directory: validated slug, never a symlink."""
+    if not CUSTOMER_RE.fullmatch(customer):
         raise ValueError("Customer must be a lowercase slug: letters, numbers and hyphens (1-63)")
-    root = root.resolve()
-    customer_dir = root / customer
-    if customer_dir.is_symlink():
+    result = root.resolve() / customer
+    if result.is_symlink():
         raise ValueError("Customer directory must not be a symlink")
+    return result
+
+
+def create_run_dir(root: Path, customer: str) -> Path:
+    customer_dir = customer_path(root, customer)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
     result = customer_dir / stamp
     result.mkdir(parents=True, mode=0o700)
@@ -157,6 +187,8 @@ class Context:
     tools_dir: Path
     max_pages: int = 100
     dataforseo_max_usd: float | None = None
+    # Root of data/customers; when set, run() also merges the run into the customer store.
+    store_root: Path | None = None
     pages: list[str] = field(default_factory=list)
     # Results of modules that already ran, so later modules reuse evidence instead of refetching.
     results: list[ModuleResult] = field(default_factory=list)

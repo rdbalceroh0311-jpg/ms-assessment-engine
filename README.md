@@ -30,6 +30,106 @@ Only required modules run; a domain/security/performance-only run has no crawl. 
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
 
+### Progressive assessment: one customer, one evolving assessment
+
+Each customer has a store at `data/customers/<customer>/assessment.json` (`schema_version` 2, mode
+0600 in a 0700 directory, gitignored, written atomically). Stages can run in any order and any number
+of times; none is a prerequisite for another:
+
+1. **Public technical** (`run`): as above. The per-run timestamp directory is unchanged, and the run
+   is also merged into the store.
+2. **Connected** (`run --connect gsc`): authorised evidence enriches the same assessment.
+3. **Business discovery** (`discover`): structured customer notes.
+
+```sh
+uv run ams-assess run --customer acme --target https://example.com        # stage 1
+uv run ams-assess discover --customer acme --notes notes.json              # stage 3, exits 0
+uv run ams-assess report --customer acme                                   # report at any stage
+```
+
+`report --customer` writes a new immutable revision to `data/customers/<customer>/reports/<NNN-timestamp>/`
+(files read-only, always including the markdown master), records it in the store's append-only
+`report_revisions` (with the assessment run it reflects) and copies it to `report.md/html/pdf` in the
+customer directory as the latest. To publish a human edit, edit the markdown and run
+`report --customer acme --from-md <file>`: it becomes a new revision and html/pdf are rendered
+from it. Its ancestry (`based_on`, `assessment_revision`) comes from the `reports/<revision>/`
+directory the file is in, else from `--based-on <revision>`, else it is recorded as `unknown`. `report <run-dir>` still renders one run. Imports and reports take an
+exclusive per-customer lock (`.assessment.lock`, waits up to 30 s, then fails with a clear error).
+A store with several websites lists every target and labels each module row and email-health summary
+with its website and run. Discovery notes:
+
+```json
+{
+  "sections": {
+    "sales_quoting": [
+      "Quotes are built by hand",
+      {"statement": "Jobs are re-keyed into Xero", "frequency": "daily",
+       "systems": ["Xero"], "owner": "Office manager", "impact": "~5 h/week"}
+    ]
+  },
+  "findings": [
+    {"title": "Quote automation", "kind": "opportunity", "severity": "medium",
+     "detail": "Quotes are built manually", "recommendation": "Automate quote generation",
+     "ams_service": "AI & Automation", "cites": ["sales_quoting:0", "sales_quoting:1"]}
+  ]
+}
+```
+
+Sections: `business_overview`, `enquiries_communication`, `sales_quoting`, `bookings_scheduling`,
+`systems_in_use`, `manual_duplicated_tasks`, `existing_automations`, `pain_points_bottlenecks`,
+`data_integrations`, `opportunities_constraints`; statements are strings or objects with optional
+`frequency`, `systems`, `owner`, `impact`, `staff_time`, `errors_rework`, `cost` (as stated),
+`workaround`, `ref` (all customer statements until independently verified; shown only when given).
+Interview guide: [`examples/discovery/discovery-template.md`](examples/discovery/discovery-template.md)
+(questions mapped to section keys); a synthetic notes file is in
+[`examples/discovery/notes.example.json`](examples/discovery/notes.example.json). A finding must cite statements
+(`section` or `section:N`, 0-based) and its `ams_service` is one of AI & Automation, Business
+Systems, Digital Growth, Managed IT & Technology. Invalid notes exit 2 and write nothing. Discovery is
+not a crawler module and is never sent to AI.
+
+**Re-ingesting discovery notes.** A statement is identified by its text plus `owner` and `systems`
+(context); `frequency`, `impact`, `staff_time`, `errors_rework`, `cost` and `workaround` are detail. Order in the notes never matters and submitting a
+subset is safe. An identical statement is reused (no new evidence). A changed version supersedes
+the stored one only when unambiguous (one new version, one stored candidate): it gets a new
+evidence ID that records `supersedes`, while the old evidence stays intact for findings that cite it.
+If several same-identity versions exist the change fails closed: it is added as a distinct entry and
+nothing is rewritten. To update a specific statement explicitly, give it a stable `"ref"` (unique
+per section). A ref always takes precedence over content: a ref that matches a stored statement
+updates exactly that statement (all fields as submitted); a ref that matches none creates a new
+entry bound to that ref, even if its content equals another entry. Matching and citations are
+computed from the pre-ingestion state, so the order of the notes never changes them.
+Limitation: changing or omitting `owner`/`systems` makes a new contextual entry; the old entry stays
+and history is not rewritten. Narrative guard: AI text citing customer statements or assumptions
+is dropped unless every verification term (verify/confirm/validate/measure/prove/corroborate/
+substantiate/authenticate/certify/attest forms) sits in a clause that fully matches an allowlisted
+wording: "X is pending/awaiting verification", "X needs verification", "X is (yet) to be verified",
+"X has not been / is not / isn't (independently) verified", "X is unverified", "we need to /
+should / must verify X", "there is no independent confirmation of X". Text is normalised first
+(Unicode apostrophes, case, abbreviation dots). Negations are counted over the WHOLE narrative and
+must be exactly the ones those wordings carry, so any other negation or refutation anywhere (even
+an unrelated "we don't have the figures, pending verification") makes the narrative be dropped:
+this is deliberately conservative. Synonyms are covered: audited, (cross-/double-/re-)checked, reconciled, inspected and tested count as verification terms, refutation words (debunked, nonsense, exaggerated, misleading, inaccurate, baseless…) count as negations, and zero-width/format characters are stripped before matching. Co-occurrence rule (whole narrative, so punctuation cannot split it): an event noun (audit, inspection, review, check, verification, test…) with a conclusion verb (found, shows, revealed, established, confirmed…) and a positive-accuracy word (accurate, correct, true, valid, reliable, genuine…) anywhere in the narrative ("the audit found the loss accurate") is rejected; "the audit found discrepancies" is not. Hedged wording ("legitimate", "plausible") is accepted. Documented limits: any phrasing outside these word lists can pass; the lists are not exhaustive. Bare nouns such as "authentication", "certification" and "the audit found…" are not verification terms, and the guard is a lexical check, not a semantic proof; it narrows what AI prose can assert about customer statements but human review of the report remains required.
+
+**Evidence IDs are namespaced per run in the store** (`ev-gsc-001` becomes `ev-gsc-r2-001`; discovery
+statements are `ev-discovery-rN-NNN`); every citation (findings, AI narrative, summaries) is rewritten
+with the same mapping. Findings consolidate across runs by category and check key: the worst
+severity and priority win and `needs_verification`/`subjective` confidence sticks. The store is
+cumulative: a finding from an earlier run stays until superseded, so re-run and review rather than
+assuming a missing finding was fixed.
+
+**Finding versions.** A finding whose cited statements have all been superseded is retired to
+`finding_history` (kept, never recommended); re-importing a discovery finding with a changed claim
+creates a new version that supersedes the old one instead of merging text. A finding citing a
+superseded statement whose new version it does not cite, or two current versions of the same
+statement (together with every finding citing either version), are listed under "needs review"
+in the report and left out of the recommendations and roadmap.
+Limitation: stores created by pre-merge development builds of PR #4 are not migrated; recreate them.
+
+**Provenance.** Evidence is `technical_evidence` (default), `customer_statement` or `assumption`. A
+finding takes the worst provenance of the evidence it cites and can never be `confirmed` unless all
+of it is technical; the report labels customer statements and AI cannot upgrade provenance. A
+discovery section appears in the report only when discovery notes exist.
+
 ### Local demonstration
 
 ```sh

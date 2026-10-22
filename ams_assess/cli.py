@@ -8,9 +8,11 @@ from pathlib import Path
 from dotenv import dotenv_values
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from ams_assess import store
+from ams_assess.discovery import load_notes
 from ams_assess.models import CATEGORIES, Context, create_run_dir, normalize_target
 from ams_assess.modules import FUTURE, REGISTRY, gsc
-from ams_assess.report import render
+from ams_assess.report import render, render_customer
 from ams_assess.runner import run
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,6 +32,10 @@ ENV_KEYS = [
     "SPAMHAUS_DQS_KEY",
     "AMS_ACCESS_EMAIL",
 ]
+
+
+def data_root() -> Path:
+    return ROOT / "data/customers"
 
 
 def config() -> dict[str, str]:
@@ -56,11 +62,15 @@ def gsc_auth(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         settings = config()
         client_value = args.client_secrets or settings.get("AMS_GSC_CLIENT_SECRETS")
         client = Path(client_value).expanduser().resolve() if client_value else None
-        token = Path(
-            args.token_file
-            or settings.get("AMS_GSC_TOKEN_FILE")
-            or "~/.config/ams-assess/gsc-token.json"
-        ).expanduser().resolve()
+        token = (
+            Path(
+                args.token_file
+                or settings.get("AMS_GSC_TOKEN_FILE")
+                or "~/.config/ams-assess/gsc-token.json"
+            )
+            .expanduser()
+            .resolve()
+        )
         if token.is_relative_to(ROOT.resolve()):
             parser.error("GSC token file must be outside the git repository root")
         if client and (
@@ -137,9 +147,29 @@ def main(argv: list[str] | None = None) -> int:
     )
     assess.add_argument("--no-ai", action="store_true")
     assess.add_argument("--formats", default="md,html,pdf")
-    report = commands.add_parser("report", help="Regenerate reports from one existing run")
-    report.add_argument("run_dir", type=Path)
+    discover = commands.add_parser(
+        "discover", help="Ingest structured business-discovery notes into a customer's assessment"
+    )
+    discover.add_argument("--customer", required=True)
+    discover.add_argument("--customer-name")
+    discover.add_argument("--notes", required=True, type=Path, help="Discovery notes JSON file")
+    report = commands.add_parser(
+        "report", help="Regenerate reports from one existing run or a customer's whole assessment"
+    )
+    report.add_argument("run_dir", type=Path, nargs="?")
+    report.add_argument("--customer", help="Render from the customer store instead of a run")
     report.add_argument("--formats", default="md,html,pdf")
+    report.add_argument(
+        "--from-md",
+        type=Path,
+        help="With --customer: a human-edited report.md to save as a new revision and re-render",
+    )
+    report.add_argument(
+        "--based-on",
+        type=int,
+        help="With --from-md: the report revision the edit started from (else taken from its "
+        "reports/<revision>/ directory, or recorded as unknown)",
+    )
     args = parser.parse_args(argv)
     if args.command == "gsc-auth":
         return gsc_auth(args, parser)
@@ -152,14 +182,39 @@ def main(argv: list[str] | None = None) -> int:
         for name, description, requirement, _ in FUTURE:
             print(f"{name}: future | {description} | requires: {requirement}")
         return 0
+    if args.command == "discover":
+        try:
+            notes = load_notes(args.notes)
+            _, counts = store.add_discovery(
+                data_root(), args.customer, args.customer_name or args.customer, notes
+            )
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc) if isinstance(exc, ValueError) else "Cannot read notes")
+        # Discovery needs no website evidence, so it is complete (and exits 0) on its own.
+        print(
+            f"Status: complete (discovery); {counts['statements']} statements "
+            f"({counts['new']} new), {counts['findings']} findings"
+        )
+        return 0
     formats = csv(args.formats)
     if not formats or not formats <= {"md", "html", "pdf"}:
         parser.error("--formats must be a nonempty subset of md,html,pdf")
     if args.command == "report":
+        if bool(args.run_dir) == bool(args.customer):
+            parser.error("Provide either a run directory or --customer")
+        if args.from_md and not args.customer:
+            parser.error("--from-md requires --customer")
+        if args.based_on is not None and not args.from_md:
+            parser.error("--based-on requires --from-md")
         try:
-            outputs = render(args.run_dir.resolve(), formats)
+            if args.customer:
+                outputs = render_customer(
+                    data_root(), args.customer, formats, args.from_md, args.based_on
+                )
+            else:
+                outputs = render(args.run_dir.resolve(), formats)
         except (OSError, ValueError) as exc:
-            parser.error(f"Cannot render run: {type(exc).__name__}")
+            parser.error(f"Cannot render: {type(exc).__name__}: {exc}")
         print(", ".join(outputs))
         return 0
     categories = csv(args.categories)
@@ -189,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
         settings["AMS_MAIL_TLS_CHECK"] = "1"
     try:
         target = normalize_target(args.target)
-        directory = create_run_dir(ROOT / "data/customers", args.customer)
+        directory = create_run_dir(data_root(), args.customer)
     except ValueError as exc:
         parser.error(str(exc))
     ctx = Context(
@@ -201,11 +256,18 @@ def main(argv: list[str] | None = None) -> int:
         config=settings,
         run_dir=directory,
         tools_dir=ROOT / "tools",
+        store_root=data_root(),
         max_pages=args.max_pages,
         dataforseo_max_usd=args.dataforseo_max_usd,
     )
     data = run(ctx, no_ai=args.no_ai, formats=formats)
     print(f"Run directory: {directory}\nStatus: {data['status']}; {len(data['findings'])} findings")
+    if data.get("store_status") == "failed":
+        print(
+            f"Store: merge failed; the run directory was written with status {data['status']} "
+            "but the customer store was not updated"
+        )
+        return 3
     return 1 if data["status"] == "incomplete" else 0
 
 
