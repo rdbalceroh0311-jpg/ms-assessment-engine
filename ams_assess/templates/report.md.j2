@@ -4,7 +4,7 @@
 **Severity:** {{ finding.severity }} | **Confidence:** {{ finding.confidence }} | **Type:** {{ finding.kind }} | **Priority:** {{ finding.priority }}
 
 {% if finding.provenance != 'technical_evidence' %}
-**Basis:** {{ 'Customer statement, not independently verified' if finding.provenance == 'customer_statement' else 'Assumption, not verified' }}.
+**Basis:** {{ {'customer_statement': 'Customer statement, not independently verified', 'manual_verification': 'Manual verification record, not a technical measurement'}.get(finding.provenance, 'Assumption, not verified') }}.
 
 {% endif %}
 {{ finding.detail | text }}
@@ -182,6 +182,63 @@ Local SEO and digital presence were not assessed in this run.
 | {{ r.listing | text }} | {{ r.status | text }} | {{ r.sources | join(', ') | text or '-' }} | {{ r.urls | join('; ') | text or '-' }} | {{ r.ownership | text }} | {{ r.evidence_ids | join(', ') or '-' }} |
 {% endfor %}
 
+{% set d = p.get('discovery') %}
+{% if d %}
+### Platform presence discovery
+
+Independent search: **{{ d.status | text }}**{% if d.reason %} ({{ d.reason | text }}){% endif %}. Business searched: {{ d.identity.name | text or 'unknown' }}{% if d.identity.source %} (source: {{ d.identity.source | text }}){% endif %}; industry: {{ d.identity.industry_label | text }}; buying model: {{ d.identity.buying_model_label | text }}. Paid search calls: {{ d.budget.serp_calls }} of at most {{ d.budget.max_serp_calls }}{% if d.budget.cap_usd %} (run total ${{ d.budget.spent_usd_run_total }} of the ${{ d.budget.cap_usd }} cap, estimated where the provider reported no cost){% endif %}.
+
+**Google Business Profile eligibility:** {{ d.gbp_eligibility | text }}
+
+{% for note in d.notes %}
+> {{ note | text }}
+
+{% endfor %}
+| Relevance | Platform | State | Candidate profiles and match evidence | Detail | Evidence |
+| --- | --- | --- | --- | --- | --- |
+{% for r in d.platforms %}
+| {{ r.relevance | text }} | {{ r.platform | text }} | {{ r.state | text }}{% if r.get('manual') %} (manual verification {{ r.manual.date | text }} by {{ r.manual.verified_by | text }}; automated: {{ r.automated_state | text }}){% endif %} | {% for c in r.candidates %}{{ c.url | text }} [{{ c.matched | join(', ') | text }}{% if c.score is not none %}; score {{ c.score }}{% endif %}]{% if not loop.last %}; {% endif %}{% else %}-{% endfor %} | {{ r.detail | text }}{% if r.get('manual') and r.manual.note %} Manual note: {{ r.manual.note | text }}{% endif %} | {{ r.evidence_ids | join(', ') }} |
+{% endfor %}
+
+{% if d.queries %}
+Paid search queries (estimate checked against the remaining cap before each call; a call whose outcome is unknown stays booked at its estimate):
+
+| Purpose | Query | Status | Estimate (USD) | Reported cost (USD) | Evidence |
+| --- | --- | --- | --- | --- | --- |
+{% for q in d.queries %}
+| {{ q.purpose | text }} | {{ q.keyword | text }} | {{ q.status | text }}{% if q.reason %}: {{ q.reason | text }}{% endif %} | {{ q.estimated_usd | text or '-' }} | {{ q.cost_usd | text or '-' }} | {{ q.evidence_id or '-' }} |
+{% endfor %}
+
+{% endif %}
+{% if d.nap %}
+NAP comparison (only fields obtained from search results, against the website and customer profile):
+
+| Platform | Candidate | Field | Observed | Business value(s) | Result | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for n in d.nap %}
+| {{ n.platform | text }} | {{ n.url | text }} | {{ n.field | text }} | {{ n.observed | text }} | {{ n.reference | join(', ') | text or '-' }} | {{ n.result | text }} | {{ n.evidence_ids | join(', ') }} |
+{% endfor %}
+
+{% endif %}
+{% if d.keywords %}
+Keyword positions (point-in-time sample, one location; not a ranking guarantee):
+
+| Keyword | Result | URL | Sampled | Location code | Evidence |
+| --- | --- | --- | --- | --- | --- |
+{% for k in d.keywords %}
+| {{ k.keyword | text }} | {{ k.state | text }} | {{ k.url | text or '-' }} | {{ k.sampled_at | text or '-' }} | {{ k.location_code }} | {{ k.evidence_ids | join(', ') }} |
+{% endfor %}
+
+{% endif %}
+{% if d.manual_tasks %}
+Manual verification tasks (record results with `ams-assess presence-verify`):
+
+{% for t in d.manual_tasks %}
+{{ loop.index }}. **{{ t.platform | text }}** ({{ t.relevance | text }}): {{ t.action | text }}. Search: {{ t.query | text }} ({{ t.url | text }}){% if t.candidates %}; candidates: {{ t.candidates | join('; ') | text }}{% endif %}.
+{% endfor %}
+
+{% endif %}
+{% endif %}
 ### Website and email platforms
 
 {% set cms = p.platforms | selectattr('group', 'in', ['cms', 'email']) | list %}

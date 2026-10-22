@@ -170,7 +170,8 @@ def test_dataforseo_market_default_config_and_cli(
             200,
             request=httpx.Request("POST", url),
             json={
-                "status_code": 20000, "cost": 0.0101,
+                "status_code": 20000,
+                "cost": 0.0101,
                 "tasks": [{"status_code": 20000, "result": []}],
             },
         )
@@ -179,7 +180,9 @@ def test_dataforseo_market_default_config_and_cli(
         result = dataforseo.run(ctx)
         assert result.status == "ok"
         assert result.evidence[0].data == {
-            "location_code": expected, "language_code": "en", "result": [],
+            "location_code": expected,
+            "language_code": "en",
+            "result": [],
         }
         assert f"location_code={expected}, language_code=en" in result.evidence[0].description
         assert f"location_code={expected}, language_code=en" in result.reason
@@ -351,6 +354,7 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
         server.shutdown()
         server.server_close()
         thread.join()
+    # The customer directory also holds the store file (assessment.json); pick the run.
     directory = next(p for p in (cli.ROOT / "data/customers" / customer).iterdir() if p.is_dir())
     for file in [
         "results.json",
@@ -401,6 +405,22 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert listings["google_business_profile"] == "Detected (linked from website)"
     assert listings["yellow_pages"] == listings["instagram"] == "Detected (linked from website)"
     assert not any("WordPress" in item["service"] for item in presence["checklist"])
+    # No DataForSEO cap: independent search is Not assessed, with ready-to-use manual tasks,
+    # while profiles the fixture links to are still found from website evidence.
+    discovery = presence["discovery"]
+    assert discovery["status"] == "Not assessed" and "cap" in discovery["reason"]
+    assert discovery["budget"]["serp_calls"] == 0 and discovery["identity"]["name"]
+    states = {r["key"]: r["state"] for r in discovery["platforms"]}
+    for key in ["google_business_profile", "facebook", "yellow_pages", "instagram"]:
+        assert states[key] == "Found — likely match"
+    assert states["true_local"] == states["bing_places"] == "Not assessed"
+    assert not {"Not found in searches", "Inconsistent"} & set(states.values())
+    tasks = {t["key"]: t for t in discovery["manual_tasks"]}
+    assert tasks["true_local"]["query"] == 'site:truelocal.com.au "Harbour Demo Plumbing"'
+    assert tasks["true_local"]["url"].startswith("https://www.google.com.au/search?q=site%3A")
+    assert "facebook" not in tasks
+    assert "### Platform presence discovery" in report and "Manual verification tasks" in report
+    assert "platform:priority-verification" in keys
     sitemap = next(r for r in presence["signals"] if r["signal"] == "XML sitemap")
     assert sitemap["status"] == "PASS" and "lists 7 URLs" in sitemap["detail"]
     assert {
