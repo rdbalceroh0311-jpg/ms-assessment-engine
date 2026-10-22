@@ -202,6 +202,8 @@ class Context:
     # Shared DataForSEO ledger for this run: every paid call books against the one cap.
     dataforseo_spent_usd: Decimal = Decimal(0)
     dataforseo_serp_calls: int = 0
+    # Set (with the reason) once any call is charged above its estimate: stops every later call.
+    dataforseo_stopped: str = ""
     # Results of modules that already ran, so later modules reuse evidence instead of refetching.
     results: list[ModuleResult] = field(default_factory=list)
 

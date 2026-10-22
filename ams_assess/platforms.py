@@ -87,6 +87,9 @@ class Platform:
     # None: relevant to every industry; otherwise not applicable outside these industries.
     industries: frozenset[str] | None = None
     manual_url: str = ""  # Search URL template with {q}; used for manual-verification tasks.
+    # Searched in host+path+query: a recognised URL that also names a business or place. Empty
+    # means every recognised route already does (profile routes only).
+    identifier: str = ""
     notes: str = ""
 
 
@@ -105,6 +108,7 @@ CATALOGUE: list[Platform] = [
         # A place page or a cid link; never a Maps search, directions or a web search.
         (r"(?:maps\.)?google\.[a-z.]+", r"^/maps/place/[^/?]+|^/(?:maps/?)?\?(?:.*&)?cid=\d+"),
         by_model={"*": "high", "b2b-contract": "medium", "online-only": NA},
+        identifier=r"^g\.page/[\w.-]+|/maps/place/[^/?]+|[?&]cid=\d+",
         manual_url="https://www.google.com/maps/search/?api=1&query={q}",
         notes="Searched through the DataForSEO Google Maps SERP only.",
     ),
@@ -115,6 +119,7 @@ CATALOGUE: list[Platform] = [
         # Never searched by the engine, so only a link the website itself chose is recognised.
         (r"bing\.com", r"^/maps\b"),
         by_model={"*": "medium", "b2b-contract": "low", "online-only": NA},
+        identifier=r"[?&](?:ss=ypid\.|ypid=|id=ypid\.)[\w.-]+",
         manual_url="https://www.bing.com/maps?q={q}",
         notes="No provider search; manual verification only.",
     ),
@@ -124,6 +129,7 @@ CATALOGUE: list[Platform] = [
         "search_maps",
         (r"maps\.apple\.com", r"^/(?:place\b|\?)"),
         by_model={"*": "low", "storefront": "medium", "online-only": NA},
+        identifier=r"^maps\.apple\.com/place\b|[?&](?:place-id|auid)=[\w.-]+",
         manual_url="https://maps.apple.com/?q={q}",
         notes="Apple Business replaced Apple Business Connect. No provider search; manual only.",
     ),
@@ -436,6 +442,20 @@ def classify(url: str) -> str | None:
             if re.fullmatch(hosts, host) and re.search(path, route):
                 return platform.key
     return None
+
+
+def identifies(url: str) -> bool:
+    """Whether a recognised URL carries a business/place identifier (not a search link)."""
+    key = classify(url)
+    if key is None:
+        return False
+    pattern = BY_KEY[key].identifier
+    if not pattern:
+        return True
+    parts = urlsplit(str(url).strip())
+    host = (parts.hostname or "").removeprefix("www.")
+    route = f"{host}{parts.path or '/'}" + (f"?{parts.query}" if parts.query else "")
+    return bool(re.search(pattern, route))
 
 
 def relevance(platform: Platform, industry: str | None, model: str | None) -> str | None:

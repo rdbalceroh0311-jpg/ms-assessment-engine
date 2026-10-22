@@ -13,7 +13,7 @@ from ams_assess.discovery import load_notes
 from ams_assess.models import CATEGORIES, Context, create_run_dir, normalize_target
 from ams_assess.modules import FUTURE, REGISTRY, gsc
 from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
-from ams_assess.presence_discovery import MAX_KEYWORDS
+from ams_assess.presence_discovery import MAX_KEYWORDS, keyword_problem
 from ams_assess.profile import Location, Profile, load_verifications, read_json
 from ams_assess.report import render, render_customer
 from ams_assess.runner import run
@@ -329,6 +329,9 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"--keywords must list 1 to {MAX_KEYWORDS} keywords")
     if any(len(k) > 100 for k in keywords):
         parser.error("Each keyword must be at most 100 characters")
+    for keyword in keywords:
+        if problem := keyword_problem(keyword):
+            parser.error(f"--keywords must be plain search terms ({keyword!r}: {problem})")
     try:
         existing = store.load(data_root(), args.customer)
     except (OSError, ValueError):

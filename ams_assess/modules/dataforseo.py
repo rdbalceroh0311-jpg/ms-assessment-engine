@@ -2,6 +2,7 @@ import re
 import time
 from decimal import Decimal
 from typing import Any
+from urllib.parse import unquote
 
 import httpx
 
@@ -34,21 +35,35 @@ SERP_PRICING: dict[tuple[str, int], tuple[Decimal, Decimal]] = {
 }
 SERP_DEPTH = 10
 MAX_SERP_CALLS = 12
-# Search operators as DataForSEO might bill them; quoted phrases count, to stay conservative.
-OPERATOR = re.compile(
-    r"\b(?i:site|inurl|allinurl|intitle|allintitle|intext|allintext|inanchor|filetype|ext"
-    r"|related|cache|define|before|after|source|location):|\"[^\"]*\"|\bOR\b|\bAND\b|\|"
-    r"|(?:^|\s)-\S|\bAROUND\("
-)
+# Operators are counted on the URL-decoded query, conservatively: EVERY colon counts as one
+# (site:, link:, info:, id:, allinanchor:, definition:, ... the documented list keeps growing,
+# so no list is trusted), plus quoted phrases, OR/AND/|, a leading minus and AROUND(.
+OTHER_OPERATOR = re.compile(r"[\"“”][^\"“”]*[\"“”]?|\bOR\b|\bAND\b|\||(?:^|\s)-\S|\bAROUND\(")
 
 
-def operators(keyword: str) -> int:
-    return len(OPERATOR.findall(keyword))
+def decoded(keyword: str) -> str:
+    """The query as the provider may read it: percent-decoded until stable (3 rounds at most)."""
+    text = keyword
+    for _ in range(3):
+        decoded_text = unquote(text)
+        if decoded_text == text:
+            break
+        text = decoded_text
+    return text
+
+
+def operators(keyword: str) -> int | None:
+    """Billed-operator count, or None when the query cannot be read safely (still encoded)."""
+    text = decoded(keyword)
+    if "%" in text:
+        return None
+    return text.count(":") + len(OTHER_OPERATOR.findall(text))
 
 
 def serp_estimate(kind: str, keyword: str) -> Decimal | None:
     """Conservative pre-call estimate, or None when the query cannot be estimated safely."""
-    price = SERP_PRICING.get((kind, operators(keyword)))
+    count = operators(keyword)
+    price = SERP_PRICING.get((kind, count)) if count is not None else None
     return price[1] if price else None
 
 
@@ -102,6 +117,11 @@ def run(ctx: Context) -> ModuleResult:
     data = response.json()
     cost = Decimal(str(data.get("cost", ESTIMATE_USD)))
     ctx.dataforseo_spent_usd += cost - ESTIMATE_USD
+    if cost > ESTIMATE_USD:
+        # One shared stop: no later paid call (presence searches included) may run.
+        ctx.dataforseo_stopped = (
+            f"domain overview charged ${cost}, above its ${ESTIMATE_USD} estimate"
+        )
     result = ModuleResult(name=name, raw_paths=[ctx.raw(name, data), "raw/dataforseo-budget.json"])
     tasks = data.get("tasks", [])
     if data.get("status_code") != 20000 or not tasks or tasks[0].get("status_code") != 20000:
@@ -154,11 +174,16 @@ def serp(ctx: Context, kind: str, keyword: str, deadline: float) -> dict[str, An
     remaining = (limit or Decimal(0)) - ctx.dataforseo_spent_usd
     if reason := serp_refusal(ctx):
         return out | {"status": "refused", "reason": reason}
+    if ctx.dataforseo_stopped:
+        return out | {
+            "status": "refused",
+            "reason": f"paid calls stopped: {ctx.dataforseo_stopped}",
+        }
     if estimate is None:
         return out | {
             "status": "refused",
-            "reason": f"{operators(task['keyword'])} search operators; cost cannot be estimated "
-            "safely",
+            "reason": "more than one search operator or unreadable encoding; cost cannot be "
+            "estimated safely",
         }
     if ctx.dataforseo_serp_calls >= MAX_SERP_CALLS:
         return out | {"status": "refused", "reason": f"query cap of {MAX_SERP_CALLS} reached"}
@@ -200,7 +225,7 @@ def serp(ctx: Context, kind: str, keyword: str, deadline: float) -> dict[str, An
         ctx.dataforseo_spent_usd += (cost if done else max(cost, estimate)) - estimate
         if cost > estimate:
             # Charged above the estimate: the estimates cannot be trusted, so stop paid calls.
-            ctx.dataforseo_serp_calls = MAX_SERP_CALLS
+            ctx.dataforseo_stopped = f"a search was charged ${cost}, above its ${estimate} estimate"
     if not done:
         return out | {"status": "error", "reason": "DataForSEO task did not complete"}
     first = (tasks[0].get("result") or [{}])[0] or {}

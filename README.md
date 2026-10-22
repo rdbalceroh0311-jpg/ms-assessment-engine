@@ -183,7 +183,15 @@ calls before it is sent, and stays booked when the outcome is unknown (timeout):
 | Google organic, no operator (name, keywords) | $0.002 | $0.003 |
 | Google organic, one operator (`site:` profile search, quoted keyword) | $0.010 (x5 per operator) | $0.015 |
 | Google Maps, no operator | $0.002 | $0.003 |
-| Any query with two or more operators | - | refused |
+| Any query with two or more operators, or still percent-encoded after 3 decodes | - | refused |
+
+Operators are counted on the URL-decoded query, and every `:` counts as one, whatever the operator
+name. `--keywords` must be plain search terms: a `word:` token, `%` or quotes exits 2. Generated
+discovery queries strip `:`, `%` and quotes from the business name and suburb, and carry only the
+template's single `site:` operator. Map links from the website (Google, Bing, Apple) count as a
+likely match only when they carry a business or place identifier (`cid=`, `/maps/place/`, `ypid`,
+`auid=`, `place-id=`); a plain map search link needs verification. Any call charged above its
+estimate (the domain overview included) stops every later paid call.
 
 Prices from DataForSEO's published SERP pricing (Google Organic and Google Maps pages, checked
 2026-10-23); `SERP_PRICING` in `ams_assess/modules/dataforseo.py` is the single source. A reported

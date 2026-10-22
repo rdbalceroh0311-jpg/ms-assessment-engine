@@ -24,6 +24,7 @@ from ams_assess.platforms import (
     NA,
     Platform,
     classify,
+    identifies,
     prioritised,
 )
 from ams_assess.profile import PRIORITY_KEY, STATES, phone_key, priority_detail
@@ -79,9 +80,33 @@ def name_phrase(name: str) -> str:
     return " ".join(t for t in norm(name).split() if t not in LEGAL)
 
 
+def terms(text: str) -> str:
+    """Plain search terms: nothing a search engine (or its biller) could read as an operator.
+
+    Colons, percent signs, quotes and pipes are removed, OR/AND/AROUND lose their operator
+    case and leading minus signs are dropped, so a generated query carries only the operator
+    its fixed template adds.
+    """
+    text = re.sub(r"[:%\"“”‘’'|]", " ", str(text))
+    text = re.sub(r"\b(OR|AND|AROUND)\b", lambda m: m.group(1).lower(), text)
+    text = re.sub(r"(?:^|(?<=\s))-+", " ", text)
+    return " ".join(text.split())
+
+
+def keyword_problem(keyword: str) -> str:
+    """Why a user keyword is not a plain search term ('' when it is)."""
+    if re.search(r"[a-z]+:", keyword, re.I) or ":" in keyword:
+        return "search operators (word:) are not allowed"
+    if "%" in keyword:
+        return "percent-encoding (%) is not allowed"
+    if re.search(r"[\"“”]", keyword):
+        return "quotes are not allowed"
+    return ""
+
+
 def search_name(name: str) -> str:
     """The trading name for queries: a trailing "Pty Ltd" / "Limited" only narrows results."""
-    return re.sub(r"[\s,]+(?:pty\.?\s*)?(?:ltd|limited)\.?$", "", name.strip(), flags=re.I)
+    return terms(re.sub(r"[\s,]+(?:pty\.?\s*)?(?:ltd|limited)\.?$", "", name.strip(), flags=re.I))
 
 
 def host_of(url: str) -> str:
@@ -249,7 +274,7 @@ def plan_queries(
     keywords, then medium and low platforms. Queries avoid quotes so a profile search carries
     exactly one billed operator (site:); every call is still estimated and capped individually.
     """
-    name, place = search_name(who["name"]), (who["localities"] or [""])[0]
+    name, place = search_name(who["name"]), terms((who["localities"] or [""])[0])
     if not name:
         return []
     order = {level: float(i) for i, level in enumerate(LEVELS)}
@@ -296,6 +321,9 @@ def plan_queries(
                 "rank": 0.5,
             }
         )
+        if problem := keyword_problem(keyword):
+            # The CLI rejects these; refused here too so no caller can send one.
+            plan[-1].update(status="refused", reason=f"not a plain keyword: {problem}")
     plan.sort(key=lambda q: q["rank"])
     for query in plan:
         estimate = dataforseo.serp_estimate(query["kind"], query["keyword"])
@@ -304,7 +332,8 @@ def plan_queries(
 
 
 def manual_query(platform: Platform, who: dict[str, Any]) -> tuple[str, str]:
-    name, place = search_name(who["name"]) or "<business name>", (who["localities"] or [""])[0]
+    name = search_name(who["name"]) or "<business name>"
+    place = terms((who["localities"] or [""])[0])
     if platform.key == "associations":
         query = f'"{name}" member (chamber OR association) {place}'.strip()
     elif platform.search_domain:
@@ -388,13 +417,21 @@ def discover(
             add(
                 key,
                 link["href"],
-                {"state": FOUND_LIKELY, "matched": ["linked from the website"]},
+                # A map search or directions link names no business: it needs verification.
+                {"state": FOUND_LIKELY, "matched": ["linked from the website"]}
+                if identifies(link["href"])
+                else {
+                    "state": FOUND_VERIFY,
+                    "matched": ["linked from the website (no business or place identifier)"],
+                },
                 link["source"],
                 link["source_evidence_id"],
             )
 
     ledger = ""
     for query in plan:
+        if query.get("status") == "refused":
+            continue
         outcome = dataforseo.serp(ctx, query["kind"], query["keyword"], deadline)
         query.update(
             status=outcome["status"],

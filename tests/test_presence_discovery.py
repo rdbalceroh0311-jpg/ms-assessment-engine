@@ -1,6 +1,8 @@
 import json
+import re
 from decimal import Decimal
 from types import SimpleNamespace
+from urllib.parse import unquote
 
 import httpx
 import pytest
@@ -316,8 +318,8 @@ def test_timed_out_charged_calls_never_take_spend_past_the_cap(tmp_path, monkeyp
 
     def timeout(url, **kwargs):
         keyword = kwargs["json"][0]["keyword"]
-        kind = "maps" if "/maps/" in url else "organic"
-        charged.append(dataforseo.SERP_PRICING[(kind, dataforseo.operators(keyword))][0])
+        # Published price, independently of the engine's matcher: x5 for the site: operator.
+        charged.append(Decimal("0.010") if "site:" in keyword else Decimal("0.002"))
         raise httpx.ReadTimeout("synthetic", request=httpx.Request("POST", url))
 
     monkeypatch.setattr(httpx, "post", timeout)
@@ -828,3 +830,145 @@ def test_profile_and_verification_writes_use_the_customer_lock(home, tmp_path, m
     assert store.load(home, "acme") is None
     assert store.set_profile(home, "acme", {"name": "Acme Painting"})[2]
     assert store.add_presence_verifications(home, "acme", records)["new"] == 1
+
+
+# Expected billing written out by hand from the published rule (x5 per operator), NOT derived
+# from the engine's matcher: raw query -> estimate booked, or None for "refused, never sent".
+BILLING_TABLE = [
+    ("painter parramatta", "0.003"),
+    ("Smith and Sons Painting", "0.003"),
+    ("men's haircut sydney", "0.003"),
+    ("site:hipages.com.au Acme Painting", "0.015"),
+    ("SITE:hipages.com.au Acme", "0.015"),
+    ("link:example.com", "0.015"),
+    ("info:example.com", "0.015"),
+    ("id:12345", "0.015"),
+    ("allinanchor:painter", "0.015"),
+    ("definition:painter", "0.015"),
+    ("unknownop:painter", "0.015"),
+    ("site%3Ahipages.com.au Acme", "0.015"),
+    ("site%253Ahipages.com.au Acme", "0.015"),
+    ('"acme painting" sydney', "0.015"),
+    ("painters -cheap", "0.015"),
+    ("site:x.com link:y.com", None),
+    ("site%3Ax.com link%3Ay.com", None),
+    ("site:x.com%20link:y.com", None),
+    ('site:x.com "acme"', None),
+    ("a:b:c", None),
+    ("100% painting", None),
+    ("site%25253Ax.com", "0.015"),  # three encoding layers decode to one site:
+    ("site%2525253Ax.com", None),  # more layers than are decoded: refused
+]
+
+
+@pytest.mark.parametrize(("query", "expected"), BILLING_TABLE)
+@pytest.mark.parametrize("kind", ["organic", "maps"])
+def test_estimates_match_an_independent_billing_table(kind, query, expected):
+    estimate = dataforseo.serp_estimate(kind, query)
+    assert estimate == (Decimal(expected) if expected else None)
+
+
+@pytest.mark.parametrize(
+    "keyword",
+    ["painter link:x.com", "site%3Ax.com painter", "info:x", '"painter" ryde', "100%", "a:b"],
+)
+def test_cli_rejects_keywords_that_are_not_plain_terms(home, monkeypatch, capsys, keyword):
+    monkeypatch.setattr(cli, "config", dict)
+    monkeypatch.setattr(cli, "run", lambda *a, **k: pytest.fail("run must not start"))
+    args = ["run", "--customer", "acme", "--target", "example.com", "--dataforseo-max-usd", "0.1"]
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(args + ["--keywords", f"painter sydney,{keyword}"])
+    assert exit_info.value.code == 2
+    assert "--keywords must be plain search terms" in capsys.readouterr().err
+
+
+def test_unsafe_names_and_keywords_never_escape_the_cap(tmp_path, monkeypatch):
+    """Reviewer scenario: operator keywords charged $0.1141 against $0.0791 booked ($0.10 cap)."""
+    charged, sent = [], []
+
+    def billed(url, **kwargs):
+        # Independent provider model: x5 per word: operator or quoted phrase in the decoded query.
+        query = kwargs["json"][0]["keyword"]
+        plain = unquote(unquote(unquote(query)))
+        ops = len(re.findall(r"[a-z]+:", plain, re.I)) + len(re.findall(r'"[^"]*"', plain))
+        charged.append(Decimal("0.002") * (5 * ops if ops else 1))
+        sent.append(query)
+        raise httpx.ReadTimeout("synthetic", request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", billed)
+    profile = PROFILE | {
+        "name": 'Acme: "Painting" 100% OR site%3Aevil.com',
+        "service_area": ["a:b"],
+    }
+    keywords = ["painter link:x.com", "site%3Ax.com painter", "site:x link:y", "plain painter"]
+    ctx = context(tmp_path, cap=0.10, profile=profile, keywords=keywords, **CREDENTIALS)
+    ctx.dataforseo_spent_usd = dataforseo.ESTIMATE_USD
+    ctx.results = [browser({**PAGE, "links": []})]
+    discovery = tables(presence.run(ctx))["discovery"]
+    assert sent and sum(charged) + dataforseo.ESTIMATE_USD <= ctx.dataforseo_spent_usd
+    assert ctx.dataforseo_spent_usd <= Decimal("0.10")
+    # Generated queries carry only their template's operator; unsafe keywords are never sent.
+    for query in sent:
+        assert "%" not in query and '"' not in query
+        assert query.count(":") == (1 if query.startswith("site:") else 0)
+    assert "plain painter" in sent
+    assert not any(k in sent for k in keywords[:3])
+    refused = {q["keyword"]: q["reason"] for q in discovery["queries"] if q["status"] == "refused"}
+    assert all("not a plain keyword" in refused[k] for k in keywords[:3])
+
+
+@pytest.mark.parametrize(
+    ("url", "identified"),
+    [
+        ("https://www.bing.com/maps?q=restaurants", False),
+        ("https://www.bing.com/maps?ss=ypid.YN3724x123456789&cp=-33.8~151.2", True),
+        ("https://maps.apple.com/?q=restaurants", False),
+        ("https://maps.apple.com/?auid=1234567890&q=Acme", True),
+        ("https://maps.apple.com/place?place-id=I1234ABCD", True),
+        ("https://maps.apple.com/place?address=1+Church+St", True),
+        ("https://maps.app.goo.gl/AbC123", False),
+        ("https://g.page/acme-painting", True),
+        ("https://www.google.com.au/maps/place/Acme+Painting", True),
+        ("https://maps.google.com/?cid=123456", True),
+        ("https://www.facebook.com/acmepainting", True),
+        ("https://www.google.com/maps/search/restaurants", False),
+    ],
+)
+def test_only_map_links_with_a_business_identifier_are_promoted(url, identified):
+    assert platforms.identifies(url) is identified
+
+
+def test_generic_map_search_links_from_the_website_need_verification(tmp_path):
+    """Reviewer scenario: links to bing.com/maps?q=restaurants became 'Found — likely match'."""
+    links = ["https://www.bing.com/maps?q=restaurants", "https://maps.apple.com/?q=restaurants"]
+    ctx = context(tmp_path, profile=PROFILE)
+    ctx.results = [browser({**PAGE, "links": links})]
+    rows = {r["key"]: r for r in tables(presence.run(ctx))["discovery"]["platforms"]}
+    for key in ["bing_places", "apple_maps"]:
+        assert rows[key]["state"] == FOUND_VERIFY
+        assert "no business or place identifier" in rows[key]["candidates"][0]["matched"][0]
+    ctx = context(tmp_path, profile=PROFILE)
+    ctx.results = [browser({**PAGE, "links": ["https://maps.apple.com/?auid=1234567890"]})]
+    rows = {r["key"]: r for r in tables(presence.run(ctx))["discovery"]["platforms"]}
+    assert rows["apple_maps"]["state"] == FOUND_LIKELY
+
+
+def test_overview_overcharge_stops_later_searches(tmp_path, monkeypatch):
+    calls = []
+
+    def post(url, **kwargs):
+        calls.append(url)
+        body = {"status_code": 20000, "cost": 0.05, "tasks": [{"status_code": 20000, "result": []}]}
+        return httpx.Response(200, request=httpx.Request("POST", url), json=body)
+
+    monkeypatch.setattr(httpx, "post", post)
+    ctx = context(tmp_path, cap=1.0, profile=PROFILE, **CREDENTIALS)
+    ctx.categories = {"presence", "seo"}
+    assert dataforseo.run(ctx).status == "ok" and len(calls) == 1
+    assert ctx.dataforseo_stopped and ctx.dataforseo_serp_calls == 0
+    outcome = dataforseo.serp(ctx, "organic", "painter", 1e12)
+    assert outcome["status"] == "refused" and "stopped" in outcome["reason"]
+    ctx.results = [browser(PAGE)]
+    discovery = tables(presence.run(ctx))["discovery"]
+    assert len(calls) == 1
+    assert all("stopped" in q["reason"] for q in discovery["queries"])
