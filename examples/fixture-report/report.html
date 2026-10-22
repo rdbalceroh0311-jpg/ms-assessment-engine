@@ -48,7 +48,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <blockquote>
 <p>No ranking, traffic, lead or revenue guarantees. AI-search readiness is not measured AI visibility. This technical assessment is a limited, point-in-time sample, not a full security, accessibility or operational audit. Potential impacts and likely causes require verification.</p>
 </blockquote>
-<p>Basis labels: <strong>Confirmed (technical evidence)</strong> means directly observed; <strong>Reported by customer</strong> is not independently verified; <strong>Inferred (heuristic or AI, needs verification)</strong> is provisional; <strong>Not assessed</strong> means no usable evidence was obtained. Optional features and unavailable integrations are not failures.</p>
+<p>Basis labels: <strong>Confirmed (technical evidence)</strong> means directly observed; <strong>Manually verified</strong> means a person's recorded observation, not a technical measurement or proof of account ownership; <strong>Reported by customer</strong> is not independently verified; <strong>Inferred (heuristic or AI, needs verification)</strong> is provisional; <strong>Not assessed</strong> means no usable evidence was obtained. Optional features and unavailable integrations are not failures.</p>
 <h2 id="2-scope-sources-dates-and-coverage-limitations">2. Scope, sources, dates and coverage limitations</h2>
 <p>The table explains what ran and where evidence was unavailable. Results apply only to the website, date and sample shown; they do not establish account ownership or complete coverage.</p>
 <table>
@@ -166,13 +166,13 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <tr>
 <td>Elements must meet minimum color contrast ratio thresholds (browser-001)</td>
 <td>Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009)</td>
-<td>May affect how customers find, understand or use the business online; outcomes are not measured.</td>
+<td>Low contrast may make service information or controls hard to read.</td>
 <td>Review within 0-30 days</td>
 </tr>
 <tr>
 <td>Images must have alternative text (browser-002)</td>
 <td>Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009)</td>
-<td>May affect how customers find, understand or use the business online; outcomes are not measured.</td>
+<td>Customers using screen readers may miss information conveyed by images.</td>
 <td>Review within 0-30 days</td>
 </tr>
 <tr>
@@ -184,7 +184,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <tr>
 <td>Broken URLs (siteone-003)</td>
 <td>Confirmed (technical evidence); siteone (ev-siteone-r2-011)</td>
-<td>May affect reliability or protection of business systems; impact requires verification.</td>
+<td>Broken links may prevent customers reaching the information they need.</td>
 <td>Review within 0-30 days</td>
 </tr>
 </tbody>
@@ -196,8 +196,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
 <p><strong>Importance:</strong> high | <strong>Priority:</strong> P1 | <strong>Urgency:</strong> Review within 0-30 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> HTTP 404 at http://127.0.0.1:18765/missing-offer.html.</p>
-<p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Repair internal links and restore or redirect unavailable pages. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Potential business impact (interpretation, not measured):</strong> Broken links may prevent customers reaching the information they need.</p>
+<p><strong>Recommended next action:</strong> Repair internal links and restore or redirect unavailable pages.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -209,20 +209,20 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> opportunity</p>
 <p><strong>Observed / reported:</strong> HTTP 301 at http://127.0.0.1:18765/old-service. HTTP 301 at http://127.0.0.1:18765/older-service.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Link directly to the final canonical URL. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Link directly to the final canonical URL.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
 <p><strong>Affected URLs:</strong> http://127.0.0.1:18765/old-service; http://127.0.0.1:18765/older-service</p>
-<p><strong>Source:</strong> siteone (ev-siteone-r2-002); siteone (ev-siteone-r2-010).</p>
-<p><strong>Evidence:</strong> ev-siteone-r2-002, ev-siteone-r2-010</p>
+<p><strong>Source:</strong> siteone (ev-siteone-r2-008); siteone (ev-siteone-r2-010).</p>
+<p><strong>Evidence:</strong> ev-siteone-r2-008, ev-siteone-r2-010</p>
 <h3 id="seo-findings">SEO findings</h3>
 <h4 id="siteone-004-missing-meta-description">siteone-004: Missing meta description</h4>
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
 <p><strong>Importance:</strong> medium | <strong>Priority:</strong> P2 | <strong>Urgency:</strong> Plan within 30-90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> No meta description recorded at http://127.0.0.1:18765/quote.html.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Add a descriptive, page-specific meta description. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Add a descriptive, page-specific meta description.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -234,7 +234,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> medium | <strong>Priority:</strong> P2 | <strong>Urgency:</strong> Plan within 30-90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> No H1 recorded at http://127.0.0.1:18765/quote.html.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Add a descriptive, page-specific H1. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Add a descriptive, page-specific H1.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -246,7 +246,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> Duplicate title groups: 1; duplicate description groups: 1; heading issues: 1; broken internal links: 2; unavailable links: 0; internal redirects: 2. Inbound links: NOT ASSESSED (incomplete sampled link graph).</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -257,7 +257,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> opportunity</p>
 <p><strong>Observed / reported:</strong> 4 page(s) without a rel=canonical link</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Add a self-referencing rel=canonical to each indexable page. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Add a self-referencing rel=canonical to each indexable page.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -270,7 +270,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> Search/user crawlers blocked on sampled paths: ChatGPT-User</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -281,8 +281,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
 <p><strong>Importance:</strong> high | <strong>Priority:</strong> P1 | <strong>Urgency:</strong> Review within 0-30 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast).</p>
-<p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Potential business impact (interpretation, not measured):</strong> Low contrast may make service information or controls hard to read.</p>
+<p><strong>Recommended next action:</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -293,8 +293,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
 <p><strong>Importance:</strong> high | <strong>Priority:</strong> P1 | <strong>Urgency:</strong> Review within 0-30 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt).</p>
-<p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Potential business impact (interpretation, not measured):</strong> Customers using screen readers may miss information conveyed by images.</p>
+<p><strong>Recommended next action:</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -303,6 +303,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Evidence:</strong> ev-browser-r2-003, ev-browser-r2-009</p>
 <h3 id="website-checks-status-and-evidence">Website checks: status and evidence</h3>
 <p>Each row describes the sampled evidence. NOT ASSESSED means evidence is unavailable or incomplete. Optional features are informational. Form submissions are always <strong>NOT TESTED</strong>. AI-search readiness is not measured visibility.</p>
+<p>Checks with findings are described in their finding blocks; the remaining checks are listed here.</p>
 <table>
 <thead>
 <tr>
@@ -320,13 +321,6 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <td>Parsed 4 groups; root and representative public path allowed for *, Googlebot and Bingbot.</td>
 <td>Broad rules can prevent search engines crawling public pages.</td>
 <td>Confirm intended visibility, remove unintended broad Disallow rules, then retest.</td>
-</tr>
-<tr>
-<td>AI crawler rules by purpose (ev-site_checks-r2-003)<br>http://127.0.0.1:18765/</td>
-<td>WARNING</td>
-<td>Search/user crawlers blocked on sampled paths: ChatGPT-User</td>
-<td>Search and user-initiated access differ from training consent; robots rules alone do not establish crawler access or visibility.</td>
-<td>Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually.</td>
 </tr>
 <tr>
 <td>Page noindex / X-Robots-Tag (ev-site_checks-r2-004)<br>http://127.0.0.1:18765/</td>
@@ -350,25 +344,11 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <td>Review conflicting targets; use final indexable URLs. Manually verify uncrawled targets.</td>
 </tr>
 <tr>
-<td>Duplicates, headings / internal links (ev-site_checks-r2-007)<br>http://127.0.0.1:18765/</td>
-<td>WARNING</td>
-<td>Duplicate title groups: 1; duplicate description groups: 1; heading issues: 1; broken internal links: 2; unavailable links: 0; internal redirects: 2. Inbound links: NOT ASSESSED (incomplete sampled link graph).</td>
-<td>Distinct metadata, logical headings and direct internal links improve navigation and help crawlers interpret pages.</td>
-<td>Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph.</td>
-</tr>
-<tr>
 <td>Organization / LocalBusiness / BreadcrumbList (ev-site_checks-r2-008)<br>http://127.0.0.1:18765/</td>
 <td>INFO</td>
 <td>Validated 1 supported JSON-LD nodes. No invalid supported properties found. 4 applicable-property suggestions; absence is not a failure.</td>
 <td>Consistent structured data clarifies entities; it does not guarantee rich results.</td>
 <td>Fix invalid JSON-LD and required properties; review applicable recommended properties with Google's Rich Results Test. Organization has no required properties.</td>
-</tr>
-<tr>
-<td>Near-duplicate location pages (ev-site_checks-r2-009)<br>http://127.0.0.1:18765/</td>
-<td>WARNING</td>
-<td>Compared 2 location-like URLs with &gt;=80 sampled words using 5-word shingle Jaccard &gt;=0.8: 1 similar pairs. Heuristic only; shared navigation and truncated text can influence similarity.</td>
-<td>Near-duplicate location pages may warrant review for doorway-page risk; this is never a confirmed doorway-page finding.</td>
-<td>Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages.</td>
 </tr>
 <tr>
 <td>Core Web Vitals (field p75) (ev-site_checks-r2-010)<br>http://127.0.0.1:18765/</td>
@@ -534,7 +514,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> medium | <strong>Priority:</strong> P2 | <strong>Urgency:</strong> Plan within 30-90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> on http://127.0.0.1:18765/, structured telephone '+61 2 5550 0199' differs from the only value shown (02 5550 0100).</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Use one canonical name, address and phone number in structured data, the footer, contact page and external listings. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Use one canonical name, address and phone number in structured data, the footer, contact page and external listings.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -545,7 +525,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> Compared 2 location-like URLs with &gt;=80 sampled words using 5-word shingle Jaccard &gt;=0.8: 1 similar pairs. Heuristic only; shared navigation and truncated text can influence similarity.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -557,7 +537,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> opportunity</p>
 <p><strong>Observed / reported:</strong> The website links to Google Business Profile / Google Maps, Yellow Pages AU but the business JSON-LD does not list them in sameAs.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Add the customer-owned profile URLs to the business sameAs property. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Add the customer-owned profile URLs to the business sameAs property.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -602,7 +582,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <tr>
 <td>robots.txt</td>
 <td>Detected</td>
-<td>Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 6 ms.</td>
+<td>Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms.</td>
 <td>ev-siteone-r2-025</td>
 </tr>
 <tr>
@@ -760,8 +740,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <td>ev-presence-r2-015</td>
 </tr>
 <tr>
-<td>high</td>
-<td>hipages</td>
+<td>high / medium / low</td>
+<td>hipages, True Local, Localsearch, Houzz, LinkedIn, YouTube, TikTok, Yelp, Hotfrog, Cylex, Whereis, Word of Mouth, Airtasker, ServiceSeeking</td>
 <td>Not assessed</td>
 <td>-</td>
 <td>Not searched: no --dataforseo-max-usd cap was passed</td>
@@ -800,59 +780,11 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <td>ev-presence-r2-018</td>
 </tr>
 <tr>
-<td>medium</td>
-<td>True Local</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>medium</td>
-<td>Localsearch</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>medium</td>
-<td>Houzz</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
 <td>low</td>
 <td>Apple Business / Apple Maps</td>
 <td>Not assessed</td>
 <td>-</td>
 <td>Not searched: no --dataforseo-max-usd cap was passed. Apple Business replaced Apple Business Connect. No provider search; manual only.</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
-<td>LinkedIn</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
-<td>YouTube</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
-<td>TikTok</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
 <td>ev-presence-r2-014</td>
 </tr>
 <tr>
@@ -865,46 +797,6 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 </tr>
 <tr>
 <td>low</td>
-<td>Yelp</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
-<td>Hotfrog</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
-<td>Cylex</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
-<td>Whereis</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
-<td>Word of Mouth</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
 <td>Chambers of commerce / professional &amp; industry associations</td>
 <td>Not assessed</td>
 <td>-</td>
@@ -912,107 +804,11 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <td>ev-presence-r2-014</td>
 </tr>
 <tr>
-<td>low</td>
-<td>Airtasker</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>low</td>
-<td>ServiceSeeking</td>
-<td>Not assessed</td>
-<td>-</td>
-<td>Not searched: no --dataforseo-max-usd cap was passed</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
 <td>not_applicable</td>
-<td>Tripadvisor</td>
+<td>Tripadvisor, OpenTable, Uber Eats, DoorDash, Menulog, Fresha, Booksy, Timely, NSW buy.nsw Supplier Hub, AusTender, ICN Gateway</td>
 <td>Not applicable</td>
 <td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>OpenTable</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>Uber Eats</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>DoorDash</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>Menulog</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>Fresha</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>Booksy</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>Timely</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>NSW buy.nsw Supplier Hub</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting). Supplier registration is confirmed in the Supplier Hub by the customer.</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>AusTender</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
-<td>ev-presence-r2-014</td>
-</tr>
-<tr>
-<td>not_applicable</td>
-<td>ICN Gateway</td>
-<td>Not applicable</td>
-<td>-</td>
-<td>Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting)</td>
+<td>Outside the recorded business profile; platform details in results.json.</td>
 <td>ev-presence-r2-014</td>
 </tr>
 </tbody>
@@ -1063,7 +859,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <tr>
 <td>Google Search Console</td>
 <td>Detected</td>
-<td>Not assessed</td>
+<td>Not connected</td>
 <td>Seen on http://127.0.0.1:18765/ (ev-presence-r2-002)</td>
 <td>Request access (customer access checklist)</td>
 </tr>
@@ -1151,7 +947,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> opportunity</p>
 <p><strong>Observed / reported:</strong> In priority order for industry Trades &amp; home services (incl. painting), buying model Service-area (staff travel to customers): hipages (high): Not assessed; Bing Places / Bing Maps (medium): Not assessed; True Local (medium): Not assessed; Localsearch (medium): Not assessed; Houzz (medium): Not assessed. Independent search: Not assessed (no --dataforseo-max-usd cap was passed).</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1162,7 +958,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> opportunity</p>
 <p><strong>Observed / reported:</strong> Google Analytics 4: Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages; Universal Analytics (legacy): Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent; Google Tag Manager: Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages; Microsoft Clarity: Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages; Hotjar: Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent; Google Ads: Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent; Meta Pixel: Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent; LinkedIn Insight Tag: Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent; Microsoft Advertising UET: Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent; TikTok Pixel: Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1176,7 +972,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> medium | <strong>Priority:</strong> P2 | <strong>Urgency:</strong> Plan within 30-90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> Neither X-Frame-Options nor CSP frame-ancestors was observed.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Set an appropriate frame-ancestors policy after checking embedding needs. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Set an appropriate frame-ancestors policy after checking embedding needs.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1187,7 +983,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1199,7 +995,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1211,7 +1007,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1223,7 +1019,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1235,7 +1031,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1323,7 +1119,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> medium | <strong>Priority:</strong> P2 | <strong>Urgency:</strong> Plan within 30-90 days | <strong>Type:</strong> problem</p>
 <p><strong>Observed / reported:</strong> The customer states the laptop holding the job spreadsheet is not backed up.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Confirm the current setup on site, then put managed backup in place for business data. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Confirm the current setup on site, then put managed backup in place for business data.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
@@ -1334,25 +1130,32 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> opportunity</p>
 <p><strong>Observed / reported:</strong> Unanswered quotes are not followed up and annual service reminders are sent by hand, while the stated priority is more planned servicing.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect how customers find, understand or use the business online; outcomes are not measured.</p>
-<p><strong>Recommended next action:</strong> Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work. Review the current process first; prefer keeping and integrating existing systems before considering replacement.</p>
+<p><strong>Recommended next action:</strong> Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work.</p>
 <p><strong>AMS service category:</strong> Digital Growth</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
 <p><strong>Source:</strong> discovery (ev-discovery-r3-002); discovery (ev-discovery-r3-008); discovery (ev-discovery-r3-011).</p>
 <p><strong>Evidence:</strong> ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011</p>
 <h2 id="9-prioritised-improvement-opportunities-and-recommended-roadmap">9. Prioritised improvement opportunities and recommended roadmap</h2>
-<p>Agree the process, owner and desired outcome before selecting products. Prefer keeping and integrating existing systems before replacement. Timing is a planning suggestion, dependent on verification, access, budget and approval.</p>
-<ol>
+<p>Agree the process, owner and desired outcome before selecting products. Timing is a planning suggestion, dependent on verification, access, budget and approval.</p>
+<h3 id="0-30-days">0-30 days</h3>
+<ul>
 <li><strong>P1 - Elements must meet minimum color contrast ratio thresholds (browser-001):</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.</li>
 <li><strong>P1 - Images must have alternative text (browser-002):</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.</li>
-<li><strong>P1 - Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies):</strong> Map the enquiry journey, then trial call capture with a missed-call text-back and a shared enquiry queue; keep pricing replies for human approval. Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.</li>
+<li><strong>P1 - Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies):</strong> Map the enquiry journey, then trial call capture with a missed-call text-back and a shared enquiry queue; keep pricing replies for human approval. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.</li>
 <li><strong>P1 - Broken URLs (siteone-003):</strong> Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-011.</li>
-<li><strong>P2 - Job, scheduling and invoicing data live in disconnected tools (discovery-job-scheduling-and-invoicing-data-live-in-disconne):</strong> Assess a job-management system that integrates with Xero, within the stated budget, before considering any automation on top. Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.</li>
+</ul>
+<h3 id="30-90-days">30-90 days</h3>
+<ul>
+<li><strong>P2 - Job, scheduling and invoicing data live in disconnected tools (discovery-job-scheduling-and-invoicing-data-live-in-disconne):</strong> Assess a job-management system that integrates with Xero, within the stated budget, before considering any automation on top. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.</li>
 <li><strong>P2 - Job spreadsheet has no backup (discovery-job-spreadsheet-has-no-backup):</strong> Confirm the current setup on site, then put managed backup in place for business data. Evidence: ev-discovery-r3-014.</li>
 <li><strong>P2 - Business name, address or phone differs between structured data and the page (presence-002):</strong> Use one canonical name, address and phone number in structured data, the footer, contact page and external listings. Evidence: ev-presence-r2-010.</li>
 <li><strong>P2 - No explicit framing protection observed (security-004):</strong> Set an appropriate frame-ancestors policy after checking embedding needs. Evidence: ev-security-r2-001.</li>
 <li><strong>P2 - Missing meta description (siteone-004):</strong> Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-016.</li>
 <li><strong>P2 - Missing H1 (siteone-005):</strong> Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-016.</li>
+</ul>
+<h3 id="90-days">90+ days</h3>
+<ul>
 <li><strong>P3 - No follow-up on quotes or service reminders (discovery-no-follow-up-on-quotes-or-service-reminders):</strong> Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work. Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.</li>
 <li><strong>P3 - Linked profiles missing from structured-data sameAs (presence-004):</strong> Add the customer-owned profile URLs to the business sameAs property. Evidence: ev-presence-r2-006, ev-presence-r2-009, ev-presence-r2-010.</li>
 <li><strong>P3 - AI crawler rules by purpose (site_checks-001):</strong> Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Evidence: ev-site_checks-r2-003.</li>
@@ -1366,41 +1169,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <li><strong>P3 - Review permissions-policy header (siteone-010):</strong> Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-024.</li>
 <li><strong>P3 - Duplicates, headings / internal links (site_checks-002):</strong> Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.</li>
 <li><strong>P3 - Pages without a canonical link (siteone-011):</strong> Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-026.</li>
-<li><strong>P3 - Review internal redirects (siteone-001):</strong> Link directly to the final canonical URL. Evidence: ev-siteone-r2-002, ev-siteone-r2-010.</li>
-</ol>
-<h3 id="proposed-implementation-roadmap">Proposed implementation roadmap</h3>
-<h3 id="0-30-days">0-30 days</h3>
-<ul>
-<li>Elements must meet minimum color contrast ratio thresholds (browser-001). Evidence: ev-browser-r2-003, ev-browser-r2-009.</li>
-<li>Images must have alternative text (browser-002). Evidence: ev-browser-r2-003, ev-browser-r2-009.</li>
-<li>Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies). Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.</li>
-<li>Broken URLs (siteone-003). Evidence: ev-siteone-r2-011.</li>
-</ul>
-<h3 id="30-90-days">30-90 days</h3>
-<ul>
-<li>Job, scheduling and invoicing data live in disconnected tools (discovery-job-scheduling-and-invoicing-data-live-in-disconne). Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.</li>
-<li>Job spreadsheet has no backup (discovery-job-spreadsheet-has-no-backup). Evidence: ev-discovery-r3-014.</li>
-<li>Business name, address or phone differs between structured data and the page (presence-002). Evidence: ev-presence-r2-010.</li>
-<li>No explicit framing protection observed (security-004). Evidence: ev-security-r2-001.</li>
-<li>Missing meta description (siteone-004). Evidence: ev-siteone-r2-016.</li>
-<li>Missing H1 (siteone-005). Evidence: ev-siteone-r2-016.</li>
-</ul>
-<h3 id="90-days">90+ days</h3>
-<ul>
-<li>No follow-up on quotes or service reminders (discovery-no-follow-up-on-quotes-or-service-reminders). Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.</li>
-<li>Linked profiles missing from structured-data sameAs (presence-004). Evidence: ev-presence-r2-006, ev-presence-r2-009, ev-presence-r2-010.</li>
-<li>AI crawler rules by purpose (site_checks-001). Evidence: ev-site_checks-r2-003.</li>
-<li>Near-duplicate location pages (site_checks-003). Evidence: ev-site_checks-r2-009.</li>
-<li>Priority platforms still need presence verification (presence-001). Evidence: ev-presence-r2-014, ev-presence-r2-013.</li>
-<li>Analytics or tracking tags could not be confirmed (presence-003). Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.</li>
-<li>Review content-security-policy header (siteone-006). Evidence: ev-security-r2-001, ev-siteone-r2-020.</li>
-<li>Review server header (siteone-007). Evidence: ev-siteone-r2-021.</li>
-<li>Review x-content-type-options header (siteone-008). Evidence: ev-security-r2-001, ev-siteone-r2-022.</li>
-<li>Review referrer-policy header (siteone-009). Evidence: ev-security-r2-001, ev-siteone-r2-023.</li>
-<li>Review permissions-policy header (siteone-010). Evidence: ev-siteone-r2-024.</li>
-<li>Duplicates, headings / internal links (site_checks-002). Evidence: ev-site_checks-r2-007.</li>
-<li>Pages without a canonical link (siteone-011). Evidence: ev-siteone-r2-026.</li>
-<li>Review internal redirects (siteone-001). Evidence: ev-siteone-r2-002, ev-siteone-r2-010.</li>
+<li><strong>P3 - Review internal redirects (siteone-001):</strong> Link directly to the final canonical URL. Evidence: ev-siteone-r2-008, ev-siteone-r2-010.</li>
 </ul>
 <h2 id="10-items-requiring-customer-verification-access-or-decisions">10. Items requiring customer verification, access or decisions</h2>
 <p>Resolve these uncertainties before approving changes. Confirm business priorities and the existing systems to retain; access should be named, limited and revocable.</p>
@@ -1437,7 +1206,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 </tr>
 <tr>
 <td>Google Search Console<br>http://127.0.0.1:18765/</td>
-<td>Not assessed</td>
+<td>Not connected</td>
 <td>GSC requires --connect gsc and credentials; missing connection or credentials. The generative-AI performance report is available in the Search Console interface. As of 2026-10-23, the documented API has no separate generative-AI report endpoint or filter; use a customer-provided UI export for manual review. Aggregate Web results cannot establish AI visibility. Sources: https://developers.google.com/webmaster-tools/v1/searchanalytics/query and https://support.google.com/webmasters/answer/16984139</td>
 <td>-</td>
 </tr>
@@ -1564,7 +1333,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <td>ev-siteone-r2-002</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/old-service</td>
+<td>http://127.0.0.1:18765/service/a/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-003</td>
@@ -1588,25 +1357,25 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <td>ev-siteone-r2-006</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/quote.html</td>
+<td>http://127.0.0.1:18765/about.html</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-007</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/service/a/</td>
+<td>http://127.0.0.1:18765/service/b/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-008</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/service/b/</td>
+<td>http://127.0.0.1:18765/old-service</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-009</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/about.html</td>
+<td>http://127.0.0.1:18765/quote.html</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-010</td>

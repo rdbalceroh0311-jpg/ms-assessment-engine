@@ -44,17 +44,17 @@
   {
     "id": "ev-siteone-r2-002",
     "source": "siteone",
-    "url": "http://127.0.0.1:18765/old-service",
+    "url": "http://127.0.0.1:18765/service/a/",
     "description": "SiteOne HTTP response",
     "data": {
       "cacheLifetime": null,
-      "cacheTypeFlags": 32768,
+      "cacheTypeFlags": 8,
       "elapsedTime": 0.001,
       "extras": [],
-      "size": 93,
-      "status": "301",
-      "type": 9,
-      "url": "http://127.0.0.1:18765/old-service"
+      "size": 1296,
+      "status": "200",
+      "type": 1,
+      "url": "http://127.0.0.1:18765/service/a/"
     },
     "provenance": "technical_evidence"
   },
@@ -100,7 +100,7 @@
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 8,
-      "elapsedTime": 0.001,
+      "elapsedTime": 0.002,
       "extras": [],
       "size": 1259,
       "status": "200",
@@ -112,39 +112,22 @@
   {
     "id": "ev-siteone-r2-006",
     "source": "siteone",
-    "url": "http://127.0.0.1:18765/quote.html",
+    "url": "http://127.0.0.1:18765/about.html",
     "description": "SiteOne HTTP response",
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 8,
       "elapsedTime": 0.002,
       "extras": [],
-      "size": 1082,
+      "size": 1342,
       "status": "200",
       "type": 1,
-      "url": "http://127.0.0.1:18765/quote.html"
+      "url": "http://127.0.0.1:18765/about.html"
     },
     "provenance": "technical_evidence"
   },
   {
     "id": "ev-siteone-r2-007",
-    "source": "siteone",
-    "url": "http://127.0.0.1:18765/service/a/",
-    "description": "SiteOne HTTP response",
-    "data": {
-      "cacheLifetime": null,
-      "cacheTypeFlags": 8,
-      "elapsedTime": 0.001,
-      "extras": [],
-      "size": 1296,
-      "status": "200",
-      "type": 1,
-      "url": "http://127.0.0.1:18765/service/a/"
-    },
-    "provenance": "technical_evidence"
-  },
-  {
-    "id": "ev-siteone-r2-008",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/service/b/",
     "description": "SiteOne HTTP response",
@@ -161,19 +144,36 @@
     "provenance": "technical_evidence"
   },
   {
+    "id": "ev-siteone-r2-008",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/old-service",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 32768,
+      "elapsedTime": 0.002,
+      "extras": [],
+      "size": 93,
+      "status": "301",
+      "type": 9,
+      "url": "http://127.0.0.1:18765/old-service"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
     "id": "ev-siteone-r2-009",
     "source": "siteone",
-    "url": "http://127.0.0.1:18765/about.html",
+    "url": "http://127.0.0.1:18765/quote.html",
     "description": "SiteOne HTTP response",
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 8,
-      "elapsedTime": 0.001,
+      "elapsedTime": 0.002,
       "extras": [],
-      "size": 1342,
+      "size": 1082,
       "status": "200",
       "type": 1,
-      "url": "http://127.0.0.1:18765/about.html"
+      "url": "http://127.0.0.1:18765/quote.html"
     },
     "provenance": "technical_evidence"
   },
@@ -202,7 +202,7 @@
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 32768,
-      "elapsedTime": 0.001,
+      "elapsedTime": 0.002,
       "extras": [],
       "size": 335,
       "status": "404",
@@ -219,7 +219,7 @@
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 8,
-      "elapsedTime": 0.001,
+      "elapsedTime": 0.002,
       "extras": [],
       "size": 187,
       "status": "200",
@@ -435,7 +435,7 @@
     "data": {
       "aplCode": "robots-txt-127.0.0.1",
       "status": "NOTICE",
-      "text": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 6 ms."
+      "text": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms."
     },
     "provenance": "technical_evidence"
   },
@@ -472,6 +472,13 @@
         "urlPathAndQuery": "/"
       },
       {
+        "headings": "<h1> Plumbing in service area A",
+        "headingsCount": "1",
+        "headingsErrorsCount": "0",
+        "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing in service area A</li></ul>",
+        "urlPathAndQuery": "/service/a/"
+      },
+      {
         "headings": "<h1> Contact our team <h2> Privacy policy [#privacy]",
         "headingsCount": "2",
         "headingsErrorsCount": "0",
@@ -486,11 +493,11 @@
         "urlPathAndQuery": "/services.html"
       },
       {
-        "headings": "<h1> Plumbing in service area A",
-        "headingsCount": "1",
+        "headings": "<h1> A local service with clear communication <h2> Our approach <h2> Customer feedback",
+        "headingsCount": "3",
         "headingsErrorsCount": "0",
-        "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing in service area A</li></ul>",
-        "urlPathAndQuery": "/service/a/"
+        "headingsHtml": "<ul><li>&lt;h1&gt; A local service with clear communication<ul><li>&lt;h2&gt; Our approach</li><li>&lt;h2&gt; Customer feedback</li></ul></li></ul>",
+        "urlPathAndQuery": "/about.html"
       },
       {
         "headings": "<h1> Plumbing in service area B",
@@ -498,13 +505,6 @@
         "headingsErrorsCount": "0",
         "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing in service area B</li></ul>",
         "urlPathAndQuery": "/service/b/"
-      },
-      {
-        "headings": "<h1> A local service with clear communication <h2> Our approach <h2> Customer feedback",
-        "headingsCount": "3",
-        "headingsErrorsCount": "0",
-        "headingsHtml": "<ul><li>&lt;h1&gt; A local service with clear communication<ul><li>&lt;h2&gt; Our approach</li><li>&lt;h2&gt; Customer feedback</li></ul></li></ul>",
-        "urlPathAndQuery": "/about.html"
       }
     ],
     "provenance": "technical_evidence"
@@ -572,7 +572,7 @@
         "minValue": "",
         "occurrences": "12",
         "uniqueValues": "4",
-        "valuesPreview": "text/html (9) / image/svg+xml (1) / text/css (1) / text/html;charset=utf-8 (1)"
+        "valuesPreview": "text/html (9) / text/css (1) / text/html;charset=utf-8 (1) / image/svg+xml (1)"
       },
       {
         "header": "Date",
@@ -596,7 +596,7 @@
         "minValue": "",
         "occurrences": "2",
         "uniqueValues": "2",
-        "valuesPreview": "/older-service (1) / /services.html (1)"
+        "valuesPreview": "/services.html (1) / /older-service (1)"
       },
       {
         "header": "Server",
@@ -628,11 +628,6 @@
       {
         "header": "Content-Type",
         "occurrences": "1",
-        "value": "image/svg+xml"
-      },
-      {
-        "header": "Content-Type",
-        "occurrences": "1",
         "value": "text/css"
       },
       {
@@ -641,14 +636,19 @@
         "value": "text/html;charset=utf-8"
       },
       {
-        "header": "Location",
+        "header": "Content-Type",
         "occurrences": "1",
-        "value": "/older-service"
+        "value": "image/svg+xml"
       },
       {
         "header": "Location",
         "occurrences": "1",
         "value": "/services.html"
+      },
+      {
+        "header": "Location",
+        "occurrences": "1",
+        "value": "/older-service"
       },
       {
         "header": "Server",
@@ -2794,7 +2794,7 @@
       "status": 200,
       "headers": {
         "server": "SimpleHTTP/0.6 Python/3.12.13",
-        "date": "Thu, 22 Oct 2026 22:34:09 GMT",
+        "date": "Thu, 22 Oct 2026 22:57:27 GMT",
         "content-type": "text/html",
         "content-length": "4078",
         "last-modified": "Thu, 22 Oct 2026 22:19:37 GMT"

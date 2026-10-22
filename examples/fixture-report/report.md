@@ -21,7 +21,7 @@ The assessment recorded 24 findings supported by collected evidence or customer 
 
 > No ranking, traffic, lead or revenue guarantees. AI-search readiness is not measured AI visibility. This technical assessment is a limited, point-in-time sample, not a full security, accessibility or operational audit. Potential impacts and likely causes require verification.
 
-Basis labels: **Confirmed (technical evidence)** means directly observed; **Reported by customer** is not independently verified; **Inferred (heuristic or AI, needs verification)** is provisional; **Not assessed** means no usable evidence was obtained. Optional features and unavailable integrations are not failures.
+Basis labels: **Confirmed (technical evidence)** means directly observed; **Manually verified** means a person's recorded observation, not a technical measurement or proof of account ownership; **Reported by customer** is not independently verified; **Inferred (heuristic or AI, needs verification)** is provisional; **Not assessed** means no usable evidence was obtained. Optional features and unavailable integrations are not failures.
 
 ## 2. Scope, sources, dates and coverage limitations
 
@@ -64,10 +64,10 @@ Review these higher-importance observations first. Their business impact is pote
 
 | Finding | Basis / source | Potential risk | Urgency |
 | --- | --- | --- | --- |
-| Elements must meet minimum color contrast ratio thresholds (browser-001) | Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009) | May affect how customers find, understand or use the business online; outcomes are not measured. | Review within 0-30 days |
-| Images must have alternative text (browser-002) | Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009) | May affect how customers find, understand or use the business online; outcomes are not measured. | Review within 0-30 days |
+| Elements must meet minimum color contrast ratio thresholds (browser-001) | Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009) | Low contrast may make service information or controls hard to read. | Review within 0-30 days |
+| Images must have alternative text (browser-002) | Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009) | Customers using screen readers may miss information conveyed by images. | Review within 0-30 days |
 | Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies) | Reported by customer; discovery (ev-discovery-r3-005); discovery (ev-discovery-r3-006); discovery (ev-discovery-r3-017) | Customer believes some new work goes to competitors (not measured) | Review within 0-30 days |
-| Broken URLs (siteone-003) | Confirmed (technical evidence); siteone (ev-siteone-r2-011) | May affect reliability or protection of business systems; impact requires verification. | Review within 0-30 days |
+| Broken URLs (siteone-003) | Confirmed (technical evidence); siteone (ev-siteone-r2-011) | Broken links may prevent customers reaching the information they need. | Review within 0-30 days |
 
 ## 4. Website, SEO, performance, accessibility and AI-search readiness
 
@@ -83,9 +83,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Observed / reported:** HTTP 404 at http://127.0.0.1:18765/missing-offer.html.
 
-**Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
+**Potential business impact (interpretation, not measured):** Broken links may prevent customers reaching the information they need.
 
-**Recommended next action:** Repair internal links and restore or redirect unavailable pages. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Repair internal links and restore or redirect unavailable pages.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -109,7 +109,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Link directly to the final canonical URL. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Link directly to the final canonical URL.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -119,9 +119,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/old-service; http://127.0.0.1:18765/older-service
 
-**Source:** siteone (ev-siteone-r2-002); siteone (ev-siteone-r2-010).
+**Source:** siteone (ev-siteone-r2-008); siteone (ev-siteone-r2-010).
 
-**Evidence:** ev-siteone-r2-002, ev-siteone-r2-010
+**Evidence:** ev-siteone-r2-008, ev-siteone-r2-010
 
 
 ### SEO findings
@@ -136,7 +136,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Add a descriptive, page-specific meta description. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Add a descriptive, page-specific meta description.
 
 **AMS service category:** Digital Growth
 
@@ -160,7 +160,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Add a descriptive, page-specific H1. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Add a descriptive, page-specific H1.
 
 **AMS service category:** Digital Growth
 
@@ -184,7 +184,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph.
 
 **AMS service category:** Digital Growth
 
@@ -206,7 +206,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Add a self-referencing rel=canonical to each indexable page. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Add a self-referencing rel=canonical to each indexable page.
 
 **AMS service category:** Digital Growth
 
@@ -233,7 +233,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually.
 
 **AMS service category:** Digital Growth
 
@@ -257,9 +257,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Observed / reported:** desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe color-contrast).
 
-**Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
+**Potential business impact (interpretation, not measured):** Low contrast may make service information or controls hard to read.
 
-**Recommended next action:** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology.
 
 **AMS service category:** Digital Growth
 
@@ -281,9 +281,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Observed / reported:** desktop: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt). mobile: 1 affected elements at http://127.0.0.1:18765/quote.html (axe image-alt).
 
-**Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
+**Potential business impact (interpretation, not measured):** Customers using screen readers may miss information conveyed by images.
 
-**Recommended next action:** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology.
 
 **AMS service category:** Digital Growth
 
@@ -304,16 +304,15 @@ These checks look at whether customers and search engines can reach and understa
 
 Each row describes the sampled evidence. NOT ASSESSED means evidence is unavailable or incomplete. Optional features are informational. Form submissions are always **NOT TESTED**. AI-search readiness is not measured visibility.
 
+Checks with findings are described in their finding blocks; the remaining checks are listed here.
+
 | Check / evidence | Status | What was checked | Why it matters | Recommended correction |
 | --- | --- | --- | --- | --- |
 | Robots rules / site-wide Disallow (ev-site_checks-r2-002)<br>http://127.0.0.1:18765/ | PASS | Parsed 4 groups; root and representative public path allowed for \*, Googlebot and Bingbot. | Broad rules can prevent search engines crawling public pages. | Confirm intended visibility, remove unintended broad Disallow rules, then retest. |
-| AI crawler rules by purpose (ev-site_checks-r2-003)<br>http://127.0.0.1:18765/ | WARNING | Search/user crawlers blocked on sampled paths: ChatGPT-User | Search and user-initiated access differ from training consent; robots rules alone do not establish crawler access or visibility. | Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. |
 | Page noindex / X-Robots-Tag (ev-site_checks-r2-004)<br>http://127.0.0.1:18765/ | PASS | No noindex in 7 crawl indexing records. Meta directives inspected where available; individual HTTP-header attribution may be unavailable outside the homepage. | Unintended noindex on home or key pages prevents those pages appearing in search. | Confirm intended indexing per URL; inspect response headers on unsampled pages. Remove noindex only on pages intended for search. |
 | Sitemap URL validity (ev-site_checks-r2-005)<br>http://127.0.0.1:18765/ | PASS | Compared 7 sitemap URLs with existing crawl results: 0 with observed issues, 0 uncrawled/unavailable (NOT ASSESSED). | Sitemaps should list final, successful, indexable URLs; uncrawled URLs are unknown. | Replace redirects/non-200/noindex URLs; manually validate uncrawled entries. Use absolute HTTP(S) sitemap URLs in production. |
 | Canonical accessibility / consistency (ev-site_checks-r2-006)<br>http://127.0.0.1:18765/ | PASS | 3 declarations; 0 need review; 0 targets NOT ASSESSED. http://127.0.0.1:18765/ -&gt; http://127.0.0.1:18765/: HTTP 200 ; http://127.0.0.1:18765/service/a/ -&gt; http://127.0.0.1:18765/service/a/: HTTP 200 ; http://127.0.0.1:18765/service/b/ -&gt; http://127.0.0.1:18765/service/b/: HTTP 200 | Canonical hints should consistently identify accessible, indexable preferred pages. | Review conflicting targets; use final indexable URLs. Manually verify uncrawled targets. |
-| Duplicates, headings / internal links (ev-site_checks-r2-007)<br>http://127.0.0.1:18765/ | WARNING | Duplicate title groups: 1; duplicate description groups: 1; heading issues: 1; broken internal links: 2; unavailable links: 0; internal redirects: 2. Inbound links: NOT ASSESSED (incomplete sampled link graph). | Distinct metadata, logical headings and direct internal links improve navigation and help crawlers interpret pages. | Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. |
 | Organization / LocalBusiness / BreadcrumbList (ev-site_checks-r2-008)<br>http://127.0.0.1:18765/ | INFO | Validated 1 supported JSON-LD nodes. No invalid supported properties found. 4 applicable-property suggestions; absence is not a failure. | Consistent structured data clarifies entities; it does not guarantee rich results. | Fix invalid JSON-LD and required properties; review applicable recommended properties with Google's Rich Results Test. Organization has no required properties. |
-| Near-duplicate location pages (ev-site_checks-r2-009)<br>http://127.0.0.1:18765/ | WARNING | Compared 2 location-like URLs with &gt;=80 sampled words using 5-word shingle Jaccard &gt;=0.8: 1 similar pairs. Heuristic only; shared navigation and truncated text can influence similarity. | Near-duplicate location pages may warrant review for doorway-page risk; this is never a confirmed doorway-page finding. | Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. |
 | Core Web Vitals (field p75) (ev-site_checks-r2-010)<br>http://127.0.0.1:18765/ | NOT ASSESSED | No usable CrUX/PSI p75 field data. Lighthouse lab scores are not CWV. | Field LCP, INP and CLS describe real-user experience; origin and URL scopes differ. | Investigate non-good field metrics and verify all three at p75. Good: LCP &lt;=2500 ms, INP &lt;=200 ms, CLS &lt;=0.1. Poor: LCP &gt;4000 ms, INP &gt;500 ms, CLS &gt;0.25. Missing field data requires manual verification; preserve separate lab findings. |
 | Booking / CRM / chat tools (ev-site_checks-r2-011)<br>http://127.0.0.1:18765/ | INFO | Detected markup signals: Calendly. Script/link/iframe URLs and recognised inline API calls; prose excluded. Iframes outside the normal-UA homepage probe may be unavailable. | Public integration signals help identify systems to discuss; they do not prove account existence, ownership or working integration. | Confirm customer-owned systems and test authorised journeys before proposing changes. |
 | Conversion pathways / forms NOT TESTED (ev-site_checks-r2-012)<br>http://127.0.0.1:18765/ | INFO | 6 rendered pages inspected for forms, booking links, tel/mailto, CTA wording, trust signals and case-study/portfolio/team/about links. Above-the-fold placement NOT ASSESSED where positions are unavailable. Form submissions: NOT TESTED. Trust claims and journey outcomes are unverified. | Visible enquiry options help plan journey validation; their presence does not prove forms, booking, lead delivery or conversion performance work. | Review missing paths and CTA prominence manually; arrange an authorised safe journey test with the customer. No submissions were made. |
@@ -363,7 +362,7 @@ These observations help you confirm where customers can find the business. A lik
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Use one canonical name, address and phone number in structured data, the footer, contact page and external listings. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Use one canonical name, address and phone number in structured data, the footer, contact page and external listings.
 
 **AMS service category:** Digital Growth
 
@@ -385,7 +384,7 @@ These observations help you confirm where customers can find the business. A lik
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages.
 
 **AMS service category:** Digital Growth
 
@@ -410,7 +409,7 @@ These observations help you confirm where customers can find the business. A lik
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Add the customer-owned profile URLs to the business sameAs property. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Add the customer-owned profile URLs to the business sameAs property.
 
 **AMS service category:** Digital Growth
 
@@ -443,7 +442,7 @@ Website: http://127.0.0.1:18765/ (run r2). Public assessment: statuses below com
 | NAP consistency (structured data vs visible text and phone links) | Inconsistent | on http://127.0.0.1:18765/, structured telephone '+61 2 5550 0199' differs from the only value shown (02 5550 0100) | ev-presence-r2-010 |
 | Structured business entity (JSON-LD) | Detected | LocalBusiness; sameAs links: 2 | ev-presence-r2-010 |
 | Location / service-area pages | Not detected | No location or service-area URL among 7 crawled pages | ev-presence-r2-011 |
-| robots.txt | Detected | Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 6 ms. | ev-siteone-r2-025 |
+| robots.txt | Detected | Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms. | ev-siteone-r2-025 |
 | Canonical links | Incomplete | 4 page(s) without a rel=canonical link | ev-siteone-r2-026 |
 | XML sitemap | PASS | Sitemap at http://127.0.0.1:18765/sitemap.xml (robots.txt Sitemap line) lists 7 URLs | ev-presence-r2-012 |
 
@@ -483,38 +482,15 @@ Independent search: **Not assessed** (no --dataforseo-max-usd cap was passed). B
 | Relevance | Platform | State | Candidate profiles and match evidence | Detail | Evidence |
 | --- | --- | --- | --- | --- | --- |
 | high | Google Business Profile / Google Maps | Found — likely match | https://g.page/harbour-demo-plumbing-fixture [linked from the website] | 1 candidate profile(s); linked from the website. Searched through the DataForSEO Google Maps SERP only. | ev-presence-r2-015 |
-| high | hipages | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
+| high / medium / low | hipages, True Local, Localsearch, Houzz, LinkedIn, YouTube, TikTok, Yelp, Hotfrog, Cylex, Whereis, Word of Mouth, Airtasker, ServiceSeeking | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
 | medium | Bing Places / Bing Maps | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. No provider search; manual verification only. | ev-presence-r2-014 |
 | medium | Facebook | Found — likely match | https://www.facebook.com/harbour.demo.plumbing.fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-016 |
 | medium | Instagram | Found — likely match | https://www.instagram.com/harbour.demo.plumbing.fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-017 |
 | medium | Yellow Pages AU | Found — likely match | https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-018 |
-| medium | True Local | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| medium | Localsearch | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| medium | Houzz | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
 | low | Apple Business / Apple Maps | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Apple Business replaced Apple Business Connect. No provider search; manual only. | ev-presence-r2-014 |
-| low | LinkedIn | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | YouTube | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | TikTok | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
 | low | Pinterest | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Relevant only where visual inspiration drives enquiries. | ev-presence-r2-014 |
-| low | Yelp | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | Hotfrog | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | Cylex | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | Whereis | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | Word of Mouth | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
 | low | Chambers of commerce / professional &amp; industry associations | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Generic manual item: membership directories differ by industry and region (e.g. local chambers, trade or traffic-management industry bodies). | ev-presence-r2-014 |
-| low | Airtasker | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | ServiceSeeking | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| not\_applicable | Tripadvisor | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | OpenTable | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | Uber Eats | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | DoorDash | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | Menulog | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | Fresha | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | Booksy | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | Timely | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | NSW buy.nsw Supplier Hub | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting). Supplier registration is confirmed in the Supplier Hub by the customer. | ev-presence-r2-014 |
-| not\_applicable | AusTender | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
-| not\_applicable | ICN Gateway | Not applicable | - | Not relevant for service-area (staff travel to customers) / trades &amp; home services (incl. painting) | ev-presence-r2-014 |
+| not\_applicable | Tripadvisor, OpenTable, Uber Eats, DoorDash, Menulog, Fresha, Booksy, Timely, NSW buy.nsw Supplier Hub, AusTender, ICN Gateway | Not applicable | - | Outside the recorded business profile; platform details in results.json. | ev-presence-r2-014 |
 
 ### Website and email platforms
 
@@ -536,7 +512,7 @@ Consent management observed (consent-gated scripts): tags not seen loading are r
 
 | Platform | Status | Connection readiness | Evidence | Recommended next action |
 | --- | --- | --- | --- | --- |
-| Google Search Console | Detected | Not assessed | Seen on http://127.0.0.1:18765/ (ev-presence-r2-002) | Request access (customer access checklist) |
+| Google Search Console | Detected | Not connected | Seen on http://127.0.0.1:18765/ (ev-presence-r2-002) | Request access (customer access checklist) |
 | Bing Webmaster Tools | Not detected | Unsupported | No public signal on 6 sampled pages (ev-presence-r2-001) | Optional: import the site from Search Console |
 | Google Analytics 4 (G-FIXTURE001) | Unknown | Unsupported | Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages (ev-presence-r2-003) | Verify manually |
 | Universal Analytics (legacy) | Unknown | Unsupported | Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001) | Verify manually |
@@ -560,7 +536,7 @@ Consent management observed (consent-gated scripts): tags not seen loading are r
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates.
 
 **AMS service category:** Digital Growth
 
@@ -582,7 +558,7 @@ Consent management observed (consent-gated scripts): tags not seen loading are r
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent.
 
 **AMS service category:** Digital Growth
 
@@ -610,7 +586,7 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Set an appropriate frame-ancestors policy after checking embedding needs. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Set an appropriate frame-ancestors policy after checking embedding needs.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -632,7 +608,7 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Review and test the header policy for the affected responses.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -656,7 +632,7 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Review and test the header policy for the affected responses.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -680,7 +656,7 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Review and test the header policy for the affected responses.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -704,7 +680,7 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Review and test the header policy for the affected responses.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -728,7 +704,7 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Review and test the header policy for the affected responses. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Review and test the header policy for the affected responses.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -749,22 +725,22 @@ Business discovery: customer-provided information
 
 > The statements below were provided by the customer during discovery. They are not technical evidence and have not been independently verified; findings that rest on them are labelled as such.
 
-### Business model, services, customers &amp; priorities
+### Business model, services, customers & priorities
 
 - Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits Owner: Owner. Evidence: ev-discovery-r3-001.
 - Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs Owner: Owner. Evidence: ev-discovery-r3-002.
 
-### Enquiries &amp; communication
+### Enquiries & communication
 
 - Calls during jobs or after 5pm go to voicemail and some are never returned Frequency: several times a week. Systems: Landline. Owner: Office manager. Impact: Customer believes some new jobs go to competitors. Staff time: about 1 hour a day listening to and returning voicemails. Current workaround: Engineers sometimes take calls on their own mobiles. Evidence: ev-discovery-r3-005.
 - Website form enquiries arrive in the shared inbox and can wait a day for a reply Frequency: daily. Systems: Gmail. Errors/rework: Occasionally two people reply to the same enquiry. Evidence: ev-discovery-r3-006.
 
-### Sales &amp; quoting
+### Sales & quoting
 
 - Quotes for refits are typed up in a word processor from the engineer's site notes Frequency: 8-10 quotes a week. Owner: Office manager. Staff time: about 45 minutes per quote. Errors/rework: Prices sometimes copied from an out-of-date price list. Current workaround: Owner re-checks large quotes before they are sent. Evidence: ev-discovery-r3-007.
 - Nobody follows up quotes that get no response Impact: Customer does not know how many quotes are lost this way. Evidence: ev-discovery-r3-008.
 
-### Bookings &amp; scheduling
+### Bookings & scheduling
 
 - Engineers' diaries are juggled by phone when an emergency job comes in Frequency: most days. Systems: Google Calendar. Owner: Office manager. Staff time: 1-2 hours a day. Errors/rework: Double bookings happen about twice a month. Current workaround: A paper whiteboard in the office mirrors the calendar. Evidence: ev-discovery-r3-009.
 
@@ -773,7 +749,7 @@ Business discovery: customer-provided information
 - Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar Systems: Spreadsheet, Xero, Google Calendar. Evidence: ev-discovery-r3-003.
 - Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox Systems: Landline, Gmail. Evidence: ev-discovery-r3-004.
 
-### Manual &amp; duplicated tasks
+### Manual & duplicated tasks
 
 - Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices Frequency: weekly, on Fridays. Systems: Spreadsheet, Xero. Owner: Office manager. Staff time: about 4 hours a week. Errors/rework: Missed or duplicated invoices found at month end. Evidence: ev-discovery-r3-010.
 - Annual service reminders are sent by hand from a list Frequency: monthly. Staff time: half a day a month. Evidence: ev-discovery-r3-011.
@@ -782,16 +758,16 @@ Business discovery: customer-provided information
 
 - Xero sends automatic payment reminders; nothing else is automated and no AI tools are used Systems: Xero. Evidence: ev-discovery-r3-015.
 
-### Pain points &amp; bottlenecks
+### Pain points & bottlenecks
 
 - Month-end invoicing is the biggest bottleneck and delays cash coming in Frequency: monthly. Owner: Owner. Impact: Payment typically arrives 3-4 weeks after the job. Evidence: ev-discovery-r3-013.
 - The office laptop holding the job spreadsheet has no backup Current workaround: Owner occasionally copies it to a USB stick. Evidence: ev-discovery-r3-014.
 
-### Data duplication, integrations &amp; disconnected systems
+### Data duplication, integrations & disconnected systems
 
 - Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree Systems: Spreadsheet, Xero. Errors/rework: Invoices sent to old addresses a few times a quarter. Cost (as stated): Owner estimates one or two unpaid invoices a quarter, around 300 GBP each. Evidence: ev-discovery-r3-012.
 
-### Opportunities, constraints &amp; required human approvals
+### Opportunities, constraints & required human approvals
 
 - Owner would most like enquiries and bookings to run without the office chasing them Owner: Owner. Evidence: ev-discovery-r3-016.
 - Quotes and any message about price must be approved by the owner before sending Owner: Owner. Evidence: ev-discovery-r3-017.
@@ -853,7 +829,7 @@ Business discovery: customer-provided information
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Confirm the current setup on site, then put managed backup in place for business data. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Confirm the current setup on site, then put managed backup in place for business data.
 
 **AMS service category:** Managed IT &amp; Technology
 
@@ -875,7 +851,7 @@ Business discovery: customer-provided information
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
-**Recommended next action:** Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work.
 
 **AMS service category:** Digital Growth
 
@@ -889,71 +865,40 @@ Business discovery: customer-provided information
 
 ## 9. Prioritised improvement opportunities and recommended roadmap
 
-Agree the process, owner and desired outcome before selecting products. Prefer keeping and integrating existing systems before replacement. Timing is a planning suggestion, dependent on verification, access, budget and approval.
-
-
-
-1. **P1 - Elements must meet minimum color contrast ratio thresholds (browser-001):** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.
-2. **P1 - Images must have alternative text (browser-002):** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.
-3. **P1 - Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies):** Map the enquiry journey, then trial call capture with a missed-call text-back and a shared enquiry queue; keep pricing replies for human approval. Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.
-4. **P1 - Broken URLs (siteone-003):** Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-011.
-5. **P2 - Job, scheduling and invoicing data live in disconnected tools (discovery-job-scheduling-and-invoicing-data-live-in-disconne):** Assess a job-management system that integrates with Xero, within the stated budget, before considering any automation on top. Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.
-6. **P2 - Job spreadsheet has no backup (discovery-job-spreadsheet-has-no-backup):** Confirm the current setup on site, then put managed backup in place for business data. Evidence: ev-discovery-r3-014.
-7. **P2 - Business name, address or phone differs between structured data and the page (presence-002):** Use one canonical name, address and phone number in structured data, the footer, contact page and external listings. Evidence: ev-presence-r2-010.
-8. **P2 - No explicit framing protection observed (security-004):** Set an appropriate frame-ancestors policy after checking embedding needs. Evidence: ev-security-r2-001.
-9. **P2 - Missing meta description (siteone-004):** Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-016.
-10. **P2 - Missing H1 (siteone-005):** Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-016.
-11. **P3 - No follow-up on quotes or service reminders (discovery-no-follow-up-on-quotes-or-service-reminders):** Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work. Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.
-12. **P3 - Linked profiles missing from structured-data sameAs (presence-004):** Add the customer-owned profile URLs to the business sameAs property. Evidence: ev-presence-r2-006, ev-presence-r2-009, ev-presence-r2-010.
-13. **P3 - AI crawler rules by purpose (site_checks-001):** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Evidence: ev-site_checks-r2-003.
-14. **P3 - Near-duplicate location pages (site_checks-003):** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.
-15. **P3 - Priority platforms still need presence verification (presence-001):** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Evidence: ev-presence-r2-014, ev-presence-r2-013.
-16. **P3 - Analytics or tracking tags could not be confirmed (presence-003):** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
-17. **P3 - Review content-security-policy header (siteone-006):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-020.
-18. **P3 - Review server header (siteone-007):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-021.
-19. **P3 - Review x-content-type-options header (siteone-008):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-022.
-20. **P3 - Review referrer-policy header (siteone-009):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-023.
-21. **P3 - Review permissions-policy header (siteone-010):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-024.
-22. **P3 - Duplicates, headings / internal links (site_checks-002):** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.
-23. **P3 - Pages without a canonical link (siteone-011):** Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-026.
-24. **P3 - Review internal redirects (siteone-001):** Link directly to the final canonical URL. Evidence: ev-siteone-r2-002, ev-siteone-r2-010.
-
-### Proposed implementation roadmap
-
-
+Agree the process, owner and desired outcome before selecting products. Timing is a planning suggestion, dependent on verification, access, budget and approval.
 
 ### 0-30 days
 
-- Elements must meet minimum color contrast ratio thresholds (browser-001). Evidence: ev-browser-r2-003, ev-browser-r2-009.
-- Images must have alternative text (browser-002). Evidence: ev-browser-r2-003, ev-browser-r2-009.
-- Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies). Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.
-- Broken URLs (siteone-003). Evidence: ev-siteone-r2-011.
+- **P1 - Elements must meet minimum color contrast ratio thresholds (browser-001):** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.
+- **P1 - Images must have alternative text (browser-002):** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.
+- **P1 - Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies):** Map the enquiry journey, then trial call capture with a missed-call text-back and a shared enquiry queue; keep pricing replies for human approval. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.
+- **P1 - Broken URLs (siteone-003):** Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-011.
 
 ### 30-90 days
 
-- Job, scheduling and invoicing data live in disconnected tools (discovery-job-scheduling-and-invoicing-data-live-in-disconne). Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.
-- Job spreadsheet has no backup (discovery-job-spreadsheet-has-no-backup). Evidence: ev-discovery-r3-014.
-- Business name, address or phone differs between structured data and the page (presence-002). Evidence: ev-presence-r2-010.
-- No explicit framing protection observed (security-004). Evidence: ev-security-r2-001.
-- Missing meta description (siteone-004). Evidence: ev-siteone-r2-016.
-- Missing H1 (siteone-005). Evidence: ev-siteone-r2-016.
+- **P2 - Job, scheduling and invoicing data live in disconnected tools (discovery-job-scheduling-and-invoicing-data-live-in-disconne):** Assess a job-management system that integrates with Xero, within the stated budget, before considering any automation on top. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.
+- **P2 - Job spreadsheet has no backup (discovery-job-spreadsheet-has-no-backup):** Confirm the current setup on site, then put managed backup in place for business data. Evidence: ev-discovery-r3-014.
+- **P2 - Business name, address or phone differs between structured data and the page (presence-002):** Use one canonical name, address and phone number in structured data, the footer, contact page and external listings. Evidence: ev-presence-r2-010.
+- **P2 - No explicit framing protection observed (security-004):** Set an appropriate frame-ancestors policy after checking embedding needs. Evidence: ev-security-r2-001.
+- **P2 - Missing meta description (siteone-004):** Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-016.
+- **P2 - Missing H1 (siteone-005):** Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-016.
 
 ### 90+ days
 
-- No follow-up on quotes or service reminders (discovery-no-follow-up-on-quotes-or-service-reminders). Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.
-- Linked profiles missing from structured-data sameAs (presence-004). Evidence: ev-presence-r2-006, ev-presence-r2-009, ev-presence-r2-010.
-- AI crawler rules by purpose (site_checks-001). Evidence: ev-site_checks-r2-003.
-- Near-duplicate location pages (site_checks-003). Evidence: ev-site_checks-r2-009.
-- Priority platforms still need presence verification (presence-001). Evidence: ev-presence-r2-014, ev-presence-r2-013.
-- Analytics or tracking tags could not be confirmed (presence-003). Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
-- Review content-security-policy header (siteone-006). Evidence: ev-security-r2-001, ev-siteone-r2-020.
-- Review server header (siteone-007). Evidence: ev-siteone-r2-021.
-- Review x-content-type-options header (siteone-008). Evidence: ev-security-r2-001, ev-siteone-r2-022.
-- Review referrer-policy header (siteone-009). Evidence: ev-security-r2-001, ev-siteone-r2-023.
-- Review permissions-policy header (siteone-010). Evidence: ev-siteone-r2-024.
-- Duplicates, headings / internal links (site_checks-002). Evidence: ev-site_checks-r2-007.
-- Pages without a canonical link (siteone-011). Evidence: ev-siteone-r2-026.
-- Review internal redirects (siteone-001). Evidence: ev-siteone-r2-002, ev-siteone-r2-010.
+- **P3 - No follow-up on quotes or service reminders (discovery-no-follow-up-on-quotes-or-service-reminders):** Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work. Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.
+- **P3 - Linked profiles missing from structured-data sameAs (presence-004):** Add the customer-owned profile URLs to the business sameAs property. Evidence: ev-presence-r2-006, ev-presence-r2-009, ev-presence-r2-010.
+- **P3 - AI crawler rules by purpose (site_checks-001):** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Evidence: ev-site_checks-r2-003.
+- **P3 - Near-duplicate location pages (site_checks-003):** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.
+- **P3 - Priority platforms still need presence verification (presence-001):** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Evidence: ev-presence-r2-014, ev-presence-r2-013.
+- **P3 - Analytics or tracking tags could not be confirmed (presence-003):** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
+- **P3 - Review content-security-policy header (siteone-006):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-020.
+- **P3 - Review server header (siteone-007):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-021.
+- **P3 - Review x-content-type-options header (siteone-008):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-022.
+- **P3 - Review referrer-policy header (siteone-009):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-023.
+- **P3 - Review permissions-policy header (siteone-010):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-024.
+- **P3 - Duplicates, headings / internal links (site_checks-002):** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.
+- **P3 - Pages without a canonical link (siteone-011):** Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-026.
+- **P3 - Review internal redirects (siteone-001):** Link directly to the final canonical URL. Evidence: ev-siteone-r2-008, ev-siteone-r2-010.
 
 ## 10. Items requiring customer verification, access or decisions
 
@@ -970,7 +915,7 @@ A successful connection means evidence was returned for this sample. Unsupported
 | PageSpeed Insights<br>http://127.0.0.1:18765/ | Not assessed | PageSpeed/CrUX cannot access localhost | - |
 | CrUX<br>http://127.0.0.1:18765/ | Not assessed | PageSpeed/CrUX cannot access localhost | - |
 | DataForSEO<br>http://127.0.0.1:18765/ | Not connected | Missing DataForSEO credentials; disabled | - |
-| Google Search Console<br>http://127.0.0.1:18765/ | Not assessed | GSC requires --connect gsc and credentials; missing connection or credentials. The generative-AI performance report is available in the Search Console interface. As of 2026-10-23, the documented API has no separate generative-AI report endpoint or filter; use a customer-provided UI export for manual review. Aggregate Web results cannot establish AI visibility. Sources: https://developers.google.com/webmaster-tools/v1/searchanalytics/query and https://support.google.com/webmasters/answer/16984139 | - |
+| Google Search Console<br>http://127.0.0.1:18765/ | Not connected | GSC requires --connect gsc and credentials; missing connection or credentials. The generative-AI performance report is available in the Search Console interface. As of 2026-10-23, the documented API has no separate generative-AI report endpoint or filter; use a customer-provided UI export for manual review. Aggregate Web results cannot establish AI visibility. Sources: https://developers.google.com/webmaster-tools/v1/searchanalytics/query and https://support.google.com/webmasters/answer/16984139 | - |
 | Google Analytics 4<br>http://127.0.0.1:18765/ | Unsupported | Traffic sources, key events/conversions and engagement. No connector implemented; manual review only. | ev-presence-r2-003 |
 | Google Business Profile<br>http://127.0.0.1:18765/ | Unsupported | Profile completeness, reviews, calls, direction requests and Maps/Search views. No connector implemented; manual review only. | ev-presence-r2-006 |
 | Bing Webmaster Tools<br>http://127.0.0.1:18765/ | Unsupported | Bing search performance, crawl errors and index status. No connector implemented; manual review only. | ev-presence-r2-001 |
@@ -1045,14 +990,14 @@ The machine-readable evidence.json retains the observed snippets and links to ra
 | --- | --- | --- | --- |
 | ev-profile-r1-001 | profile | Customer business profile (customer statement) (customer statement) | customer-profile |
 | ev-siteone-r2-001 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/ |
-| ev-siteone-r2-002 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/old-service |
+| ev-siteone-r2-002 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/a/ |
 | ev-siteone-r2-003 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/contact.html |
 | ev-siteone-r2-004 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/style.css |
 | ev-siteone-r2-005 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/services.html |
-| ev-siteone-r2-006 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/quote.html |
-| ev-siteone-r2-007 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/a/ |
-| ev-siteone-r2-008 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/b/ |
-| ev-siteone-r2-009 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/about.html |
+| ev-siteone-r2-006 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/about.html |
+| ev-siteone-r2-007 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/b/ |
+| ev-siteone-r2-008 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/old-service |
+| ev-siteone-r2-009 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/quote.html |
 | ev-siteone-r2-010 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/older-service |
 | ev-siteone-r2-011 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/missing-offer.html |
 | ev-siteone-r2-012 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/work.svg |

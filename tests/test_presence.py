@@ -216,8 +216,8 @@ def test_report_renders_presence_sections_not_assessed_without_inputs(tmp_path, 
     assert "## 5. Digital presence" not in report
     assert "## 7. Connected business-system findings" not in report
     assert "## 10. Items requiring customer verification" in report
-    assert "| Google Search Console" in report and "Not connected" in report
-    assert "| Google Analytics 4" in report and "Unsupported" in report
+    assert f"| Google Search Console<br>{ctx.target} | Not connected |" in report
+    assert f"| Google Analytics 4<br>{ctx.target} | Unsupported |" in report
     assert "set AMS\\_ACCESS\\_EMAIL" in report
     assert re.findall(r"^## (\d+)\.", report, re.M) == ["1", "2", "10"]
     other = context(tmp_path, categories={"security"})

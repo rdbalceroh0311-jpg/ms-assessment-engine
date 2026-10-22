@@ -11,6 +11,7 @@ from playwright.sync_api import sync_playwright
 
 from ams_assess.ai import PHASES
 from ams_assess.consolidate import consolidate
+from ams_assess.discovery import DISCOVERY_SECTIONS
 from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding, customer_path
 from ams_assess.modules.gsc import AI_REPORT_NOTE
 from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
@@ -21,6 +22,36 @@ MAX_MARKDOWN_BYTES = 5_000_000
 DRAFT_BANNER = (
     "Draft — AI-assisted analysis requires AMS human review before it is sent to the customer"
 )
+
+
+def discovery_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Condense repetitive discovery outcomes for display, retaining the stored detail."""
+    output: list[dict[str, Any]] = []
+    groups: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        state, detail = row["state"], row["detail"]
+        group = None
+        if not row.get("manual") and not row["candidates"]:
+            if state == "Not applicable":
+                detail = "Outside the recorded business profile; platform details in results.json."
+                group = (state, detail)
+            elif state == "Not assessed" and detail.startswith("Not searched:"):
+                group = (state, detail)
+        if group is not None and group in groups:
+            summary = groups[group]
+            summary["platform"] += ", " + row["platform"]
+            summary["relevance"] = " / ".join(
+                dict.fromkeys([*summary["relevance"].split(" / "), row["relevance"]])
+            )
+            summary["evidence_ids"] = list(
+                dict.fromkeys([*summary["evidence_ids"], *row["evidence_ids"]])
+            )
+        else:
+            summary = {**row, "detail": detail}
+            output.append(summary)
+            if group is not None:
+                groups[group] = summary
+    return output
 
 
 def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -249,7 +280,7 @@ def render_markdown(
     if any(not set(f.evidence_ids) <= known for f in findings):
         raise ValueError("Report refused: a finding references missing evidence")
     findings.sort(key=lambda f: (f.priority, SEVERITIES[f.severity], f.category, f.id))
-    # Findings whose basis changed or conflicts are listed for review, not recommended.
+    # Findings whose basis changed or conflicts belong only in section 10.
     review = {
         fid
         for r in data.get("needs_review", [])
@@ -257,6 +288,15 @@ def render_markdown(
         if fid
     }
     by_id = {f.id: f for f in findings if f.id not in review}
+    site_finding_eids = {
+        eid for f in findings if f.check_key.startswith("site:") for eid in f.evidence_ids
+    }
+    represented_site_checks = {
+        (e.url, e.data["site_check"])
+        for e in evidence
+        if e.id in site_finding_eids and e.source == "site_checks" and e.data.get("site_check")
+    }
+    findings = list(by_id.values())
     ai = data["ai"]
     proposed = ai.get("recommendations", [])
     order = list(dict.fromkeys([i for i in proposed if i in by_id] + list(by_id)))
@@ -267,7 +307,8 @@ def render_markdown(
             if fid in by_id and fid not in assigned:
                 roadmap[phase].append(by_id[fid])
                 assigned.add(fid)
-    for finding in by_id.values():
+    for fid in order:
+        finding = by_id[fid]
         if finding.id not in assigned:
             phase = {"P1": "0-30 days", "P2": "30-90 days", "P3": "90+ days"}[finding.priority]
             roadmap[phase].append(finding)
@@ -280,6 +321,10 @@ def render_markdown(
         lstrip_blocks=True,
     )
     env.filters["text"] = mdtext
+    env.filters["discovery_rows"] = discovery_rows
+    env.filters["discovery_heading"] = lambda title: (
+        title if title in DISCOVERY_SECTIONS.values() else mdtext(title)
+    )
     template = env.get_template("report.md.j2")
     shown = set(data["assessed_categories"])
     # The health summary explains NOT ASSESSED rows whenever domain_email ran, even on error.
@@ -325,6 +370,7 @@ def render_markdown(
         connected_findings=connected,
         connected_evidence=[e for e in evidence if e.id in connected_ids],
         critical_findings=[f for f in findings if f.severity in {"critical", "high"}],
+        represented_site_checks=represented_site_checks,
         sources=sources,
         banner=DRAFT_BANNER,
         profile=profile,

@@ -47,6 +47,34 @@ SERVICE_BY_CATEGORY = {
     "technical": "Managed IT & Technology",
     "discovery": "Business Systems",
 }
+# Potential consequences, not measured losses or promised outcomes. Keys match the
+# deterministic collectors; uncatalogued checks retain the category-level wording.
+CHECK_IMPACTS = {
+    "unavailable-urls": "Customers may be unable to reach services or complete an enquiry.",
+    "broken-links": "Broken links may prevent customers reaching the information they need.",
+    "tls-expiry": "An expired certificate may show browser warnings and interrupt enquiries.",
+    "tls-unverified": "Certificate problems may prevent secure access to the website.",
+    "health:registration:expiry": "Lapsed registration may interrupt the website and email.",
+    "health:email_auth:spf": "Unauthorised senders may impersonate the business by email.",
+    "health:mail_server:mx unresolvable": "Customers' email may not reach the business.",
+    "axe:color-contrast": "Low contrast may make service information or controls hard to read.",
+    "axe:image-alt": "Customers using screen readers may miss information conveyed by images.",
+    "axe:label": "Unlabelled fields may prevent customers using assistive tools from enquiring.",
+    "axe:button-name": "Unnamed buttons may make actions unclear to screen-reader users.",
+    "axe:link-name": "Unnamed links may make destinations unclear to screen-reader users.",
+    "site:robots": "Blocked search crawlers may leave public pages out of search results.",
+    "site:noindex": "Customers may not find affected pages through search results.",
+    "site:structured-data": "Invalid business markup may obscure business details in search.",
+    **dict.fromkeys(
+        (
+            "health:dnsbl:bl.spamcop.net",
+            "health:dnsbl:b.barracudacentral.org",
+            "health:dnsbl:psbl.surriel.com",
+            "health:dnsbl:spamhaus zen (dqs)",
+        ),
+        "Mail from listed sending addresses may be rejected or filtered as spam.",
+    ),
+}
 ConnectionStatus = Literal[
     "Connected successfully", "Permission required", "Not connected", "Unsupported", "Not assessed"
 ]
@@ -124,14 +152,9 @@ class Finding(BaseModel):
         if not isinstance(value, dict):
             return value
         value = dict(value)
-        # Migrate known pre-v1 labels when reading old evidence/report revisions. Arbitrary
-        # service names are rejected by the enum; AI validation rejects legacy labels too.
-        if value.get("ams_service") in {
-            None,
-            "Website improvement",
-            "Local SEO",
-            "Analytics & tracking",
-        }:
+        # Older runs allowed arbitrary AI-written service names. Normalise every legacy
+        # value on read; validate_analysis separately rejects invalid *new* AI output.
+        if value.get("ams_service") not in AMS_SERVICES:
             value["ams_service"] = SERVICE_BY_CATEGORY.get(
                 value.get("category"), "Business Systems"
             )
@@ -142,7 +165,12 @@ class Finding(BaseModel):
                 "P3": "Consider after 90 days",
             }.get(value.get("priority", "P2"), "Confirm urgency with the customer")
         if not value.get("business_impact"):
-            value["business_impact"] = (
+            specific = (
+                CHECK_IMPACTS.get(value.get("check_key", ""))
+                if value.get("severity") in {"critical", "high"}
+                else None
+            )
+            value["business_impact"] = specific or (
                 {
                     "Managed IT & Technology": (
                         "May affect reliability or protection of business systems; "
@@ -170,6 +198,8 @@ class Finding(BaseModel):
     def basis(self) -> str:
         if self.provenance == "customer_statement":
             return "Reported by customer"
+        if self.provenance == "manual_verification":
+            return "Manually verified"
         if self.provenance == "technical_evidence" and self.confidence == "confirmed":
             return "Confirmed (technical evidence)"
         return "Inferred (heuristic or AI, needs verification)"

@@ -17,7 +17,7 @@
       "http://127.0.0.1:18765/quote.html"
     ],
     "likely_cause": "",
-    "business_impact": "May affect how customers find, understand or use the business online; outcomes are not measured.",
+    "business_impact": "Low contrast may make service information or controls hard to read.",
     "priority": "P1",
     "ams_service": "Digital Growth",
     "urgency": "Review within 0-30 days",
@@ -47,7 +47,7 @@
       "http://127.0.0.1:18765/quote.html"
     ],
     "likely_cause": "",
-    "business_impact": "May affect how customers find, understand or use the business online; outcomes are not measured.",
+    "business_impact": "Customers using screen readers may miss information conveyed by images.",
     "priority": "P1",
     "ams_service": "Digital Growth",
     "urgency": "Review within 0-30 days",
@@ -105,7 +105,7 @@
       "http://127.0.0.1:18765/missing-offer.html"
     ],
     "likely_cause": "",
-    "business_impact": "May affect reliability or protection of business systems; impact requires verification.",
+    "business_impact": "Broken links may prevent customers reaching the information they need.",
     "priority": "P1",
     "ams_service": "Managed IT & Technology",
     "urgency": "Review within 0-30 days",
@@ -669,7 +669,7 @@
     "kind": "opportunity",
     "confidence": "confirmed",
     "evidence_ids": [
-      "ev-siteone-r2-002",
+      "ev-siteone-r2-008",
       "ev-siteone-r2-010"
     ],
     "detail": "HTTP 301 at http://127.0.0.1:18765/old-service. HTTP 301 at http://127.0.0.1:18765/older-service.",

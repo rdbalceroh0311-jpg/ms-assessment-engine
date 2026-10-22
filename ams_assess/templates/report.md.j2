@@ -9,9 +9,11 @@
 
 Each row describes the sampled evidence. NOT ASSESSED means evidence is unavailable or incomplete. Optional features are informational. Form submissions are always **NOT TESTED**. AI-search readiness is not measured visibility.
 
+Checks with findings are described in their finding blocks; the remaining checks are listed here.
+
 | Check / evidence | Status | What was checked | Why it matters | Recommended correction |
 | --- | --- | --- | --- | --- |
-{% for e in site.rows.values() %}
+{% for e in site.rows.values() if (e.url, e.data.site_check) not in represented_site_checks %}
 | {{ e.data.area | text }} ({{ e.id }})<br>{{ e.url | text }} | {{ e.data.status }} | {{ e.data.checked | text }} | {{ e.data.why | text }} | {{ e.data.recommendation | text }} |
 {% endfor %}
 
@@ -42,7 +44,7 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 
 **Potential business impact (interpretation, not measured):** {{ finding.business_impact | text }}
 
-**Recommended next action:** {{ finding.recommendation | text }} Review the current process first; prefer keeping and integrating existing systems before considering replacement.
+**Recommended next action:** {{ finding.recommendation | text }}{{ ' Review the current process first; prefer keeping and integrating existing systems before considering replacement.' if finding.ams_service in ['Business Systems', 'AI & Automation'] else '' }}
 
 {% if finding.likely_cause %}
 **Likely cause (interpretation):** {{ finding.likely_cause | text }}
@@ -145,7 +147,7 @@ The assessment recorded {{ findings | length }} findings supported by collected 
 
 > No ranking, traffic, lead or revenue guarantees. AI-search readiness is not measured AI visibility. This technical assessment is a limited, point-in-time sample, not a full security, accessibility or operational audit. Potential impacts and likely causes require verification.
 
-Basis labels: **Confirmed (technical evidence)** means directly observed; **Reported by customer** is not independently verified; **Inferred (heuristic or AI, needs verification)** is provisional; **Not assessed** means no usable evidence was obtained. Optional features and unavailable integrations are not failures.
+Basis labels: **Confirmed (technical evidence)** means directly observed; **Manually verified** means a person's recorded observation, not a technical measurement or proof of account ownership; **Reported by customer** is not independently verified; **Inferred (heuristic or AI, needs verification)** is provisional; **Not assessed** means no usable evidence was obtained. Optional features and unavailable integrations are not failures.
 
 ## 2. Scope, sources, dates and coverage limitations
 
@@ -271,7 +273,7 @@ Independent search: **{{ d.status | text }}**{% if d.reason %} ({{ d.reason | te
 {% endfor %}
 | Relevance | Platform | State | Candidate profiles and match evidence | Detail | Evidence |
 | --- | --- | --- | --- | --- | --- |
-{% for r in d.platforms %}
+{% for r in d.platforms | discovery_rows %}
 | {{ r.relevance | text }} | {{ r.platform | text }} | {{ r.state | text }}{% if r.get('manual') %} (manual verification {{ r.manual.date | text }} by {{ r.manual.verified_by | text }}; automated: {{ r.automated_state | text }}){% endif %} | {% for c in r.candidates %}{{ c.url | text }} [{{ c.matched | join(', ') | text }}{% if c.score is not none %}; score {{ c.score }}{% endif %}]{% if not loop.last %}; {% endif %}{% else %}-{% endfor %} | {{ r.detail | text }}{% if r.get('manual') and r.manual.note %} Manual note: {{ r.manual.note | text }}{% endif %} | {{ r.evidence_ids | join(', ') }} |
 {% endfor %}
 
@@ -373,7 +375,7 @@ Business discovery: customer-provided information
 > The statements below were provided by the customer during discovery. They are not technical evidence and have not been independently verified; findings that rest on them are labelled as such.
 
 {% for section in discovery.sections %}
-### {{ section.title | text }}
+### {{ section.title | discovery_heading }}
 
 {% for s in section.statements %}
 - {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %}{% if s.get('staff_time') %} Staff time: {{ s.staff_time | text }}.{% endif %}{% if s.get('errors_rework') %} Errors/rework: {{ s.errors_rework | text }}.{% endif %}{% if s.get('cost') %} Cost (as stated): {{ s.cost | text }}.{% endif %}{% if s.get('workaround') %} Current workaround: {{ s.workaround | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
@@ -387,27 +389,13 @@ Business discovery: customer-provided information
 {% if recommendations %}
 ## 9. Prioritised improvement opportunities and recommended roadmap
 
-Agree the process, owner and desired outcome before selecting products. Prefer keeping and integrating existing systems before replacement. Timing is a planning suggestion, dependent on verification, access, budget and approval.
-
-
-
-{% for f in recommendations %}
-{{ loop.index }}. **{{ f.priority }} - {{ f.title | text }} ({{ f.id }}):** {{ f.recommendation | text }} Evidence: {{ f.evidence_ids | join(', ') }}.
-{% else %}
-No evidence-backed actions could be prioritised. Resolve the missing data before proposing work.
-{% endfor %}
-
-### Proposed implementation roadmap
-
-
+Agree the process, owner and desired outcome before selecting products. Timing is a planning suggestion, dependent on verification, access, budget and approval.
 
 {% for phase, items in roadmap.items() if items %}
 ### {{ phase }}
 
 {% for f in items %}
-- {{ f.title | text }} ({{ f.id }}). Evidence: {{ f.evidence_ids | join(', ') }}.
-{% else %}
-- Reassess after earlier work and agree any further scope.
+- **{{ f.priority }} - {{ f.title | text }} ({{ f.id }}):** {{ f.recommendation | text }}{% if f.ams_service in ['Business Systems', 'AI & Automation'] %} Prefer keeping and integrating existing systems before considering replacement.{% endif %} Evidence: {{ f.evidence_ids | join(', ') }}.
 {% endfor %}
 
 {% endfor %}
@@ -472,7 +460,7 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 - **Superseded:** {{ f.id }}: {{ f.title | text }}; {{ f.reason | text }}{% if f.get('superseded_by') %} (replaced by {{ f.superseded_by }}){% endif %}. Evidence: {{ f.evidence_ids | join(', ') }}.
 {% endfor %}
 
-> Findings needing review are not included in the prioritised recommendations until a person confirms them; superseded findings are kept for history only.
+> Findings needing review are held here until a person confirms them; they are excluded from the findings and recommendations above. Superseded findings are kept for history only.
 
 {% endif %}
 ### Manual verification items

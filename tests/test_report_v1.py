@@ -5,19 +5,26 @@ import http.server
 import json
 import re
 import stat
+import subprocess
 import threading
 from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
-from pydantic import ValidationError
 from pypdf import PdfReader
 
 from ams_assess import ai, cli, presence_discovery, runner, store
 from ams_assess.models import AMS_SERVICES, Context, Evidence, Finding, create_run_dir
 from ams_assess.modules import dataforseo, gsc, performance, presence
-from ams_assess.report import DRAFT_BANNER, render, render_customer
+from ams_assess.report import (
+    DRAFT_BANNER,
+    discovery_rows,
+    mdtext,
+    render,
+    render_customer,
+    render_markdown,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 NOTES = REPO / "examples/discovery/notes.example.json"
@@ -138,6 +145,13 @@ def test_progressive_customer_scenario(local_fixture, tmp_path, monkeypatch):
     public_text = (alpha_run / "report.md").read_text()
     assert "## 8. Operational-process" not in public_text
     assert "## 7. Connected business-system" not in public_text
+    for service, status in (
+        ("DataForSEO", "Not connected"),
+        ("PageSpeed Insights", "Not assessed"),
+        ("Google Analytics 4", "Unsupported"),
+        ("Google Search Console", "Not connected"),
+    ):
+        assert f"| {service}<br>{target} | {status} |" in public_text
 
     # (2) Discovery-only never crawls; (3, 4) both stage orders reach the same live findings.
     imported = json.loads(NOTES.read_text())
@@ -256,7 +270,14 @@ def test_progressive_customer_scenario(local_fixture, tmp_path, monkeypatch):
     render_customer(root, "alpha", {"md", "html", "pdf"})
     text = (root / "alpha/report.md").read_text()
     # (9, 10) States, mandatory report fields, conditional sections, provenance and limits.
-    assert "Connected successfully" in text and "Unsupported" in text and "Not assessed" in text
+    for service, website, status in (
+        ("Google Search Console", "https://example.com/", "Connected successfully"),
+        ("Google Search Console", target, "Not connected"),
+        ("DataForSEO", target, "Not connected"),
+        ("PageSpeed Insights", target, "Not assessed"),
+        ("Google Analytics 4", target, "Unsupported"),
+    ):
+        assert f"| {service}<br>{website} | {status} |" in text
     assert "## 7. Connected business-system findings" in text
     assert text.startswith("> " + DRAFT_BANNER)
     for required in (
@@ -373,29 +394,26 @@ def test_categories_ai_guards_and_modules_availability(tmp_path, monkeypatch, ca
             recommendation="Review",
         )
         assert f.ams_service == expected and f.urgency and f.dependencies and f.business_impact
-    with pytest.raises(ValidationError):
-        Finding(
-            id="test",
-            title="Test",
-            category="seo",
-            evidence_ids=["ev-test-001"],
-            detail="Observed",
-            recommendation="Review",
-            ams_service="Other",  # ty: ignore[invalid-argument-type]
-        )
+    for category, expected in (("seo", "Digital Growth"), ("legacy", "Business Systems")):
+        for legacy in (None, "Other", "Content and copywriting", "Conversion optimisation"):
+            migrated = Finding.model_validate(
+                {**f.model_dump(), "category": category, "ams_service": legacy}
+            )
+            assert migrated.ams_service == expected
     evidence = [Evidence(id="ev-test-001", source="test", url="u", description="d", data={})]
     for claim in ("999 leads lost", "will increase revenue", "guaranteed rankings"):
         output, _, warnings = ai.validate_analysis(
             {"executive_summary": f"{claim} (ev-test-001)."}, evidence, {"seo"}, []
         )
         assert not output["executive_summary"] and warnings
-    output, findings, warnings = ai.validate_analysis(
-        {"findings": [{**f.model_dump(), "category": "seo", "ams_service": "Website improvement"}]},
-        evidence,
-        {"seo"},
-        [],
-    )
-    assert not findings and warnings
+    for invalid in ("Website improvement", "Other", "Content and copywriting"):
+        output, findings, warnings = ai.validate_analysis(
+            {"findings": [{**f.model_dump(), "category": "seo", "ams_service": invalid}]},
+            evidence,
+            {"seo"},
+            [],
+        )
+        assert not findings and warnings
     monkeypatch.setattr(cli, "ROOT", tmp_path)
     assert cli.main(["modules"]) == 0
     assert "siteone: unavailable" in capsys.readouterr().out
@@ -439,3 +457,200 @@ def test_synthetic_example_snapshot_rerenders_with_discovery(tmp_path):
         (tmp_path / name).write_bytes((example / name).read_bytes())
     render(tmp_path, {"md"})
     assert (tmp_path / "report.md").read_text() == (example / "report.md").read_text()
+
+
+def test_item_5_legacy_ai_run_and_store_remain_readable(tmp_path, monkeypatch):
+    """Exercise the actual pre-v1 AI labels, both in run files and an existing store."""
+    run = tmp_path / "legacy-run"
+    run.mkdir()
+    originals = {}
+    for name in ("results.json", "evidence.json"):
+        originals[name] = subprocess.run(
+            ["git", "show", f"33710e5:examples/fixture-report/{name}"],
+            cwd=REPO,
+            check=True,
+            capture_output=True,
+        ).stdout
+        (run / name).write_bytes(originals[name])
+    data = json.loads(originals["results.json"])
+    evidence = [Evidence.model_validate(e) for e in json.loads(originals["evidence.json"])]
+    legacy = {f["id"]: f["ams_service"] for f in data["findings"]}
+    assert {"Content and copywriting", "Conversion optimisation"} <= set(legacy.values())
+    render(run, {"md", "pdf"})
+    assert "Draft" in PdfReader(run / "report.pdf").pages[0].extract_text()
+    assert "**AMS service category:** Digital Growth" in (run / "report.md").read_text()
+
+    root = tmp_path / "data/customers"
+    customer = "legacy"
+    value = store.merge_run(root, customer, "Legacy", data, evidence, "old-run", ["public"])
+    # Reproduce a pre-v1 store, rather than only testing new ingestion of old run files.
+    for finding in value["findings"]:
+        finding["ams_service"] = legacy[finding["id"]]
+    store.save(root, customer, value)
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    assert cli.main(["report", "--customer", customer, "--formats", "md"]) == 0
+    revision = root / customer / saved(root, customer)["report_revisions"][0]["directory"]
+    revision_bytes = (revision / "report.md").read_bytes()
+    merged = store.merge_run(root, customer, "Legacy", data, evidence, "new-run", ["public"])
+    assert len(merged["findings"]) == len(value["findings"])
+    assert all(f["ams_service"] in AMS_SERVICES for f in merged["findings"])
+    assert {e["id"]: e for e in value["evidence"]}.items() <= {
+        e["id"]: e for e in merged["evidence"]
+    }.items()
+    # Discovery also validates the existing store via _combine.
+    for finding in merged["findings"]:
+        finding["ams_service"] = legacy[finding["id"]]
+    store.save(root, customer, merged)
+    import_notes(customer)
+    assert cli.main(["report", "--customer", customer, "--formats", "md"]) == 0
+    assert (revision / "report.md").read_bytes() == revision_bytes
+    assert all((run / name).read_bytes() == content for name, content in originals.items())
+
+
+@pytest.mark.parametrize(
+    ("target", "config", "expected"),
+    [
+        ("https://example.com/", {}, "Not connected"),
+        ("http://127.0.0.1:18765/", {}, "Not connected"),
+        (
+            "http://127.0.0.1:18765/",
+            {"GOOGLE_APPLICATION_CREDENTIALS": "synthetic.json"},
+            "Not assessed",
+        ),
+    ],
+)
+def test_gsc_missing_credentials_precede_local_skip(
+    tmp_path, monkeypatch, target, config, expected
+):
+    def no_network(*args, **kwargs):
+        pytest.fail("GSC must not make a request without credentials or on a local target")
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", no_network)
+    ctx = Context(
+        "demo",
+        "Demo",
+        target,
+        {"seo"},
+        {"gsc"},
+        config,
+        create_run_dir(tmp_path, "demo"),
+        tmp_path,
+    )
+    result = gsc.run(ctx)
+    assert result.status == "skipped" and not result.evidence
+    assert result.connections[0].status == expected
+
+
+def test_report_review_basis_and_concise_customer_actions():
+    example = REPO / "examples/fixture-report"
+    data = json.loads((example / "results.json").read_text())
+    evidence = [
+        Evidence.model_validate(e) for e in json.loads((example / "evidence.json").read_text())
+    ]
+    held = next(f for f in data["findings"] if f["check_key"] == "broken-links")
+    data["needs_review"] = [
+        {
+            "finding_id": held["id"],
+            "title": held["title"],
+            "reason": "Conflicting observations",
+            "evidence_ids": held["evidence_ids"],
+        }
+    ]
+    manual = Evidence(
+        id="ev-presence_verification-r9-001",
+        source="presence_verification",
+        url="https://example.com/profile",
+        description="Customer verified the public profile",
+        data={},
+        provenance="manual_verification",
+    )
+    evidence.append(manual)
+    data["findings"].append(
+        Finding(
+            id="manual-profile",
+            title="Profile needs a correction",
+            category="presence",
+            evidence_ids=[manual.id],
+            detail="The verifier recorded an outdated profile",
+            recommendation="Ask the profile owner to review the recorded details",
+        ).model_dump()
+    )
+    data["customer_name"] = "Customer <script>alert('test')</script> & Company"
+    original = json.dumps(data, sort_keys=True)
+    text = render_markdown(data, evidence, data["discovery"])
+    assert json.dumps(data, sort_keys=True) == original
+    before_review, review = text.split("## 10. Items requiring customer verification", 1)
+    assert held["id"] not in before_review
+    assert f"**Needs review:** {held['id']}: {held['title']}" in review
+    manual_block = text.split("#### manual-profile:", 1)[1].split("##", 1)[0]
+    assert "**Basis:** Manually verified." in manual_block
+    assert "**Basis:** Inferred" not in manual_block
+    assert "not a technical measurement" in manual_block
+    assert "**Manually verified** means a person's recorded observation" in text
+    assert "<script>" not in text and "&lt;script&gt;" in text
+    assert "### Functionality & accessibility" in text
+    assert "### Sales & quoting" in text
+
+    roadmap = before_review.split("## 9.", 1)[1]
+    assert not re.search(r"^\d+\. ", roadmap, re.M)
+    assert all(f"### {phase}" in roadmap for phase in ("0-30 days", "30-90 days", "90+ days"))
+    for f in data["findings"]:
+        if f["id"] == held["id"]:
+            continue
+        block = text.split(f"#### {mdtext(f['id'])}:", 1)[1].split("##", 1)[0]
+        assert "\n\n**AMS service category:**" in block
+        assert ("prefer keeping and integrating existing systems" in block) == (
+            f["ams_service"] in {"Business Systems", "AI & Automation"}
+        )
+        assert roadmap.count(f"({f['id']})") == 1
+        assert mdtext(f["recommendation"]) in roadmap
+        if f["check_key"].startswith("site:"):
+            assert not re.search(rf"^\| {re.escape(mdtext(f['title']))} \(", text, re.M)
+
+    discovery = text.split("### Platform presence discovery", 1)[1].split(
+        "### Website and email", 1
+    )[0]
+    assert discovery.count(" | Not applicable | ") == 1
+    assert "Tripadvisor, OpenTable, Uber Eats" in discovery
+    assert "hipages, True Local, Localsearch, Houzz" in discovery
+    assert "Manual verification tasks" in review and "**hipages**" in review
+    platforms = data["digital_presence"]["discovery"]["platforms"]
+    assert discovery.count("| Not searched:") == len(
+        {r["detail"] for r in platforms if r["detail"].startswith("Not searched:")}
+    )
+    # Candidate profiles and manual verifications must keep their individual rows.
+    row = next(r for r in platforms if r["platform"] == "hipages")
+    protected = [{**row, "manual": {"note": "Verified"}}, {**row, "candidates": [{"url": "u"}]}]
+    assert discovery_rows([row, *protected]) == [row, *protected]
+
+
+def test_potential_impact_is_specific_without_invented_metrics():
+    base = {
+        "id": "impact",
+        "title": "Observed issue",
+        "category": "technical",
+        "severity": "high",
+        "evidence_ids": ["ev-test-001"],
+        "detail": "Observed",
+        "recommendation": "Review",
+    }
+    for key, phrase in (
+        ("broken-links", "Broken links"),
+        ("tls-expiry", "certificate"),
+        ("health:registration:expiry", "registration"),
+        ("health:email_auth:spf", "impersonate"),
+        ("health:mail_server:mx unresolvable", "email"),
+        ("health:dnsbl:bl.spamcop.net", "spam"),
+        ("site:noindex", "search results"),
+        ("site:robots", "crawlers"),
+        ("site:structured-data", "markup"),
+        ("axe:color-contrast", "contrast"),
+        ("axe:image-alt", "images"),
+    ):
+        impact = Finding.model_validate({**base, "check_key": key}).business_impact
+        assert phrase in impact and "may" in impact.lower()
+        assert not re.search(r"\d", impact)
+    fallback = Finding.model_validate({**base, "check_key": "unknown-check"}).business_impact
+    assert fallback == Finding.model_validate({**base, "severity": "low"}).business_impact
+    supplied = Finding.model_validate({**base, "business_impact": "Potential disruption"})
+    assert supplied.business_impact == "Potential disruption"

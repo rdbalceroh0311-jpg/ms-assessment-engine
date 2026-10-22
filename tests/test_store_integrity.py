@@ -157,10 +157,7 @@ def test_partly_superseded_or_conflicting_basis_is_flagged_for_review(home, tmp_
     assert flag["finding_id"] == active["id"] and len(flag["evidence_ids"]) == 1
     text = report(home)
     assert f"**Needs review:** {active['id']}: Quote automation" in text
-    section_8 = text.partition(
-        "## 9. Prioritised improvement opportunities and recommended roadmap"
-    )[2].split("## 10.")[0]
-    assert "Quote automation" not in section_8
+    assert "Quote automation" not in text.split("## 10.", 1)[0]
 
 
 def test_finding_citing_conflicting_statements_is_held_for_review(home, tmp_path):
@@ -168,7 +165,7 @@ def test_finding_citing_conflicting_statements_is_held_for_review(home, tmp_path
     daily = {"sales_quoting": [{"statement": "Chasing quotes", "frequency": "daily"}]}
     discover(tmp_path, "acme", daily)
     both = [{"statement": "Chasing quotes", "frequency": f} for f in ("daily", "yearly")]
-    chasing = finding(cites=("sales_quoting",))
+    chasing = {**finding(cites=("sales_quoting",)), "severity": "high"}
     discover(tmp_path, "acme", {"sales_quoting": both}, [chasing], name="b")
     saved = must_load(home, "acme")
     [active] = saved["findings"]
@@ -176,11 +173,8 @@ def test_finding_citing_conflicting_statements_is_held_for_review(home, tmp_path
     assert "conflicting" in conflict["reason"] and len(conflict["evidence_ids"]) == 2
     assert conflict["finding_ids"] == [active["id"]]
     text = report(home)
-    section_8 = text.partition(
-        "## 9. Prioritised improvement opportunities and recommended roadmap"
-    )[2].split("## 10.")[0]
-    roadmap = section_8
-    assert "Quote automation" not in section_8 and "Quote automation" not in roadmap
+    assert "Quote automation" not in text.split("## 10.", 1)[0]
+    assert "## 3. Critical findings" not in text
     assert f"(affects {active['id']})" in text
 
 

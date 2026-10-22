@@ -77,6 +77,10 @@ def run(ctx: Context) -> ModuleResult:
             state = "Connected successfully"
         elif "permission" in result.reason.lower() or "accessible" in result.reason.lower():
             state = "Permission required"
+        elif "gsc" not in ctx.connections or not (
+            ctx.config.get("GOOGLE_APPLICATION_CREDENTIALS") or ctx.config.get("AMS_GSC_TOKEN_FILE")
+        ):
+            state = "Not connected"
         elif ctx.local:
             state = "Not assessed"
     except httpx.HTTPStatusError as exc:

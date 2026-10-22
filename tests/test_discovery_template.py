@@ -47,7 +47,7 @@ def test_example_notes_validate_cover_every_section_and_run_through_discover(hom
     assert cli.main(["report", "--customer", "example", "--formats", "md"]) == 0
     report = (home / "example/report.md").read_text()
     for title in DISCOVERY_SECTIONS.values():
-        assert f"### {title.replace('&', '&amp;')}" in report
+        assert f"### {title}" in report
     for label in NEW_FIELDS.values():
         assert label in report
 

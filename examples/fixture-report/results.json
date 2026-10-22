@@ -19,17 +19,17 @@
       ]
     },
     "evidence_id": "ev-profile-r1-001",
-    "updated_at": "2026-10-22T22:33:55.318422+00:00"
+    "updated_at": "2026-10-22T22:57:15.514605+00:00"
   },
   "reported_sources": [
     {
       "source": "profile",
-      "created_at": "2026-10-22T22:33:55.318426+00:00",
+      "created_at": "2026-10-22T22:57:15.514611+00:00",
       "run_id": "r1"
     },
     {
       "source": "discovery",
-      "created_at": "2026-10-22T22:34:10.444601+00:00",
+      "created_at": "2026-10-22T22:57:28.665597+00:00",
       "run_id": "r3"
     }
   ],
@@ -37,13 +37,13 @@
     {
       "target": "http://127.0.0.1:18765/",
       "run_id": "r2",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "pages": 7,
       "max_pages": 30,
       "status": "partial"
     }
   ],
-  "created_at": "2026-10-22T22:38:10.905450+00:00",
+  "created_at": "2026-10-22T22:59:14.861541+00:00",
   "target": "http://127.0.0.1:18765/",
   "targets": [
     {
@@ -87,12 +87,12 @@
   "max_pages": 30,
   "pages": [
     "http://127.0.0.1:18765/",
+    "http://127.0.0.1:18765/service/a/",
     "http://127.0.0.1:18765/contact.html",
     "http://127.0.0.1:18765/services.html",
-    "http://127.0.0.1:18765/quote.html",
-    "http://127.0.0.1:18765/service/a/",
+    "http://127.0.0.1:18765/about.html",
     "http://127.0.0.1:18765/service/b/",
-    "http://127.0.0.1:18765/about.html"
+    "http://127.0.0.1:18765/quote.html"
   ],
   "pages_target": "http://127.0.0.1:18765/",
   "modules": [
@@ -102,7 +102,7 @@
       "reason": "",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -111,7 +111,7 @@
       "reason": "",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -120,7 +120,7 @@
       "reason": "Local/private target has no public domain audit",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -129,7 +129,7 @@
       "reason": "TLS not checked: supplied target uses HTTP; Local fixture security headers are not evidence about production hosting",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -138,7 +138,7 @@
       "reason": "PageSpeed/CrUX cannot access localhost",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -147,7 +147,7 @@
       "reason": "Observatory cannot scan local targets",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -164,7 +164,7 @@
         }
       ],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -175,13 +175,13 @@
         {
           "key": "gsc",
           "service": "Google Search Console",
-          "status": "Not assessed",
+          "status": "Not connected",
           "detail": "GSC requires --connect gsc and credentials; missing connection or credentials. The generative-AI performance report is available in the Search Console interface. As of 2026-10-23, the documented API has no separate generative-AI report endpoint or filter; use a customer-provided UI export for manual review. Aggregate Web results cannot establish AI visibility. Sources: https://developers.google.com/webmaster-tools/v1/searchanalytics/query and https://support.google.com/webmasters/answer/16984139",
           "evidence_ids": []
         }
       ],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -190,7 +190,7 @@
       "reason": "",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     },
     {
@@ -199,7 +199,7 @@
       "reason": "2 of 15 checks NOT ASSESSED; see status rows for missing evidence and manual verification",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:34:09.371026+00:00",
+      "created_at": "2026-10-22T22:57:27.665095+00:00",
       "run_id": "r2"
     }
   ],
@@ -229,7 +229,7 @@
         "http://127.0.0.1:18765/quote.html"
       ],
       "likely_cause": "",
-      "business_impact": "May affect how customers find, understand or use the business online; outcomes are not measured.",
+      "business_impact": "Low contrast may make service information or controls hard to read.",
       "priority": "P1",
       "ams_service": "Digital Growth",
       "urgency": "Review within 0-30 days",
@@ -259,7 +259,7 @@
         "http://127.0.0.1:18765/quote.html"
       ],
       "likely_cause": "",
-      "business_impact": "May affect how customers find, understand or use the business online; outcomes are not measured.",
+      "business_impact": "Customers using screen readers may miss information conveyed by images.",
       "priority": "P1",
       "ams_service": "Digital Growth",
       "urgency": "Review within 0-30 days",
@@ -317,7 +317,7 @@
         "http://127.0.0.1:18765/missing-offer.html"
       ],
       "likely_cause": "",
-      "business_impact": "May affect reliability or protection of business systems; impact requires verification.",
+      "business_impact": "Broken links may prevent customers reaching the information they need.",
       "priority": "P1",
       "ams_service": "Managed IT & Technology",
       "urgency": "Review within 0-30 days",
@@ -881,7 +881,7 @@
       "kind": "opportunity",
       "confidence": "confirmed",
       "evidence_ids": [
-        "ev-siteone-r2-002",
+        "ev-siteone-r2-008",
         "ev-siteone-r2-010"
       ],
       "detail": "HTTP 301 at http://127.0.0.1:18765/old-service. HTTP 301 at http://127.0.0.1:18765/older-service.",
@@ -1420,7 +1420,7 @@
         "platform": "Google Search Console",
         "group": "search",
         "status": "Detected",
-        "connected": "Not assessed",
+        "connected": "Not connected",
         "ids": [],
         "evidence_ids": [
           "ev-presence-r2-002"
@@ -1887,7 +1887,7 @@
       {
         "signal": "robots.txt",
         "status": "Detected",
-        "detail": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 6 ms.",
+        "detail": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms.",
         "evidence_ids": [
           "ev-siteone-r2-025"
         ]
@@ -1923,7 +1923,7 @@
           "ev-presence-r2-002"
         ],
         "confirmation": "Account existence and customer ownership confirmation needed",
-        "access": "Not assessed",
+        "access": "Not connected",
         "insights": "Search queries, clicks, impressions and sitemaps. The generative-AI performance report is available in the Search Console interface. As of 2026-10-23, the documented API has no separate generative-AI report endpoint or filter; use a customer-provided UI export for manual review. Aggregate Web results cannot establish AI visibility. Sources: https://developers.google.com/webmaster-tools/v1/searchanalytics/query and https://support.google.com/webmasters/answer/16984139",
         "next_step": "Confirm ownership; grant AMS Restricted user"
       },
@@ -2837,7 +2837,7 @@
           "platform": "Google Search Console",
           "group": "search",
           "status": "Detected",
-          "connected": "Not assessed",
+          "connected": "Not connected",
           "ids": [],
           "evidence_ids": [
             "ev-presence-r2-002"
@@ -3304,7 +3304,7 @@
         {
           "signal": "robots.txt",
           "status": "Detected",
-          "detail": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 6 ms.",
+          "detail": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms.",
           "evidence_ids": [
             "ev-siteone-r2-025"
           ]
@@ -3340,7 +3340,7 @@
             "ev-presence-r2-002"
           ],
           "confirmation": "Account existence and customer ownership confirmation needed",
-          "access": "Not assessed",
+          "access": "Not connected",
           "insights": "Search queries, clicks, impressions and sitemaps. The generative-AI performance report is available in the Search Console interface. As of 2026-10-23, the documented API has no separate generative-AI report endpoint or filter; use a customer-provided UI export for manual review. Aggregate Web results cannot establish AI visibility. Sources: https://developers.google.com/webmaster-tools/v1/searchanalytics/query and https://support.google.com/webmasters/answer/16984139",
           "next_step": "Confirm ownership; grant AMS Restricted user"
         },
@@ -4235,7 +4235,7 @@
           {
             "evidence_id": "ev-discovery-r3-001",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits",
             "frequency": "",
             "systems": [],
@@ -4250,7 +4250,7 @@
           {
             "evidence_id": "ev-discovery-r3-002",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs",
             "frequency": "",
             "systems": [],
@@ -4270,7 +4270,7 @@
           {
             "evidence_id": "ev-discovery-r3-005",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Calls during jobs or after 5pm go to voicemail and some are never returned",
             "frequency": "several times a week",
             "systems": [
@@ -4287,7 +4287,7 @@
           {
             "evidence_id": "ev-discovery-r3-006",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Website form enquiries arrive in the shared inbox and can wait a day for a reply",
             "frequency": "daily",
             "systems": [
@@ -4309,7 +4309,7 @@
           {
             "evidence_id": "ev-discovery-r3-007",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Quotes for refits are typed up in a word processor from the engineer's site notes",
             "frequency": "8-10 quotes a week",
             "systems": [],
@@ -4324,7 +4324,7 @@
           {
             "evidence_id": "ev-discovery-r3-008",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Nobody follows up quotes that get no response",
             "frequency": "",
             "systems": [],
@@ -4344,7 +4344,7 @@
           {
             "evidence_id": "ev-discovery-r3-009",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Engineers' diaries are juggled by phone when an emergency job comes in",
             "frequency": "most days",
             "systems": [
@@ -4366,7 +4366,7 @@
           {
             "evidence_id": "ev-discovery-r3-003",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar",
             "frequency": "",
             "systems": [
@@ -4385,7 +4385,7 @@
           {
             "evidence_id": "ev-discovery-r3-004",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox",
             "frequency": "",
             "systems": [
@@ -4408,7 +4408,7 @@
           {
             "evidence_id": "ev-discovery-r3-010",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices",
             "frequency": "weekly, on Fridays",
             "systems": [
@@ -4426,7 +4426,7 @@
           {
             "evidence_id": "ev-discovery-r3-011",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Annual service reminders are sent by hand from a list",
             "frequency": "monthly",
             "systems": [],
@@ -4446,7 +4446,7 @@
           {
             "evidence_id": "ev-discovery-r3-015",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Xero sends automatic payment reminders; nothing else is automated and no AI tools are used",
             "frequency": "",
             "systems": [
@@ -4468,7 +4468,7 @@
           {
             "evidence_id": "ev-discovery-r3-013",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Month-end invoicing is the biggest bottleneck and delays cash coming in",
             "frequency": "monthly",
             "systems": [],
@@ -4483,7 +4483,7 @@
           {
             "evidence_id": "ev-discovery-r3-014",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "The office laptop holding the job spreadsheet has no backup",
             "frequency": "",
             "systems": [],
@@ -4503,7 +4503,7 @@
           {
             "evidence_id": "ev-discovery-r3-012",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree",
             "frequency": "",
             "systems": [
@@ -4526,7 +4526,7 @@
           {
             "evidence_id": "ev-discovery-r3-016",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Owner would most like enquiries and bookings to run without the office chasing them",
             "frequency": "",
             "systems": [],
@@ -4541,7 +4541,7 @@
           {
             "evidence_id": "ev-discovery-r3-017",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Quotes and any message about price must be approved by the owner before sending",
             "frequency": "",
             "systems": [],
@@ -4556,7 +4556,7 @@
           {
             "evidence_id": "ev-discovery-r3-018",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:34:10.444601+00:00",
+            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
             "statement": "Budget is limited this year and the team wants to keep Xero",
             "frequency": "",
             "systems": [
