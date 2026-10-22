@@ -158,6 +158,16 @@ Independent search: **{{ d.status | text }}**{% if d.reason %} ({{ d.reason | te
 | {{ r.relevance | text }} | {{ r.platform | text }} | {{ r.state | text }}{% if r.get('manual') %} (manual verification {{ r.manual.date | text }} by {{ r.manual.verified_by | text }}; automated: {{ r.automated_state | text }}){% endif %} | {% for c in r.candidates %}{{ c.url | text }} [{{ c.matched | join(', ') | text }}{% if c.score is not none %}; score {{ c.score }}{% endif %}]{% if not loop.last %}; {% endif %}{% else %}-{% endfor %} | {{ r.detail | text }}{% if r.get('manual') and r.manual.note %} Manual note: {{ r.manual.note | text }}{% endif %} | {{ r.evidence_ids | join(', ') }} |
 {% endfor %}
 
+{% if d.queries %}
+Paid search queries (estimate checked against the remaining cap before each call; a call whose outcome is unknown stays booked at its estimate):
+
+| Purpose | Query | Status | Estimate (USD) | Reported cost (USD) | Evidence |
+| --- | --- | --- | --- | --- | --- |
+{% for q in d.queries %}
+| {{ q.purpose | text }} | {{ q.keyword | text }} | {{ q.status | text }}{% if q.reason %}: {{ q.reason | text }}{% endif %} | {{ q.estimated_usd | text or '-' }} | {{ q.cost_usd | text or '-' }} | {{ q.evidence_id or '-' }} |
+{% endfor %}
+
+{% endif %}
 {% if d.nap %}
 NAP comparison (only fields obtained from search results, against the website and customer profile):
 

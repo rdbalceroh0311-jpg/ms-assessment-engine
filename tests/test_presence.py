@@ -133,7 +133,10 @@ def test_listings_from_links_and_same_as_never_claim_ownership(tmp_path):
     ctx.results = [
         browser(
             {
-                "links": ["https://www.facebook.com/acme", "https://www.yellowpages.com.au/x/acme"],
+                "links": [
+                    "https://www.facebook.com/acme",
+                    "https://www.yellowpages.com.au/nsw/sydney/acme",
+                ],
                 "json_ld": [
                     {
                         "@type": "Plumber",

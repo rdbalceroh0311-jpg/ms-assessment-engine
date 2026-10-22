@@ -41,6 +41,7 @@ LINKED = "Detected (linked from website)"
 UNKNOWN_MANUAL = "Unknown - manual verification"
 OWNERSHIP = "Ownership confirmation needed"
 NOT_CONNECTED = "Not connected"
+PAID_EVIDENCE = "DataForSEO Google"
 PLACEHOLDER_EMAIL = "[AMS access account - set AMS_ACCESS_EMAIL]"
 PASS, WARNING = "PASS", "WARNING"
 SITEMAP_TIMEOUT, SITEMAP_MAX_BYTES = 10, 2_000_000
@@ -1248,8 +1249,7 @@ def build(
         gbp = next(
             (r for r in (discovery or {}).get("platforms", []) if r["key"] == LISTING_KEYS[0]), {}
         )
-        searched = gbp.get("state") not in {None, presence_discovery.NOT_ASSESSED}
-        add_findings(result, by_key, listings, signals, same_as, coverage, refs, searched)
+        add_findings(result, by_key, listings, signals, same_as, coverage, refs, gbp.get("state"))
     sitemap_row = next((r for r in signals if r["signal"] == "XML sitemap"), None)
     if sitemap_row and sitemap_row["status"] == WARNING:
         invalid = sitemap_row["detail"].startswith("Sitemap invalid")
@@ -1291,7 +1291,7 @@ def add_findings(
     same_as: set[str],
     coverage: str,
     refs: dict[str, str],
-    gbp_searched: bool = False,
+    gbp_state: str | None = None,
 ) -> None:
     nap = next((s for s in signals if s["signal"].startswith("NAP")), None)
     if nap and nap["status"] == "Inconsistent":
@@ -1361,7 +1361,9 @@ def add_findings(
             ams_service="Analytics & tracking",
         )
     gbp = next(r for r in listings if r["key"] == "google_business_profile")
-    if gbp["status"] == UNKNOWN_MANUAL:
+    gbp_searched = gbp_state not in {None, presence_discovery.NOT_ASSESSED}
+    # An online-only business is generally not eligible, so linking a profile is no opportunity.
+    if gbp["status"] == UNKNOWN_MANUAL and gbp_state != presence_discovery.NOT_APPLICABLE:
         result.finding(
             "listing:gbp-not-linked",
             "Google Business Profile not linked from the website",
@@ -1405,20 +1407,30 @@ def run(ctx: Context) -> ModuleResult:
         tables = build(ctx, ctx.results, result, True)
     except Exception as exc:
         # Fail soft: the report shows NOT ASSESSED presence tables instead of losing the run.
+        # Paid search results already obtained are self-contained evidence and are kept, as is
+        # the spend ledger, so a failure never discards what was paid for.
         return ModuleResult(
             name=name,
             status="error",
             reason=f"Presence analysis failed ({type(exc).__name__}); other results unaffected",
+            evidence=[e for e in result.evidence if e.description.startswith(PAID_EVIDENCE)],
+            raw_paths=result.raw_paths,
         )
-    if tables["status"] == NOT_ASSESSED:
+    paid = any(e.description.startswith(PAID_EVIDENCE) for e in result.evidence)
+    if tables["status"] == NOT_ASSESSED and not paid:
         return ModuleResult(
             name=name,
             status="skipped",
             reason="Requires browser page evidence or public DNS evidence (domain_email)",
+            raw_paths=result.raw_paths,
+        )
+    if tables["status"] == NOT_ASSESSED:
+        result.reason = (
+            "No browser page or DNS evidence; only independent presence discovery was assessed"
         )
     # Stored on the module result so results.json and re-rendering reuse the same tables.
     result.checks = [{"key": key, "value": value} for key, value in tables.items()]
-    result.raw_paths = [ctx.raw(name, tables)]
+    result.raw_paths = [*result.raw_paths, ctx.raw(name, tables)]
     return result
 
 

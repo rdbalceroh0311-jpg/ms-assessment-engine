@@ -24,7 +24,12 @@ from ams_assess.models import (
     customer_path,
 )
 from ams_assess.platforms import BY_KEY
-from ams_assess.profile import Verification, apply_verifications, merge_profile
+from ams_assess.profile import (
+    Verification,
+    apply_verifications,
+    current_findings,
+    merge_profile,
+)
 
 SCHEMA_VERSION = 2
 STORE_FILE = "assessment.json"
@@ -444,7 +449,9 @@ def set_profile(
         ).model_dump(mode="json")
     )
     store["profile"] = {"fields": profile, "evidence_id": eid, "updated_at": now()}
-    if profile["name"] and store["customer_name"] == customer:
+    # A new or changed business name becomes the report name; an unchanged one leaves any
+    # explicitly given --customer-name alone.
+    if profile["name"] and profile["name"] != (current.get("fields") or {}).get("name"):
         store["customer_name"] = profile["name"]
     _record(store, run_id, "profile", {"evidence": 1})
     save(root, customer, store)
@@ -569,6 +576,7 @@ def report_data(
     if verified and data.get("digital_presence", {}).get("discovery"):
         # Manual verification supersedes the automated state; the automated state stays shown.
         data["digital_presence"] = apply_verifications(data["digital_presence"], verified)
+        data["findings"] = current_findings(data["findings"], data["digital_presence"], verified)
     elif verified:
         limitations.append(
             "Manual presence verifications are recorded (see the evidence index) but no "

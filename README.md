@@ -153,9 +153,21 @@ industry and buying model; not every platform is required. Each platform gets on
 likely match, Found — needs verification, Not found in searches, Inconsistent, Not applicable or Not
 assessed. Profiles linked from the website are always reused. Independent search runs only with
 `--dataforseo-max-usd`: DataForSEO Google Maps and Google organic (`site:`/name) live SERP calls, at
-most 12 per run, AU location by default (`--dataforseo-location-code`), each estimated at $0.004 and
-checked against the cap remaining after earlier calls before it is sent. Platform pages are never
-fetched. With no cap, the state is Not assessed and the report lists manual verification tasks with
+most 12 per run, AU location by default (`--dataforseo-location-code`), ordered so the most relevant
+platforms are searched first. Each call's estimate is checked against the cap remaining after earlier
+calls before it is sent, and stays booked when the outcome is unknown (timeout):
+
+| Call | Published live price (per SERP, depth 10) | Estimate booked |
+| --- | --- | --- |
+| Google organic, no operator (name, keywords) | $0.002 | $0.003 |
+| Google organic, one operator (`site:` profile search, quoted keyword) | $0.010 (x5 per operator) | $0.015 |
+| Google Maps, no operator | $0.002 | $0.003 |
+| Any query with two or more operators | - | refused |
+
+Prices from DataForSEO's published SERP pricing (Google Organic and Google Maps pages, checked
+2026-10-23); `SERP_PRICING` in `ams_assess/modules/dataforseo.py` is the single source. A reported
+charge above the estimate stops further paid calls. Platform pages are never fetched, and only
+business-profile routes count (search, category, help and login pages never do). With no cap, the state is Not assessed and the report lists manual verification tasks with
 ready-to-use search queries and URLs. NAP is compared only from data actually obtained. Possible
 duplicates, inconsistent NAP and profiles not linked from the website become needs-verification
 findings. Keyword positions are point-in-time samples.

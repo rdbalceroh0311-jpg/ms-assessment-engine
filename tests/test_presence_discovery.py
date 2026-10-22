@@ -72,7 +72,7 @@ def browser(page):
     return result
 
 
-def serp_body(items, cost="0.004"):
+def serp_body(items, cost="0.002"):
     return {
         "status_code": 20000,
         "cost": float(cost),
@@ -80,11 +80,14 @@ def serp_body(items, cost="0.004"):
     }
 
 
-def fake_serp(responses, calls, cost="0.004"):
+def fake_serp(responses, calls, cost="0.002"):
+    """Responses keyed by (endpoint, keyword); the default cost is the published live price."""
+
     def post(url, **kwargs):
         task = kwargs["json"][0]
         calls.append((url.rsplit("/serp/google/", 1)[-1], task))
-        body = serp_body(responses.get(task["keyword"], []), cost)
+        kind = "maps" if "/maps/" in url else "organic"
+        body = serp_body(responses.get((kind, task["keyword"]), []), cost)
         return httpx.Response(200, request=httpx.Request("POST", url), json=body)
 
     return post
@@ -145,6 +148,26 @@ def test_catalogue_relevance_by_industry_and_buying_model():
         ("https://www.yelp.com.au/biz/acme-sydney", "yelp"),
         ("https://maps.apple.com/?q=acme", "apple_maps"),
         ("ftp://www.facebook.com/acme", None),
+        # Business-profile routes only: search, category, help, login and map-search pages are not.
+        ("https://www.fresha.com/search?q=acme", None),
+        ("https://www.fresha.com/help/acme", None),
+        ("https://www.booksy.com/en-au/s/hair-salon", None),
+        ("https://www.yellowpages.com.au/find/painters/parramatta-nsw", None),
+        ("https://www.yellowpages.com.au/search/listings?clue=acme", None),
+        ("https://www.truelocal.com.au/find/painter/parramatta", None),
+        ("https://www.hipages.com.au/find/painters/nsw", None),
+        ("https://www.houzz.com.au/professionals/painters", None),
+        ("https://www.tripadvisor.com.au/Restaurants-g1", None),
+        ("https://www.google.com/maps/search/acme", None),
+        ("https://www.google.com/maps/dir/a/b", None),
+        ("https://maps.google.com/?cid=123456", "google_business_profile"),
+        ("https://www.facebook.com/groups/acme", None),
+        ("https://www.facebook.com/login", None),
+        ("https://www.facebook.com/profile.php?id=100012345", "facebook"),
+        ("https://www.instagram.com/explore/tags/acme/", None),
+        ("https://www.linkedin.com/company/acme/jobs/", None),
+        ("https://www.menulog.com.au/area/2000-sydney", None),
+        ("https://www.menulog.com.au/restaurants-acme-cafe/menu", "menulog"),
     ],
 )
 def test_catalogue_url_classification(url, expected):
@@ -159,18 +182,36 @@ def test_match_scoring_is_simple_and_explainable(tmp_path):
     assert who["name"] == "Acme Painting Pty Ltd" and who["localities"] == ["Parramatta"]
     likely = score(who, "Acme Painting | Parramatta painters", "https://x.test/acme-painting", [])
     assert likely["state"] == FOUND_LIKELY and likely["score"] == 5
+    # Title and URL slug are one piece of name evidence; the suburb corroborates independently.
     assert likely["matched"] == [
-        "name: acme painting",
+        "name: acme painting (also in profile URL)",
         "suburb/postcode: Parramatta",
-        "name in profile URL",
     ]
     by_phone = score(who, "Painters", "https://x.test/p/1", ["+61 2 5550 0101"], "example.com")
     assert by_phone["state"] == FOUND_LIKELY and by_phone["score"] == 5
-    name_only = score(who, "Acme Painting reviews", "https://x.test/p/2", [])
+    name_only = score(who, "Acme Painting reviews", "https://x.test/acme-painting", [])
     assert name_only["state"] == FOUND_VERIFY and name_only["score"] == 3
     # A suburb alone never makes a candidate: the name or the phone must match.
     unrelated = score(who, "Bob's Plumbing Parramatta", "https://x.test/bob", [])
-    assert unrelated["state"] == "" and unrelated["score"] == 1
+    assert unrelated["state"] == "" and unrelated["score"] == 2
+
+
+def test_geographic_name_and_slug_cannot_make_a_likely_match_alone(tmp_path):
+    """Reviewer scenario: 'Sydney Painting' title + /sydneypainting/ used to score 5."""
+    profile = PROFILE | {"name": "Sydney Painting", "service_area": ["Sydney"], "phones": []}
+    who = identity(context(tmp_path, profile=profile), presence.site_identity([]))
+    found = score(who, "Sydney Painting | Painters", "https://www.facebook.com/sydneypainting/", [])
+    assert found["score"] == 3 and found["state"] == FOUND_VERIFY
+    assert found["matched"] == ["name: sydney painting (also in profile URL)"]
+    # Even with "Sydney" repeated outside the name, the suburb is part of the name: no points.
+    repeated = score(who, "Sydney Painting - painters in Sydney", "https://x.test/sp", [])
+    assert repeated["state"] == FOUND_VERIFY and repeated["score"] == 3
+    # Independent corroboration (the website domain) makes it likely.
+    corroborated = score(who, "Sydney Painting", "https://x.test/1", [], "example.com")
+    assert corroborated["state"] == FOUND_LIKELY
+    # The slug alone is weaker name evidence than the title, and still needs corroboration.
+    slug_only = score(who, "Painters near you", "https://x.test/sydneypainting", [])
+    assert slug_only["score"] == 2 and slug_only["state"] == FOUND_VERIFY
 
 
 def test_no_cap_means_not_assessed_with_manual_tasks_and_no_requests(tmp_path, monkeypatch):
@@ -193,22 +234,47 @@ def test_no_cap_means_not_assessed_with_manual_tasks_and_no_requests(tmp_path, m
     assert "per-suburb" in discovery["gbp_eligibility"]
 
 
+def test_serp_estimates_follow_published_pricing_per_endpoint_and_operator():
+    # Every estimate covers the published live price with headroom.
+    for (_kind, ops), (published, estimate) in dataforseo.SERP_PRICING.items():
+        assert estimate >= published * Decimal("1.5")
+        assert published == Decimal("0.002") * (5 if ops else 1)
+    assert dataforseo.serp_estimate("organic", "Acme Painting Parramatta") == Decimal("0.003")
+    assert dataforseo.serp_estimate("organic", "site:hipages.com.au Acme") == Decimal("0.015")
+    assert dataforseo.serp_estimate("maps", "Acme Painting Parramatta") == Decimal("0.003")
+    assert dataforseo.serp_estimate("organic", '"painter" ryde') == Decimal("0.015")
+    # "and" in a business name is not an operator; two operators cannot be estimated safely.
+    assert dataforseo.operators("Smith and Sons Painting") == 0
+    assert dataforseo.serp_estimate("organic", 'site:x.com "Acme"') is None
+
+
 def test_serp_cost_cap_is_checked_before_every_call(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(httpx, "post", fake_serp({}, calls))
     deadline = 1e12
-    # Two calls fit under the cap at the estimate; the third would exceed it and is not made.
-    ctx = context(tmp_path, cap=0.009, **CREDENTIALS)
+    # Reserve $0.003, book the reported $0.002: two calls fit, the third would exceed the cap.
+    ctx = context(tmp_path, cap=0.005, **CREDENTIALS)
     outcomes = [dataforseo.serp(ctx, "organic", f"q{i}", deadline) for i in range(4)]
     assert [o["status"] for o in outcomes] == ["ok", "ok", "refused", "refused"]
     assert "exceeds the remaining cap" in outcomes[2]["reason"] and len(calls) == 2
-    assert ctx.dataforseo_spent_usd == Decimal("0.008")
+    assert ctx.dataforseo_spent_usd == Decimal("0.004")
     assert calls[0][1] == {
         "keyword": "q0",
         "location_code": 2036,
         "language_code": "en",
         "depth": 10,
     }
+    # site: queries are estimated at the operator price, so a cap that fits a plain query
+    # still refuses them; two-operator queries are never sent.
+    calls.clear()
+    ctx = context(tmp_path, cap=0.014, **CREDENTIALS)
+    assert dataforseo.serp(ctx, "organic", "site:hipages.com.au Acme", deadline)["status"] == (
+        "refused"
+    )
+    assert (
+        "cannot be estimated" in dataforseo.serp(ctx, "organic", 'site:x "a"', deadline)["reason"]
+    )
+    assert not calls and dataforseo.serp(ctx, "organic", "Acme", deadline)["status"] == "ok"
     # Spend from the domain overview call counts against the same cap.
     calls.clear()
     ctx = context(tmp_path, cap=0.012, **CREDENTIALS)
@@ -244,9 +310,45 @@ def test_serp_cost_cap_is_checked_before_every_call(tmp_path, monkeypatch):
     assert not calls
 
 
+def test_timed_out_charged_calls_never_take_spend_past_the_cap(tmp_path, monkeypatch):
+    """Reviewer scenario: every call times out but is still charged its published price."""
+    charged = []
+
+    def timeout(url, **kwargs):
+        keyword = kwargs["json"][0]["keyword"]
+        kind = "maps" if "/maps/" in url else "organic"
+        charged.append(dataforseo.SERP_PRICING[(kind, dataforseo.operators(keyword))][0])
+        raise httpx.ReadTimeout("synthetic", request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", timeout)
+    ctx = context(tmp_path, cap=0.10, profile=PROFILE, keywords=["painter ryde"], **CREDENTIALS)
+    ctx.dataforseo_spent_usd = dataforseo.ESTIMATE_USD  # The domain overview ran first.
+    ctx.results = [browser(PAGE)]
+    discovery = tables(presence.run(ctx))["discovery"]
+    # Unknown outcomes stay booked at the full estimate, which covers what was charged.
+    assert sum(charged) + dataforseo.ESTIMATE_USD <= ctx.dataforseo_spent_usd <= Decimal("0.10")
+    queries = discovery["queries"]
+    sent = [q for q in queries if q["status"] == "error"]
+    assert len(sent) == len(charged) and all("ReadTimeout" in q["reason"] for q in sent)
+    assert any("exceeds the remaining cap" in q["reason"] for q in queries)
+    # Most relevant first: Maps (GBP high), the name search, the high-relevance hipages search,
+    # then the keyword, then medium platforms.
+    assert [q["purpose"] for q in queries[:5]] == [
+        "Google Maps business search",
+        "Business name search",
+        "hipages profile search",
+        "Keyword position",
+        "Facebook profile search",
+    ]
+    assert queries[2]["keyword"] == "site:hipages.com.au Acme Painting"
+    assert queries[2]["estimated_usd"] == "0.015"
+    ledger = json.loads((ctx.run_dir / "raw/presence-dataforseo-ledger.json").read_text())
+    assert Decimal(ledger["spent_usd_run_total"]) == ctx.dataforseo_spent_usd
+
+
 def test_discovery_states_nap_duplicates_unlinked_and_keywords(tmp_path, monkeypatch):
     responses = {
-        "Acme Painting Parramatta": [
+        ("maps", "Acme Painting Parramatta"): [
             {
                 "type": "maps_search",
                 "title": "Acme Painting",
@@ -256,7 +358,7 @@ def test_discovery_states_nap_duplicates_unlinked_and_keywords(tmp_path, monkeyp
                 "cid": "123456789",
             }
         ],
-        '"Acme Painting" Parramatta': [
+        ("organic", "Acme Painting Parramatta"): [
             {
                 "type": "organic",
                 "url": "https://www.instagram.com/acmepainting/",
@@ -265,11 +367,11 @@ def test_discovery_states_nap_duplicates_unlinked_and_keywords(tmp_path, monkeyp
             },
             {"type": "organic", "url": "https://example.com/", "title": "Acme Painting"},
         ],
-        "painter parramatta": [
+        ("organic", "painter parramatta"): [
             {"type": "organic", "rank_group": 1, "url": "https://other.test/"},
             {"type": "organic", "rank_group": 3, "url": "https://www.example.com/services"},
         ],
-        'site:hipages.com.au "Acme Painting"': [
+        ("organic", "site:hipages.com.au Acme Painting"): [
             {
                 "type": "organic",
                 "url": "https://hipages.com.au/connect/acmepainting",
@@ -281,14 +383,14 @@ def test_discovery_states_nap_duplicates_unlinked_and_keywords(tmp_path, monkeyp
                 "title": "Acme Painting Services",
             },
         ],
-        'site:facebook.com "Acme Painting"': [
+        ("organic", "site:facebook.com Acme Painting"): [
             {
                 "type": "organic",
                 "url": "https://www.facebook.com/acmepainting/",
                 "title": "Acme Painting | Parramatta",
             }
         ],
-        'site:truelocal.com.au "Acme Painting"': [
+        ("organic", "site:truelocal.com.au Acme Painting"): [
             {
                 "type": "organic",
                 "url": "https://www.truelocal.com.au/business/bobs-plumbing/parramatta",
@@ -331,13 +433,15 @@ def test_discovery_states_nap_duplicates_unlinked_and_keywords(tmp_path, monkeyp
     assert rows["yellow_pages"]["state"] == rows["true_local"]["state"] == NOT_FOUND
     assert rows["tiktok"]["state"] == NOT_ASSESSED and "query cap" in rows["tiktok"]["detail"]
     assert rows["menulog"]["state"] == NOT_APPLICABLE
-    assert discovery["keywords"][0]["state"] == "Position 3"
+    assert discovery["keywords"][0]["state"] == "Organic position 3"
     assert discovery["keywords"][0]["url"] == "https://www.example.com/services"
     findings = {f.check_key: f for f in result.findings}
-    assert "0255500999" in findings["platform:external-nap-inconsistent"].detail.replace(" ", "")
-    assert "acme-painting-services" in findings["platform:possible-duplicates"].detail
-    unlinked = findings["platform:profiles-not-linked"].detail
-    assert "instagram.com/acmepainting" in unlinked and "facebook" not in unlinked
+    nap_finding = findings["platform:external-nap-inconsistent:google_business_profile"]
+    assert "0255500999" in nap_finding.detail.replace(" ", "")
+    assert "acme-painting-services" in findings["platform:possible-duplicates:hipages"].detail
+    unlinked = findings["platform:profiles-not-linked:instagram"].detail
+    assert "instagram.com/acmepainting" in unlinked
+    assert not any(k.startswith("platform:profiles-not-linked:facebook") for k in findings)
     priority = findings["platform:priority-verification"]
     assert priority.detail.index("Google Business Profile") < priority.detail.index("True Local")
     # Relevance rests on the customer-stated industry, so the finding is labelled as such.
@@ -533,3 +637,181 @@ def test_invalid_verifications_are_rejected_without_writing(home, tmp_path, entr
 def home(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "ROOT", tmp_path)
     return tmp_path / "data/customers"
+
+
+def test_generic_platform_pages_in_search_results_are_never_candidates(tmp_path, monkeypatch):
+    """Reviewer scenario: a Fresha search page with the name in its title became likely."""
+    profile = PROFILE | {"name": "Acme Salon", "industry": "beauty", "buying_model": "storefront"}
+    responses = {
+        ("organic", "site:fresha.com Acme Salon"): [
+            {
+                "type": "organic",
+                "url": "https://www.fresha.com/search?query=acme-salon",
+                "title": "Acme Salon in Parramatta | Fresha",
+                "description": "Book Acme Salon, Parramatta. Call 02 5550 0101",
+            }
+        ]
+    }
+    monkeypatch.setattr(httpx, "post", fake_serp(responses, []))
+    ctx = context(tmp_path, cap=1.0, profile=profile, **CREDENTIALS)
+    ctx.results = [browser({**PAGE, "links": []})]
+    rows = {r["key"]: r for r in tables(presence.run(ctx))["discovery"]["platforms"]}
+    assert rows["fresha"]["candidates"] == [] and rows["fresha"]["state"] == NOT_FOUND
+
+
+def test_keyword_rank_ignores_serp_features_before_the_depth_limit(tmp_path, monkeypatch):
+    """Reviewer scenario: a rank-8 organic result behind SERP features was reported as absent."""
+    features = [
+        {"type": t, "rank_absolute": i + 1}
+        for i, t in enumerate(["paid"] * 4 + ["people_also_ask", "local_pack", "images", "video"])
+    ]
+    organic = [
+        {"type": "organic", "rank_group": n, "rank_absolute": n + 8, "url": f"https://o{n}.test/"}
+        for n in range(1, 8)
+    ] + [
+        {
+            "type": "organic",
+            "rank_group": 8,
+            "rank_absolute": 16,
+            "url": "https://www.example.com/painting",
+        },
+        {"type": "organic", "rank_group": 11, "url": "https://example.com/deep"},
+    ]
+    responses = {("organic", "painter parramatta"): features + organic}
+    monkeypatch.setattr(httpx, "post", fake_serp(responses, []))
+    ctx = context(
+        tmp_path, cap=1.0, profile=PROFILE, keywords=["painter parramatta"], **CREDENTIALS
+    )
+    ctx.results = [browser(PAGE)]
+    row = tables(presence.run(ctx))["discovery"]["keywords"][0]
+    assert row["state"] == "Organic position 8 (absolute rank 16)"
+    assert row["url"] == "https://www.example.com/painting"
+    # Beyond the requested depth (rank 11) is outside the sample, so it is not reported.
+    responses[("organic", "painter parramatta")] = organic[-1:]
+    ctx = context(
+        tmp_path, cap=1.0, profile=PROFILE, keywords=["painter parramatta"], **CREDENTIALS
+    )
+    ctx.results = [browser(PAGE)]
+    row = tables(presence.run(ctx))["discovery"]["keywords"][0]
+    assert row["state"] == "Not in the top 10 results sampled"
+
+
+def test_paid_discovery_is_kept_when_website_evidence_is_missing(tmp_path, monkeypatch):
+    """Reviewer scenario: 12 paid calls, then the module was skipped with zero evidence."""
+    calls = []
+    monkeypatch.setattr(httpx, "post", fake_serp({}, calls))
+    ctx = context(tmp_path, cap=1.0, profile=PROFILE, **CREDENTIALS)
+    ctx.results = []  # Browser and DNS evidence unavailable upstream.
+    result = presence.run(ctx)
+    assert (
+        calls and result.status == "ok" and "only independent presence discovery" in result.reason
+    )
+    paid = [e for e in result.evidence if e.description.startswith("DataForSEO Google")]
+    assert len(paid) == len(calls)
+    assert tables(result)["discovery"]["budget"]["serp_calls"] == len(calls)
+    assert "raw/presence-dataforseo-ledger.json" in result.raw_paths
+    # A failure after the paid calls still keeps their evidence and the ledger.
+    calls.clear()
+    monkeypatch.setattr(presence, "add_findings", lambda *a: 1 / 0)
+    ctx = context(tmp_path, cap=1.0, profile=PROFILE, **CREDENTIALS)
+    ctx.results = [browser(PAGE)]
+    failed = presence.run(ctx)
+    assert failed.status == "error" and calls
+    assert len(failed.evidence) == len(calls) and not failed.findings
+    assert "raw/presence-dataforseo-ledger.json" in failed.raw_paths
+    # Without a business name there is nothing to search: no call is made, no spend.
+    calls.clear()
+    ctx = context(tmp_path, cap=1.0, **CREDENTIALS)
+    assert presence.run(ctx).status == "skipped" and not calls
+    assert ctx.dataforseo_spent_usd == 0
+
+
+def test_online_only_business_gets_no_gbp_link_opportunity(tmp_path):
+    profile = PROFILE | {"industry": "general", "buying_model": "online-only"}
+    ctx = context(tmp_path, profile=profile)
+    ctx.results = [browser({**PAGE, "links": []})]
+    keys = {f.check_key for f in presence.run(ctx).findings}
+    assert "listing:gbp-not-linked" not in keys
+    ctx = context(tmp_path, profile=PROFILE)
+    ctx.results = [browser({**PAGE, "links": []})]
+    assert "listing:gbp-not-linked" in {f.check_key for f in presence.run(ctx).findings}
+
+
+def test_profile_name_change_updates_the_report_name(home):
+    store.set_profile(home, "acme", {"name": "Acme Painting"})
+    store.set_profile(home, "acme", {"phones": ["02 5550 0101"]})
+    saved = store.load(home, "acme")
+    assert saved is not None and saved["customer_name"] == "Acme Painting"
+    store.set_profile(home, "acme", {"name": "Acme Painting & Decorating"})
+    saved = store.load(home, "acme")
+    assert saved is not None and saved["customer_name"] == "Acme Painting & Decorating"
+    data, _, _ = store.report_data(saved)
+    assert data["customer_name"] == "Acme Painting & Decorating"
+
+
+def test_manual_verification_retires_obsolete_tasks_and_findings(home, tmp_path, monkeypatch):
+    responses = {
+        ("organic", "site:hipages.com.au Acme Painting"): [
+            {
+                "type": "organic",
+                "url": "https://hipages.com.au/connect/acmepainting",
+                "title": "Acme Painting - Parramatta",
+            },
+            {
+                "type": "organic",
+                "url": "https://hipages.com.au/connect/acme-painting-2",
+                "title": "Acme Painting",
+            },
+        ]
+    }
+    monkeypatch.setattr(httpx, "post", fake_serp(responses, []))
+    monkeypatch.setattr(runner, "REGISTRY", presence_registry())
+    ctx = Context(
+        customer_id="acme",
+        customer_name="Acme",
+        target="https://example.com/",
+        categories={"presence"},
+        connections=set(),
+        config=dict(CREDENTIALS),
+        run_dir=create_run_dir(home, "acme"),
+        tools_dir=tmp_path,
+        store_root=home,
+        profile=PROFILE,
+        dataforseo_max_usd=1.0,
+    )
+    runner.run(ctx, no_ai=True, formats={"md"})
+    before = store.load(home, "acme")
+    assert before is not None
+    keys = {f["check_key"] for f in before["findings"]}
+    assert "platform:possible-duplicates:hipages" in keys
+    data, _, _ = store.report_data(before)
+    priority = next(
+        f for f in data["findings"] if f["check_key"] == "platform:priority-verification"
+    )
+    assert any(t["key"] == "hipages" for t in data["digital_presence"]["discovery"]["manual_tasks"])
+    path = tmp_path / "verified.json"
+    yellow = verification(
+        platform="yellow_pages", state="not_found", profile_url="", note="Searched by name"
+    )
+    assert "Yellow Pages AU (medium)" in priority["detail"]
+    path.write_text(json.dumps([verification(state="found_likely"), yellow]))
+    assert cli.main(["presence-verify", "--customer", "acme", "--file", str(path)]) == 0
+    saved = store.load(home, "acme")
+    assert saved is not None
+    data, evidence, _ = store.report_data(saved)
+    current = {f["check_key"]: f for f in data["findings"]}
+    assert "platform:possible-duplicates:hipages" not in current
+    discovery = data["digital_presence"]["discovery"]
+    assert not any(t["key"] == "hipages" for t in discovery["manual_tasks"])
+    row = next(r for r in discovery["platforms"] if r["key"] == "hipages")
+    assert not row["duplicates"] and len(row["automated_candidates"]) == 2
+    assert row["automated_state"] == FOUND_LIKELY and row["state"] == FOUND_LIKELY
+    # The priority finding is recomputed without the manually settled platforms.
+    assert "Yellow Pages" not in current["platform:priority-verification"]["detail"]
+    assert "True Local (medium)" in current["platform:priority-verification"]["detail"]
+    assert not any(n["key"] == "yellow_pages" for n in discovery["nap"])
+    # History stays: the store keeps the finding and all automated evidence.
+    assert "platform:possible-duplicates:hipages" in {f["check_key"] for f in saved["findings"]}
+    assert {e["id"] for e in before["evidence"]} <= {e.id for e in evidence}
+    render_customer(home, "acme", {"md"})
+    assert "Several candidate profiles on hipages" not in (home / "acme/report.md").read_text()

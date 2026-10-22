@@ -61,12 +61,23 @@ LOCAL = {
 }
 
 
+# Generic platform pages that are never a business profile, whatever the platform pattern says.
+GENERIC_PAGE = re.compile(
+    r"^/(?:[a-z]{2}(?:-[a-z]{2})?/)?(?:search|s|find|category|categories|help|support|login"
+    r"|log-in|signin|sign-in|signup|sign-up|register|join|blog|articles|news|about|careers"
+    r"|jobs|terms|privacy|legal|explore|discover|directory|topics|hashtag|tags?|pricing"
+    r"|partners|for-business|contact|faq|sitemap)(?:[/?._-]|$)",
+    re.I,
+)
+
+
 @dataclass(frozen=True)
 class Platform:
     key: str
     label: str
     group: str
-    # (host full-match after stripping "www.", path search); empty = recognised manually only.
+    # (host full-match after stripping "www.", business-profile route searched in path+query);
+    # empty = recognised manually only.
     patterns: tuple[tuple[str, str], ...] = ()
     # Domain for a Google "site:" query through the DataForSEO SERP; empty = no provider search.
     search_domain: str = ""
@@ -88,8 +99,11 @@ CATALOGUE: list[Platform] = [
         "google_business_profile",
         "Google Business Profile / Google Maps",
         "search_maps",
-        (r"g\.page|business\.google\.com|maps\.app\.goo\.gl|maps\.google\.[a-z.]+", ""),
-        (r"google\.[a-z.]+|goo\.gl", r"^/maps"),
+        (r"g\.page", r"^/(?:r/)?[\w.-]+"),
+        (r"maps\.app\.goo\.gl", r"^/\w+"),
+        (r"goo\.gl", r"^/maps/\w+"),
+        # A place page or a cid link; never a Maps search, directions or a web search.
+        (r"(?:maps\.)?google\.[a-z.]+", r"^/maps/place/[^/?]+|^/(?:maps/?)?\?(?:.*&)?cid=\d+"),
         by_model={"*": "high", "b2b-contract": "medium", "online-only": NA},
         manual_url="https://www.google.com/maps/search/?api=1&query={q}",
         notes="Searched through the DataForSEO Google Maps SERP only.",
@@ -98,8 +112,8 @@ CATALOGUE: list[Platform] = [
         "bing_places",
         "Bing Places / Bing Maps",
         "search_maps",
-        (r"bing\.com", r"^/maps"),
-        (r"bingplaces\.com", ""),
+        # Never searched by the engine, so only a link the website itself chose is recognised.
+        (r"bing\.com", r"^/maps\b"),
         by_model={"*": "medium", "b2b-contract": "low", "online-only": NA},
         manual_url="https://www.bing.com/maps?q={q}",
         notes="No provider search; manual verification only.",
@@ -108,7 +122,7 @@ CATALOGUE: list[Platform] = [
         "apple_maps",
         "Apple Business / Apple Maps",
         "search_maps",
-        (r"maps\.apple\.com|maps\.apple", ""),
+        (r"maps\.apple\.com", r"^/(?:place\b|\?)"),
         by_model={"*": "low", "storefront": "medium", "online-only": NA},
         manual_url="https://maps.apple.com/?q={q}",
         notes="Apple Business replaced Apple Business Connect. No provider search; manual only.",
@@ -117,7 +131,13 @@ CATALOGUE: list[Platform] = [
         "facebook",
         "Facebook",
         "social",
-        (r"(?:m\.)?facebook\.com|fb\.com", r"^/(?!sharer|share|dialog|plugins|tr\b)[^/]+"),
+        (
+            r"(?:m\.)?facebook\.com|fb\.com",
+            r"^/(?:pages/[^/?]+/\d+|profile\.php\?(?:.*&)?id=\d+|(?!(?:sharer|share|dialog"
+            r"|plugins|tr|groups|events|watch|marketplace|gaming|login|help|search|hashtag"
+            r"|policies|privacy|pages|people|photo|photos|reel|stories|business|ads|settings"
+            r"|home\.php|profile\.php)\b)[\w.-]+/?(?:\?.*)?$)",
+        ),
         search_domain="facebook.com",
         by_industry={"restaurant": "high", "beauty": "high"},
     ),
@@ -125,7 +145,11 @@ CATALOGUE: list[Platform] = [
         "instagram",
         "Instagram",
         "social",
-        (r"instagram\.com", r"^/(?!p/|share)[^/]+"),
+        (
+            r"instagram\.com",
+            r"^/(?!(?:p|reel|reels|explore|accounts|stories|tv|direct|about|legal|developer"
+            r"|web|share)\b)[\w.]+/?(?:\?.*)?$",
+        ),
         search_domain="instagram.com",
         by_model={"*": "low"},
         by_industry={"restaurant": "high", "beauty": "high", "trades": "medium"},
@@ -134,7 +158,10 @@ CATALOGUE: list[Platform] = [
         "linkedin",
         "LinkedIn",
         "social",
-        (r"(?:[a-z]{2}\.)?linkedin\.com", r"^/(?:company|in|school)/"),
+        (
+            r"(?:[a-z]{2}\.)?linkedin\.com",
+            r"^/(?:company|in|school)/[^/?]+/?(?:about/?)?(?:\?.*)?$",
+        ),
         search_domain="linkedin.com/company",
         by_model={"*": "low", "b2b-contract": "high"},
         by_industry={"b2b_contractor": "high", "general": "medium"},
@@ -143,7 +170,11 @@ CATALOGUE: list[Platform] = [
         "youtube",
         "YouTube",
         "social",
-        (r"(?:m\.)?youtube\.com", r"^/(?:@|c/|channel/|user/)"),
+        (
+            r"(?:m\.)?youtube\.com",
+            r"^/(?:@[\w.-]+|c/[^/?]+|channel/[\w-]+|user/[^/?]+)(?:/(?:featured|videos|about))?"
+            r"/?(?:\?.*)?$",
+        ),
         search_domain="youtube.com",
         by_model={"*": "low"},
     ),
@@ -151,7 +182,7 @@ CATALOGUE: list[Platform] = [
         "tiktok",
         "TikTok",
         "social",
-        (r"tiktok\.com", r"^/@"),
+        (r"tiktok\.com", r"^/@[\w.-]+/?(?:\?.*)?$"),
         search_domain="tiktok.com",
         by_model={"*": "low"},
         by_industry={"restaurant": "medium", "beauty": "medium"},
@@ -160,7 +191,10 @@ CATALOGUE: list[Platform] = [
         "pinterest",
         "Pinterest",
         "social",
-        (r"(?:[a-z]{2}\.)?pinterest\.(?:com|com\.au)", r"^/[^/]+/?$"),
+        (
+            r"(?:[a-z]{2}\.)?pinterest\.(?:com|com\.au)",
+            r"^/(?!(?:pin|search|ideas|categories|today|business|login|_)\b)[\w-]+/?(?:\?.*)?$",
+        ),
         search_domain="pinterest.com",
         by_model={"*": "low"},
         industries=frozenset({"beauty", "trades"}),
@@ -170,7 +204,7 @@ CATALOGUE: list[Platform] = [
         "yellow_pages",
         "Yellow Pages AU",
         "au_directory",
-        (r"yellowpages\.com\.au", r"^/."),
+        (r"yellowpages\.com\.au", r"^/(?:nsw|vic|qld|sa|wa|tas|nt|act)/[^/?]+/[^/?]+"),
         search_domain="yellowpages.com.au",
         by_model=LOCAL,
     ),
@@ -178,7 +212,7 @@ CATALOGUE: list[Platform] = [
         "true_local",
         "True Local",
         "au_directory",
-        (r"truelocal\.com\.au", r"^/."),
+        (r"truelocal\.com\.au", r"^/business/[^/?]+"),
         search_domain="truelocal.com.au",
         by_model=LOCAL,
     ),
@@ -186,7 +220,7 @@ CATALOGUE: list[Platform] = [
         "localsearch",
         "Localsearch",
         "au_directory",
-        (r"localsearch\.com\.au", r"^/."),
+        (r"localsearch\.com\.au", r"^/profile/[^/?]+"),
         search_domain="localsearch.com.au",
         by_model=LOCAL,
     ),
@@ -194,7 +228,7 @@ CATALOGUE: list[Platform] = [
         "yelp",
         "Yelp",
         "au_directory",
-        (r"(?:m\.)?yelp\.com(?:\.au)?", r"^/biz/"),
+        (r"(?:m\.)?yelp\.com(?:\.au)?", r"^/biz/[^/?]+"),
         search_domain="yelp.com.au",
         by_model={**LOCAL, "service-area": "low"},
     ),
@@ -202,7 +236,7 @@ CATALOGUE: list[Platform] = [
         "hotfrog",
         "Hotfrog",
         "au_directory",
-        (r"hotfrog\.com\.au", r"^/."),
+        (r"hotfrog\.com\.au", r"^/company/[^/?]+"),
         search_domain="hotfrog.com.au",
         by_model={**LOCAL, "storefront": "low", "service-area": "low"},
     ),
@@ -210,7 +244,7 @@ CATALOGUE: list[Platform] = [
         "cylex",
         "Cylex",
         "au_directory",
-        (r"cylex\.com\.au|cylex-australia\.com", r"^/."),
+        (r"cylex\.com\.au|cylex-australia\.com", r"^/company/[^/?]+"),
         search_domain="cylex.com.au",
         by_model={**LOCAL, "storefront": "low", "service-area": "low"},
     ),
@@ -218,7 +252,7 @@ CATALOGUE: list[Platform] = [
         "whereis",
         "Whereis",
         "au_directory",
-        (r"whereis\.com", r"^/."),
+        (r"whereis\.com", r"^/(?:nsw|vic|qld|sa|wa|tas|nt|act)/[^/?]+/[^/?]+"),
         search_domain="whereis.com",
         by_model={**LOCAL, "storefront": "low", "service-area": "low"},
     ),
@@ -226,7 +260,7 @@ CATALOGUE: list[Platform] = [
         "word_of_mouth",
         "Word of Mouth",
         "au_directory",
-        (r"wordofmouth\.com\.au", r"^/."),
+        (r"wordofmouth\.com\.au", r"^/reviews/[^/?]+"),
         search_domain="wordofmouth.com.au",
         by_model={"*": "low"},
         industries=frozenset({"trades", "general", "beauty"}),
@@ -255,7 +289,7 @@ CATALOGUE: list[Platform] = [
         "opentable",
         "OpenTable",
         "industry",
-        (r"opentable\.com(?:\.au)?", r"^/."),
+        (r"opentable\.com(?:\.au)?", r"^/(?:r/[^/?]+|restaurant/profile/\d+)"),
         search_domain="opentable.com.au",
         industries=frozenset({"restaurant"}),
     ),
@@ -263,7 +297,7 @@ CATALOGUE: list[Platform] = [
         "uber_eats",
         "Uber Eats",
         "industry",
-        (r"ubereats\.com", r"/store/"),
+        (r"ubereats\.com", r"^/(?:[a-z]{2}/)?store/[^/?]+"),
         search_domain="ubereats.com",
         industries=frozenset({"restaurant"}),
     ),
@@ -271,7 +305,7 @@ CATALOGUE: list[Platform] = [
         "doordash",
         "DoorDash",
         "industry",
-        (r"doordash\.com", r"/store/"),
+        (r"doordash\.com", r"^/(?:[a-z]{2}(?:-[a-z]{2})?/)?store/[^/?]+"),
         search_domain="doordash.com",
         industries=frozenset({"restaurant"}),
     ),
@@ -279,7 +313,7 @@ CATALOGUE: list[Platform] = [
         "menulog",
         "Menulog",
         "industry",
-        (r"menulog\.com\.au", r"^/."),
+        (r"menulog\.com\.au", r"^/restaurants-[^/?]+"),
         search_domain="menulog.com.au",
         industries=frozenset({"restaurant"}),
     ),
@@ -288,7 +322,7 @@ CATALOGUE: list[Platform] = [
         "fresha",
         "Fresha",
         "industry",
-        (r"fresha\.com", r"^/."),
+        (r"fresha\.com", r"^/(?:[a-z]{2}/)?(?:a|lvp)/[^/?]+"),
         search_domain="fresha.com",
         by_model={"*": "high"},
         industries=frozenset({"beauty"}),
@@ -297,7 +331,7 @@ CATALOGUE: list[Platform] = [
         "booksy",
         "Booksy",
         "industry",
-        (r"booksy\.com", r"^/."),
+        (r"booksy\.com", r"^/[a-z]{2}-[a-z]{2}/\d+_[^/?]+"),
         search_domain="booksy.com",
         industries=frozenset({"beauty"}),
     ),
@@ -305,7 +339,7 @@ CATALOGUE: list[Platform] = [
         "timely",
         "Timely",
         "industry",
-        (r"(?:bookings\.)?gettimely\.com", r"^/."),
+        (r"bookings\.gettimely\.com", r"^/[\w-]+(?:/book)?/?(?:\?.*)?$"),
         search_domain="gettimely.com",
         industries=frozenset({"beauty"}),
     ),
@@ -314,7 +348,7 @@ CATALOGUE: list[Platform] = [
         "hipages",
         "hipages",
         "industry",
-        (r"hipages\.com\.au", r"^/."),
+        (r"hipages\.com\.au", r"^/connect/[^/?]+"),
         search_domain="hipages.com.au",
         by_model={"*": "high"},
         industries=frozenset({"trades"}),
@@ -323,7 +357,7 @@ CATALOGUE: list[Platform] = [
         "houzz",
         "Houzz",
         "industry",
-        (r"houzz\.com(?:\.au)?", r"^/."),
+        (r"houzz\.com(?:\.au)?", r"^/(?:professionals/[^/?]+/[^/?]+|pro/[^/?]+)"),
         search_domain="houzz.com.au",
         industries=frozenset({"trades"}),
     ),
@@ -331,7 +365,7 @@ CATALOGUE: list[Platform] = [
         "airtasker",
         "Airtasker",
         "industry",
-        (r"airtasker\.com", r"^/(?:au/)?users/"),
+        (r"airtasker\.com", r"^/(?:au/)?users/[^/?]+"),
         search_domain="airtasker.com",
         by_model={"*": "low"},
         industries=frozenset({"trades"}),
@@ -340,7 +374,7 @@ CATALOGUE: list[Platform] = [
         "serviceseeking",
         "ServiceSeeking",
         "industry",
-        (r"serviceseeking\.com\.au", r"^/."),
+        (r"serviceseeking\.com\.au", r"^/profile/[^/?]+"),
         search_domain="serviceseeking.com.au",
         by_model={"*": "low"},
         industries=frozenset({"trades"}),
@@ -350,7 +384,7 @@ CATALOGUE: list[Platform] = [
         "buy_nsw",
         "NSW buy.nsw Supplier Hub",
         "industry",
-        (r"buy\.nsw\.gov\.au", r"^/."),
+        (r"buy\.nsw\.gov\.au", r"^/supplier/(?:profile/)?[^/?]+"),
         search_domain="buy.nsw.gov.au",
         by_model={"*": "high"},
         industries=frozenset({"b2b_contractor"}),
@@ -360,7 +394,7 @@ CATALOGUE: list[Platform] = [
         "austender",
         "AusTender",
         "industry",
-        (r"tenders\.gov\.au", r"^/."),
+        (r"tenders\.gov\.au", r"^/Cn/Show/[\w-]+"),
         search_domain="tenders.gov.au",
         industries=frozenset({"b2b_contractor"}),
     ),
@@ -368,7 +402,7 @@ CATALOGUE: list[Platform] = [
         "icn_gateway",
         "ICN Gateway",
         "industry",
-        (r"gateway\.icn\.org\.au", r"^/."),
+        (r"gateway\.icn\.org\.au", r"^/company/[^/?]+"),
         search_domain="gateway.icn.org.au",
         industries=frozenset({"b2b_contractor"}),
     ),
@@ -385,7 +419,7 @@ def normalise_industry(value: str) -> str:
 
 
 def classify(url: str) -> str | None:
-    """Catalogue key for a recognised profile URL, or None."""
+    """Catalogue key for a recognised business-profile URL, or None (search/help/... pages)."""
     try:
         parts = urlsplit(str(url).strip())
         hostname = parts.hostname
@@ -394,9 +428,12 @@ def classify(url: str) -> str | None:
     if parts.scheme not in {"http", "https"}:
         return None
     host = (hostname or "").removeprefix("www.")
+    route = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+    if GENERIC_PAGE.match(parts.path or "/"):
+        return None
     for platform in CATALOGUE:
         for hosts, path in platform.patterns:
-            if re.fullmatch(hosts, host) and re.search(path, parts.path or "/"):
+            if re.fullmatch(hosts, host) and re.search(path, route):
                 return platform.key
     return None
 

@@ -1,3 +1,4 @@
+import re
 import time
 from decimal import Decimal
 from typing import Any
@@ -16,12 +17,39 @@ SERP_ENDPOINTS = {
     "organic": f"{API}/serp/google/organic/live/advanced",
     "maps": f"{API}/serp/google/maps/live/advanced",
 }
-# Conservative ceiling for one live SERP page (depth 10, no paid modifiers): about twice the
-# list price, so the pre-call check errs towards refusing. The provider's reported cost is
-# booked once known.
-SERP_ESTIMATE_USD = Decimal("0.004")
+# Per-call SERP cost estimates, checked against the REMAINING cap before every call.
+# Source: DataForSEO published pricing, checked 2026-10-23:
+# - https://dataforseo.com/pricing/serp/google-organic-serp-api: Live mode $0.002 per SERP of
+#   up to 10 organic results; "x5 base price per operator used" (site:, inurl:, intitle:, ...).
+# - https://dataforseo.com/pricing/serp/google-maps-serp-api: Live mode $0.002 per SERP of up to
+#   100 results; x5 when the keyword contains a search operator.
+# depth=10 is one billed SERP on both endpoints. Each estimate is the published price x1.5 for
+# headroom; a query with more than one operator is refused rather than estimated.
+# (endpoint, operators): (published live price, estimate booked before the call)
+SERP_PRICING: dict[tuple[str, int], tuple[Decimal, Decimal]] = {
+    ("organic", 0): (Decimal("0.002"), Decimal("0.003")),  # name and keyword queries
+    ("organic", 1): (Decimal("0.010"), Decimal("0.015")),  # site: profile queries
+    ("maps", 0): (Decimal("0.002"), Decimal("0.003")),  # Google Maps business search
+    ("maps", 1): (Decimal("0.010"), Decimal("0.015")),
+}
 SERP_DEPTH = 10
 MAX_SERP_CALLS = 12
+# Search operators as DataForSEO might bill them; quoted phrases count, to stay conservative.
+OPERATOR = re.compile(
+    r"\b(?i:site|inurl|allinurl|intitle|allintitle|intext|allintext|inanchor|filetype|ext"
+    r"|related|cache|define|before|after|source|location):|\"[^\"]*\"|\bOR\b|\bAND\b|\|"
+    r"|(?:^|\s)-\S|\bAROUND\("
+)
+
+
+def operators(keyword: str) -> int:
+    return len(OPERATOR.findall(keyword))
+
+
+def serp_estimate(kind: str, keyword: str) -> Decimal | None:
+    """Conservative pre-call estimate, or None when the query cannot be estimated safely."""
+    price = SERP_PRICING.get((kind, operators(keyword)))
+    return price[1] if price else None
 
 
 def cap(ctx: Context) -> Decimal | None:
@@ -120,23 +148,32 @@ def serp(ctx: Context, kind: str, keyword: str, deadline: float) -> dict[str, An
     """
     where = market(ctx)
     task = {"keyword": " ".join(keyword.split())[:700], **where, "depth": SERP_DEPTH}
-    out: dict[str, Any] = {"kind": kind, "query": task, "estimated_usd": str(SERP_ESTIMATE_USD)}
+    estimate = serp_estimate(kind, task["keyword"])
+    out: dict[str, Any] = {"kind": kind, "query": task, "estimated_usd": str(estimate or "")}
     limit = cap(ctx)
     remaining = (limit or Decimal(0)) - ctx.dataforseo_spent_usd
     if reason := serp_refusal(ctx):
         return out | {"status": "refused", "reason": reason}
-    if ctx.dataforseo_serp_calls >= MAX_SERP_CALLS:
-        return out | {"status": "refused", "reason": f"query cap of {MAX_SERP_CALLS} reached"}
-    if SERP_ESTIMATE_USD > remaining:
+    if estimate is None:
         return out | {
             "status": "refused",
-            "reason": f"estimated ${SERP_ESTIMATE_USD} exceeds the remaining cap "
+            "reason": f"{operators(task['keyword'])} search operators; cost cannot be estimated "
+            "safely",
+        }
+    if ctx.dataforseo_serp_calls >= MAX_SERP_CALLS:
+        return out | {"status": "refused", "reason": f"query cap of {MAX_SERP_CALLS} reached"}
+    if estimate > remaining:
+        return out | {
+            "status": "refused",
+            "reason": f"estimated ${estimate} exceeds the remaining cap "
             f"${max(remaining, Decimal(0))}",
         }
     left = deadline - time.monotonic()
     if left <= 1:
         return out | {"status": "refused", "reason": "discovery deadline reached"}
-    ctx.dataforseo_spent_usd += SERP_ESTIMATE_USD
+    # The full estimate is booked before the call and stays booked unless the provider reports
+    # the cost of a completed task: a timeout or unknown outcome may still have been charged.
+    ctx.dataforseo_spent_usd += estimate
     ctx.dataforseo_serp_calls += 1
     try:
         response = httpx.post(
@@ -150,14 +187,21 @@ def serp(ctx: Context, kind: str, keyword: str, deadline: float) -> dict[str, An
     except (httpx.HTTPError, ValueError) as exc:
         # Exception text can carry request details; only the type is kept.
         return out | {"status": "error", "reason": f"request failed ({type(exc).__name__})"}
-    cost = Decimal(str(data.get("cost", SERP_ESTIMATE_USD)))
-    ctx.dataforseo_spent_usd += cost - SERP_ESTIMATE_USD
-    out["cost_usd"] = str(cost)
-    if cost > SERP_ESTIMATE_USD:
-        # Charged above the estimate: the estimate cannot be trusted, so stop paid calls.
-        ctx.dataforseo_serp_calls = MAX_SERP_CALLS
+    try:
+        cost: Decimal | None = Decimal(str(data["cost"])) if "cost" in data else None
+    except (ArithmeticError, ValueError):
+        cost = None
     tasks = data.get("tasks") or []
-    if data.get("status_code") != 20000 or not tasks or tasks[0].get("status_code") != 20000:
+    done = data.get("status_code") == 20000 and tasks and tasks[0].get("status_code") == 20000
+    if cost is not None and cost.is_finite() and cost >= 0:
+        out["cost_usd"] = str(cost)
+        # A reported cost replaces the reservation only for a completed task, and only upwards
+        # otherwise.
+        ctx.dataforseo_spent_usd += (cost if done else max(cost, estimate)) - estimate
+        if cost > estimate:
+            # Charged above the estimate: the estimates cannot be trusted, so stop paid calls.
+            ctx.dataforseo_serp_calls = MAX_SERP_CALLS
+    if not done:
         return out | {"status": "error", "reason": "DataForSEO task did not complete"}
     first = (tasks[0].get("result") or [{}])[0] or {}
     items = [i for i in first.get("items") or [] if isinstance(i, dict)]

@@ -26,7 +26,7 @@ from ams_assess.platforms import (
     classify,
     prioritised,
 )
-from ams_assess.profile import STATES, phone_key
+from ams_assess.profile import PRIORITY_KEY, STATES, phone_key, priority_detail
 
 FOUND_LIKELY = STATES["found_likely"]
 FOUND_VERIFY = STATES["found_needs_verification"]
@@ -36,8 +36,9 @@ NOT_APPLICABLE = STATES["not_applicable"]
 NOT_ASSESSED = STATES["not_assessed"]
 DEADLINE_SECONDS = 120
 MAX_KEYWORDS = 5
-# Explainable score: full name 3, partial name 1, phone 3, website domain 2, suburb/postcode 1,
-# name in the profile URL 1. A candidate needs the name or the phone; "likely" needs 5+.
+# Explainable score: name in the title/snippet 3 (or only in the profile URL slug 2; never both),
+# partial name 1, phone 3, website domain 2, suburb/postcode not part of the name 2. A candidate
+# needs the name or the phone; "likely" needs 5+ including independent corroboration.
 LIKELY_SCORE, CANDIDATE_SCORE = 5, 2
 LEGAL = {"pty", "ltd", "limited", "the", "co", "inc", "pl"}
 PHONE = re.compile(r"(?:\+?61|\b0)[\d ()-]{7,14}\d")
@@ -149,14 +150,26 @@ def identity(ctx: Context, site: dict[str, Any]) -> dict[str, Any]:
 
 
 def score(who: dict[str, Any], text: str, url: str, phones: list[str], domain: str = "") -> dict:
-    """Simple explainable match score of one search result against the business identity."""
+    """Simple explainable match score of one search result against the business identity.
+
+    The title/snippet and the profile URL slug are one piece of name evidence, never two. A
+    suburb or postcode counts only when it is not part of the business name. "Likely" needs the
+    name (or phone) plus independent corroboration: phone, website domain or suburb/postcode.
+    """
     folded = f" {norm(text)} "
-    points, matched, named, partial = 0, [], False, False
+    points, matched, corroborated = 0, [], []
     phrases = [p for p in (name_phrase(n) for n in who["names"]) if p]
+    name_tokens = {t for p in phrases for t in p.split()}
     full = next((p for p in phrases if f" {p} " in folded), None)
+    slug = re.sub(r"[^a-z0-9]", "", urlsplit(url).path.lower())
+    slugged = any(len(s) >= 6 and s in slug for s in (p.replace(" ", "") for p in phrases))
+    named = partial = False
     if full:
         points, named = 3, True
-        matched.append(f"name: {full}")
+        matched.append(f"name: {full}" + (" (also in profile URL)" if slugged else ""))
+    elif slugged:
+        points, named = 2, True
+        matched.append("name in profile URL")
     else:
         for phrase in phrases:
             tokens = [t for t in phrase.split() if len(t) > 2]
@@ -169,36 +182,53 @@ def score(who: dict[str, Any], text: str, url: str, phones: list[str], domain: s
     seen = {p for p in seen if len(p) >= 8}
     if same := sorted(seen & who["phones"].keys()):
         points += 3
-        named = True
+        corroborated.append("phone")
         matched.append(f"phone: {who['phones'][same[0]]}")
     if domain and host_of(domain) in who["domains"]:
         points += 2
+        corroborated.append("website")
         matched.append(f"website: {host_of(domain)}")
+    rest = folded
+    for phrase in phrases:
+        rest = rest.replace(f" {phrase} ", "  ")
     place = next(
-        (p for p in [*who["localities"], *who["postcodes"]] if f" {norm(p)} " in folded), None
+        (
+            p
+            for p in [*who["localities"], *who["postcodes"]]
+            if norm(p) and not set(norm(p).split()) <= name_tokens and f" {norm(p)} " in rest
+        ),
+        None,
     )
     if place:
-        points += 1
+        points += 2
+        corroborated.append("suburb/postcode")
         matched.append(f"suburb/postcode: {place}")
-    slug = re.sub(r"[^a-z0-9]", "", urlsplit(url).path.lower())
-    if any(len(s) >= 6 and s in slug for s in (p.replace(" ", "") for p in phrases)):
-        points += 1
-        matched.append("name in profile URL")
-    identified = named or partial
-    state = (
-        FOUND_LIKELY
-        if points >= LIKELY_SCORE and named
-        else FOUND_VERIFY
-        if points >= CANDIDATE_SCORE and identified
-        else ""
-    )
+    likely = points >= LIKELY_SCORE and ((named and corroborated) or len(corroborated) >= 2)
+    candidate = points >= CANDIDATE_SCORE and (named or partial or "phone" in corroborated)
     return {
         "score": points,
         "matched": matched,
-        "state": state,
+        "state": FOUND_LIKELY if likely else FOUND_VERIFY if candidate else "",
         "observed_phones": sorted(seen),
         "observed_postcodes": sorted(set(POSTCODE.findall(text))),
     }
+
+
+def ranked(kind: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Result items of the queried type in reported rank order, within the requested depth.
+
+    Mixed SERP features (ads, People also ask, maps packs) are dropped BEFORE the depth limit,
+    so they never push an organic result out of the sample; reported ranks are kept as is.
+    """
+    wanted = {"maps": {"maps_search"}, "organic": {"organic"}}[kind]
+    typed = [i for i in items if i.get("type", next(iter(wanted))) in wanted]
+
+    def rank(pair: tuple[int, dict[str, Any]]) -> int:
+        value = pair[1].get("rank_group")
+        return value if isinstance(value, int) and value > 0 else pair[0] + 1
+
+    ordered = sorted(enumerate(typed), key=rank)
+    return [item for index, item in ordered if rank((index, item)) <= dataforseo.SERP_DEPTH]
 
 
 def trim(kind: str, item: dict[str, Any]) -> dict[str, Any]:
@@ -213,41 +243,63 @@ def trim(kind: str, item: dict[str, Any]) -> dict[str, Any]:
 def plan_queries(
     ctx: Context, who: dict[str, Any], rows: list[tuple[Platform, str | None]]
 ) -> list[dict[str, Any]]:
+    """Queries in relevance order, so the most relevant platforms are searched first.
+
+    Order: high-relevance platforms (with the Maps and name searches), then the requested
+    keywords, then medium and low platforms. Queries avoid quotes so a profile search carries
+    exactly one billed operator (site:); every call is still estimated and capped individually.
+    """
     name, place = search_name(who["name"]), (who["localities"] or [""])[0]
-    plan: list[dict[str, Any]] = []
+    if not name:
+        return []
+    order = {level: float(i) for i, level in enumerate(LEVELS)}
     level = dict((p.key, lvl) for p, lvl in rows)
-    if name and level.get("google_business_profile") != NA:
+    plan: list[dict[str, Any]] = []
+    gbp = level.get("google_business_profile")
+    if gbp is not None and gbp in LEVELS:
         plan.append(
             {
                 "kind": "maps",
                 "purpose": "Google Maps business search",
                 "keyword": f"{name} {place}".strip(),
                 "platforms": ["google_business_profile"],
+                "rank": order[gbp],
             }
         )
-    if name:
-        plan.append(
-            {
-                "kind": "organic",
-                "purpose": "Business name search",
-                "keyword": f'"{name}" {place}'.strip(),
-                "platforms": [],
-            }
-        )
-    for keyword in ctx.keywords[:MAX_KEYWORDS]:
-        plan.append(
-            {"kind": "organic", "purpose": "Keyword position", "keyword": keyword, "platforms": []}
-        )
+    plan.append(
+        {
+            "kind": "organic",
+            "purpose": "Business name search",
+            "keyword": f"{name} {place}".strip(),
+            "platforms": [],
+            "rank": 0.0,
+        }
+    )
     for platform, lvl in rows:
-        if name and lvl in LEVELS and platform.search_domain:
+        if lvl in LEVELS and platform.search_domain:
             plan.append(
                 {
                     "kind": "organic",
                     "purpose": f"{platform.label} profile search",
-                    "keyword": f'site:{platform.search_domain} "{name}"',
+                    "keyword": f"site:{platform.search_domain} {name}",
                     "platforms": [platform.key],
+                    "rank": order[lvl],
                 }
             )
+    for keyword in ctx.keywords[:MAX_KEYWORDS]:
+        plan.append(
+            {
+                "kind": "organic",
+                "purpose": "Keyword position",
+                "keyword": keyword,
+                "platforms": [],
+                "rank": 0.5,
+            }
+        )
+    plan.sort(key=lambda q: q["rank"])
+    for query in plan:
+        estimate = dataforseo.serp_estimate(query["kind"], query["keyword"])
+        query["estimated_usd"] = str(estimate) if estimate is not None else ""
     return plan
 
 
@@ -261,6 +313,13 @@ def manual_query(platform: Platform, who: dict[str, Any]) -> tuple[str, str]:
         query = f"{name} {place}".strip()
     template = platform.manual_url or GOOGLE_SEARCH
     return query, template.format(q=quote_plus(query))
+
+
+def pricing_table() -> list[dict[str, str]]:
+    return [
+        {"endpoint": kind, "operators": str(ops), "published_usd": str(p), "estimate_usd": str(e)}
+        for (kind, ops), (p, e) in dataforseo.SERP_PRICING.items()
+    ]
 
 
 def own(ids: list[str]) -> list[str]:
@@ -334,6 +393,7 @@ def discover(
                 link["source_evidence_id"],
             )
 
+    ledger = ""
     for query in plan:
         outcome = dataforseo.serp(ctx, query["kind"], query["keyword"], deadline)
         query.update(
@@ -341,9 +401,22 @@ def discover(
             reason=outcome.get("reason", ""),
             cost_usd=outcome.get("cost_usd", ""),
         )
+        # Rewritten after every call, so the spend survives any later failure in the module.
+        ledger = ctx.raw(
+            "presence-dataforseo-ledger",
+            {
+                "cap_usd": str(ctx.dataforseo_max_usd),
+                "spent_usd_run_total": str(ctx.dataforseo_spent_usd),
+                "serp_calls": ctx.dataforseo_serp_calls,
+                "estimates_usd": pricing_table(),
+                "queries": plan,
+            },
+        )
+        if ledger not in result.raw_paths:
+            result.raw_paths.append(ledger)
         if outcome["status"] != "ok":
             continue
-        items = outcome["items"][:10]
+        items = ranked(query["kind"], outcome["items"])
         eid = result.add_evidence(
             outcome.get("check_url") or f"dataforseo:google-{query['kind']}",
             f"DataForSEO Google {query['kind']} SERP: {query['keyword'][:120]}",
@@ -363,8 +436,7 @@ def discover(
                 (
                     i
                     for i in items
-                    if i.get("type") == "organic"
-                    and any(
+                    if any(
                         host_of(str(i.get("url", ""))) == d
                         or host_of(str(i.get("url", ""))).endswith("." + d)
                         for d in who["domains"]
@@ -373,7 +445,14 @@ def discover(
                 None,
             )
             positions[query["keyword"]] = {
-                "position": hit.get("rank_group") if hit else None,
+                "position": (
+                    hit["rank_group"]
+                    if isinstance(hit.get("rank_group"), int)
+                    else items.index(hit) + 1
+                )
+                if hit
+                else None,
+                "rank_absolute": hit.get("rank_absolute") if hit else None,
                 "url": str(hit.get("url", "")) if hit else "",
                 "evidence_id": eid,
             }
@@ -391,7 +470,7 @@ def discover(
                 found["snippet"] = str(item.get("address") or "")[:300]
             else:
                 url = str(item.get("url") or "")
-                key = classify(url) if item.get("type", "organic") == "organic" else None
+                key = classify(url)
                 if key is None:
                     continue
                 text = f"{item.get('title', '')} {item.get('description', '')}"
@@ -456,7 +535,7 @@ def discover(
                 "spent_usd_run_total": str(ctx.dataforseo_spent_usd),
                 "serp_calls": ctx.dataforseo_serp_calls,
                 "max_serp_calls": dataforseo.MAX_SERP_CALLS,
-                "estimate_per_call_usd": str(dataforseo.SERP_ESTIMATE_USD),
+                "estimates_usd": pricing_table(),
                 **dataforseo.market(ctx),
             },
             "relevance": {p.key: lvl for p, lvl in rows},
@@ -560,7 +639,8 @@ def discover(
         query = next((q for q in plan if q["keyword"] == keyword), None)
         if hit:
             state = (
-                f"Position {hit['position']}"
+                f"Organic position {hit['position']}"
+                + (f" (absolute rank {hit['rank_absolute']})" if hit["rank_absolute"] else "")
                 if hit["position"]
                 else f"Not in the top {dataforseo.SERP_DEPTH} results sampled"
             )
@@ -593,7 +673,18 @@ def discover(
         "nap": nap,
         "keywords": keyword_rows,
         "queries": [
-            {k: q.get(k, "") for k in ("purpose", "keyword", "status", "reason", "evidence_id")}
+            {
+                k: q.get(k, "")
+                for k in (
+                    "purpose",
+                    "keyword",
+                    "status",
+                    "reason",
+                    "estimated_usd",
+                    "cost_usd",
+                    "evidence_id",
+                )
+            }
             for q in plan
         ],
         "budget": {
@@ -616,22 +707,17 @@ def add_findings(
     plan_eid: str,
     profile_eid: str,
 ) -> None:
+    """Deterministic findings; per-platform ones are keyed platform:<kind>:<platform key> so a
+    later manual verification of that platform can retire them from current recommendations."""
     rows = tables["platforms"]
-    pending = [
-        r for r in rows if r["relevance"] in {"high", "medium"} and r["state"] != FOUND_LIKELY
-    ]
-    if pending:
-        context = f"industry {who['industry_label']}, buying model {who['buying_model_label']}"
+    detail = priority_detail(tables)
+    if detail:
         result.finding(
-            "platform:priority-verification",
+            PRIORITY_KEY,
             "Priority platforms still need presence verification",
             "presence",
             [plan_eid] + ([profile_eid] if profile_eid else []),
-            f"In priority order for {context}: "
-            + "; ".join(f"{r['platform']} ({r['relevance']}): {r['state']}" for r in pending)
-            + f". Independent search: {tables['status']}"
-            + (f" ({tables['reason']})" if tables["reason"] else "")
-            + ".",
+            detail,
             "Work through the manual verification tasks in priority order and record the "
             "results with ams-assess presence-verify. Create or correct only profiles the "
             "business genuinely operates.",
@@ -640,60 +726,56 @@ def add_findings(
             confidence="needs_verification",
             ams_service="Local SEO",
         )
-    differs = [n for n in tables["nap"] if n["result"] == "differs"]
-    if differs:
-        result.finding(
-            "platform:external-nap-inconsistent",
-            "Business details differ on external profiles found in search",
-            "presence",
-            sorted({e for n in differs for e in n["evidence_ids"]}),
-            "; ".join(
-                f"{n['platform']} candidate {n['url']}: {n['field']} {n['observed']} "
-                f"(business: {', '.join(n['reference'])})"
-                for n in differs
+    for row in rows:
+        key, label = row["key"], row["platform"]
+        differs = [n for n in tables["nap"] if n["key"] == key and n["result"] == "differs"]
+        if differs:
+            result.finding(
+                f"platform:external-nap-inconsistent:{key}",
+                f"Business details differ on a {label} profile found in search",
+                "presence",
+                sorted({e for n in differs for e in n["evidence_ids"]}),
+                "; ".join(
+                    f"Candidate {n['url']}: {n['field']} {n['observed']} "
+                    f"(business: {', '.join(n['reference'])})"
+                    for n in differs
+                )
+                + ". The candidate may be a different business with a similar name.",
+                "Confirm the candidate belongs to the business, then correct its name, address "
+                "and phone to match the website.",
+                confidence="needs_verification",
+                ams_service="Local SEO",
             )
-            + ". The candidate may be a different business with a similar name.",
-            "Confirm each candidate belongs to the business, then correct its name, address "
-            "and phone to match the website.",
-            confidence="needs_verification",
-            ams_service="Local SEO",
-        )
-    duplicates = [r for r in rows if r["duplicates"]]
-    if duplicates:
-        result.finding(
-            "platform:possible-duplicates",
-            "Several candidate profiles on one platform",
-            "presence",
-            sorted({e for r in duplicates for e in r["evidence_ids"]}),
-            "; ".join(
-                f"{r['platform']}: " + ", ".join(c["url"] for c in r["candidates"])
-                for r in duplicates
+        if row["duplicates"]:
+            result.finding(
+                f"platform:possible-duplicates:{key}",
+                f"Several candidate profiles on {label}",
+                "presence",
+                row["evidence_ids"],
+                ", ".join(c["url"] for c in row["candidates"]) + ".",
+                "Confirm which profile the business operates; merge or close genuine duplicates "
+                "through the platform's own process.",
+                severity="low",
+                confidence="needs_verification",
+                ams_service="Local SEO",
             )
-            + ".",
-            "Confirm which profile the business operates; merge or close genuine duplicates "
-            "through each platform's own process.",
-            severity="low",
-            confidence="needs_verification",
-            ams_service="Local SEO",
-        )
-    unlinked = [
-        (r, c)
-        for r in rows
-        for c in r["candidates"]
-        if c["state"] == FOUND_LIKELY
-        and not any(not s.startswith("search: ") for s in c["sources"])
-    ]
-    if unlinked:
-        result.finding(
-            "platform:profiles-not-linked",
-            "Likely profiles found in search but not linked from the website",
-            "presence",
-            sorted({e for r, _ in unlinked for e in r["evidence_ids"]}),
-            "; ".join(f"{r['platform']}: {c['url']}" for r, c in unlinked) + ".",
-            "If the business operates these profiles, link them from the website and add "
-            "them to the business JSON-LD sameAs.",
-            severity="low",
-            kind="opportunity",
-            confidence="needs_verification",
-            ams_service="Local SEO",
-        )
+        unlinked = [
+            c["url"]
+            for c in row["candidates"]
+            if c["state"] == FOUND_LIKELY
+            and not any(not s.startswith("search: ") for s in c["sources"])
+        ]
+        if unlinked:
+            result.finding(
+                f"platform:profiles-not-linked:{key}",
+                f"Likely {label} profile found in search but not linked from the website",
+                "presence",
+                row["evidence_ids"],
+                ", ".join(unlinked) + ".",
+                "If the business operates this profile, link it from the website and add it to "
+                "the business JSON-LD sameAs.",
+                severity="low",
+                kind="opportunity",
+                confidence="needs_verification",
+                ams_service="Local SEO",
+            )

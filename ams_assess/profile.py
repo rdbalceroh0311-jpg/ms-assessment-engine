@@ -27,6 +27,7 @@ STATES = {
     "not_applicable": "Not applicable",
     "not_assessed": "Not assessed",
 }
+PRIORITY_KEY = "platform:priority-verification"
 # A person can record any observed state except "not assessed", which is the absence of one.
 MANUAL_STATES = {k: v for k, v in STATES.items() if k != "not_assessed"}
 ABN_WEIGHTS = (10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19)
@@ -209,18 +210,46 @@ def load_verifications(path: Path) -> list[Verification]:
     return records
 
 
+def priority_detail(discovery: dict[str, Any]) -> str:
+    """Priority-ordered high/medium platforms not yet a likely match ('' when none remain).
+
+    Manually verified platforms are settled, so they never appear here.
+    """
+    pending = [
+        r
+        for r in discovery["platforms"]
+        if r["relevance"] in {"high", "medium"}
+        and r["state"] != STATES["found_likely"]
+        and not r.get("manual")
+    ]
+    if not pending:
+        return ""
+    who = discovery["identity"]
+    return (
+        f"In priority order for industry {who['industry_label']}, buying model "
+        f"{who['buying_model_label']}: "
+        + "; ".join(f"{r['platform']} ({r['relevance']}): {r['state']}" for r in pending)
+        + f". Independent search: {discovery['status']}"
+        + (f" ({discovery['reason']})" if discovery["reason"] else "")
+        + "."
+    )
+
+
 def apply_verifications(
     presence: dict[str, Any], verifications: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
     """Overlay current manual verifications on the automated discovery table (copy).
 
-    The automated state is kept beside the manual one; nothing automated is deleted.
+    For a verified platform the automated state, detail and candidates are kept beside the
+    manual record (as automated_*), while its automated manual tasks and NAP rows leave the
+    current tables. Stored evidence is untouched.
     """
     discovery = presence.get("discovery")
     if not discovery or not verifications:
         return presence
     presence = copy.deepcopy(presence)
-    rows = presence["discovery"]["platforms"]
+    discovery = presence["discovery"]
+    rows = discovery["platforms"]
     by_key: dict[str, dict[str, Any]] = {row["key"]: row for row in rows}
     for key, entry in verifications.items():
         row: dict[str, Any] | None = by_key.get(key)
@@ -239,10 +268,46 @@ def apply_verifications(
             }
             rows.append(row)
         row["automated_state"] = row["state"]
+        row["automated_detail"] = row["detail"]
+        row["automated_candidates"] = row["candidates"]
         row["state"] = entry["state"]
+        row["detail"] = "Automated result superseded by a manual verification"
+        url = entry["profile_url"]
+        row["candidates"] = (
+            [{"url": url, "matched": ["manual verification"], "score": None}] if url else []
+        )
+        row["duplicates"] = False
         row["manual"] = {
             k: entry[k]
             for k in ("verified_by", "date", "note", "profile_url", "observed_nap", "evidence_id")
         }
         row["evidence_ids"] = [*row["evidence_ids"], entry["evidence_id"]]
+    discovery["manual_tasks"] = [
+        t for t in discovery["manual_tasks"] if t["key"] not in verifications
+    ]
+    discovery["nap"] = [n for n in discovery["nap"] if n["key"] not in verifications]
     return presence
+
+
+def current_findings(
+    findings: list[dict[str, Any]], presence: dict[str, Any], verifications: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Findings for current recommendations once manual verifications apply.
+
+    Per-platform discovery findings (platform:<kind>:<key>) of a verified platform are retired
+    and the priority finding is recomputed from the overlaid table (retired when nothing is
+    pending). The store keeps every finding and all evidence unchanged.
+    """
+    current = []
+    for finding in findings:
+        key = finding.get("check_key", "")
+        parts = key.split(":")
+        if parts[0] == "platform" and len(parts) == 3 and parts[2] in verifications:
+            continue
+        if key == PRIORITY_KEY and presence.get("discovery"):
+            detail = priority_detail(presence["discovery"])
+            if not detail:
+                continue
+            finding = {**finding, "detail": detail}
+        current.append(finding)
+    return current
