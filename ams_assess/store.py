@@ -36,10 +36,15 @@ def now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+# Statement detail that can change between ingestions; entries stored before a field existed
+# lack it, which compares equal to the empty default.
+DETAIL_FIELDS = ("frequency", "impact", "staff_time", "errors_rework", "cost", "workaround")
+
+
 def identity(fields: dict[str, Any]) -> tuple[str, str, tuple[str, ...]]:
     """What makes a statement the same one across ingestions: its text and who/what it concerns.
 
-    Frequency and impact are detail that can change (a new version supersedes the old evidence);
+    DETAIL_FIELDS are detail that can change (a new version supersedes the old evidence);
     owner and systems are context, so the same words in another context are a distinct statement.
     """
     return (
@@ -50,13 +55,10 @@ def identity(fields: dict[str, Any]) -> tuple[str, str, tuple[str, ...]]:
 
 
 def same(entry: dict[str, Any], fields: dict[str, Any]) -> bool:
-    """Whether a stored entry already says exactly this (identity plus frequency and impact)."""
+    """Whether a stored entry already says exactly this (identity plus every detail field)."""
 
-    def detail(f: dict[str, Any]) -> tuple[str, str]:
-        return (
-            " ".join(f.get("frequency", "").lower().split()),
-            " ".join(f.get("impact", "").lower().split()),
-        )
+    def detail(f: dict[str, Any]) -> tuple[str, ...]:
+        return tuple(" ".join(f.get(k, "").lower().split()) for k in DETAIL_FIELDS)
 
     return identity(entry) == identity(fields) and detail(entry) == detail(fields)
 
@@ -327,7 +329,8 @@ def add_discovery(
             if kind == "supersede" and not fields["ref"]:
                 # Unreferenced re-ingest only adds detail; omitted fields keep their value.
                 fields = {
-                    k: v if k == "statement" else (v or snapshot[j][k]) for k, v in fields.items()
+                    k: v if k == "statement" else (v or snapshot[j].get(k, v))
+                    for k, v in fields.items()
                 }
                 if same(snapshot[j], fields):
                     kind = "reuse"

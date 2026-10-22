@@ -221,7 +221,7 @@ Digital presence was not in the selected scope.
 ### {{ section.title | text }}
 
 {% for s in section.statements %}
-- {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
+- {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %}{% if s.get('staff_time') %} Staff time: {{ s.staff_time | text }}.{% endif %}{% if s.get('errors_rework') %} Errors/rework: {{ s.errors_rework | text }}.{% endif %}{% if s.get('cost') %} Cost (as stated): {{ s.cost | text }}.{% endif %}{% if s.get('workaround') %} Current workaround: {{ s.workaround | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
 {% endfor %}
 
 {% endfor %}

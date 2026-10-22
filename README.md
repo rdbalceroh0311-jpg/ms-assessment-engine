@@ -67,15 +67,20 @@ uv run ams-assess report --customer acme                                   # rep
 }
 ```
 
-Sections: `enquiries_communication`, `sales_quoting`, `bookings_scheduling`, `systems_in_use`,
-`manual_duplicated_tasks`, `existing_automations`, `pain_points_bottlenecks`; statements are strings
-or objects with optional `frequency`, `systems`, `owner`, `impact`, `ref`. A finding must cite statements
+Sections: `business_overview`, `enquiries_communication`, `sales_quoting`, `bookings_scheduling`,
+`systems_in_use`, `manual_duplicated_tasks`, `existing_automations`, `pain_points_bottlenecks`,
+`data_integrations`, `opportunities_constraints`; statements are strings or objects with optional
+`frequency`, `systems`, `owner`, `impact`, `staff_time`, `errors_rework`, `cost` (as stated),
+`workaround`, `ref` (all customer statements until independently verified; shown only when given).
+Interview guide: [`examples/discovery/discovery-template.md`](examples/discovery/discovery-template.md)
+(questions mapped to section keys); a synthetic notes file is in
+[`examples/discovery/notes.example.json`](examples/discovery/notes.example.json). A finding must cite statements
 (`section` or `section:N`, 0-based) and its `ams_service` is one of AI & Automation, Business
 Systems, Digital Growth, Managed IT & Technology. Invalid notes exit 2 and write nothing. Discovery is
 not a crawler module and is never sent to AI.
 
 **Re-ingesting discovery notes.** A statement is identified by its text plus `owner` and `systems`
-(context); `frequency` and `impact` are detail. Order in the notes never matters and submitting a
+(context); `frequency`, `impact`, `staff_time`, `errors_rework`, `cost` and `workaround` are detail. Order in the notes never matters and submitting a
 subset is safe. An identical statement is reused (no new evidence). A changed version supersedes
 the stored one only when unambiguous (one new version, one stored candidate): it gets a new
 evidence ID that records `supersedes`, while the old evidence stays intact for findings that cite it.

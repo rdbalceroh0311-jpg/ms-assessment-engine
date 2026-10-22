@@ -9,7 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from ams_assess.models import AMS_SERVICES
 
+# Keys are stable: add new sections, never rename or remove one (stored notes reference them).
 DISCOVERY_SECTIONS = {
+    "business_overview": "Business model, services, customers & priorities",
     "enquiries_communication": "Enquiries & communication",
     "sales_quoting": "Sales & quoting",
     "bookings_scheduling": "Bookings & scheduling",
@@ -17,6 +19,8 @@ DISCOVERY_SECTIONS = {
     "manual_duplicated_tasks": "Manual & duplicated tasks",
     "existing_automations": "Existing automations",
     "pain_points_bottlenecks": "Pain points & bottlenecks",
+    "data_integrations": "Data duplication, integrations & disconnected systems",
+    "opportunities_constraints": "Opportunities, constraints & required human approvals",
 }
 MAX_NOTES_BYTES = 1_000_000
 MAX_STATEMENTS = 200
@@ -30,6 +34,11 @@ class Statement(BaseModel):
     systems: list[str] = Field(default_factory=list, max_length=30)
     owner: str = Field(default="", max_length=200)
     impact: str = Field(default="", max_length=500)
+    # As stated by the customer (e.g. "~5 h/week", "£200/month"); never independently verified.
+    staff_time: str = Field(default="", max_length=200)
+    errors_rework: str = Field(default="", max_length=500)
+    cost: str = Field(default="", max_length=200)
+    workaround: str = Field(default="", max_length=500)
     # Optional stable reference: re-ingesting the same ref explicitly updates that statement.
     ref: str = Field(default="", pattern=r"^[a-z0-9][a-z0-9_-]{0,49}$|^$")
 
