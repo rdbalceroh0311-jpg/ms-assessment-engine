@@ -19,7 +19,7 @@ from ams_assess.presence_discovery import (
     identity,
     score,
 )
-from ams_assess.profile import load_verifications
+from ams_assess.profile import Verification, load_verifications
 from ams_assess.report import render_customer
 
 CREDENTIALS = {"DATAFORSEO_LOGIN": "synthetic", "DATAFORSEO_PASSWORD": "synthetic"}
@@ -815,3 +815,16 @@ def test_manual_verification_retires_obsolete_tasks_and_findings(home, tmp_path,
     assert {e["id"] for e in before["evidence"]} <= {e.id for e in evidence}
     render_customer(home, "acme", {"md"})
     assert "Several candidate profiles on hipages" not in (home / "acme/report.md").read_text()
+
+
+def test_profile_and_verification_writes_use_the_customer_lock(home, tmp_path, monkeypatch):
+    monkeypatch.setattr(store, "LOCK_TIMEOUT", 0.1)
+    records = [Verification.model_validate(verification())]
+    with store.locked(home, "acme"):
+        with pytest.raises(ValueError, match="busy"):
+            store.set_profile(home, "acme", {"name": "Acme Painting"})
+        with pytest.raises(ValueError, match="busy"):
+            store.add_presence_verifications(home, "acme", records)
+    assert store.load(home, "acme") is None
+    assert store.set_profile(home, "acme", {"name": "Acme Painting"})[2]
+    assert store.add_presence_verifications(home, "acme", records)["new"] == 1

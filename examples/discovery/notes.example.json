@@ -1,0 +1,169 @@
+{
+  "sections": {
+    "business_overview": [
+      {
+        "statement": "Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits",
+        "owner": "Owner"
+      },
+      {
+        "statement": "Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs",
+        "owner": "Owner"
+      }
+    ],
+    "systems_in_use": [
+      {
+        "statement": "Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar",
+        "systems": ["Spreadsheet", "Xero", "Google Calendar"]
+      },
+      {
+        "statement": "Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox",
+        "systems": ["Landline", "Gmail"]
+      }
+    ],
+    "enquiries_communication": [
+      {
+        "statement": "Calls during jobs or after 5pm go to voicemail and some are never returned",
+        "frequency": "several times a week",
+        "owner": "Office manager",
+        "systems": ["Landline"],
+        "staff_time": "about 1 hour a day listening to and returning voicemails",
+        "workaround": "Engineers sometimes take calls on their own mobiles",
+        "impact": "Customer believes some new jobs go to competitors"
+      },
+      {
+        "statement": "Website form enquiries arrive in the shared inbox and can wait a day for a reply",
+        "frequency": "daily",
+        "systems": ["Gmail"],
+        "errors_rework": "Occasionally two people reply to the same enquiry"
+      }
+    ],
+    "sales_quoting": [
+      {
+        "statement": "Quotes for refits are typed up in a word processor from the engineer's site notes",
+        "frequency": "8-10 quotes a week",
+        "owner": "Office manager",
+        "staff_time": "about 45 minutes per quote",
+        "errors_rework": "Prices sometimes copied from an out-of-date price list",
+        "workaround": "Owner re-checks large quotes before they are sent"
+      },
+      {
+        "statement": "Nobody follows up quotes that get no response",
+        "impact": "Customer does not know how many quotes are lost this way"
+      }
+    ],
+    "bookings_scheduling": [
+      {
+        "statement": "Engineers' diaries are juggled by phone when an emergency job comes in",
+        "frequency": "most days",
+        "owner": "Office manager",
+        "systems": ["Google Calendar"],
+        "staff_time": "1-2 hours a day",
+        "errors_rework": "Double bookings happen about twice a month",
+        "workaround": "A paper whiteboard in the office mirrors the calendar"
+      }
+    ],
+    "manual_duplicated_tasks": [
+      {
+        "statement": "Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices",
+        "frequency": "weekly, on Fridays",
+        "owner": "Office manager",
+        "systems": ["Spreadsheet", "Xero"],
+        "staff_time": "about 4 hours a week",
+        "errors_rework": "Missed or duplicated invoices found at month end"
+      },
+      {
+        "statement": "Annual service reminders are sent by hand from a list",
+        "frequency": "monthly",
+        "staff_time": "half a day a month"
+      }
+    ],
+    "data_integrations": [
+      {
+        "statement": "Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree",
+        "systems": ["Spreadsheet", "Xero"],
+        "errors_rework": "Invoices sent to old addresses a few times a quarter",
+        "cost": "Owner estimates one or two unpaid invoices a quarter, around 300 GBP each"
+      }
+    ],
+    "pain_points_bottlenecks": [
+      {
+        "statement": "Month-end invoicing is the biggest bottleneck and delays cash coming in",
+        "frequency": "monthly",
+        "owner": "Owner",
+        "impact": "Payment typically arrives 3-4 weeks after the job"
+      },
+      {
+        "statement": "The office laptop holding the job spreadsheet has no backup",
+        "workaround": "Owner occasionally copies it to a USB stick"
+      }
+    ],
+    "existing_automations": [
+      {
+        "statement": "Xero sends automatic payment reminders; nothing else is automated and no AI tools are used",
+        "systems": ["Xero"]
+      }
+    ],
+    "opportunities_constraints": [
+      {
+        "statement": "Owner would most like enquiries and bookings to run without the office chasing them",
+        "owner": "Owner"
+      },
+      {
+        "statement": "Quotes and any message about price must be approved by the owner before sending",
+        "owner": "Owner"
+      },
+      {
+        "statement": "Budget is limited this year and the team wants to keep Xero",
+        "systems": ["Xero"],
+        "cost": "Owner mentioned up to 150 GBP a month for new software"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "title": "Missed calls and slow enquiry replies",
+      "kind": "problem",
+      "severity": "high",
+      "detail": "The customer states that out-of-hours and on-job calls go to voicemail and some are never returned, and form enquiries can wait a day.",
+      "recommendation": "Map the enquiry journey, then trial call capture with a missed-call text-back and a shared enquiry queue; keep pricing replies for human approval.",
+      "ams_service": "AI & Automation",
+      "cites": ["enquiries_communication", "opportunities_constraints:1"],
+      "likely_cause": "No cover for calls while the office is busy or closed",
+      "business_impact": "Customer believes some new work goes to competitors (not measured)"
+    },
+    {
+      "title": "Job, scheduling and invoicing data live in disconnected tools",
+      "kind": "opportunity",
+      "severity": "medium",
+      "detail": "Jobs are tracked in a spreadsheet and re-keyed into Xero, customer details disagree between systems, and diaries are juggled by phone.",
+      "recommendation": "Assess a job-management system that integrates with Xero, within the stated budget, before considering any automation on top.",
+      "ams_service": "Business Systems",
+      "cites": [
+        "systems_in_use:0",
+        "manual_duplicated_tasks:0",
+        "data_integrations",
+        "bookings_scheduling",
+        "opportunities_constraints:2"
+      ],
+      "business_impact": "Stated rework, double bookings and delayed invoicing"
+    },
+    {
+      "title": "Job spreadsheet has no backup",
+      "kind": "problem",
+      "severity": "medium",
+      "detail": "The customer states the laptop holding the job spreadsheet is not backed up.",
+      "recommendation": "Confirm the current setup on site, then put managed backup in place for business data.",
+      "ams_service": "Managed IT & Technology",
+      "cites": ["pain_points_bottlenecks:1"]
+    },
+    {
+      "title": "No follow-up on quotes or service reminders",
+      "kind": "opportunity",
+      "severity": "low",
+      "detail": "Unanswered quotes are not followed up and annual service reminders are sent by hand, while the stated priority is more planned servicing.",
+      "recommendation": "Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work.",
+      "ams_service": "Digital Growth",
+      "cites": ["sales_quoting:1", "manual_duplicated_tasks:1", "business_overview:1"]
+    }
+  ]
+}
