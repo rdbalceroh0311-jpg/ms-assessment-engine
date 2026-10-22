@@ -30,6 +30,7 @@ categories = {"technical", "seo", "geo", "performance", "cro_ux", "entity", "loc
 requires = ["Existing crawl/browser/performance/presence evidence; bounded public GET probes"]
 MAX_BYTES = 65_536
 PROBE_SECONDS = 10
+PROBE_REQUEST_SECONDS = 3
 NORMAL_UA = "Mozilla/5.0 (compatible; AMSAssessment/1.0)"
 # Documented token: https://platform.openai.com/docs/bots (UA simulation, not a verified bot IP).
 SEARCH_UA = "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; OAI-SearchBot/1.3; +https://openai.com/searchbot"
@@ -37,7 +38,8 @@ LIMITS = (
     "Sampled evidence only; no duplicate crawl or form submission. No external canonical or "
     "sitemap "
     "target fetches. One normal and one AI-search UA homepage GET plus one llms.txt GET at most, "
-    "no redirects, 64 KiB each, one 10-second deadline. Robots/sitemap reuse presence evidence "
+    "no redirects, 64 KiB raw bytes each, 3-second request timeout capped by the remaining "
+    "10-second deadline. Robots/sitemap reuse presence evidence "
     "(or its bounded collector when presence did not run). Header attribution, iframe coverage, "
     "link graph and above-the-fold CTA positions may be incomplete. CWV requires p75 field data; "
     "lab Lighthouse is not CWV. Heuristics and UA comparisons need manual verification. "
@@ -54,10 +56,23 @@ def probe(client: httpx.Client, url: str, ua: str, deadline: float) -> dict[str,
     if remaining <= 0:
         return {"url": url, "error": "DeadlineExceeded"}
     try:
-        with client.stream("GET", url, headers={"User-Agent": ua}, timeout=remaining) as response:
+        with client.stream(
+            "GET",
+            url,
+            headers={"User-Agent": ua, "Accept-Encoding": "identity"},
+            timeout=min(remaining, PROBE_REQUEST_SECONDS),
+        ) as response:
+            if response.headers.get("content-encoding", "identity").lower() != "identity":
+                return {
+                    "url": url,
+                    "status": response.status_code,
+                    "complete": False,
+                    "body": "",
+                    "error": "UnexpectedContentEncoding",
+                }
             body = bytearray()
             complete = True
-            for chunk in response.iter_bytes():
+            for chunk in response.iter_raw():
                 room = MAX_BYTES - len(body)
                 body.extend(chunk[:room])
                 if len(chunk) > room or time.monotonic() >= deadline:
@@ -227,20 +242,17 @@ class Checks:
         if complete:
             for bot in ("*", "Googlebot", "Bingbot"):
                 rules = applicable_rules(groups, bot)
-                if ("disallow", "/") in rules and not any(
-                    ("allow", p) in rules for p in ("/", "/*")
-                ):
+                if not robots_allowed(rules, "/"):
                     broad.append(bot)
         self.row(
             "robots",
             "Robots rules / site-wide Disallow",
             ["seo", "technical"],
             "ERROR" if broad else "PASS" if complete else "INFO" if absent else "NOT ASSESSED",
-            f"Parsed {len(groups)} robots groups. Broad Disallow: / for {', '.join(broad)}."
+            f"Parsed {len(groups)} robots groups. Homepage path / blocked for {', '.join(broad)}."
             if broad
             else (
-                f"Parsed {len(groups)} groups; no effective broad Disallow: / for *, "
-                "Googlebot or Bingbot."
+                f"Parsed {len(groups)} groups; homepage path / allowed for *, Googlebot or Bingbot."
                 if complete
                 else "robots.txt absent (404/410); no rules to parse."
                 if absent
@@ -321,12 +333,38 @@ class Checks:
     def indexing_rows(self) -> None:
         hits = self.noindex_pages
 
-        def important(u: str) -> bool:
-            return clean_url(u) == clean_url(self.ctx.target) or bool(
-                re.search(r"contact|service|about|quote|book|location", urlsplit(u).path, re.I)
+        def page_role(url: str) -> str:
+            parts = urlsplit(url)
+            if presence.origin_of(url) == presence.origin_of(self.ctx.target) and parts.path in {
+                "",
+                "/",
+            }:
+                return "homepage"
+            segments = {re.sub(r"\.html?$", "", s.lower()) for s in parts.path.split("/") if s}
+            if segments & {"thank-you", "thankyou", "confirmation", "success"}:
+                return "other"
+            return (
+                "key page candidate"
+                if segments
+                & {
+                    "contact",
+                    "contact-us",
+                    "service",
+                    "services",
+                    "about",
+                    "about-us",
+                    "quote",
+                    "request-quote",
+                    "book",
+                    "booking",
+                    "location",
+                    "locations",
+                }
+                else "other"
             )
 
-        key_hits = [h for h in hits if important(h["url"])]
+        home_hits = [h for h in hits if page_role(h["url"]) == "homepage"]
+        key_hits = [h for h in hits if page_role(h["url"]) == "key page candidate"]
         aggregate = [
             e
             for e in self.evidence
@@ -338,9 +376,11 @@ class Checks:
         ]
         status = (
             "ERROR"
-            if key_hits
+            if home_hits
             else "WARNING"
-            if hits or aggregate
+            if key_hits or aggregate
+            else "INFO"
+            if hits
             else ("PASS" if self.indexing_coverage else "NOT ASSESSED")
         )
         self.row(
@@ -360,27 +400,32 @@ class Checks:
             "Confirm intended indexing per URL; inspect response headers on unsampled pages. "
             "Remove noindex only on pages intended for search.",
             {
-                "pages": hits,
+                "pages": [{**h, "page_role": page_role(h["url"])} for h in hits],
                 "crawl_indexing_urls": sorted(self.indexing_coverage),
                 "aggregate_header_evidence": [e.id for e in aggregate],
             },
             self.refs("seo", "pages", "crawl") + [self.probe_eid] + [e.id for e in aggregate],
-            "needs_verification" if aggregate and not hits else "confirmed",
+            "needs_verification" if (key_hits or aggregate) and not home_hits else "confirmed",
         )
         entries = self.sitemap.get("sitemap_urls", [])
         rows = []
         for loc in entries:
             url = presence.resolve(loc, self.sitemap.get("sitemap_url", self.ctx.target))
             issues = []
+            unavailable_reason = ""
             if not url:
                 issues.append("invalid URL")
             else:
                 row = self.responses.get(clean_url(url))
                 if row is None:
-                    issues.append("not crawled")
+                    unavailable_reason = "not crawled"
                 else:
                     status_code = int(row.get("status", 0))
-                    if 300 <= status_code < 400:
+                    if status_code <= 0:
+                        unavailable_reason = "no HTTP response (NOT ASSESSED)"
+                    elif status_code == 429 or status_code >= 500:
+                        unavailable_reason = f"unavailable (HTTP {status_code}; retry)"
+                    elif 300 <= status_code < 400:
                         issues.append(f"redirected (HTTP {status_code})")
                     elif status_code != 200:
                         issues.append(f"non-200 (HTTP {status_code})")
@@ -388,9 +433,11 @@ class Checks:
                     issues.append("noindex")
                 if not urlsplit(loc).scheme and not self.ctx.local:
                     issues.append("relative sitemap URL")
-            rows.append({"url": url or loc, "issues": issues})
-        bad = [r for r in rows if any(i != "not crawled" for i in r["issues"])]
-        unknown = [r for r in rows if "not crawled" in r["issues"]]
+            if unavailable_reason:
+                issues.append(unavailable_reason)
+            rows.append({"url": url or loc, "issues": issues, "unavailable": unavailable_reason})
+        bad = [r for r in rows if any(i != r["unavailable"] for i in r["issues"])]
+        unknown = [r for r in rows if r["unavailable"]]
         truncated = self.sitemap.get("sitemap_urls_truncated", False)
         self.row(
             "sitemap-urls",
@@ -398,7 +445,7 @@ class Checks:
             ["seo"],
             "WARNING" if bad else "NOT ASSESSED" if not rows or unknown or truncated else "PASS",
             f"Compared {len(rows)} sitemap URLs with existing crawl results: {len(bad)} with "
-            f"observed issues, {len(unknown)} not crawled. "
+            f"observed issues, {len(unknown)} uncrawled/unavailable (NOT ASSESSED). "
             + (
                 "Sitemap index children are not fetched. "
                 if self.sitemap.get("kind") == "sitemapindex"
@@ -411,6 +458,7 @@ class Checks:
             "Use absolute HTTP(S) sitemap URLs in production.",
             {"urls": rows, "truncated": truncated},
             self.sitemap_ids + self.refs("crawl", "seo"),
+            "needs_verification" if unknown else "confirmed",
         )
         canonicals: list[dict[str, Any]] = []
         for url, page in self.pages.items():
@@ -424,8 +472,10 @@ class Checks:
                 issues.append("invalid canonical URL")
             elif urlsplit(target).netloc != urlsplit(url).netloc:
                 issues.append("different host; confirm intended canonical")
-            if response and int(response.get("status", 0)) != 200:
-                issues.append(f"target HTTP {response.get('status')}")
+            target_status = int(response.get("status", 0)) if response else 0
+            unavailable = target_status <= 0 or target_status == 429 or target_status >= 500
+            if response and not unavailable and target_status != 200:
+                issues.append(f"target HTTP {target_status}")
             if target and any(h["url"] == clean_url(target) for h in hits):
                 issues.append("target noindex")
             target_page = self.pages.get(clean_url(target or ""), {})
@@ -437,9 +487,15 @@ class Checks:
                     "page": url,
                     "target": target or canonical,
                     "issues": issues,
-                    "accessibility": f"HTTP {response['status']}"
-                    if response
-                    else "NOT ASSESSED: target not in crawl",
+                    "accessibility": (
+                        "NOT ASSESSED: target not in crawl"
+                        if not response
+                        else "NOT ASSESSED: no HTTP response"
+                        if target_status <= 0
+                        else f"NOT ASSESSED: target unavailable (HTTP {target_status}; retry)"
+                        if unavailable
+                        else f"HTTP {target_status}"
+                    ),
                 }
             )
         bad_canon = [r for r in canonicals if r["issues"]]
@@ -464,7 +520,7 @@ class Checks:
             "Manually verify uncrawled targets.",
             canonicals,
             self.refs("pages", "crawl", "seo") + [self.probe_eid],
-            "needs_verification" if bad_canon else "confirmed",
+            "needs_verification" if bad_canon or unknown_canon else "confirmed",
         )
 
     def page_quality(self) -> None:
@@ -499,6 +555,7 @@ class Checks:
         redirects: dict[str, str] = {}
         edges: set[tuple[str, str]] = set()
         broken = []
+        unavailable_links = []
         for e in self.evidence:
             if e.description == "SiteOne seo-headings table":
                 heading_ids.append(e.id)
@@ -529,13 +586,16 @@ class Checks:
                     if presence.origin_of(row.get("url", "")) == presence.origin_of(
                         self.ctx.target
                     ):
-                        broken.append(
-                            {
-                                "source": row.get("sourceUqId", "unknown"),
-                                "target": row["url"],
-                                "status": row.get("statusCode"),
-                            }
-                        )
+                        status = int(row.get("statusCode", 0))
+                        entry = {
+                            "source": row.get("sourceUqId", "unknown"),
+                            "target": row["url"],
+                            "status": status,
+                        }
+                        if status <= 0 or status == 429 or status >= 500:
+                            unavailable_links.append(entry)
+                        elif 400 <= status < 500:
+                            broken.append(entry)
         problems = []
         for url, levels in headings.items():
             if levels.count(1) > 1:
@@ -557,7 +617,9 @@ class Checks:
             if target != url:
                 inbound[target].add(url)
             status = int(self.responses.get(target, {}).get("status", 0))
-            if status >= 400:
+            if target in self.responses and (status <= 0 or status == 429 or status >= 500):
+                unavailable_links.append({"source": url, "target": target, "status": status})
+            elif 400 <= status < 500:
                 broken.append({"source": url, "target": target, "status": status})
             if 300 <= status < 400 or target in redirects:
                 chain = [target]
@@ -596,10 +658,17 @@ class Checks:
             "page-quality",
             "Duplicates, headings / internal links",
             ["seo", "technical"],
-            "WARNING" if issues else "PASS" if self.seo or headings else "NOT ASSESSED",
+            "WARNING"
+            if issues
+            else "NOT ASSESSED"
+            if unavailable_links
+            else "PASS"
+            if self.seo or headings
+            else "NOT ASSESSED",
             f"Duplicate title groups: {len(duplicates['title'])}; duplicate description groups: "
             f"{len(duplicates['description'])}; heading issues: {len(problems)}; broken internal "
-            f"links: {len(broken)}; internal redirects: {len(chains)}. Inbound links: "
+            f"links: {len(broken)}; unavailable links: {len(unavailable_links)}; "
+            f"internal redirects: {len(chains)}. Inbound links: "
             + (
                 f"{len(no_inbound)} sampled pages without inbound links."
                 if graph_complete
@@ -608,16 +677,19 @@ class Checks:
             "Distinct metadata, logical headings and direct internal links improve navigation "
             "and help crawlers interpret pages.",
             "Use distinct titles/descriptions, fix heading jumps and broken links, link directly "
-            "to final targets. Verify possible orphan pages with a complete link graph.",
+            "to final targets. Retry unavailable links before classifying them. "
+            "Verify possible orphan pages with a complete link graph.",
             {
                 "duplicates": duplicates,
                 "heading_issues": problems,
                 "broken_links": broken,
+                "unavailable_links": unavailable_links,
                 "redirect_chains": chains,
                 "no_inbound": no_inbound,
                 "inbound_status": "assessed sample" if graph_complete else "NOT ASSESSED",
             },
             self.refs("seo", "pages", "crawl") + heading_ids,
+            "needs_verification" if unavailable_links else "confirmed",
         )
 
     def schema_and_locations(self) -> None:

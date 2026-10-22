@@ -126,7 +126,7 @@ Website: {{ e.url | text }} ({{ e.id }}).
 {% endfor %}
 
 {% endfor %}
-The probes use at most two homepage GETs and one llms.txt GET, with no redirects, a 64 KiB body cap per response and one 10-second deadline. Robots/sitemap data reuses the presence collector. No canonical or sitemap target URLs are fetched by these checks. Sample limits, missing header attribution, iframe coverage, CTA positions and incomplete link graphs remain explicit; no forms are submitted.
+The probes use at most two homepage GETs and one llms.txt GET, with no redirects, a 64 KiB raw body cap per response, identity encoding and a 3-second request timeout capped by the remaining 10-second shared deadline. Robots/sitemap data reuses the presence collector. No canonical or sitemap target URLs are fetched by these checks. Sample limits, missing header attribution, iframe coverage, CTA positions and incomplete link graphs remain explicit; no forms are submitted.
 
 {% endif %}
 ## 3. Local SEO & digital presence

@@ -16,6 +16,7 @@ from ams_assess.modules.site_rules import (
     cwv_grade,
     field_vitals,
     near_duplicates,
+    noindex,
     robots_allowed,
     robots_groups,
     structured_data,
@@ -272,7 +273,12 @@ def test_organization_breadcrumb_invalid_jsonld_and_graph():
     assert any("absolute HTTP" in e for e in errors)
     assert any("positive integer" in e for e in errors)
     assert any("consecutively" in e for e in errors)
-    invalid = {"@type": "Organization", "name": [], "url": "invalid", "geo": {"latitude": 91}}
+    invalid = {
+        "@type": "Organization",
+        "name": [],
+        "url": "javascript:alert(1)",
+        "geo": {"latitude": 91},
+    }
     assert len(structured_data([invalid])["errors"]) == 3
 
 
@@ -280,7 +286,7 @@ def test_organization_breadcrumb_invalid_jsonld_and_graph():
 def test_tool_contexts_and_hostname_boundaries(tool):
     signature = TOOLS[tool][0]
     url = "https://" + signature
-    for key in ("script_srcs", "links", "iframes"):
+    for key in ("script_srcs", "iframes"):
         hits = tool_signals({key: [url]}, "https://example.com/")
         assert any(h["tool"] == tool for h in hits)
     assert not tool_signals(
@@ -529,7 +535,7 @@ def test_probes_request_body_redirect_and_deadline_bounds(tmp_path, monkeypatch)
         return httpx.Response(
             302,
             headers={"location": "https://forbidden.test/"},
-            content=b"x" * (site_checks.MAX_BYTES + 1),
+            stream=httpx.ByteStream(b"x" * (site_checks.MAX_BYTES + 1)),
         )
 
     data = site_checks.collect_probes(context(tmp_path), httpx.MockTransport(handler))
@@ -685,3 +691,329 @@ def test_customer_status_rows_preserve_separate_target_attribution(tmp_path, mon
     assert table.count("| Core Web Vitals (field p75)") == 2
     assert "<br>https://example.com/ |" in table
     assert "<br>https://second.example.test/ |" in table
+
+
+@pytest.mark.parametrize(
+    ("directive", "expected"),
+    [
+        ("max-image-preview:none", False),
+        ("max-video-preview: none", False),
+        ("otherbot: noindex", False),
+        ("googlebot-news: noindex", False),
+        ("otherbot: nofollow, noindex", False),
+        ("unavailable_after: none", False),
+        ("noindex: none", False),
+        ("not-noindex", False),
+        ("noindex follow", False),
+        ("Googlebot: noindex", True),
+        ("BINGBOT: none", True),
+        ("none", True),
+        ("max-image-preview:none, noindex", True),
+        ("otherbot: noindex, googlebot: noindex", True),
+        ("noindex, otherbot: follow", True),
+    ],
+)
+def test_review_1_noindex_exact_directives_scopes_and_all_evidence_paths(
+    tmp_path,
+    monkeypatch,
+    directive,
+    expected,
+):
+    assert noindex(directive) is expected
+    home = "https://example.com/"
+    crawled = crawl(
+        {home: 200},
+        {home: {"robotsIndex": "1"}},
+        {
+            "headers-values": [{"header": "X-Robots-Tag", "value": directive}],
+        },
+    )
+    crawled.evidence[0].data["headers"] = {"X-Robots-Tag": directive}
+    ctx = context(
+        tmp_path,
+        results=[
+            sitemap(),
+            crawled,
+            browser(
+                {
+                    home: {
+                        "meta": [{"name": "robots", "content": directive}],
+                    }
+                }
+            ),
+        ],
+    )
+    _, rows = run_checks(
+        ctx,
+        monkeypatch,
+        {
+            "normal": {
+                "url": home,
+                "status": 200,
+                "headers": {"x-robots-tag": directive},
+            }
+        },
+    )
+    assert bool(rows["noindex"]["detail"]["pages"]) is expected
+    assert rows["noindex"]["status"] == ("ERROR" if expected else "PASS")
+
+
+def test_review_2_nested_entities_references_and_graph_definition_merge():
+    service = {"@type": "Service", "provider": {"@type": "LocalBusiness", "@id": "#business"}}
+    article = {
+        "@type": "Article",
+        "publisher": {
+            "@type": "Organization",
+            "@id": "#publisher",
+            "logo": "/logo.svg",
+        },
+    }
+    assert not structured_data([service, article])["errors"]
+    assert not structured_data([service, article])["checked"]
+    assert not structured_data([{"@type": "LocalBusiness", "@id": "#reference"}])["errors"]
+    business = {"@id": "#business", "@type": "LocalBusiness", "name": "Demo"}
+    address = {
+        "@id": "#business",
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "1 Example St",
+        },
+    }
+    data = structured_data([{"@graph": [service, business, address, {"@id": "#business"}]}])
+    assert not data["errors"] and data["checked"] == ["LocalBusiness"]
+    # Real root/graph definitions remain subject to required-property checks.
+    for definition in (business, {"@graph": [business]}):
+        assert any("PostalAddress" in error for error in structured_data([definition])["errors"])
+
+
+@pytest.mark.parametrize(
+    ("path", "status", "role"),
+    [
+        ("/", "ERROR", "homepage"),
+        ("/contact/", "WARNING", "key page candidate"),
+        ("/services.html", "WARNING", "key page candidate"),
+        ("/contact/thank-you/", "INFO", "other"),
+        ("/contact/confirmation/", "INFO", "other"),
+        ("/book/success.html", "INFO", "other"),
+        ("/facebook-reviews", "INFO", "other"),
+        ("/ebook-download", "INFO", "other"),
+        ("/bookkeeping-tips", "INFO", "other"),
+    ],
+)
+def test_review_3_noindex_homepage_only_error_and_whole_key_segments(
+    tmp_path,
+    monkeypatch,
+    path,
+    status,
+    role,
+):
+    url = "https://example.com" + path
+    result, rows = run_checks(
+        context(
+            tmp_path,
+            results=[
+                sitemap(),
+                browser(
+                    {
+                        url: {
+                            "meta": [{"name": "robots", "content": "noindex"}],
+                        }
+                    }
+                ),
+            ],
+        ),
+        monkeypatch,
+    )
+    row = rows["noindex"]
+    assert row["status"] == status and row["detail"]["pages"][0]["page_role"] == role
+    if status == "WARNING":
+        finding = next(f for f in result.findings if f.check_key == "site:noindex")
+        assert row["confidence"] == finding.confidence == "needs_verification"
+    elif status == "INFO":
+        assert not any(f.check_key == "site:noindex" for f in result.findings)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://hubspot.com/blog", None),
+        ("https://www.hubspot.com/", None),
+        ("https://zoho.com", None),
+        ("https://calendly.com/pricing", None),
+        ("https://blog.calendly.com/post", None),
+        ("https://squareup.com/appointments", None),
+        ("https://calendly.com/customer-slug", "Calendly"),
+        ("https://meetings.hubspot.com/demo/consult", "HubSpot"),
+        ("https://api.leadconnectorhq.com/widget/booking/id", "GoHighLevel / LeadConnector"),
+        ("https://forms.zohopublic.com/demo/form/id", "Zoho"),
+        ("https://demo.my.salesforce.com/", "Salesforce / Pardot"),
+        ("https://demo.activehosted.com/f/1", "ActiveCampaign"),
+        ("https://book.gettimely.com/demo", "Timely"),
+        ("https://book.squareup.com/appointments/demo", "Square Appointments"),
+        ("https://customer.simplybook.me/", "SimplyBook.me"),
+        ("https://customer.setmore.com/", "Setmore"),
+        ("https://acuityscheduling.com/schedule.php?owner=123", "Acuity"),
+        ("https://acuityscheduling.com/schedule.php", None),
+    ],
+)
+def test_review_4_vendor_marketing_anchors_vs_customer_endpoints(url, expected):
+    hits = tool_signals({"links": [url]}, "https://example.com/")
+    assert {h["tool"] for h in hits} == ({expected} if expected else set())
+
+
+def test_review_4_resource_hints_never_establish_tool_use():
+    url = "https://js.hs-scripts.com/123.js"
+    for rel in ("preconnect", "dns-prefetch", "prefetch", "prefetch stylesheet"):
+        parser = HomeHTML("https://example.com/")
+        parser.feed(f'<link rel="{rel}" href="{url}">')
+        assert not tool_signals(parser.page, parser.base)
+        assert not tool_signals({"resource_links": [{"href": url, "rel": rel}]}, parser.base)
+    # Legacy browser evidence omits rel; it is insufficient to classify the resource.
+    assert not tool_signals({"resource_links": [url]}, "https://example.com/")
+    assert tool_signals({"script_srcs": [url]}, "https://example.com/")[0]["tool"] == "HubSpot"
+
+
+@pytest.mark.parametrize(
+    ("agent", "bot", "rule", "allowed"),
+    [
+        ("Claude", "Claude-SearchBot", "/", True),
+        ("Googlebot-News", "Googlebot", "/", True),
+        ("Googlebot/2.1", "Googlebot", "/", False),
+        ("Googlebot", "GOOGLEBOT/2.1", "/", False),
+        ("Claude-SearchBot", "claude-searchbot", "/*", False),
+        ("*", "Googlebot", "*", False),
+    ],
+)
+def test_review_5_exact_product_tokens_versions_and_wildcards(agent, bot, rule, allowed):
+    groups = robots_groups(f"User-agent: {agent}\nDisallow: {rule}")
+    assert robots_allowed(applicable_rules(groups, bot), "/") is allowed
+
+
+def test_review_5_sitewide_root_verdict_uses_effective_wildcard_rules(tmp_path, monkeypatch):
+    for pattern in ("/*", "*"):
+        _, rows = run_checks(
+            context(
+                tmp_path,
+                results=[
+                    sitemap(
+                        f"User-agent: Googlebot/2.1\nDisallow: {pattern}",
+                    )
+                ],
+            ),
+            monkeypatch,
+        )
+        assert rows["robots"]["status"] == "ERROR"
+    groups = robots_groups("User-agent: *\nDisallow: *private*\nAllow: /private/public")
+    assert not robots_allowed(applicable_rules(groups, "Googlebot"), "/private/doc")
+    assert robots_allowed(applicable_rules(groups, "Googlebot"), "/private/public")
+
+
+def test_review_6_numeric_breadcrumb_positions_and_relative_urls_are_suggestions():
+    data = structured_data(
+        [
+            {"@type": "Organization", "name": "Demo", "url": "/about", "logo": "images/logo.svg"},
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": "1",
+                        "name": "Home",
+                        "item": "https://example.com/",
+                    },
+                    {"@type": "ListItem", "position": "2", "name": "Services"},
+                ],
+            },
+        ]
+    )
+    assert not data["errors"]
+    assert any("numeric text" in note for note in data["recommended"])
+    assert any("relative logo" in note for note in data["recommended"])
+    assert any("relative url" in note for note in data["recommended"])
+
+
+@pytest.mark.parametrize(("fallback", "scope"), [(True, "origin"), (False, "URL")])
+def test_review_7_psi_origin_fallback_preserves_scope(fallback, scope):
+    data = {
+        "field_url": {
+            "origin_fallback": fallback,
+            "metrics": {
+                "LARGEST_CONTENTFUL_PAINT_MS": {"percentile": 2500},
+            },
+        }
+    }
+    assert {m["scope"] for m in field_vitals(data)} == {scope}
+
+
+@pytest.mark.parametrize("status", [-1, 0, 429, 500, 503, 404])
+def test_review_8_transient_responses_are_unavailable_not_confirmed_broken(
+    tmp_path,
+    monkeypatch,
+    status,
+):
+    home, target = "https://example.com/", "https://example.com/target"
+    result, rows = run_checks(
+        context(
+            tmp_path,
+            results=[
+                sitemap(urls=[target]),
+                crawl({home: 200, target: status}),
+                browser({home: {"canonical": target, "links": [target]}}),
+            ],
+        ),
+        monkeypatch,
+    )
+    for key in ("sitemap-urls", "canonicals", "page-quality"):
+        assert rows[key]["status"] == ("WARNING" if status == 404 else "NOT ASSESSED")
+        if status != 404:
+            assert rows[key]["confidence"] == "needs_verification"
+    quality = rows["page-quality"]["detail"]
+    assert bool(quality["broken_links"]) is (status == 404)
+    assert bool(quality["unavailable_links"]) is (status != 404)
+    if status <= 0:
+        assert "no HTTP response" in rows["sitemap-urls"]["detail"]["urls"][0]["issues"][0]
+        assert not any(f.check_key == "site:sitemap-urls" for f in result.findings)
+
+
+def test_review_9_each_probe_timeout_uses_remaining_budget_and_identity(tmp_path, monkeypatch):
+    now, timeouts = [0.0], []
+    monkeypatch.setattr(site_checks.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(site_checks, "PROBE_SECONDS", 8)
+
+    def handler(request):
+        assert request.headers["accept-encoding"] == "identity"
+        values = request.extensions["timeout"]
+        assert len(set(values.values())) == 1
+        timeout = values["read"]
+        timeouts.append(timeout)
+        now[0] += timeout
+        return httpx.Response(200, stream=httpx.ByteStream(b"# fixture"))
+
+    data = site_checks.collect_probes(context(tmp_path), httpx.MockTransport(handler))
+    assert timeouts == [3, 3, 2] and now[0] == 8
+    assert not data["llms"]["complete"]
+    assert (
+        site_checks.probe(
+            httpx.Client(transport=httpx.MockTransport(handler)),
+            "https://example.com/",
+            "fixture",
+            8,
+        )["error"]
+        == "DeadlineExceeded"
+    )
+    assert len(timeouts) == 3
+
+
+def test_review_9_encoded_response_is_incomplete_instead_of_bypassing_raw_byte_cap(tmp_path):
+    def handler(request):
+        assert request.headers["accept-encoding"] == "identity"
+        return httpx.Response(
+            200,
+            headers={"content-encoding": "gzip"},
+            stream=httpx.ByteStream(b"untrusted encoded body"),
+        )
+
+    data = site_checks.collect_probes(context(tmp_path), httpx.MockTransport(handler))
+    assert all(
+        not r["complete"] and r["error"] == "UnexpectedContentEncoding" for r in data.values()
+    )

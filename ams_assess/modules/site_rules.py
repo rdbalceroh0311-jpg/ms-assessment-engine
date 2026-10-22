@@ -32,6 +32,12 @@ CRAWLERS = {
 }
 
 
+def product_token(value: str) -> str:
+    """RFC 9309 product token; version suffixes are not part of the crawler name."""
+    match = re.match(r"[A-Za-z_-]+", value.strip())
+    return match[0].lower() if match else ""
+
+
 def robots_groups(body: str) -> list[dict[str, Any]]:
     groups: list[dict[str, Any]] = []
     agents: list[str] = []
@@ -47,10 +53,10 @@ def robots_groups(body: str) -> list[dict[str, Any]]:
             if started_rules:
                 groups.append({"agents": agents, "rules": rules})
                 agents, rules, started_rules = [], [], False
-            agents.append(value.lower())
+            agents.append("*" if value == "*" else product_token(value))
         elif agents and field in {"allow", "disallow"}:
             started_rules = True
-            if value.startswith("/"):
+            if value.startswith("/") or "*" in value:
                 rules.append((field, value))
     if agents:
         groups.append({"agents": agents, "rules": rules})
@@ -58,19 +64,14 @@ def robots_groups(body: str) -> list[dict[str, Any]]:
 
 
 def applicable_rules(groups: list[dict[str, Any]], bot: str) -> list[tuple[str, str]]:
-    matches = []
-    for group in groups:
-        score = max(
-            (
-                0 if a == "*" else len(a)
-                for a in group["agents"]
-                if a == "*" or bot.lower().startswith(a)
-            ),
-            default=-1,
-        )
-        matches.append((score, group["rules"]))
-    best = max((score for score, _ in matches), default=-1)
-    return [rule for score, rules in matches if score == best and best >= 0 for rule in rules]
+    token = product_token(bot)
+    specific = [
+        g
+        for g in groups
+        if token and any(a != "*" and product_token(a) == token for a in g["agents"])
+    ]
+    selected = specific or [g for g in groups if "*" in g["agents"]]
+    return [rule for group in selected for rule in group["rules"]]
 
 
 def robot_path(value: str) -> str:
@@ -100,8 +101,45 @@ def robots_allowed(rules: list[tuple[str, str]], path: str) -> bool:
     return max(matched, default=(0, True))[1]
 
 
+ROBOTS_DIRECTIVES = {
+    "all",
+    "none",
+    "index",
+    "noindex",
+    "follow",
+    "nofollow",
+    "nosnippet",
+    "noarchive",
+    "nocache",
+    "notranslate",
+    "noimageindex",
+    "indexifembedded",
+    "unavailable_after",
+    "noodp",
+    "noydir",
+    "noyaca",
+}
+
+
 def noindex(value: Any) -> bool:
-    return bool(re.search(r"(?:^|[\s,:;])(?:noindex|none)(?:$|[\s,;])", str(value), re.I))
+    """Exact directives for general search, never a parameter value or another crawler.
+
+    A crawler prefix scopes the following comma-separated directives until a new prefix.
+    Separate header values supplied as a list start with an independent unscoped context.
+    """
+    if isinstance(value, (list, tuple)):
+        return any(noindex(part) for part in value)
+    agent = ""
+    for part in str(value).split(","):
+        directive = part.strip().lower()
+        if ":" in directive:
+            prefix, rest = (s.strip() for s in directive.split(":", 1))
+            if prefix not in ROBOTS_DIRECTIVES and not prefix.startswith("max-"):
+                if re.fullmatch(r"[a-z][a-z0-9_-]*", prefix):
+                    agent, directive = prefix, rest
+        if agent in {"", "googlebot", "bingbot"} and directive in {"noindex", "none"}:
+            return True
+    return False
 
 
 CWV = {
@@ -130,7 +168,14 @@ def field_vitals(data: dict[str, Any]) -> list[dict[str, Any]]:
     for scope, key in [("URL", "field_url"), ("origin", "field_origin")]:
         field = data.get(key, {})
         if field.get("metrics"):
-            records.append((scope, field, True, data.get("strategy", "unspecified")))
+            records.append(
+                (
+                    "origin" if field.get("origin_fallback") else scope,
+                    field,
+                    True,
+                    data.get("strategy", "unspecified"),
+                )
+            )
     record = data.get("record", {})
     if record.get("metrics"):
         key = record.get("key", {})
@@ -198,6 +243,43 @@ def schema_types(node: dict[str, Any]) -> set[str]:
     return {str(t).rsplit("/", 1)[-1] for t in as_list(node.get("@type"))}
 
 
+def entity_definitions(values: Any) -> list[dict[str, Any]]:
+    """Collect declared roots/@graph members and combine descriptions of the same @id."""
+    roots: list[dict[str, Any]] = []
+
+    def visit(value: Any) -> None:
+        if isinstance(value, list):
+            for item in value:
+                visit(item)
+        elif isinstance(value, dict):
+            roots.append(value)
+            if "@graph" in value:
+                visit(value["@graph"])
+
+    visit(values)
+    by_id: dict[str, dict[str, Any]] = {}
+    definitions = []
+    for node in roots:
+        identifier = node.get("@id")
+        if isinstance(identifier, str) and identifier:
+            if identifier not in by_id:
+                by_id[identifier] = dict(node)
+                definitions.append(by_id[identifier])
+            else:
+                merged = by_id[identifier]
+                node_types = set(as_list(merged.get("@type"))) | set(as_list(node.get("@type")))
+                merged.update(node)
+                if node_types:
+                    merged["@type"] = sorted(node_types)
+        else:
+            definitions.append(node)
+    return [
+        node
+        for node in definitions
+        if not (node.get("@id") and set(node) <= {"@id", "@type", "@context"})
+    ]
+
+
 def structured_data(values: list[Any]) -> dict[str, Any]:
     """Google Organization has no required properties; LocalBusiness needs name/address.
 
@@ -218,6 +300,8 @@ def structured_data(values: list[Any]) -> dict[str, Any]:
             continue
         parsed.append(value)
     for node in jsonld_nodes(parsed):
+        types |= schema_types(node)
+    for node in entity_definitions(parsed):
         if node.get("parse_error"):
             errors.append("Invalid JSON-LD syntax")
             continue
@@ -246,6 +330,11 @@ def structured_data(values: list[Any]) -> dict[str, Any]:
                     errors.append("Breadcrumb entry must be a ListItem")
                     continue
                 position = item.get("position")
+                if isinstance(position, str) and re.fullmatch(r"[0-9]+", position.strip()):
+                    recommended.append(
+                        "Breadcrumb position: use an integer rather than numeric text"
+                    )
+                    position = int(position)
                 if type(position) is not int or position < 1:
                     errors.append("Breadcrumb position must be a positive integer")
                 positions.append(position)
@@ -297,7 +386,14 @@ def structured_data(values: list[Any]) -> dict[str, Any]:
                     else value
                 )
                 if not resolve(url, ""):
-                    errors.append(f"{kind}: {prop} needs an absolute HTTP(S) URL")
+                    if (
+                        isinstance(url, str)
+                        and not urlsplit(url).scheme
+                        and resolve(url, "https://example.com/")
+                    ):
+                        recommended.append(f"{kind}: use an absolute URL for relative {prop}")
+                    else:
+                        errors.append(f"{kind}: {prop} needs a valid HTTP(S) URL")
         geo = node.get("geo")
         if geo is not None:
             try:
@@ -357,11 +453,86 @@ TOOLS = {
 }
 
 
+# Anchors need evidence of a booking/customer endpoint. A vendor's marketing site is not
+# evidence that the assessed business uses that vendor. Script/iframe contexts are separate.
+ACCOUNT_LINKS = {
+    "HubSpot": r"meetings\.hubspot\.com(?:/|$)|(?:share|forms)\.hsforms\.(?:com|net)/.+",
+    "GoHighLevel / LeadConnector": r"[^/]+\.leadconnectorhq\.com(?:/|$)|"
+    r"(?:[^/]+\.)?msgsndr\.(?:com|net)/widget/(?:booking|form|survey)/.+",
+    "Acuity": r"[^/]+\.(?:acuityscheduling|squarespacescheduling)\.com(?:/|$)|"
+    r"(?:www\.)?acuityscheduling\.com/schedule\.php\?.*\bowner=.+",
+    "Square Appointments": r"book\.squareup\.com(?:/|$)|(?:[^/]+\.)?square\.site/book/.+|"
+    r"(?:www\.)?squareup\.com/appointments/book/.+",
+    "SimplyBook.me": r"[^/]+\.simplybook\.(?:me|it)(?:/|$)",
+    "Setmore": r"[^/]+\.setmore\.com(?:/|$)",
+    "Fresha": r"(?:www\.)?fresha\.com/a/.+",
+    "Timely": r"book\.gettimely\.com(?:/|$)",
+    "ServiceM8": r"(?:book|form)\.servicem8\.com/.+",
+    "Tradify": r"enquiries\.tradifyhq\.com/.+",
+    "Jobber": r"clienthub\.getjobber\.com/.+",
+    "Zoho": r"[^/]+\.zohopublic\.(?:com(?:\.au)?|eu)(?:/|$)",
+    "Salesforce / Pardot": r"[^/]+\.my\.salesforce\.com(?:/|$)|go\.pardot\.com/l/.+",
+    "ActiveCampaign": r"[^/]+\.activehosted\.com(?:/|$)",
+    "Mailchimp": r"[^/]+\.list-manage\.com/subscribe(?:/|\?).+",
+}
+
+
+def account_link(tool: str, url: str) -> bool:
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if host.split(".")[0] in {"www", "blog", "docs", "help", "support"} and tool not in {
+        "Calendly",
+        "Square Appointments",
+        "Fresha",
+        "Acuity",
+    }:
+        return False
+    if tool == "Calendly":
+        if host not in {"calendly.com", "www.calendly.com"}:
+            return False
+        segments = [s for s in parts.path.lower().split("/") if s]
+        return bool(
+            segments
+            and segments[0]
+            not in {
+                "blog",
+                "features",
+                "pricing",
+                "about",
+                "solutions",
+                "integrations",
+                "resources",
+                "enterprise",
+                "teams",
+                "login",
+                "signup",
+                "contact",
+                "sales",
+                "security",
+                "partners",
+                "help",
+                "legal",
+                "pages",
+            }
+        )
+    pattern = ACCOUNT_LINKS.get(tool)
+    location = host + parts.path + ("?" + parts.query if parts.query else "")
+    return bool(pattern and re.fullmatch("(?:" + pattern + ").*", location))
+
+
 def tool_signals(page: dict[str, Any], base: str) -> list[dict[str, str]]:
     hits = []
     for context in ("script_srcs", "links", "iframes", "resource_links"):
         for value in page.get(context, []):
-            value = value.get("src", "") if isinstance(value, dict) else value
+            if context == "resource_links":
+                # The current browser collector drops rel: bare URLs cannot distinguish a
+                # stylesheet from a preconnect/DNS/prefetch hint, so do not infer a tool.
+                if not isinstance(value, dict):
+                    continue
+                rel = str(value.get("rel", "")).lower().split()
+                if set(rel) & {"preconnect", "dns-prefetch", "prefetch"} or "stylesheet" not in rel:
+                    continue
+            value = value.get("href") or value.get("src", "") if isinstance(value, dict) else value
             url = resolve(value, base)
             if not url:
                 continue
@@ -375,7 +546,8 @@ def tool_signals(page: dict[str, Any], base: str) -> list[dict[str, str]]:
                         or parts.path == "/" + path
                         or parts.path.startswith("/" + path + "/")
                     ):
-                        hits.append({"tool": label, "context": context, "url": url})
+                        if context != "links" or account_link(label, url):
+                            hits.append({"tool": label, "context": context, "url": url})
                         break
     # Recognise executable API calls, not strings containing provider names.
     for snippet in page.get("tag_snippets", []):
@@ -492,7 +664,11 @@ class HomeHTML(HTMLParser):
             }[tag]
             value = a.get("src" if tag in {"script", "iframe"} else "href", "")
             if value:
-                self.page[field].append(urljoin(self.base, value))
+                self.page[field].append(
+                    {"href": urljoin(self.base, value), "rel": a.get("rel", "")}
+                    if tag == "link"
+                    else urljoin(self.base, value)
+                )
         if tag == "link" and "canonical" in a.get("rel", "").lower().split():
             self.page["canonical"] = urljoin(self.base, a.get("href", ""))
         if tag == "script":
