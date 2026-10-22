@@ -7,11 +7,12 @@ from ams_assess.modules import (
     performance,
     presence,
     security,
+    site_checks,
     siteone,
 )
 
 # Order is intentional: downstream browser evidence reuses the one crawler's page list, and
-# presence runs last because it only reads evidence the earlier modules collected.
+# presence and site_checks reuse evidence the earlier modules collected.
 REGISTRY = {
     module.name: module
     for module in [
@@ -24,6 +25,7 @@ REGISTRY = {
         dataforseo,
         gsc,
         presence,
+        site_checks,
     ]
 }
 

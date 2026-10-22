@@ -98,6 +98,37 @@ No website, technical or infrastructure category was assessed in this run.
 
 {% endfor %}
 {% set p = data.get('digital_presence') %}
+{# Site checks: self-contained additive block; stored evidence survives customer report merges. #}
+{% set site = namespace(rows={}) %}
+{% for e in evidence if e.source == 'site_checks' and e.data.get('site_check') %}
+{% set _ = site.rows.update({(e.url, e.data.site_check): e}) %}
+{% endfor %}
+{% if site.rows %}
+### Website checks: status and evidence
+
+Each row describes the sampled evidence. NOT ASSESSED means evidence is unavailable or incomplete. Optional features are informational. Form submissions are always **NOT TESTED**. AI-search readiness is not measured visibility.
+
+| Check / evidence | Status | What was checked | Why it matters | Recommended correction |
+| --- | --- | --- | --- | --- |
+{% for e in site.rows.values() %}
+| {{ e.data.area | text }} ({{ e.id }})<br>{{ e.url | text }} | {{ e.data.status }} | {{ e.data.checked | text }} | {{ e.data.why | text }} | {{ e.data.recommendation | text }} |
+{% endfor %}
+
+Crawler-policy detail (training restrictions are customer choices):
+
+{% for e in site.rows.values() if e.data.site_check == 'ai-robots' %}
+Website: {{ e.url | text }} ({{ e.id }}).
+
+| Crawler | Purpose | Status | Blocked sampled paths |
+| --- | --- | --- | --- |
+{% for bot in e.data.detail.crawlers %}
+| {{ bot.crawler | text }} | {{ bot.purpose | text }} | {{ bot.status }} | {{ bot.blocked_paths | join('; ') | text or '-' }} |
+{% endfor %}
+
+{% endfor %}
+The probes use at most two homepage GETs and one llms.txt GET, with no redirects, a 64 KiB body cap per response and one 10-second deadline. Robots/sitemap data reuses the presence collector. No canonical or sitemap target URLs are fetched by these checks. Sample limits, missing header attribution, iframe coverage, CTA positions and incomplete link graphs remain explicit; no forms are submitted.
+
+{% endif %}
 ## 3. Local SEO & digital presence
 
 {% for category, title in local_sections.items() %}
