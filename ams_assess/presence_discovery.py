@@ -12,7 +12,7 @@ import re
 import time
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import quote_plus, urlsplit
+from urllib.parse import parse_qsl, quote_plus, urlsplit
 
 from ams_assess.models import Context, ModuleResult
 from ams_assess.modules import dataforseo
@@ -118,14 +118,22 @@ def host_of(url: str) -> str:
 
 
 def url_key(url: str) -> str:
-    """Comparison key for a profile URL: host and path, plus the query for Google Maps IDs."""
+    """Comparison key for a profile URL: host and path, plus any business/place identifier.
+
+    Identifying parameters (Google cid=, Bing ss=ypid./ypid=, Apple auid=/place-id=) are kept,
+    so a generic map search never shares a key with an identified profile.
+    """
     try:
         parts = urlsplit(url.strip())
     except ValueError:
         return url
     host = (parts.hostname or "").removeprefix("www.").removeprefix("m.")
-    query = f"?{parts.query}" if "google" in host and "cid=" in parts.query else ""
-    return f"{host}{parts.path.rstrip('/')}".lower() + query
+    ids = sorted(
+        f"{k}={v}"
+        for k, v in parse_qsl(parts.query)
+        if k in {"cid", "ypid", "auid", "place-id"} or (k in {"ss", "id"} and v.startswith("ypid."))
+    )
+    return f"{host}{parts.path.rstrip('/')}".lower() + (f"?{'&'.join(ids)}" if ids else "")
 
 
 def identity(ctx: Context, site: dict[str, Any]) -> dict[str, Any]:
@@ -407,7 +415,8 @@ def discover(
                 "snippet": found.get("snippet", ""),
             },
         )
-        if found["state"] == FOUND_LIKELY:
+        # Promotion is judged on the candidate's own stored URL, never inherited from a merge.
+        if found["state"] == FOUND_LIKELY and identifies(entry["url"]):
             entry["state"] = FOUND_LIKELY
         if found.get("score") is not None:
             entry["score"] = max(entry["score"] or 0, found["score"])

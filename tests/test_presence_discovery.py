@@ -7,7 +7,7 @@ from urllib.parse import unquote
 import httpx
 import pytest
 
-from ams_assess import cli, platforms, runner, store
+from ams_assess import cli, platforms, presence_discovery, runner, store
 from ams_assess.consolidate import consolidate
 from ams_assess.models import Context, ModuleResult, create_run_dir
 from ams_assess.modules import dataforseo, presence
@@ -992,3 +992,36 @@ def test_organic_map_search_results_cannot_become_likely(tmp_path, monkeypatch):
     assert not platforms.identifies(url) and candidate["score"] == 5
     assert candidate["state"] == row["state"] == FOUND_VERIFY
     assert "no business or place identifier" in candidate["matched"]
+
+
+@pytest.mark.parametrize(
+    ("generic", "identified", "key"),
+    [
+        (
+            "https://www.bing.com/maps?q=Acme+Painting+Parramatta",
+            "https://www.bing.com/maps?ss=ypid.YN1234&q=Acme+Painting",
+            "bing_places",
+        ),
+        (
+            "https://maps.apple.com/?q=Acme+Painting+Parramatta",
+            "https://maps.apple.com/?auid=1234567890&q=Acme+Painting",
+            "apple_maps",
+        ),
+    ],
+)
+def test_generic_and_identified_map_urls_stay_separate_candidates(
+    tmp_path, monkeypatch, generic, identified, key
+):
+    """Reviewer scenario: a generic website link merged with an identified organic result."""
+    responses = {
+        ("organic", "Acme Painting Parramatta"): [
+            {"type": "organic", "url": identified, "title": "Acme Painting — Parramatta"}
+        ]
+    }
+    monkeypatch.setattr(httpx, "post", fake_serp(responses, []))
+    ctx = context(tmp_path, cap=1.0, profile=PROFILE, **CREDENTIALS)
+    ctx.results = [browser({**PAGE, "links": [generic]})]
+    row = next(r for r in tables(presence.run(ctx))["discovery"]["platforms"] if r["key"] == key)
+    states = {c["url"]: c["state"] for c in row["candidates"]}
+    assert states == {generic: FOUND_VERIFY, identified: FOUND_LIKELY}
+    assert presence_discovery.url_key(generic) != presence_discovery.url_key(identified)
