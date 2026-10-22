@@ -325,6 +325,9 @@ default suite. A successful smoke check does not establish that every customer h
 SiteOne transport statuses such as `-4:SEND-ERROR` and its fatal error appear in the module reason
 and evidence; its 2.5.1 binary does not expose the underlying request exception. Inspect the
 run's `raw/siteone.json` and `raw/target-resolution.json` when diagnosing a failed crawl.
+SiteOne, redirect preflight and normal site-check probes identify as `AMSAssessment/1.0`.
+SiteOne's `--user-agent=AMSAssessment/1.0!` preserves that exact identity; browser-shaped
+crawler identities can trigger server/edge rejection even when TLS verification succeeds.
 Redirects retain the requested target for domain/email checks and store identity; website
 collectors use the separately recorded `resolved_url`. A preflight timeout or HTTP rejection
 is a limitation and still allows SiteOne to try the last safe URL. Unsafe redirects stop it.

@@ -63,6 +63,38 @@ def mock_crawler(monkeypatch, ctx, rows=None, exit_code=0, error=None):
     return commands
 
 
+def test_plain_tool_identity_is_shared_by_siteone_preflight_and_probes(tmp_path, monkeypatch):
+    ctx = context(tmp_path, tools_dir=tmp_path / "tools")
+    client = httpx.Client
+    agents = []
+
+    def homepage(request):
+        agents.append(request.headers["user-agent"])
+        # Model a host that rejects browser-shaped crawler identities.
+        return httpx.Response(
+            200 if request.headers["user-agent"] == "AMSAssessment/1.0" else 403,
+            stream=httpx.ByteStream(b"<html><body>Synthetic fixture</body></html>"),
+            headers={"content-type": "text/html"},
+        )
+
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda transport=None, **kw: client(transport=httpx.MockTransport(homepage), **kw),
+    )
+    commands = mock_crawler(monkeypatch, ctx)
+    result = siteone.run(ctx)
+    assert result.status == "ok" and not result.reason
+    # SiteOne strips the ! and does not append its own signature. Pin the actual option,
+    # rather than asserting equality to the same constant used by the implementation.
+    assert "--user-agent=AMSAssessment/1.0!" in commands[0]
+    assert "--accept-invalid-certs" not in commands[0]
+    assert "--ignore-robots-txt" not in commands[0]
+    assert "--workers=2" in commands[0] and "--max-reqs-per-sec=5" in commands[0]
+    assert site_checks.collect_probes(ctx)["normal"]["status"] == 200
+    assert agents == ["AMSAssessment/1.0", "AMSAssessment/1.0"]
+
+
 @pytest.mark.parametrize("failure", [403, 503, "timeout", "connect", "deadline", "location"])
 def test_preflight_failure_crawls_last_safe_url(tmp_path, monkeypatch, failure):
     ctx = context(tmp_path, tools_dir=tmp_path / "tools")

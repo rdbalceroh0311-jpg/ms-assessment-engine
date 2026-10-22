@@ -72,6 +72,7 @@ def run(ctx: Context) -> ModuleResult:
     command = [
         str(binary),
         f"--url={ctx.site_url}",
+        # Keep our exact tool identity; ! suppresses SiteOne's appended signature.
         f"--user-agent={NORMAL_UA}!",
         "--output=json",
         "--no-color",

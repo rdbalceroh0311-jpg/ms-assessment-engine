@@ -14,7 +14,8 @@ from ams_assess.models import is_local, normalize_target
 MAX_REDIRECTS = 5
 RESOLUTION_SECONDS = 20
 REQUEST_SECONDS = 8
-NORMAL_UA = "Mozilla/5.0 (compatible; AMSAssessment/1.0)"
+# An explicit tool identity avoids misleading browser signatures rejected by some hosts.
+NORMAL_UA = "AMSAssessment/1.0"
 LOOPBACK_ALIASES = {"localhost", "127.0.0.1", "::1"}
 
 
