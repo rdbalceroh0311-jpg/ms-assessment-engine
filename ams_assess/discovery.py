@@ -114,6 +114,9 @@ def load_notes(path: Path) -> Notes:
         refs = [st.ref for st in items if st.ref]
         if len(refs) != len(set(refs)):
             raise ValueError(f"Duplicate statement ref in section {key}")
+    keys = [finding.key or slug(finding.title) for finding in notes.findings]
+    if len(keys) != len(set(keys)):
+        raise ValueError("Duplicate finding key or title; give each finding a distinct key")
     for finding in notes.findings:
         for cite in finding.cites:
             section, _, index = cite.partition(":")

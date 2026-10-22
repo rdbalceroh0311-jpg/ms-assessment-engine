@@ -47,8 +47,15 @@ uv run ams-assess discover --customer acme --notes notes.json              # sta
 uv run ams-assess report --customer acme                                   # report at any stage
 ```
 
-`report --customer` regenerates `report.md/html/pdf` in `data/customers/<customer>/` from the store
-(and records them in its `report_files`); `report <run-dir>` still renders one run. Discovery notes:
+`report --customer` writes a new immutable revision to `data/customers/<customer>/reports/<NNN-timestamp>/`
+(files read-only, always including the markdown master), records it in the store's append-only
+`report_revisions` (with the assessment run it reflects) and copies it to `report.md/html/pdf` in the
+customer directory as the latest. To publish a human edit, edit the markdown and run
+`report --customer acme --from-md data/customers/acme/report.md`: it becomes a new revision and
+html/pdf are rendered from it. `report <run-dir>` still renders one run. Imports and reports take an
+exclusive per-customer lock (`.assessment.lock`, waits up to 30 s, then fails with a clear error).
+A store with several websites lists every target and labels each module row and email-health summary
+with its website and run. Discovery notes:
 
 ```json
 {
@@ -108,6 +115,12 @@ with the same mapping. Findings consolidate across runs by category and check ke
 severity and priority win and `needs_verification`/`subjective` confidence sticks. The store is
 cumulative: a finding from an earlier run stays until superseded, so re-run and review rather than
 assuming a missing finding was fixed.
+
+**Finding versions.** A finding whose cited statements have all been superseded is retired to
+`finding_history` (kept, never recommended); re-importing a discovery finding with a changed claim
+creates a new version that supersedes the old one instead of merging text. A finding citing a
+superseded statement whose new version it does not cite, or two current versions of the same
+statement, are listed under "needs review" in the report and left out of the recommendations.
 
 **Provenance.** Evidence is `technical_evidence` (default), `customer_statement` or `assumption`. A
 finding takes the worst provenance of the evidence it cites and can never be `confirmed` unless all

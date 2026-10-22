@@ -1,6 +1,7 @@
 import html
 import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -10,9 +11,10 @@ from playwright.sync_api import sync_playwright
 
 from ams_assess.ai import PHASES
 from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding, customer_path
-from ams_assess.store import load, report_data, set_report_files
+from ams_assess.store import load, locked, now, report_data, save
 
 LOCAL = {"local_seo", "entity", "presence"}
+MAX_MARKDOWN_BYTES = 5_000_000
 
 CSS = """@page { size: A4; margin: 18mm 17mm 20mm; }
 body { font-family: Arial, sans-serif; color: #20303d; font-size: 10pt; line-height: 1.48;
@@ -60,14 +62,63 @@ def output_path(directory: Path, name: str) -> Path:
     return target
 
 
-def render_customer(root: Path, customer: str, formats: set[str] | None = None) -> list[str]:
-    """Regenerate the customer-level report from the store, whichever stages have run."""
-    store = load(root, customer)
-    if store is None:
-        raise ValueError("No assessment store for this customer")
-    data, evidence, discovery = report_data(store)
-    written = render_data(customer_path(root, customer), data, evidence, formats, discovery)
-    set_report_files(root, customer, written)
+def render_customer(
+    root: Path, customer: str, formats: set[str] | None = None, edited_md: Path | None = None
+) -> list[str]:
+    """Write a new immutable report revision from the store, whichever stages have run.
+
+    Each generation gets its own reports/<NNN-timestamp>/ directory recorded in the store's
+    append-only ``report_revisions``; report.* in the customer directory is a copy of the latest.
+    The markdown is the master: ``edited_md`` (a human-edited report.md) becomes a new revision
+    whose html/pdf are rendered from it.
+    """
+    formats = (formats or {"md", "html", "pdf"}) | {"md"}
+    content = None
+    if edited_md is not None:
+        if edited_md.is_symlink() or not edited_md.is_file():
+            raise ValueError("Edited markdown must be a regular file")
+        if edited_md.stat().st_size > MAX_MARKDOWN_BYTES:
+            raise ValueError("Edited markdown is too large")
+        content = edited_md.read_text()
+    with locked(root, customer, create=False):
+        store = load(root, customer)
+        if store is None:
+            raise ValueError("No assessment store for this customer")
+        directory = customer_path(root, customer)
+        for ext in formats:  # refuse unsafe latest-copy targets before writing anything
+            output_path(directory, f"report.{ext}")
+        reports = directory / "reports"
+        if reports.is_symlink():
+            raise ValueError("Report revisions directory must not be a symlink")
+        revisions = store.setdefault("report_revisions", [])
+        number = len(revisions) + 1
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        revision = reports / f"{number:03d}-{stamp}"
+        reports.mkdir(exist_ok=True, mode=0o700)
+        revision.mkdir(mode=0o700)
+        if content is None:
+            data, evidence, discovery = report_data(store)
+            content = render_markdown(data, evidence, discovery)
+        written = write_outputs(revision, content, formats)
+        for name in written:
+            (revision / name).chmod(0o400)  # a revision is never rewritten
+            output_path(directory, name).write_bytes((revision / name).read_bytes())
+        runs = store["runs"]
+        revisions.append(
+            {
+                "revision": number,
+                "created_at": now(),
+                "directory": f"reports/{revision.name}",
+                "files": written,
+                "source": "edited markdown" if edited_md else "generated",
+                **({"based_on": revisions[-1]["revision"]} if edited_md and revisions else {}),
+                # The assessment state this report reflects.
+                "assessment_revision": runs[-1]["run_id"] if runs else None,
+                "store_updated_at": store["updated_at"],
+            }
+        )
+        store["report_files"] = {name.rsplit(".", 1)[1]: name for name in written}
+        save(root, customer, store)
     return written
 
 
@@ -78,16 +129,24 @@ def render_data(
     formats: set[str] | None = None,
     discovery: dict[str, Any] | None = None,
 ) -> list[str]:
-    formats = formats or {"md", "html", "pdf"}
+    content = render_markdown(data, evidence, discovery)
+    return write_outputs(run_dir, content, formats or {"md", "html", "pdf"})
+
+
+def render_markdown(
+    data: dict[str, Any], evidence: list[Evidence], discovery: dict[str, Any] | None = None
+) -> str:
     findings = [Finding.model_validate(f) for f in data["findings"]]
     known = {e.id for e in evidence}
     if any(not set(f.evidence_ids) <= known for f in findings):
         raise ValueError("Report refused: a finding references missing evidence")
     findings.sort(key=lambda f: (f.priority, SEVERITIES[f.severity], f.category, f.id))
-    by_id = {f.id: f for f in findings}
+    # Findings whose basis changed or conflicts are listed for review, not recommended.
+    review = {r["finding_id"] for r in data.get("needs_review", []) if r.get("finding_id")}
+    by_id = {f.id: f for f in findings if f.id not in review}
     ai = data["ai"]
     proposed = ai.get("recommendations", [])
-    order = list(dict.fromkeys([i for i in proposed if i in by_id] + [f.id for f in findings]))
+    order = list(dict.fromkeys([i for i in proposed if i in by_id] + list(by_id)))
     roadmap = {phase: [] for phase in PHASES}
     assigned = set()
     for phase in PHASES:
@@ -95,7 +154,7 @@ def render_data(
             if fid in by_id and fid not in assigned:
                 roadmap[phase].append(by_id[fid])
                 assigned.add(fid)
-    for finding in findings:
+    for finding in by_id.values():
         if finding.id not in assigned:
             phase = {"P1": "0-30 days", "P2": "30-90 days", "P3": "90+ days"}[finding.priority]
             roadmap[phase].append(finding)
@@ -133,6 +192,10 @@ def render_data(
         collected_sources={e.source for e in evidence},
         browser_observations=sum(e.source == "browser" for e in evidence),
     )
+    return content
+
+
+def write_outputs(run_dir: Path, content: str, formats: set[str]) -> list[str]:
     written = []
     targets = {ext: output_path(run_dir, f"report.{ext}") for ext in formats}
     if "md" in formats:

@@ -7,10 +7,13 @@ cites an evidence ID is remapped with the same mapping.
 
 import contextlib
 import copy
+import fcntl
 import json
 import os
 import re
 import tempfile
+import time
+from collections.abc import Generator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -26,6 +29,8 @@ from ams_assess.models import (
 
 SCHEMA_VERSION = 2
 STORE_FILE = "assessment.json"
+LOCK_FILE = ".assessment.lock"
+LOCK_TIMEOUT = 30.0
 STAGES = ("public", "connected", "discovery")
 EVIDENCE_ID = re.compile(r"ev-[a-z_]+-\d+")
 LOCAL_ID = re.compile(r"^ev-([a-z_]+)-(\d+)$")
@@ -101,6 +106,9 @@ def new_store(customer: str, customer_name: str) -> dict[str, Any]:
         "findings": [],
         "discovery": {},
         "report_files": {},
+        "report_revisions": [],
+        "finding_history": [],
+        "needs_review": [],
         "stages_assessed": [],
     }
 
@@ -136,6 +144,32 @@ def save(root: Path, customer: str, store: dict[str, Any]) -> None:
         raise
 
 
+@contextlib.contextmanager
+def locked(root: Path, customer: str, create: bool = True) -> Generator[None]:
+    """Exclusive per-customer lock spanning load -> modify -> save; waits LOCK_TIMEOUT at most."""
+    directory = customer_path(root, customer)
+    if not directory.is_dir():
+        if not create:
+            raise ValueError("No assessment store for this customer")
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd = os.open(directory / LOCK_FILE, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        deadline = time.monotonic() + LOCK_TIMEOUT
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise ValueError(
+                        "Customer store is busy (another import or report is running); try again"
+                    ) from None
+                time.sleep(0.05)
+        yield
+    finally:
+        os.close(fd)  # closing the descriptor releases the lock
+
+
 def _begin(root: Path, customer: str, customer_name: str) -> tuple[dict[str, Any], str]:
     store = load(root, customer) or new_store(customer, customer_name)
     if customer_name and customer_name != customer:
@@ -148,8 +182,67 @@ def _finish(
     store: dict[str, Any], findings: list[Finding], evidence: list[Evidence], stages: list[str]
 ) -> None:
     store["evidence"] = [e.model_dump(mode="json") for e in evidence]
-    store["findings"] = [f.model_dump(mode="json") for f in findings]
+    store["findings"] = [f.model_dump(mode="json") for f in _lifecycle(store, findings, evidence)]
     store["stages_assessed"] = [s for s in STAGES if s in {*store["stages_assessed"], *stages}]
+
+
+def _retire(store: dict[str, Any], finding: Finding, reason: str, by: str = "") -> None:
+    """Keep a finding version in history; it is no longer active or recommended."""
+    entry = {**finding.model_dump(mode="json"), "status": "superseded", "reason": reason}
+    entry.update(superseded_at=now(), **({"superseded_by": by} if by else {}))
+    store.setdefault("finding_history", []).append(entry)
+
+
+def _lifecycle(
+    store: dict[str, Any], findings: list[Finding], evidence: list[Evidence]
+) -> list[Finding]:
+    """Retire findings resting only on superseded evidence; flag stale or conflicting basis."""
+    successor = {
+        e.data["supersedes"]: e.id
+        for e in evidence
+        if e.source == "discovery" and isinstance(e.data, dict) and e.data.get("supersedes")
+    }
+
+    def later(eid: str) -> set[str]:
+        versions: set[str] = set()
+        while eid in successor and successor[eid] not in versions:
+            eid = successor[eid]
+            versions.add(eid)
+        return versions
+
+    active, review = [], []
+    for finding in findings:
+        stale = [i for i in finding.evidence_ids if i in successor]
+        if stale and len(stale) == len(finding.evidence_ids):
+            _retire(store, finding, "every statement it cites has been superseded")
+            continue
+        active.append(finding)
+        # Part of the basis changed and the finding was not re-derived from the new version.
+        unanswered = [i for i in stale if not later(i) & set(finding.evidence_ids)]
+        if unanswered:
+            review.append(
+                {
+                    "finding_id": finding.id,
+                    "title": finding.title,
+                    "reason": "it cites statements that have since been superseded",
+                    "evidence_ids": unanswered,
+                }
+            )
+    for key, entries in store["discovery"].get("sections", {}).items():
+        groups: dict[tuple[str, str, tuple[str, ...]], list[str]] = {}
+        for entry in entries:
+            groups.setdefault(identity(entry), []).append(entry["evidence_id"])
+        for ids in groups.values():
+            if len(ids) > 1:
+                review.append(
+                    {
+                        "title": DISCOVERY_SECTIONS[key],
+                        "reason": "the same statement is recorded with conflicting details",
+                        "evidence_ids": ids,
+                    }
+                )
+    store["needs_review"] = review
+    return active
 
 
 def unique_id(original: str, run_id: str, taken: set[str]) -> str:
@@ -164,18 +257,43 @@ def unique_id(original: str, run_id: str, taken: set[str]) -> str:
     raise ValueError("Cannot allocate a unique finding ID")
 
 
+def claim(finding: Finding) -> tuple[str, ...]:
+    """What a finding asserts; evidence, provenance and confidence are tracked separately."""
+    return tuple(
+        str(getattr(finding, k))
+        for k in (
+            "title",
+            "kind",
+            "severity",
+            "detail",
+            "recommendation",
+            "ams_service",
+            "likely_cause",
+            "business_impact",
+        )
+    )
+
+
 def _combine(
     store: dict[str, Any], incoming: list[Finding], evidence: list[Evidence], run_id: str
 ) -> tuple[list[Finding], dict[str, str]]:
     """Consolidate incoming findings into the store; returns findings and incoming->final ids."""
     existing = [Finding.model_validate(f) for f in store["findings"]]
-    by_key = {(f.category, f.check_key or f.id): f.id for f in existing}
-    taken = {f.id for f in existing}
+    by_key = {(f.category, f.check_key or f.id): f for f in existing}
+    taken = {f.id for f in existing} | {f["id"] for f in store.get("finding_history", [])}
     id_map: dict[str, str] = {}
     renamed = []
     for finding in incoming:
         key = (finding.category, finding.check_key or finding.id)
-        final = by_key.get(key)
+        current = by_key.get(key)
+        final = current.id if current else None
+        if current and finding.category == DISCOVERY_CATEGORY and claim(current) != claim(finding):
+            # A re-import that changes what a finding says is a new version, never concatenated.
+            final = unique_id(finding.id, run_id, taken)
+            taken.add(final)
+            existing.remove(current)
+            del by_key[key]
+            _retire(store, current, "re-imported with a changed claim", final)
         if final is None:
             final = unique_id(finding.id, run_id, taken)
             taken.add(final)
@@ -197,6 +315,19 @@ def merge_run(
     stages: list[str],
 ) -> dict[str, Any]:
     """Merge one finished assessment run (its results.json dict + evidence) into the store."""
+    with locked(root, customer):
+        return _merge_run(root, customer, customer_name, data, evidence, run_name, stages)
+
+
+def _merge_run(
+    root: Path,
+    customer: str,
+    customer_name: str,
+    data: dict[str, Any],
+    evidence: list[Evidence],
+    run_name: str,
+    stages: list[str],
+) -> dict[str, Any]:
     store, run_id = _begin(root, customer, customer_name)
     if any(r["run_dir"] == run_name for r in store["runs"]):
         return store
@@ -247,6 +378,13 @@ def add_discovery(
     root: Path, customer: str, customer_name: str, notes: Notes
 ) -> tuple[dict[str, Any], dict[str, int]]:
     """Ingest discovery notes: mint customer_statement evidence and derive cited findings."""
+    with locked(root, customer):
+        return _add_discovery(root, customer, customer_name, notes)
+
+
+def _add_discovery(
+    root: Path, customer: str, customer_name: str, notes: Notes
+) -> tuple[dict[str, Any], dict[str, int]]:
     store, run_id = _begin(root, customer, customer_name)
     stamp = now()
     discovery: dict[str, Any] = store["discovery"] or {"sections": {}}
@@ -403,14 +541,6 @@ def add_discovery(
     return store, {"statements": statements, "new": added, "findings": len(incoming)}
 
 
-def set_report_files(root: Path, customer: str, files: list[str]) -> None:
-    store = load(root, customer)
-    if store is None:
-        raise ValueError("No customer store")
-    store["report_files"] = {name.rsplit(".", 1)[1]: name for name in files}
-    save(root, customer, store)
-
-
 def report_data(
     store: dict[str, Any],
 ) -> tuple[dict[str, Any], list[Evidence], dict[str, Any] | None]:
@@ -429,10 +559,13 @@ def report_data(
         ai["sections"] = {k: v for r in ai_runs for k, v in r["ai"].get("sections", {}).items()}
     elif live:
         ai = dict(live[-1]["ai"])
-    latest_modules: dict[str, dict[str, Any]] = {}
+    # Results stay attributed to the website and run that produced them.
+    latest_modules: dict[tuple[str, str], dict[str, Any]] = {}
+    targets: dict[str, list[str]] = {}
     for run in runs:
+        targets.setdefault(run["target"], []).append(run["run_id"])
         for module in run["modules"]:
-            latest_modules[module["name"]] = module
+            latest_modules[(run["target"], module["name"])] = {**module, "target": run["target"]}
     limitations = [
         line
         for line in dict.fromkeys(x for r in runs for x in r["limitations"])
@@ -449,6 +582,9 @@ def report_data(
     def latest(key: str, default: Any) -> Any:
         return next((r[key] for r in reversed(runs) if r.get(key)), default)
 
+    def attributed(run: dict[str, Any], key: str) -> dict[str, Any]:
+        return {**run[key], "target": run["target"], "run_id": run["run_id"]}
+
     stages = {
         "public": "public technical assessment",
         "connected": "connected evidence",
@@ -458,21 +594,28 @@ def report_data(
         "customer_name": store["customer_name"],
         "created_at": store["updated_at"],
         "target": latest("target", ""),
+        "targets": [{"target": t, "run_ids": ids} for t, ids in targets.items() if t],
         "selected_categories": selected,
         "assessed_categories": assessed,
         "stages": [stages[s] for s in store["stages_assessed"]],
         "max_pages": latest("max_pages", 0),
         "pages": latest("pages", []),
+        "pages_target": next((r["target"] for r in reversed(runs) if r.get("pages")), ""),
         "modules": list(latest_modules.values()),
         "ai": ai,
         "findings": store["findings"],
+        "finding_history": store.get("finding_history", []),
+        "needs_review": store.get("needs_review", []),
         "limitations": limitations,
         "future": latest("future", []),
     }
     for key in ("domain_email_health", "digital_presence"):
-        found = next((r[key] for r in reversed(runs) if key in r), None)
+        # The newest summary per website, each labelled with its website and run.
+        sites = {r["target"]: attributed(r, key) for r in runs if key in r}
+        found = next((r for r in reversed(runs) if key in r), None)
         if found is not None:
-            data[key] = found
+            data[key] = attributed(found, key)
+            data[f"{key}_sites"] = list(sites.values())
     sections = [
         {"title": title, "statements": store["discovery"]["sections"][key]}
         for key, title in DISCOVERY_SECTIONS.items()
