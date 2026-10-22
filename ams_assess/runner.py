@@ -41,6 +41,18 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             result.raw_paths.append(ctx.raw(f"{name}-error", {"reason": result.reason}))
         if not result.raw_paths:
             result.raw_paths = [ctx.raw(name, {"status": result.status, "reason": result.reason})]
+        if name == "siteone" and result.status != "ok":
+            # Give the narrative a citation for failed coverage, including the zero-page
+            # quantity. A status in the prompt alone is not cited measurement evidence.
+            result.add_evidence(
+                ctx.target,
+                "SiteOne crawl coverage unavailable",
+                {
+                    "status": result.status,
+                    "reason": result.reason,
+                    "successful_html_pages": len(ctx.pages),
+                },
+            )
         result.findings = [f for f in result.findings if f.category in ctx.categories]
         results.append(result)
         print(

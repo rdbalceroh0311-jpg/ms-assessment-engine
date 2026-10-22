@@ -4,6 +4,7 @@ import subprocess
 from urllib.parse import urljoin, urlsplit
 
 from ams_assess.models import Context, ModuleResult
+from ams_assess.targets import crawl_hosts, resolve_target
 
 name = "siteone"
 categories = {
@@ -27,6 +28,14 @@ def run(ctx: Context) -> ModuleResult:
         return ModuleResult(
             name=name, status="skipped", reason="SiteOne missing; run scripts/setup.sh"
         )
+    resolution = resolve_target(ctx.target)
+    result.raw_paths = [ctx.raw("target-resolution", resolution)]
+    result.add_evidence(ctx.target, "Target redirect resolution before crawling", resolution)
+    if not resolution["resolved"]:
+        result.status, result.reason = "error", resolution["error"]
+        return result
+    hosts = crawl_hosts(ctx.target, resolution["resolved"])
+    ctx.target = resolution["resolved"]
     command = [
         str(binary),
         f"--url={ctx.target}",
@@ -42,6 +51,7 @@ def run(ctx: Context) -> ModuleResult:
         "--output-html-report=",
         "--output-json-file=",
         "--output-text-file=",
+        *(f"--allowed-domain-for-crawling={host}" for host in sorted(hosts)),
     ]
     process = subprocess.run(
         command,
@@ -51,21 +61,32 @@ def run(ctx: Context) -> ModuleResult:
         timeout=max(120, min(ctx.max_pages * 10, 1800)),
     )
     (ctx.run_dir / "raw/siteone.stderr.txt").write_text(process.stderr)
-    result.raw_paths = ["raw/siteone.json", "raw/siteone.stderr.txt"]
+    result.raw_paths += ["raw/siteone.json", "raw/siteone.stderr.txt"]
     (ctx.run_dir / "raw/siteone.json").write_text(process.stdout)
+    try:
+        data = json.loads(process.stdout)
+    except ValueError:
+        data = {}
+    rows = data.get("results", [])
+    if len(rows) == 1 and 300 <= int(rows[0].get("status", 0)) < 400:
+        result.add_evidence(ctx.target, "SiteOne crawled only a redirect", rows[0])
+        result.status = "error"
+        result.reason = (
+            f"SiteOne crawled only a redirect (exit {process.returncode}); "
+            "no HTML pages assessed. Verify the canonical host and redirect configuration."
+        )
+        return result
     if process.returncode:
         result.status, result.reason = (
             "error",
             f"SiteOne exited {process.returncode}; see raw output",
         )
         return result
-    data = json.loads(process.stdout)
-    rows = data.get("results", [])
     for row in rows:
         url = row["url"]
         status = int(row.get("status", 0))
         if row.get("type") == 1 and 200 <= status < 300:
-            if urlsplit(url).netloc == urlsplit(ctx.target).netloc:
+            if urlsplit(url).hostname in hosts:
                 ctx.pages.append(url)
         eid = result.add_evidence(url, "SiteOne HTTP response", row)
         if status == 0 or status == 429 or status >= 500:

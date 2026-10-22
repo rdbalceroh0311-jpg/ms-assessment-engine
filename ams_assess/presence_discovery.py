@@ -449,6 +449,9 @@ def discover(
             reason=outcome.get("reason", ""),
             cost_usd=outcome.get("cost_usd", ""),
         )
+        if outcome["status"] == "error":
+            query["evidence_id"] = dataforseo.failure_evidence(ctx, result, outcome)
+            query["provider_status"] = outcome.get("provider_status", {})
         # Rewritten after every call, so the spend survives any later failure in the module.
         ledger = ctx.raw(
             "presence-dataforseo-ledger",

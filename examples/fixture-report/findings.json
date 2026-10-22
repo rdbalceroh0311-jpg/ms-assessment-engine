@@ -89,7 +89,7 @@
     "provenance": "customer_statement"
   },
   {
-    "id": "siteone-003",
+    "id": "siteone-002",
     "title": "Broken URLs",
     "category": "technical",
     "severity": "high",
@@ -237,7 +237,7 @@
     "kind": "problem",
     "confidence": "confirmed",
     "evidence_ids": [
-      "ev-siteone-r2-016"
+      "ev-siteone-r2-017"
     ],
     "detail": "No meta description recorded at http://127.0.0.1:18765/quote.html.",
     "recommendation": "Add a descriptive, page-specific meta description.",
@@ -266,7 +266,7 @@
     "kind": "problem",
     "confidence": "confirmed",
     "evidence_ids": [
-      "ev-siteone-r2-016"
+      "ev-siteone-r2-017"
     ],
     "detail": "No H1 recorded at http://127.0.0.1:18765/quote.html.",
     "recommendation": "Add a descriptive, page-specific H1.",
@@ -466,7 +466,7 @@
     "confidence": "needs_verification",
     "evidence_ids": [
       "ev-security-r2-001",
-      "ev-siteone-r2-020"
+      "ev-siteone-r2-021"
     ],
     "detail": "Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy.",
     "recommendation": "Review and test the header policy for the affected responses.",
@@ -495,7 +495,7 @@
     "kind": "problem",
     "confidence": "needs_verification",
     "evidence_ids": [
-      "ev-siteone-r2-021"
+      "ev-siteone-r2-022"
     ],
     "detail": "Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.",
     "recommendation": "Review and test the header policy for the affected responses.",
@@ -525,7 +525,7 @@
     "confidence": "needs_verification",
     "evidence_ids": [
       "ev-security-r2-001",
-      "ev-siteone-r2-022"
+      "ev-siteone-r2-023"
     ],
     "detail": "X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options.",
     "recommendation": "Review and test the header policy for the affected responses.",
@@ -555,7 +555,7 @@
     "confidence": "needs_verification",
     "evidence_ids": [
       "ev-security-r2-001",
-      "ev-siteone-r2-023"
+      "ev-siteone-r2-024"
     ],
     "detail": "Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy.",
     "recommendation": "Review and test the header policy for the affected responses.",
@@ -584,7 +584,7 @@
     "kind": "problem",
     "confidence": "needs_verification",
     "evidence_ids": [
-      "ev-siteone-r2-024"
+      "ev-siteone-r2-025"
     ],
     "detail": "Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.",
     "recommendation": "Review and test the header policy for the affected responses.",
@@ -640,7 +640,7 @@
     "kind": "opportunity",
     "confidence": "confirmed",
     "evidence_ids": [
-      "ev-siteone-r2-026"
+      "ev-siteone-r2-027"
     ],
     "detail": "4 page(s) without a rel=canonical link",
     "recommendation": "Add a self-referencing rel=canonical to each indexable page.",
@@ -669,8 +669,8 @@
     "kind": "opportunity",
     "confidence": "confirmed",
     "evidence_ids": [
-      "ev-siteone-r2-008",
-      "ev-siteone-r2-010"
+      "ev-siteone-r2-007",
+      "ev-siteone-r2-013"
     ],
     "detail": "HTTP 301 at http://127.0.0.1:18765/old-service. HTTP 301 at http://127.0.0.1:18765/older-service.",
     "recommendation": "Link directly to the final canonical URL.",

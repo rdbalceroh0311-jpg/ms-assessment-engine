@@ -27,22 +27,19 @@ DRAFT_BANNER = (
 def discovery_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Condense repetitive discovery outcomes for display, retaining the stored detail."""
     output: list[dict[str, Any]] = []
-    groups: dict[tuple[str, str], dict[str, Any]] = {}
+    groups: dict[tuple[str, str, str], dict[str, Any]] = {}
     for row in rows:
         state, detail = row["state"], row["detail"]
         group = None
         if not row.get("manual") and not row["candidates"]:
             if state == "Not applicable":
-                detail = "Outside the recorded business profile; platform details in results.json."
-                group = (state, detail)
+                detail = "Not relevant for the recorded industry and buying model."
+                group = (state, detail, row["relevance"])
             elif state == "Not assessed" and detail.startswith("Not searched:"):
-                group = (state, detail)
+                group = (state, detail, row["relevance"])
         if group is not None and group in groups:
             summary = groups[group]
             summary["platform"] += ", " + row["platform"]
-            summary["relevance"] = " / ".join(
-                dict.fromkeys([*summary["relevance"].split(" / "), row["relevance"]])
-            )
             summary["evidence_ids"] = list(
                 dict.fromkeys([*summary["evidence_ids"], *row["evidence_ids"]])
             )
@@ -288,6 +285,7 @@ def render_markdown(
         if fid
     }
     by_id = {f.id: f for f in findings if f.id not in review}
+    findings = list(by_id.values())
     site_finding_eids = {
         eid for f in findings if f.check_key.startswith("site:") for eid in f.evidence_ids
     }
@@ -296,7 +294,6 @@ def render_markdown(
         for e in evidence
         if e.id in site_finding_eids and e.source == "site_checks" and e.data.get("site_check")
     }
-    findings = list(by_id.values())
     ai = data["ai"]
     proposed = ai.get("recommendations", [])
     order = list(dict.fromkeys([i for i in proposed if i in by_id] + list(by_id)))

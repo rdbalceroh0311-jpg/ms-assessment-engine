@@ -67,7 +67,7 @@ Review these higher-importance observations first. Their business impact is pote
 | Elements must meet minimum color contrast ratio thresholds (browser-001) | Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009) | Low contrast may make service information or controls hard to read. | Review within 0-30 days |
 | Images must have alternative text (browser-002) | Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009) | Customers using screen readers may miss information conveyed by images. | Review within 0-30 days |
 | Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies) | Reported by customer; discovery (ev-discovery-r3-005); discovery (ev-discovery-r3-006); discovery (ev-discovery-r3-017) | Customer believes some new work goes to competitors (not measured) | Review within 0-30 days |
-| Broken URLs (siteone-003) | Confirmed (technical evidence); siteone (ev-siteone-r2-011) | Broken links may prevent customers reaching the information they need. | Review within 0-30 days |
+| Broken URLs (siteone-002) | Confirmed (technical evidence); siteone (ev-siteone-r2-011) | Broken links may prevent customers reaching the information they need. | Review within 0-30 days |
 
 ## 4. Website, SEO, performance, accessibility and AI-search readiness
 
@@ -75,7 +75,7 @@ These checks look at whether customers and search engines can reach and understa
 
 ### Website technical health
 
-#### siteone-003: Broken URLs
+#### siteone-002: Broken URLs
 
 **Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
 
@@ -119,9 +119,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/old-service; http://127.0.0.1:18765/older-service
 
-**Source:** siteone (ev-siteone-r2-008); siteone (ev-siteone-r2-010).
+**Source:** siteone (ev-siteone-r2-007); siteone (ev-siteone-r2-013).
 
-**Evidence:** ev-siteone-r2-008, ev-siteone-r2-010
+**Evidence:** ev-siteone-r2-007, ev-siteone-r2-013
 
 
 ### SEO findings
@@ -146,9 +146,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
 
-**Source:** siteone (ev-siteone-r2-016).
+**Source:** siteone (ev-siteone-r2-017).
 
-**Evidence:** ev-siteone-r2-016
+**Evidence:** ev-siteone-r2-017
 
 #### siteone-005: Missing H1
 
@@ -170,9 +170,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
 
-**Source:** siteone (ev-siteone-r2-016).
+**Source:** siteone (ev-siteone-r2-017).
 
-**Evidence:** ev-siteone-r2-016
+**Evidence:** ev-siteone-r2-017
 
 #### site\_checks-002: Duplicates, headings / internal links
 
@@ -216,9 +216,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/
 
-**Source:** siteone (ev-siteone-r2-026).
+**Source:** siteone (ev-siteone-r2-027).
 
-**Evidence:** ev-siteone-r2-026
+**Evidence:** ev-siteone-r2-027
 
 
 ### GEO / AI search readiness
@@ -442,8 +442,8 @@ Website: http://127.0.0.1:18765/ (run r2). Public assessment: statuses below com
 | NAP consistency (structured data vs visible text and phone links) | Inconsistent | on http://127.0.0.1:18765/, structured telephone '+61 2 5550 0199' differs from the only value shown (02 5550 0100) | ev-presence-r2-010 |
 | Structured business entity (JSON-LD) | Detected | LocalBusiness; sameAs links: 2 | ev-presence-r2-010 |
 | Location / service-area pages | Not detected | No location or service-area URL among 7 crawled pages | ev-presence-r2-011 |
-| robots.txt | Detected | Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms. | ev-siteone-r2-025 |
-| Canonical links | Incomplete | 4 page(s) without a rel=canonical link | ev-siteone-r2-026 |
+| robots.txt | Detected | Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms. | ev-siteone-r2-026 |
+| Canonical links | Incomplete | 4 page(s) without a rel=canonical link | ev-siteone-r2-027 |
 | XML sitemap | PASS | Sitemap at http://127.0.0.1:18765/sitemap.xml (robots.txt Sitemap line) lists 7 URLs | ev-presence-r2-012 |
 
 
@@ -482,15 +482,17 @@ Independent search: **Not assessed** (no --dataforseo-max-usd cap was passed). B
 | Relevance | Platform | State | Candidate profiles and match evidence | Detail | Evidence |
 | --- | --- | --- | --- | --- | --- |
 | high | Google Business Profile / Google Maps | Found — likely match | https://g.page/harbour-demo-plumbing-fixture [linked from the website] | 1 candidate profile(s); linked from the website. Searched through the DataForSEO Google Maps SERP only. | ev-presence-r2-015 |
-| high / medium / low | hipages, True Local, Localsearch, Houzz, LinkedIn, YouTube, TikTok, Yelp, Hotfrog, Cylex, Whereis, Word of Mouth, Airtasker, ServiceSeeking | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
+| high | hipages | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
 | medium | Bing Places / Bing Maps | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. No provider search; manual verification only. | ev-presence-r2-014 |
 | medium | Facebook | Found — likely match | https://www.facebook.com/harbour.demo.plumbing.fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-016 |
 | medium | Instagram | Found — likely match | https://www.instagram.com/harbour.demo.plumbing.fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-017 |
 | medium | Yellow Pages AU | Found — likely match | https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-018 |
+| medium | True Local, Localsearch, Houzz | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
 | low | Apple Business / Apple Maps | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Apple Business replaced Apple Business Connect. No provider search; manual only. | ev-presence-r2-014 |
+| low | LinkedIn, YouTube, TikTok, Yelp, Hotfrog, Cylex, Whereis, Word of Mouth, Airtasker, ServiceSeeking | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
 | low | Pinterest | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Relevant only where visual inspiration drives enquiries. | ev-presence-r2-014 |
 | low | Chambers of commerce / professional &amp; industry associations | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Generic manual item: membership directories differ by industry and region (e.g. local chambers, trade or traffic-management industry bodies). | ev-presence-r2-014 |
-| not\_applicable | Tripadvisor, OpenTable, Uber Eats, DoorDash, Menulog, Fresha, Booksy, Timely, NSW buy.nsw Supplier Hub, AusTender, ICN Gateway | Not applicable | - | Outside the recorded business profile; platform details in results.json. | ev-presence-r2-014 |
+| not\_applicable | Tripadvisor, OpenTable, Uber Eats, DoorDash, Menulog, Fresha, Booksy, Timely, NSW buy.nsw Supplier Hub, AusTender, ICN Gateway | Not applicable | - | Not relevant for the recorded industry and buying model. | ev-presence-r2-014 |
 
 ### Website and email platforms
 
@@ -618,9 +620,9 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Affected URLs:** http://127.0.0.1:18765/
 
-**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-020).
+**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-021).
 
-**Evidence:** ev-security-r2-001, ev-siteone-r2-020
+**Evidence:** ev-security-r2-001, ev-siteone-r2-021
 
 #### siteone-007: Review server header
 
@@ -642,9 +644,9 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Affected URLs:** http://127.0.0.1:18765/
 
-**Source:** siteone (ev-siteone-r2-021).
+**Source:** siteone (ev-siteone-r2-022).
 
-**Evidence:** ev-siteone-r2-021
+**Evidence:** ev-siteone-r2-022
 
 #### siteone-008: Review x-content-type-options header
 
@@ -666,9 +668,9 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Affected URLs:** http://127.0.0.1:18765/
 
-**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-022).
+**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-023).
 
-**Evidence:** ev-security-r2-001, ev-siteone-r2-022
+**Evidence:** ev-security-r2-001, ev-siteone-r2-023
 
 #### siteone-009: Review referrer-policy header
 
@@ -690,9 +692,9 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Affected URLs:** http://127.0.0.1:18765/
 
-**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-023).
+**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-024).
 
-**Evidence:** ev-security-r2-001, ev-siteone-r2-023
+**Evidence:** ev-security-r2-001, ev-siteone-r2-024
 
 #### siteone-010: Review permissions-policy header
 
@@ -714,9 +716,9 @@ These checks concern the technical services behind the website and email. DNS is
 
 **Affected URLs:** http://127.0.0.1:18765/
 
-**Source:** siteone (ev-siteone-r2-024).
+**Source:** siteone (ev-siteone-r2-025).
 
-**Evidence:** ev-siteone-r2-024
+**Evidence:** ev-siteone-r2-025
 
 
 ## 8. Operational-process and automation findings
@@ -872,7 +874,7 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 - **P1 - Elements must meet minimum color contrast ratio thresholds (browser-001):** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.
 - **P1 - Images must have alternative text (browser-002):** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.
 - **P1 - Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies):** Map the enquiry journey, then trial call capture with a missed-call text-back and a shared enquiry queue; keep pricing replies for human approval. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.
-- **P1 - Broken URLs (siteone-003):** Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-011.
+- **P1 - Broken URLs (siteone-002):** Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-011.
 
 ### 30-90 days
 
@@ -880,8 +882,8 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 - **P2 - Job spreadsheet has no backup (discovery-job-spreadsheet-has-no-backup):** Confirm the current setup on site, then put managed backup in place for business data. Evidence: ev-discovery-r3-014.
 - **P2 - Business name, address or phone differs between structured data and the page (presence-002):** Use one canonical name, address and phone number in structured data, the footer, contact page and external listings. Evidence: ev-presence-r2-010.
 - **P2 - No explicit framing protection observed (security-004):** Set an appropriate frame-ancestors policy after checking embedding needs. Evidence: ev-security-r2-001.
-- **P2 - Missing meta description (siteone-004):** Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-016.
-- **P2 - Missing H1 (siteone-005):** Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-016.
+- **P2 - Missing meta description (siteone-004):** Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-017.
+- **P2 - Missing H1 (siteone-005):** Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-017.
 
 ### 90+ days
 
@@ -891,14 +893,14 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 - **P3 - Near-duplicate location pages (site_checks-003):** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.
 - **P3 - Priority platforms still need presence verification (presence-001):** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Evidence: ev-presence-r2-014, ev-presence-r2-013.
 - **P3 - Analytics or tracking tags could not be confirmed (presence-003):** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
-- **P3 - Review content-security-policy header (siteone-006):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-020.
-- **P3 - Review server header (siteone-007):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-021.
-- **P3 - Review x-content-type-options header (siteone-008):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-022.
-- **P3 - Review referrer-policy header (siteone-009):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-023.
-- **P3 - Review permissions-policy header (siteone-010):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-024.
+- **P3 - Review content-security-policy header (siteone-006):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-021.
+- **P3 - Review server header (siteone-007):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-022.
+- **P3 - Review x-content-type-options header (siteone-008):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-023.
+- **P3 - Review referrer-policy header (siteone-009):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-024.
+- **P3 - Review permissions-policy header (siteone-010):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-025.
 - **P3 - Duplicates, headings / internal links (site_checks-002):** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.
-- **P3 - Pages without a canonical link (siteone-011):** Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-026.
-- **P3 - Review internal redirects (siteone-001):** Link directly to the final canonical URL. Evidence: ev-siteone-r2-008, ev-siteone-r2-010.
+- **P3 - Pages without a canonical link (siteone-011):** Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-027.
+- **P3 - Review internal redirects (siteone-001):** Link directly to the final canonical URL. Evidence: ev-siteone-r2-007, ev-siteone-r2-013.
 
 ## 10. Items requiring customer verification, access or decisions
 
@@ -970,11 +972,11 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 - site_checks-003: Near-duplicate location pages. Evidence: ev-site_checks-r2-009.
 - presence-001: Priority platforms still need presence verification. Evidence: ev-presence-r2-014, ev-presence-r2-013.
 - presence-003: Analytics or tracking tags could not be confirmed. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
-- siteone-006: Review content-security-policy header. Evidence: ev-security-r2-001, ev-siteone-r2-020.
-- siteone-007: Review server header. Evidence: ev-siteone-r2-021.
-- siteone-008: Review x-content-type-options header. Evidence: ev-security-r2-001, ev-siteone-r2-022.
-- siteone-009: Review referrer-policy header. Evidence: ev-security-r2-001, ev-siteone-r2-023.
-- siteone-010: Review permissions-policy header. Evidence: ev-siteone-r2-024.
+- siteone-006: Review content-security-policy header. Evidence: ev-security-r2-001, ev-siteone-r2-021.
+- siteone-007: Review server header. Evidence: ev-siteone-r2-022.
+- siteone-008: Review x-content-type-options header. Evidence: ev-security-r2-001, ev-siteone-r2-023.
+- siteone-009: Review referrer-policy header. Evidence: ev-security-r2-001, ev-siteone-r2-024.
+- siteone-010: Review permissions-policy header. Evidence: ev-siteone-r2-025.
 
 - **Not assessed:** domain\_email (http://127.0.0.1:18765/). Local/private target has no public domain audit. Confirm access or arrange a manual check if this is important to the customer.
 - **Not assessed:** performance (http://127.0.0.1:18765/). PageSpeed/CrUX cannot access localhost. Confirm access or arrange a manual check if this is important to the customer.
@@ -989,38 +991,39 @@ The machine-readable evidence.json retains the observed snippets and links to ra
 | Evidence ID | Source | Observation | URL |
 | --- | --- | --- | --- |
 | ev-profile-r1-001 | profile | Customer business profile (customer statement) (customer statement) | customer-profile |
-| ev-siteone-r2-001 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/ |
-| ev-siteone-r2-002 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/a/ |
-| ev-siteone-r2-003 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/contact.html |
-| ev-siteone-r2-004 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/style.css |
-| ev-siteone-r2-005 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/services.html |
-| ev-siteone-r2-006 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/about.html |
-| ev-siteone-r2-007 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/b/ |
-| ev-siteone-r2-008 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/old-service |
-| ev-siteone-r2-009 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/quote.html |
-| ev-siteone-r2-010 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/older-service |
+| ev-siteone-r2-001 | siteone | Target redirect resolution before crawling | http://127.0.0.1:18765/ |
+| ev-siteone-r2-002 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/ |
+| ev-siteone-r2-003 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/about.html |
+| ev-siteone-r2-004 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/quote.html |
+| ev-siteone-r2-005 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/contact.html |
+| ev-siteone-r2-006 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/style.css |
+| ev-siteone-r2-007 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/old-service |
+| ev-siteone-r2-008 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/a/ |
+| ev-siteone-r2-009 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/b/ |
+| ev-siteone-r2-010 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/services.html |
 | ev-siteone-r2-011 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/missing-offer.html |
 | ev-siteone-r2-012 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/work.svg |
-| ev-siteone-r2-013 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/ |
-| ev-siteone-r2-014 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/about.html |
-| ev-siteone-r2-015 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/contact.html |
-| ev-siteone-r2-016 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/quote.html |
-| ev-siteone-r2-017 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/a/ |
-| ev-siteone-r2-018 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/b/ |
-| ev-siteone-r2-019 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/services.html |
-| ev-siteone-r2-020 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
+| ev-siteone-r2-013 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/older-service |
+| ev-siteone-r2-014 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/ |
+| ev-siteone-r2-015 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/about.html |
+| ev-siteone-r2-016 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/contact.html |
+| ev-siteone-r2-017 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/quote.html |
+| ev-siteone-r2-018 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/a/ |
+| ev-siteone-r2-019 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/b/ |
+| ev-siteone-r2-020 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/services.html |
 | ev-siteone-r2-021 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
 | ev-siteone-r2-022 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
 | ev-siteone-r2-023 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
 | ev-siteone-r2-024 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-025 | siteone | SiteOne robots.txt load | http://127.0.0.1:18765/ |
-| ev-siteone-r2-026 | siteone | SiteOne canonical link summary | http://127.0.0.1:18765/ |
-| ev-siteone-r2-027 | siteone | SiteOne seo-headings table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-028 | siteone | SiteOne redirects table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-029 | siteone | SiteOne 404 table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-030 | siteone | SiteOne headers table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-031 | siteone | SiteOne headers-values table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-032 | siteone | SiteOne external-urls table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-025 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
+| ev-siteone-r2-026 | siteone | SiteOne robots.txt load | http://127.0.0.1:18765/ |
+| ev-siteone-r2-027 | siteone | SiteOne canonical link summary | http://127.0.0.1:18765/ |
+| ev-siteone-r2-028 | siteone | SiteOne seo-headings table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-029 | siteone | SiteOne redirects table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-030 | siteone | SiteOne 404 table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-031 | siteone | SiteOne headers table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-032 | siteone | SiteOne headers-values table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-033 | siteone | SiteOne external-urls table | http://127.0.0.1:18765/ |
 | ev-browser-r2-001 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/ |
 | ev-browser-r2-002 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/about.html |
 | ev-browser-r2-003 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/quote.html |

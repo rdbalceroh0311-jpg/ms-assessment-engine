@@ -19,17 +19,17 @@
       ]
     },
     "evidence_id": "ev-profile-r1-001",
-    "updated_at": "2026-10-22T22:57:15.514605+00:00"
+    "updated_at": "2026-10-22T23:21:08.002653+00:00"
   },
   "reported_sources": [
     {
       "source": "profile",
-      "created_at": "2026-10-22T22:57:15.514611+00:00",
+      "created_at": "2026-10-22T23:21:08.002664+00:00",
       "run_id": "r1"
     },
     {
       "source": "discovery",
-      "created_at": "2026-10-22T22:57:28.665597+00:00",
+      "created_at": "2026-10-22T23:21:21.835977+00:00",
       "run_id": "r3"
     }
   ],
@@ -37,13 +37,13 @@
     {
       "target": "http://127.0.0.1:18765/",
       "run_id": "r2",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "pages": 7,
       "max_pages": 30,
       "status": "partial"
     }
   ],
-  "created_at": "2026-10-22T22:59:14.861541+00:00",
+  "created_at": "2026-10-22T23:21:22.502162+00:00",
   "target": "http://127.0.0.1:18765/",
   "targets": [
     {
@@ -87,12 +87,12 @@
   "max_pages": 30,
   "pages": [
     "http://127.0.0.1:18765/",
-    "http://127.0.0.1:18765/service/a/",
-    "http://127.0.0.1:18765/contact.html",
-    "http://127.0.0.1:18765/services.html",
     "http://127.0.0.1:18765/about.html",
+    "http://127.0.0.1:18765/quote.html",
+    "http://127.0.0.1:18765/contact.html",
+    "http://127.0.0.1:18765/service/a/",
     "http://127.0.0.1:18765/service/b/",
-    "http://127.0.0.1:18765/quote.html"
+    "http://127.0.0.1:18765/services.html"
   ],
   "pages_target": "http://127.0.0.1:18765/",
   "modules": [
@@ -102,7 +102,7 @@
       "reason": "",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -111,7 +111,7 @@
       "reason": "",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -120,7 +120,7 @@
       "reason": "Local/private target has no public domain audit",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -129,7 +129,7 @@
       "reason": "TLS not checked: supplied target uses HTTP; Local fixture security headers are not evidence about production hosting",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -138,7 +138,7 @@
       "reason": "PageSpeed/CrUX cannot access localhost",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -147,7 +147,7 @@
       "reason": "Observatory cannot scan local targets",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -164,7 +164,7 @@
         }
       ],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -181,7 +181,7 @@
         }
       ],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -190,7 +190,7 @@
       "reason": "",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     },
     {
@@ -199,7 +199,7 @@
       "reason": "2 of 15 checks NOT ASSESSED; see status rows for missing evidence and manual verification",
       "connections": [],
       "target": "http://127.0.0.1:18765/",
-      "created_at": "2026-10-22T22:57:27.665095+00:00",
+      "created_at": "2026-10-22T23:21:20.730603+00:00",
       "run_id": "r2"
     }
   ],
@@ -301,7 +301,7 @@
       "provenance": "customer_statement"
     },
     {
-      "id": "siteone-003",
+      "id": "siteone-002",
       "title": "Broken URLs",
       "category": "technical",
       "severity": "high",
@@ -449,7 +449,7 @@
       "kind": "problem",
       "confidence": "confirmed",
       "evidence_ids": [
-        "ev-siteone-r2-016"
+        "ev-siteone-r2-017"
       ],
       "detail": "No meta description recorded at http://127.0.0.1:18765/quote.html.",
       "recommendation": "Add a descriptive, page-specific meta description.",
@@ -478,7 +478,7 @@
       "kind": "problem",
       "confidence": "confirmed",
       "evidence_ids": [
-        "ev-siteone-r2-016"
+        "ev-siteone-r2-017"
       ],
       "detail": "No H1 recorded at http://127.0.0.1:18765/quote.html.",
       "recommendation": "Add a descriptive, page-specific H1.",
@@ -678,7 +678,7 @@
       "confidence": "needs_verification",
       "evidence_ids": [
         "ev-security-r2-001",
-        "ev-siteone-r2-020"
+        "ev-siteone-r2-021"
       ],
       "detail": "Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy.",
       "recommendation": "Review and test the header policy for the affected responses.",
@@ -707,7 +707,7 @@
       "kind": "problem",
       "confidence": "needs_verification",
       "evidence_ids": [
-        "ev-siteone-r2-021"
+        "ev-siteone-r2-022"
       ],
       "detail": "Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.",
       "recommendation": "Review and test the header policy for the affected responses.",
@@ -737,7 +737,7 @@
       "confidence": "needs_verification",
       "evidence_ids": [
         "ev-security-r2-001",
-        "ev-siteone-r2-022"
+        "ev-siteone-r2-023"
       ],
       "detail": "X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options.",
       "recommendation": "Review and test the header policy for the affected responses.",
@@ -767,7 +767,7 @@
       "confidence": "needs_verification",
       "evidence_ids": [
         "ev-security-r2-001",
-        "ev-siteone-r2-023"
+        "ev-siteone-r2-024"
       ],
       "detail": "Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy.",
       "recommendation": "Review and test the header policy for the affected responses.",
@@ -796,7 +796,7 @@
       "kind": "problem",
       "confidence": "needs_verification",
       "evidence_ids": [
-        "ev-siteone-r2-024"
+        "ev-siteone-r2-025"
       ],
       "detail": "Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.",
       "recommendation": "Review and test the header policy for the affected responses.",
@@ -852,7 +852,7 @@
       "kind": "opportunity",
       "confidence": "confirmed",
       "evidence_ids": [
-        "ev-siteone-r2-026"
+        "ev-siteone-r2-027"
       ],
       "detail": "4 page(s) without a rel=canonical link",
       "recommendation": "Add a self-referencing rel=canonical to each indexable page.",
@@ -881,8 +881,8 @@
       "kind": "opportunity",
       "confidence": "confirmed",
       "evidence_ids": [
-        "ev-siteone-r2-008",
-        "ev-siteone-r2-010"
+        "ev-siteone-r2-007",
+        "ev-siteone-r2-013"
       ],
       "detail": "HTTP 301 at http://127.0.0.1:18765/old-service. HTTP 301 at http://127.0.0.1:18765/older-service.",
       "recommendation": "Link directly to the final canonical URL.",
@@ -1889,7 +1889,7 @@
         "status": "Detected",
         "detail": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms.",
         "evidence_ids": [
-          "ev-siteone-r2-025"
+          "ev-siteone-r2-026"
         ]
       },
       {
@@ -1897,7 +1897,7 @@
         "status": "Incomplete",
         "detail": "4 page(s) without a rel=canonical link",
         "evidence_ids": [
-          "ev-siteone-r2-026"
+          "ev-siteone-r2-027"
         ]
       },
       {
@@ -2101,7 +2101,7 @@
               "observed_postcodes": [],
               "evidence_ids": [
                 "ev-browser-r2-001",
-                "ev-siteone-r2-032"
+                "ev-siteone-r2-033"
               ],
               "title": "",
               "snippet": ""
@@ -2165,7 +2165,7 @@
               "observed_postcodes": [],
               "evidence_ids": [
                 "ev-browser-r2-001",
-                "ev-siteone-r2-032"
+                "ev-siteone-r2-033"
               ],
               "title": "",
               "snippet": ""
@@ -2233,7 +2233,7 @@
               "observed_postcodes": [],
               "evidence_ids": [
                 "ev-browser-r2-001",
-                "ev-siteone-r2-032"
+                "ev-siteone-r2-033"
               ],
               "title": "",
               "snippet": ""
@@ -3306,7 +3306,7 @@
           "status": "Detected",
           "detail": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms.",
           "evidence_ids": [
-            "ev-siteone-r2-025"
+            "ev-siteone-r2-026"
           ]
         },
         {
@@ -3314,7 +3314,7 @@
           "status": "Incomplete",
           "detail": "4 page(s) without a rel=canonical link",
           "evidence_ids": [
-            "ev-siteone-r2-026"
+            "ev-siteone-r2-027"
           ]
         },
         {
@@ -3518,7 +3518,7 @@
                 "observed_postcodes": [],
                 "evidence_ids": [
                   "ev-browser-r2-001",
-                  "ev-siteone-r2-032"
+                  "ev-siteone-r2-033"
                 ],
                 "title": "",
                 "snippet": ""
@@ -3582,7 +3582,7 @@
                 "observed_postcodes": [],
                 "evidence_ids": [
                   "ev-browser-r2-001",
-                  "ev-siteone-r2-032"
+                  "ev-siteone-r2-033"
                 ],
                 "title": "",
                 "snippet": ""
@@ -3650,7 +3650,7 @@
                 "observed_postcodes": [],
                 "evidence_ids": [
                   "ev-browser-r2-001",
-                  "ev-siteone-r2-032"
+                  "ev-siteone-r2-033"
                 ],
                 "title": "",
                 "snippet": ""
@@ -4235,7 +4235,7 @@
           {
             "evidence_id": "ev-discovery-r3-001",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits",
             "frequency": "",
             "systems": [],
@@ -4250,7 +4250,7 @@
           {
             "evidence_id": "ev-discovery-r3-002",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs",
             "frequency": "",
             "systems": [],
@@ -4270,7 +4270,7 @@
           {
             "evidence_id": "ev-discovery-r3-005",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Calls during jobs or after 5pm go to voicemail and some are never returned",
             "frequency": "several times a week",
             "systems": [
@@ -4287,7 +4287,7 @@
           {
             "evidence_id": "ev-discovery-r3-006",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Website form enquiries arrive in the shared inbox and can wait a day for a reply",
             "frequency": "daily",
             "systems": [
@@ -4309,7 +4309,7 @@
           {
             "evidence_id": "ev-discovery-r3-007",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Quotes for refits are typed up in a word processor from the engineer's site notes",
             "frequency": "8-10 quotes a week",
             "systems": [],
@@ -4324,7 +4324,7 @@
           {
             "evidence_id": "ev-discovery-r3-008",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Nobody follows up quotes that get no response",
             "frequency": "",
             "systems": [],
@@ -4344,7 +4344,7 @@
           {
             "evidence_id": "ev-discovery-r3-009",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Engineers' diaries are juggled by phone when an emergency job comes in",
             "frequency": "most days",
             "systems": [
@@ -4366,7 +4366,7 @@
           {
             "evidence_id": "ev-discovery-r3-003",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar",
             "frequency": "",
             "systems": [
@@ -4385,7 +4385,7 @@
           {
             "evidence_id": "ev-discovery-r3-004",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox",
             "frequency": "",
             "systems": [
@@ -4408,7 +4408,7 @@
           {
             "evidence_id": "ev-discovery-r3-010",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices",
             "frequency": "weekly, on Fridays",
             "systems": [
@@ -4426,7 +4426,7 @@
           {
             "evidence_id": "ev-discovery-r3-011",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Annual service reminders are sent by hand from a list",
             "frequency": "monthly",
             "systems": [],
@@ -4446,7 +4446,7 @@
           {
             "evidence_id": "ev-discovery-r3-015",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Xero sends automatic payment reminders; nothing else is automated and no AI tools are used",
             "frequency": "",
             "systems": [
@@ -4468,7 +4468,7 @@
           {
             "evidence_id": "ev-discovery-r3-013",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Month-end invoicing is the biggest bottleneck and delays cash coming in",
             "frequency": "monthly",
             "systems": [],
@@ -4483,7 +4483,7 @@
           {
             "evidence_id": "ev-discovery-r3-014",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "The office laptop holding the job spreadsheet has no backup",
             "frequency": "",
             "systems": [],
@@ -4503,7 +4503,7 @@
           {
             "evidence_id": "ev-discovery-r3-012",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree",
             "frequency": "",
             "systems": [
@@ -4526,7 +4526,7 @@
           {
             "evidence_id": "ev-discovery-r3-016",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Owner would most like enquiries and bookings to run without the office chasing them",
             "frequency": "",
             "systems": [],
@@ -4541,7 +4541,7 @@
           {
             "evidence_id": "ev-discovery-r3-017",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Quotes and any message about price must be approved by the owner before sending",
             "frequency": "",
             "systems": [],
@@ -4556,7 +4556,7 @@
           {
             "evidence_id": "ev-discovery-r3-018",
             "run_id": "r3",
-            "ingested_at": "2026-10-22T22:57:28.665597+00:00",
+            "ingested_at": "2026-10-22T23:21:21.835977+00:00",
             "statement": "Budget is limited this year and the team wants to keep Xero",
             "frequency": "",
             "systems": [

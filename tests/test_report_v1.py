@@ -612,11 +612,16 @@ def test_report_review_basis_and_concise_customer_actions():
     )[0]
     assert discovery.count(" | Not applicable | ") == 1
     assert "Tripadvisor, OpenTable, Uber Eats" in discovery
-    assert "hipages, True Local, Localsearch, Houzz" in discovery
+    assert "| high | hipages | Not assessed |" in discovery
+    assert "True Local, Localsearch, Houzz" in discovery
     assert "Manual verification tasks" in review and "**hipages**" in review
     platforms = data["digital_presence"]["discovery"]["platforms"]
     assert discovery.count("| Not searched:") == len(
-        {r["detail"] for r in platforms if r["detail"].startswith("Not searched:")}
+        {
+            (r["detail"], r["relevance"])
+            for r in platforms
+            if r["detail"].startswith("Not searched:")
+        }
     )
     # Candidate profiles and manual verifications must keep their individual rows.
     row = next(r for r in platforms if r["platform"] == "hipages")

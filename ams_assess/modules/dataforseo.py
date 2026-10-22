@@ -1,8 +1,9 @@
+import base64
 import re
 import time
 from decimal import Decimal
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import quote, quote_plus, unquote
 
 import httpx
 
@@ -81,11 +82,150 @@ def market(ctx: Context) -> dict[str, Any]:
     }
 
 
+def safe_message(value: Any, ctx: Context) -> str:
+    """Keep only provider status prose, never an echoed request or credentials."""
+    if not isinstance(value, str):
+        return ""
+    login, password = (ctx.config.get(k, "") for k in ("DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"))
+    secrets = {login, password, f"{login}:{password}"}
+    if login or password:
+        secrets.add(base64.b64encode(f"{login}:{password}".encode()).decode())
+    text = value
+    for secret in sorted(filter(None, secrets), key=len, reverse=True):
+        for variant in {secret, quote(secret, safe=""), quote_plus(secret)}:
+            text = re.sub(re.escape(variant), "[redacted]", text, flags=re.I)
+    text = re.sub(r"https?://\S+", "[link removed]", text)
+    text = re.sub(
+        r"(?i)\b(authorization|password|token|api[_-]?key|secret)\s*[:=]\s*\S+",
+        r"\1=[redacted]",
+        text,
+    )
+    return " ".join(text.split())[:500]
+
+
+def paid_request(
+    ctx: Context, endpoint: str, task: dict[str, Any], estimate: Decimal, timeout: float
+) -> dict[str, Any]:
+    """Book once; stop on access rejection; retain uncertain charges on timeout/5xx."""
+    ctx.dataforseo_spent_usd += estimate
+    try:
+        response = httpx.post(
+            endpoint,
+            auth=(ctx.config["DATAFORSEO_LOGIN"], ctx.config["DATAFORSEO_PASSWORD"]),
+            json=[task],
+            timeout=timeout,
+        )
+    except httpx.HTTPError as exc:
+        return {"status": "error", "reason": f"DataForSEO request failed ({type(exc).__name__})"}
+    try:
+        data = response.json()
+    except ValueError:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    tasks = [t for t in data.get("tasks") or [] if isinstance(t, dict)]
+
+    def status(entry: dict[str, Any]) -> dict[str, Any]:
+        code = entry.get("status_code")
+        return {
+            "status_code": code if isinstance(code, int) else None,
+            "status_message": safe_message(entry.get("status_message"), ctx),
+        }
+
+    provider = {
+        "http_status": response.status_code,
+        **status(data),
+        "tasks": [status(t) for t in tasks],
+    }
+    codes = [s["status_code"] for s in [provider, *provider["tasks"]]]
+    denied = response.status_code in {401, 402, 403} or any(
+        isinstance(c, int) and c // 100 in {401, 402, 403} for c in codes
+    )
+    done = (
+        response.is_success
+        and data.get("status_code") == 20000
+        and bool(tasks)
+        and all(t.get("status_code") == 20000 for t in tasks)
+    )
+    reason = f"DataForSEO HTTP {response.status_code}"
+    details = [
+        f"provider {s['status_code']}: {s['status_message'] or 'No status message'}"
+        for s in [provider, *provider["tasks"]]
+        if s["status_code"] != 20000 and (s["status_code"] is not None or s["status_message"])
+    ]
+    reason += "; " + "; ".join(
+        details or [safe_message(response.reason_phrase, ctx), "task did not complete"]
+    )
+    if denied:
+        ctx.dataforseo_stopped = reason
+        ctx.dataforseo_failure = provider
+    try:
+        cost = Decimal(str(data["cost"])) if "cost" in data else None
+    except (ArithmeticError, ValueError):
+        cost = None
+    if cost is not None and (not cost.is_finite() or cost < 0):
+        cost = None
+    # A definitive rejection did not run the task. A timeout (including HTTP 408), 5xx
+    # or unrecognised task failure can still have been charged: retain its reservation.
+    rejected = (400 <= response.status_code < 500 and response.status_code != 408) or (
+        response.is_success and denied
+    )
+    reserved = (
+        (cost or Decimal(0))
+        if rejected
+        else cost
+        if done and cost is not None
+        else max(cost or Decimal(0), estimate)
+    )
+    ctx.dataforseo_spent_usd += reserved - estimate
+    if cost is not None and cost > estimate and not denied:
+        ctx.dataforseo_stopped = f"a call was charged ${cost}, above its ${estimate} estimate"
+    out = {
+        "status": "ok" if done else "error",
+        "reason": "" if done else reason,
+        "provider_status": provider,
+        "reserved_usd": str(reserved),
+    }
+    if cost is not None:
+        out["cost_usd"] = str(cost)
+    if done:
+        out["data"] = data
+    return out
+
+
+def failure_evidence(ctx: Context, result: ModuleResult, outcome: dict[str, Any]) -> str:
+    eid = result.add_evidence(
+        ctx.target,
+        "DataForSEO request unavailable",
+        {k: v for k, v in outcome.items() if k != "data"},
+    )
+    if ctx.dataforseo_failure:
+        # Presence may encounter a denial after a successful domain overview. Update its
+        # shared readiness row, or create one when only presence was selected.
+        rows = [c for r in ctx.results for c in r.connections if c.key == name]
+        if not rows:
+            result.connections.append(
+                Connection(
+                    key=name,
+                    service="DataForSEO",
+                    status="Permission required",
+                    detail=ctx.dataforseo_stopped,
+                    evidence_ids=[eid],
+                )
+            )
+        for row in rows:
+            row.status, row.detail = "Permission required", ctx.dataforseo_stopped
+            row.evidence_ids.append(eid)
+    return eid
+
+
 def run(ctx: Context) -> ModuleResult:
     state: ConnectionStatus = "Not assessed"
     try:
         result = collect(ctx)
-        if result.evidence:
+        if ctx.dataforseo_failure:
+            state = "Permission required"
+        elif result.evidence and result.status == "ok":
             state = "Connected successfully"
         elif "credentials" in result.reason:
             state = "Not connected"
@@ -116,6 +256,8 @@ def run(ctx: Context) -> ModuleResult:
 
 
 def collect(ctx: Context) -> ModuleResult:
+    if ctx.dataforseo_stopped:
+        return ModuleResult(name=name, status="skipped", reason=ctx.dataforseo_stopped)
     if not all(ctx.config.get(k) for k in ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"]):
         return ModuleResult(
             name=name, status="skipped", reason="Missing DataForSEO credentials; disabled"
@@ -138,29 +280,23 @@ def collect(ctx: Context) -> ModuleResult:
     where = market(ctx)
     budget = {"estimated_usd": str(ESTIMATE_USD), "cap_usd": str(limit), "calls": 1, **where}
     ctx.raw("dataforseo-budget", budget)
-    # Booked before the call: a request whose outcome is unknown still counts against the cap.
-    ctx.dataforseo_spent_usd += ESTIMATE_USD
     # Exactly one bounded request; no retries or pagination that could incur extra charges.
-    response = httpx.post(
+    outcome = paid_request(
+        ctx,
         f"{API}/dataforseo_labs/google/domain_rank_overview/live",
-        auth=(ctx.config["DATAFORSEO_LOGIN"], ctx.config["DATAFORSEO_PASSWORD"]),
-        json=[{"target": ctx.host, **where, "limit": 1}],
-        timeout=30,
+        {"target": ctx.host, **where, "limit": 1},
+        ESTIMATE_USD,
+        30,
     )
-    response.raise_for_status()
-    data = response.json()
-    cost = Decimal(str(data.get("cost", ESTIMATE_USD)))
-    ctx.dataforseo_spent_usd += cost - ESTIMATE_USD
-    if cost > ESTIMATE_USD:
-        # One shared stop: no later paid call (presence searches included) may run.
-        ctx.dataforseo_stopped = (
-            f"domain overview charged ${cost}, above its ${ESTIMATE_USD} estimate"
-        )
+    ctx.raw("dataforseo-budget", {**budget, "spent_usd_run_total": str(ctx.dataforseo_spent_usd)})
+    data = outcome.get("data", outcome)
     result = ModuleResult(name=name, raw_paths=[ctx.raw(name, data), "raw/dataforseo-budget.json"])
-    tasks = data.get("tasks", [])
-    if data.get("status_code") != 20000 or not tasks or tasks[0].get("status_code") != 20000:
-        result.status, result.reason = "error", "DataForSEO task did not complete successfully"
+    if outcome["status"] != "ok":
+        result.status, result.reason = "error", outcome["reason"]
+        failure_evidence(ctx, result, outcome)
         return result
+    tasks = data["tasks"]
+    cost = Decimal(outcome.get("cost_usd", str(ESTIMATE_USD)))
     if cost > limit:
         result.status, result.reason = (
             "error",
@@ -230,38 +366,12 @@ def serp(ctx: Context, kind: str, keyword: str, deadline: float) -> dict[str, An
     left = deadline - time.monotonic()
     if left <= 1:
         return out | {"status": "refused", "reason": "discovery deadline reached"}
-    # The full estimate is booked before the call and stays booked unless the provider reports
-    # the cost of a completed task: a timeout or unknown outcome may still have been charged.
-    ctx.dataforseo_spent_usd += estimate
     ctx.dataforseo_serp_calls += 1
-    try:
-        response = httpx.post(
-            SERP_ENDPOINTS[kind],
-            auth=(ctx.config["DATAFORSEO_LOGIN"], ctx.config["DATAFORSEO_PASSWORD"]),
-            json=[task],
-            timeout=min(30.0, left),
-        )
-        response.raise_for_status()
-        data = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        # Exception text can carry request details; only the type is kept.
-        return out | {"status": "error", "reason": f"request failed ({type(exc).__name__})"}
-    try:
-        cost: Decimal | None = Decimal(str(data["cost"])) if "cost" in data else None
-    except (ArithmeticError, ValueError):
-        cost = None
-    tasks = data.get("tasks") or []
-    done = data.get("status_code") == 20000 and tasks and tasks[0].get("status_code") == 20000
-    if cost is not None and cost.is_finite() and cost >= 0:
-        out["cost_usd"] = str(cost)
-        # A reported cost replaces the reservation only for a completed task, and only upwards
-        # otherwise.
-        ctx.dataforseo_spent_usd += (cost if done else max(cost, estimate)) - estimate
-        if cost > estimate:
-            # Charged above the estimate: the estimates cannot be trusted, so stop paid calls.
-            ctx.dataforseo_stopped = f"a search was charged ${cost}, above its ${estimate} estimate"
-    if not done:
-        return out | {"status": "error", "reason": "DataForSEO task did not complete"}
+    outcome = paid_request(ctx, SERP_ENDPOINTS[kind], task, estimate, min(30.0, left))
+    out.update({k: v for k, v in outcome.items() if k != "data"})
+    if outcome["status"] != "ok":
+        return out
+    tasks = outcome["data"]["tasks"]
     first = (tasks[0].get("result") or [{}])[0] or {}
     items = [i for i in first.get("items") or [] if isinstance(i, dict)]
     return out | {"status": "ok", "items": items, "check_url": first.get("check_url", "")}

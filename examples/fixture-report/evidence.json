@@ -28,6 +28,23 @@
     "id": "ev-siteone-r2-001",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
+    "description": "Target redirect resolution before crawling",
+    "data": {
+      "requested": "http://127.0.0.1:18765/",
+      "resolved": "http://127.0.0.1:18765/",
+      "chain": [
+        {
+          "url": "http://127.0.0.1:18765/",
+          "http_status": 200
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-002",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/",
     "description": "SiteOne HTTP response",
     "data": {
       "cacheLifetime": null,
@@ -42,7 +59,92 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-002",
+    "id": "ev-siteone-r2-003",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/about.html",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 8,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 1342,
+      "status": "200",
+      "type": 1,
+      "url": "http://127.0.0.1:18765/about.html"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-004",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/quote.html",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 8,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 1082,
+      "status": "200",
+      "type": 1,
+      "url": "http://127.0.0.1:18765/quote.html"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-005",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/contact.html",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 8,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 1507,
+      "status": "200",
+      "type": 1,
+      "url": "http://127.0.0.1:18765/contact.html"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-006",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/style.css",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 8,
+      "elapsedTime": 0.002,
+      "extras": [],
+      "size": 499,
+      "status": "200",
+      "type": 3,
+      "url": "http://127.0.0.1:18765/style.css"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-007",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/old-service",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 32768,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 93,
+      "status": "301",
+      "type": 9,
+      "url": "http://127.0.0.1:18765/old-service"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-008",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/service/a/",
     "description": "SiteOne HTTP response",
@@ -59,75 +161,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-003",
-    "source": "siteone",
-    "url": "http://127.0.0.1:18765/contact.html",
-    "description": "SiteOne HTTP response",
-    "data": {
-      "cacheLifetime": null,
-      "cacheTypeFlags": 8,
-      "elapsedTime": 0.002,
-      "extras": [],
-      "size": 1507,
-      "status": "200",
-      "type": 1,
-      "url": "http://127.0.0.1:18765/contact.html"
-    },
-    "provenance": "technical_evidence"
-  },
-  {
-    "id": "ev-siteone-r2-004",
-    "source": "siteone",
-    "url": "http://127.0.0.1:18765/style.css",
-    "description": "SiteOne HTTP response",
-    "data": {
-      "cacheLifetime": null,
-      "cacheTypeFlags": 8,
-      "elapsedTime": 0.001,
-      "extras": [],
-      "size": 499,
-      "status": "200",
-      "type": 3,
-      "url": "http://127.0.0.1:18765/style.css"
-    },
-    "provenance": "technical_evidence"
-  },
-  {
-    "id": "ev-siteone-r2-005",
-    "source": "siteone",
-    "url": "http://127.0.0.1:18765/services.html",
-    "description": "SiteOne HTTP response",
-    "data": {
-      "cacheLifetime": null,
-      "cacheTypeFlags": 8,
-      "elapsedTime": 0.002,
-      "extras": [],
-      "size": 1259,
-      "status": "200",
-      "type": 1,
-      "url": "http://127.0.0.1:18765/services.html"
-    },
-    "provenance": "technical_evidence"
-  },
-  {
-    "id": "ev-siteone-r2-006",
-    "source": "siteone",
-    "url": "http://127.0.0.1:18765/about.html",
-    "description": "SiteOne HTTP response",
-    "data": {
-      "cacheLifetime": null,
-      "cacheTypeFlags": 8,
-      "elapsedTime": 0.002,
-      "extras": [],
-      "size": 1342,
-      "status": "200",
-      "type": 1,
-      "url": "http://127.0.0.1:18765/about.html"
-    },
-    "provenance": "technical_evidence"
-  },
-  {
-    "id": "ev-siteone-r2-007",
+    "id": "ev-siteone-r2-009",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/service/b/",
     "description": "SiteOne HTTP response",
@@ -144,53 +178,19 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-008",
+    "id": "ev-siteone-r2-010",
     "source": "siteone",
-    "url": "http://127.0.0.1:18765/old-service",
-    "description": "SiteOne HTTP response",
-    "data": {
-      "cacheLifetime": null,
-      "cacheTypeFlags": 32768,
-      "elapsedTime": 0.002,
-      "extras": [],
-      "size": 93,
-      "status": "301",
-      "type": 9,
-      "url": "http://127.0.0.1:18765/old-service"
-    },
-    "provenance": "technical_evidence"
-  },
-  {
-    "id": "ev-siteone-r2-009",
-    "source": "siteone",
-    "url": "http://127.0.0.1:18765/quote.html",
+    "url": "http://127.0.0.1:18765/services.html",
     "description": "SiteOne HTTP response",
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 8,
-      "elapsedTime": 0.002,
-      "extras": [],
-      "size": 1082,
-      "status": "200",
-      "type": 1,
-      "url": "http://127.0.0.1:18765/quote.html"
-    },
-    "provenance": "technical_evidence"
-  },
-  {
-    "id": "ev-siteone-r2-010",
-    "source": "siteone",
-    "url": "http://127.0.0.1:18765/older-service",
-    "description": "SiteOne HTTP response",
-    "data": {
-      "cacheLifetime": null,
-      "cacheTypeFlags": 32768,
       "elapsedTime": 0.001,
       "extras": [],
-      "size": 93,
-      "status": "301",
-      "type": 9,
-      "url": "http://127.0.0.1:18765/older-service"
+      "size": 1259,
+      "status": "200",
+      "type": 1,
+      "url": "http://127.0.0.1:18765/services.html"
     },
     "provenance": "technical_evidence"
   },
@@ -202,7 +202,7 @@
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 32768,
-      "elapsedTime": 0.002,
+      "elapsedTime": 0.001,
       "extras": [],
       "size": 335,
       "status": "404",
@@ -219,7 +219,7 @@
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 8,
-      "elapsedTime": 0.002,
+      "elapsedTime": 0.001,
       "extras": [],
       "size": 187,
       "status": "200",
@@ -230,6 +230,23 @@
   },
   {
     "id": "ev-siteone-r2-013",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/older-service",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 32768,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 93,
+      "status": "301",
+      "type": 9,
+      "url": "http://127.0.0.1:18765/older-service"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-014",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne SEO metadata",
@@ -246,7 +263,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-014",
+    "id": "ev-siteone-r2-015",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/about.html",
     "description": "SiteOne SEO metadata",
@@ -263,7 +280,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-015",
+    "id": "ev-siteone-r2-016",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/contact.html",
     "description": "SiteOne SEO metadata",
@@ -280,7 +297,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-016",
+    "id": "ev-siteone-r2-017",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/quote.html",
     "description": "SiteOne SEO metadata",
@@ -297,7 +314,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-017",
+    "id": "ev-siteone-r2-018",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/service/a/",
     "description": "SiteOne SEO metadata",
@@ -314,7 +331,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-018",
+    "id": "ev-siteone-r2-019",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/service/b/",
     "description": "SiteOne SEO metadata",
@@ -331,7 +348,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-019",
+    "id": "ev-siteone-r2-020",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/services.html",
     "description": "SiteOne SEO metadata",
@@ -348,7 +365,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-020",
+    "id": "ev-siteone-r2-021",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
@@ -364,7 +381,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-021",
+    "id": "ev-siteone-r2-022",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
@@ -380,7 +397,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-022",
+    "id": "ev-siteone-r2-023",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
@@ -396,7 +413,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-023",
+    "id": "ev-siteone-r2-024",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
@@ -412,7 +429,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-024",
+    "id": "ev-siteone-r2-025",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
@@ -428,7 +445,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-025",
+    "id": "ev-siteone-r2-026",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne robots.txt load",
@@ -440,7 +457,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-026",
+    "id": "ev-siteone-r2-027",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne canonical link summary",
@@ -452,7 +469,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-027",
+    "id": "ev-siteone-r2-028",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne seo-headings table",
@@ -472,11 +489,11 @@
         "urlPathAndQuery": "/"
       },
       {
-        "headings": "<h1> Plumbing in service area A",
-        "headingsCount": "1",
+        "headings": "<h1> A local service with clear communication <h2> Our approach <h2> Customer feedback",
+        "headingsCount": "3",
         "headingsErrorsCount": "0",
-        "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing in service area A</li></ul>",
-        "urlPathAndQuery": "/service/a/"
+        "headingsHtml": "<ul><li>&lt;h1&gt; A local service with clear communication<ul><li>&lt;h2&gt; Our approach</li><li>&lt;h2&gt; Customer feedback</li></ul></li></ul>",
+        "urlPathAndQuery": "/about.html"
       },
       {
         "headings": "<h1> Contact our team <h2> Privacy policy [#privacy]",
@@ -486,18 +503,11 @@
         "urlPathAndQuery": "/contact.html"
       },
       {
-        "headings": "<h1> Plumbing services <h2> Leak repairs <h2> Drain clearing <h3> What happens next?",
-        "headingsCount": "4",
+        "headings": "<h1> Plumbing in service area A",
+        "headingsCount": "1",
         "headingsErrorsCount": "0",
-        "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing services<ul><li>&lt;h2&gt; Leak repairs</li><li>&lt;h2&gt; Drain clearing<ul><li>&lt;h3&gt; What happens next?</li></ul></li></ul></li></ul>",
-        "urlPathAndQuery": "/services.html"
-      },
-      {
-        "headings": "<h1> A local service with clear communication <h2> Our approach <h2> Customer feedback",
-        "headingsCount": "3",
-        "headingsErrorsCount": "0",
-        "headingsHtml": "<ul><li>&lt;h1&gt; A local service with clear communication<ul><li>&lt;h2&gt; Our approach</li><li>&lt;h2&gt; Customer feedback</li></ul></li></ul>",
-        "urlPathAndQuery": "/about.html"
+        "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing in service area A</li></ul>",
+        "urlPathAndQuery": "/service/a/"
       },
       {
         "headings": "<h1> Plumbing in service area B",
@@ -505,12 +515,19 @@
         "headingsErrorsCount": "0",
         "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing in service area B</li></ul>",
         "urlPathAndQuery": "/service/b/"
+      },
+      {
+        "headings": "<h1> Plumbing services <h2> Leak repairs <h2> Drain clearing <h3> What happens next?",
+        "headingsCount": "4",
+        "headingsErrorsCount": "0",
+        "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing services<ul><li>&lt;h2&gt; Leak repairs</li><li>&lt;h2&gt; Drain clearing<ul><li>&lt;h3&gt; What happens next?</li></ul></li></ul></li></ul>",
+        "urlPathAndQuery": "/services.html"
       }
     ],
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-028",
+    "id": "ev-siteone-r2-029",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne redirects table",
@@ -531,7 +548,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-029",
+    "id": "ev-siteone-r2-030",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne 404 table",
@@ -545,7 +562,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-030",
+    "id": "ev-siteone-r2-031",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne headers table",
@@ -572,7 +589,7 @@
         "minValue": "",
         "occurrences": "12",
         "uniqueValues": "4",
-        "valuesPreview": "text/html (9) / text/css (1) / text/html;charset=utf-8 (1) / image/svg+xml (1)"
+        "valuesPreview": "text/html (9) / text/html;charset=utf-8 (1) / text/css (1) / image/svg+xml (1)"
       },
       {
         "header": "Date",
@@ -596,7 +613,7 @@
         "minValue": "",
         "occurrences": "2",
         "uniqueValues": "2",
-        "valuesPreview": "/services.html (1) / /older-service (1)"
+        "valuesPreview": "/older-service (1) / /services.html (1)"
       },
       {
         "header": "Server",
@@ -610,7 +627,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-031",
+    "id": "ev-siteone-r2-032",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne headers-values table",
@@ -628,12 +645,12 @@
       {
         "header": "Content-Type",
         "occurrences": "1",
-        "value": "text/css"
+        "value": "text/html;charset=utf-8"
       },
       {
         "header": "Content-Type",
         "occurrences": "1",
-        "value": "text/html;charset=utf-8"
+        "value": "text/css"
       },
       {
         "header": "Content-Type",
@@ -643,12 +660,12 @@
       {
         "header": "Location",
         "occurrences": "1",
-        "value": "/services.html"
+        "value": "/older-service"
       },
       {
         "header": "Location",
         "occurrences": "1",
-        "value": "/older-service"
+        "value": "/services.html"
       },
       {
         "header": "Server",
@@ -659,7 +676,7 @@
     "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-r2-032",
+    "id": "ev-siteone-r2-033",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne external-urls table",
@@ -2794,7 +2811,7 @@
       "status": 200,
       "headers": {
         "server": "SimpleHTTP/0.6 Python/3.12.13",
-        "date": "Thu, 22 Oct 2026 22:57:27 GMT",
+        "date": "Thu, 22 Oct 2026 23:21:20 GMT",
         "content-type": "text/html",
         "content-length": "4078",
         "last-modified": "Thu, 22 Oct 2026 22:19:37 GMT"
@@ -2965,7 +2982,7 @@
           "href": "https://g.page/harbour-demo-plumbing-fixture",
           "page": "",
           "source": "crawl external link",
-          "source_evidence_id": "ev-siteone-r2-032"
+          "source_evidence_id": "ev-siteone-r2-033"
         }
       ]
     },
@@ -2994,7 +3011,7 @@
           "href": "https://www.facebook.com/harbour.demo.plumbing.fixture",
           "page": "",
           "source": "crawl external link",
-          "source_evidence_id": "ev-siteone-r2-032"
+          "source_evidence_id": "ev-siteone-r2-033"
         }
       ]
     },
@@ -3034,7 +3051,7 @@
           "href": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture",
           "page": "",
           "source": "crawl external link",
-          "source_evidence_id": "ev-siteone-r2-032"
+          "source_evidence_id": "ev-siteone-r2-033"
         }
       ]
     },
@@ -3284,7 +3301,7 @@
           "observed_postcodes": [],
           "evidence_ids": [
             "ev-browser-r2-001",
-            "ev-siteone-r2-032"
+            "ev-siteone-r2-033"
           ],
           "title": "",
           "snippet": ""
@@ -3318,7 +3335,7 @@
           "observed_postcodes": [],
           "evidence_ids": [
             "ev-browser-r2-001",
-            "ev-siteone-r2-032"
+            "ev-siteone-r2-033"
           ],
           "title": "",
           "snippet": ""
@@ -3382,7 +3399,7 @@
           "observed_postcodes": [],
           "evidence_ids": [
             "ev-browser-r2-001",
-            "ev-siteone-r2-032"
+            "ev-siteone-r2-033"
           ],
           "title": "",
           "snippet": ""
@@ -3763,7 +3780,6 @@
         "ev-browser-r2-011",
         "ev-browser-r2-012",
         "ev-site_checks-r2-001",
-        "ev-siteone-r2-001",
         "ev-siteone-r2-002",
         "ev-siteone-r2-003",
         "ev-siteone-r2-004",
@@ -3781,7 +3797,8 @@
         "ev-siteone-r2-016",
         "ev-siteone-r2-017",
         "ev-siteone-r2-018",
-        "ev-siteone-r2-019"
+        "ev-siteone-r2-019",
+        "ev-siteone-r2-020"
       ],
       "confidence": "confirmed"
     },
@@ -3842,7 +3859,6 @@
       },
       "source_evidence_ids": [
         "ev-presence-r2-012",
-        "ev-siteone-r2-001",
         "ev-siteone-r2-002",
         "ev-siteone-r2-003",
         "ev-siteone-r2-004",
@@ -3860,7 +3876,8 @@
         "ev-siteone-r2-016",
         "ev-siteone-r2-017",
         "ev-siteone-r2-018",
-        "ev-siteone-r2-019"
+        "ev-siteone-r2-019",
+        "ev-siteone-r2-020"
       ],
       "confidence": "confirmed"
     },
@@ -3913,7 +3930,6 @@
         "ev-browser-r2-011",
         "ev-browser-r2-012",
         "ev-site_checks-r2-001",
-        "ev-siteone-r2-001",
         "ev-siteone-r2-002",
         "ev-siteone-r2-003",
         "ev-siteone-r2-004",
@@ -3931,7 +3947,8 @@
         "ev-siteone-r2-016",
         "ev-siteone-r2-017",
         "ev-siteone-r2-018",
-        "ev-siteone-r2-019"
+        "ev-siteone-r2-019",
+        "ev-siteone-r2-020"
       ],
       "confidence": "confirmed"
     },
@@ -4019,7 +4036,6 @@
         "ev-browser-r2-010",
         "ev-browser-r2-011",
         "ev-browser-r2-012",
-        "ev-siteone-r2-001",
         "ev-siteone-r2-002",
         "ev-siteone-r2-003",
         "ev-siteone-r2-004",
@@ -4038,9 +4054,10 @@
         "ev-siteone-r2-017",
         "ev-siteone-r2-018",
         "ev-siteone-r2-019",
-        "ev-siteone-r2-027",
+        "ev-siteone-r2-020",
         "ev-siteone-r2-028",
-        "ev-siteone-r2-029"
+        "ev-siteone-r2-029",
+        "ev-siteone-r2-030"
       ],
       "confidence": "confirmed"
     },
