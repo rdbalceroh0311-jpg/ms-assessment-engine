@@ -51,8 +51,9 @@ uv run ams-assess report --customer acme                                   # rep
 (files read-only, always including the markdown master), records it in the store's append-only
 `report_revisions` (with the assessment run it reflects) and copies it to `report.md/html/pdf` in the
 customer directory as the latest. To publish a human edit, edit the markdown and run
-`report --customer acme --from-md data/customers/acme/report.md`: it becomes a new revision and
-html/pdf are rendered from it. `report <run-dir>` still renders one run. Imports and reports take an
+`report --customer acme --from-md <file>`: it becomes a new revision and html/pdf are rendered
+from it. Its ancestry (`based_on`, `assessment_revision`) comes from the `reports/<revision>/`
+directory the file is in, else from `--based-on <revision>`, else it is recorded as `unknown`. `report <run-dir>` still renders one run. Imports and reports take an
 exclusive per-customer lock (`.assessment.lock`, waits up to 30 s, then fails with a clear error).
 A store with several websites lists every target and labels each module row and email-health summary
 with its website and run. Discovery notes:
@@ -120,7 +121,9 @@ assuming a missing finding was fixed.
 `finding_history` (kept, never recommended); re-importing a discovery finding with a changed claim
 creates a new version that supersedes the old one instead of merging text. A finding citing a
 superseded statement whose new version it does not cite, or two current versions of the same
-statement, are listed under "needs review" in the report and left out of the recommendations.
+statement (together with every finding citing either version), are listed under "needs review"
+in the report and left out of the recommendations and roadmap.
+Limitation: stores created by pre-merge development builds of PR #4 are not migrated; recreate them.
 
 **Provenance.** Evidence is `technical_evidence` (default), `customer_statement` or `assumption`. A
 finding takes the worst provenance of the evidence it cites and can never be `confirmed` unless all

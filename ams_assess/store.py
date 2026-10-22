@@ -234,11 +234,14 @@ def _lifecycle(
             groups.setdefault(identity(entry), []).append(entry["evidence_id"])
         for ids in groups.values():
             if len(ids) > 1:
+                # Every active finding resting on a conflicting version is held for review too.
+                affected = [f.id for f in active if set(f.evidence_ids) & set(ids)]
                 review.append(
                     {
                         "title": DISCOVERY_SECTIONS[key],
                         "reason": "the same statement is recorded with conflicting details",
                         "evidence_ids": ids,
+                        "finding_ids": affected,
                     }
                 )
     store["needs_review"] = review

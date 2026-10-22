@@ -64,10 +64,10 @@ def test_report_revisions_are_immutable_indexed_and_md_is_the_master(home, tmp_p
     # A human edits the latest markdown; html is re-rendered from it as a new revision.
     edited = second.replace("Invoices go out late", "Invoices go out late (edited by AMS)")
     (home / "acme/report.md").write_text(edited)
-    report(home, "acme", "--from-md", str(home / "acme/report.md"))
+    report(home, "acme", "--from-md", str(home / "acme/report.md"), "--based-on", "2")
     third = must_load(home, "acme")["report_revisions"][-1]
     assert third["revision"] == 3 and third["source"] == "edited markdown"
-    assert third["based_on"] == 2
+    assert third["based_on"] == 2 and third["assessment_revision"] == "r2"
     directory = home / "acme" / third["directory"]
     assert (directory / "report.md").read_text() == edited
     assert "edited by AMS" in (directory / "report.html").read_text()
@@ -75,6 +75,37 @@ def test_report_revisions_are_immutable_indexed_and_md_is_the_master(home, tmp_p
     with pytest.raises(SystemExit):
         cli.main(["report", "--customer", "acme", "--from-md", str(tmp_path / "missing.md")])
     assert len(must_load(home, "acme")["report_revisions"]) == 3
+
+
+def test_edited_markdown_records_its_true_ancestry(home, tmp_path):
+    discover(tmp_path, "acme", {"sales_quoting": ["Quotes are built by hand"]})
+    report(home)
+    discover(tmp_path, "acme", {"pain_points_bottlenecks": ["Invoices go out late"]}, name="b")
+    report(home)
+    first = home / "acme" / must_load(home, "acme")["report_revisions"][0]["directory"]
+    # Publishing revision 1's markdown descends from revision 1 (run r1), not the latest.
+    edited = tmp_path / "edited.md"
+    edited.write_text((first / "report.md").read_text() + "\nEdited.\n")
+    report(home, "acme", "--from-md", str(first / "report.md"))
+    from_dir = must_load(home, "acme")["report_revisions"][-1]
+    assert from_dir["based_on"] == 1 and from_dir["assessment_revision"] == "r1"
+    # An explicit --based-on is honoured for a file outside the revision directories.
+    report(home, "acme", "--from-md", str(edited), "--based-on", "1")
+    explicit = must_load(home, "acme")["report_revisions"][-1]
+    assert explicit["based_on"] == 1 and explicit["assessment_revision"] == "r1"
+    # Without either, provenance is recorded as unknown rather than guessed.
+    report(home, "acme", "--from-md", str(edited))
+    unknown = must_load(home, "acme")["report_revisions"][-1]
+    assert unknown["based_on"] == "unknown" and unknown["assessment_revision"] == "unknown"
+    # A contradictory or missing ancestor is refused without writing a revision.
+    for bad in (
+        ["--from-md", str(first / "report.md"), "--based-on", "2"],
+        ["--from-md", str(edited), "--based-on", "99"],
+        ["--based-on", "1"],
+    ):
+        with pytest.raises(SystemExit):
+            cli.main(["report", "--customer", "acme", "--formats", "md", *bad])
+    assert len(must_load(home, "acme")["report_revisions"]) == 5
 
 
 # Issue 2: superseded and contradictory findings never stay silently active.
@@ -126,11 +157,25 @@ def test_partly_superseded_or_conflicting_basis_is_flagged_for_review(home, tmp_
     assert f"**Needs review:** {active['id']}: Quote automation" in text
     section_8 = text.split("## 8. Prioritised recommendations")[1].split("## 9.")[0]
     assert "Quote automation" not in section_8
-    # Two current versions of the same statement are conflicting evidence.
-    rows = [{"statement": "Chasing quotes", "frequency": f} for f in ("daily", "weekly")]
-    discover(tmp_path, "beta", {"sales_quoting": rows})
-    [conflict] = must_load(home, "beta")["needs_review"]
+
+
+def test_finding_citing_conflicting_statements_is_held_for_review(home, tmp_path):
+    # The same statement imported as "daily" and then "yearly": two current versions.
+    daily = {"sales_quoting": [{"statement": "Chasing quotes", "frequency": "daily"}]}
+    discover(tmp_path, "acme", daily)
+    both = [{"statement": "Chasing quotes", "frequency": f} for f in ("daily", "yearly")]
+    chasing = finding(cites=("sales_quoting",))
+    discover(tmp_path, "acme", {"sales_quoting": both}, [chasing], name="b")
+    saved = must_load(home, "acme")
+    [active] = saved["findings"]
+    [conflict] = saved["needs_review"]
     assert "conflicting" in conflict["reason"] and len(conflict["evidence_ids"]) == 2
+    assert conflict["finding_ids"] == [active["id"]]
+    text = report(home)
+    section_8, roadmap = text.split("## 8. Prioritised recommendations")[1].split("## 9.")
+    roadmap = roadmap.split("## Data sources")[0]
+    assert "Quote automation" not in section_8 and "Quote automation" not in roadmap
+    assert f"(affects {active['id']})" in text
 
 
 # Issue 3: concurrent imports never lose data.

@@ -244,7 +244,7 @@ Digital presence was not in the selected scope.
 ## Findings needing review & superseded findings
 
 {% for r in data.get('needs_review', []) %}
-- **Needs review:** {% if r.get('finding_id') %}{{ r.finding_id }}: {% endif %}{{ r.title | text }}; {{ r.reason | text }}. Evidence: {{ r.evidence_ids | join(', ') }}.
+- **Needs review:** {% if r.get('finding_id') %}{{ r.finding_id }}: {% endif %}{{ r.title | text }}; {{ r.reason | text }}{% if r.get('finding_ids') %} (affects {{ r.finding_ids | join(', ') }}){% endif %}. Evidence: {{ r.evidence_ids | join(', ') }}.
 {% endfor %}
 {% for f in data.get('finding_history', []) %}
 - **Superseded:** {{ f.id }}: {{ f.title | text }}; {{ f.reason | text }}{% if f.get('superseded_by') %} (replaced by {{ f.superseded_by }}){% endif %}. Evidence: {{ f.evidence_ids | join(', ') }}.

@@ -63,15 +63,22 @@ def output_path(directory: Path, name: str) -> Path:
 
 
 def render_customer(
-    root: Path, customer: str, formats: set[str] | None = None, edited_md: Path | None = None
+    root: Path,
+    customer: str,
+    formats: set[str] | None = None,
+    edited_md: Path | None = None,
+    based_on: int | None = None,
 ) -> list[str]:
     """Write a new immutable report revision from the store, whichever stages have run.
 
     Each generation gets its own reports/<NNN-timestamp>/ directory recorded in the store's
     append-only ``report_revisions``; report.* in the customer directory is a copy of the latest.
     The markdown is the master: ``edited_md`` (a human-edited report.md) becomes a new revision
-    whose html/pdf are rendered from it.
+    whose html/pdf are rendered from it. Its ancestry is the revision directory it was taken
+    from, else ``based_on``, else recorded explicitly as unknown.
     """
+    if based_on is not None and edited_md is None:
+        raise ValueError("--based-on requires --from-md")
     formats = (formats or {"md", "html", "pdf"}) | {"md"}
     content = None
     if edited_md is not None:
@@ -91,6 +98,9 @@ def render_customer(
         if reports.is_symlink():
             raise ValueError("Report revisions directory must not be a symlink")
         revisions = store.setdefault("report_revisions", [])
+        ancestry: dict[str, Any] = {}
+        if edited_md is not None:
+            ancestry = edited_ancestry(directory, revisions, edited_md, based_on)
         number = len(revisions) + 1
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         revision = reports / f"{number:03d}-{stamp}"
@@ -111,15 +121,37 @@ def render_customer(
                 "directory": f"reports/{revision.name}",
                 "files": written,
                 "source": "edited markdown" if edited_md else "generated",
-                **({"based_on": revisions[-1]["revision"]} if edited_md and revisions else {}),
-                # The assessment state this report reflects.
+                # The assessment state this report reflects (an edit inherits its ancestor's).
                 "assessment_revision": runs[-1]["run_id"] if runs else None,
                 "store_updated_at": store["updated_at"],
+                **ancestry,
             }
         )
         store["report_files"] = {name.rsplit(".", 1)[1]: name for name in written}
         save(root, customer, store)
     return written
+
+
+def edited_ancestry(
+    directory: Path, revisions: list[dict[str, Any]], edited_md: Path, based_on: int | None
+) -> dict[str, Any]:
+    """Which revision an edited markdown descends from; never guessed from the latest one."""
+    by_number = {r["revision"]: r for r in revisions}
+    by_dir = {(directory / r["directory"]).resolve(): r for r in revisions}
+    source = by_dir.get(edited_md.resolve().parent)
+    if source and based_on is not None and based_on != source["revision"]:
+        raise ValueError("--based-on contradicts the revision directory of --from-md")
+    if source is None and based_on is not None:
+        source = by_number.get(based_on)
+        if source is None:
+            raise ValueError(f"--based-on: no report revision {based_on}")
+    if source is None:
+        return {"based_on": "unknown", "assessment_revision": "unknown"}
+    return {
+        "based_on": source["revision"],
+        "assessment_revision": source["assessment_revision"],
+        "store_updated_at": source["store_updated_at"],
+    }
 
 
 def render_data(
@@ -142,7 +174,12 @@ def render_markdown(
         raise ValueError("Report refused: a finding references missing evidence")
     findings.sort(key=lambda f: (f.priority, SEVERITIES[f.severity], f.category, f.id))
     # Findings whose basis changed or conflicts are listed for review, not recommended.
-    review = {r["finding_id"] for r in data.get("needs_review", []) if r.get("finding_id")}
+    review = {
+        fid
+        for r in data.get("needs_review", [])
+        for fid in [r.get("finding_id"), *r.get("finding_ids", [])]
+        if fid
+    }
     by_id = {f.id: f for f in findings if f.id not in review}
     ai = data["ai"]
     proposed = ai.get("recommendations", [])
