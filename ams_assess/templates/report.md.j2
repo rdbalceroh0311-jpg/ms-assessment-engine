@@ -41,19 +41,21 @@
 {{ ai.sections[category] | text }}
 {% endif %}
 {% if category == 'domain_email' and data.get('domain_email_health') %}
-#### Domain, DNS & Email Health summary
+{% for health in data.get('domain_email_health_sites') or [data.domain_email_health] %}
+#### Domain, DNS & Email Health summary{% if health.get('target') %}: {{ health.target | text }} (run {{ health.run_id }}){% endif %}
+
 
 | Check area | Status | What is wrong | Evidence |
 | --- | --- | --- | --- |
-{% for r in data.domain_email_health.rows %}
+{% for r in health.rows %}
 | {{ r.area | text }} | {{ r.status }} | {{ r.issue | text }} | {{ r.evidence_ids | join(', ') or '-' }} |
 {% endfor %}
 
-{% for limitation in data.domain_email_health.limitations %}
+{% for limitation in health.limitations %}
 > {{ limitation | text }}
 
 {% endfor %}
-{% for r in data.domain_email_health.rows %}
+{% for r in health.rows %}
 **{{ r.area | text }}: {{ r.status }}.** Checked: {{ r.checked | text }}. Why it matters: {{ r.why | text }} Recommended correction: {{ r.recommendation | text }}
 
 {% for c in r.checks %}
@@ -61,6 +63,7 @@
 
 {% endfor %}
 
+{% endfor %}
 {% endfor %}
 {% endif %}
 {% for finding in findings if finding.category == category %}
@@ -75,7 +78,11 @@ No reportable findings were established from the available checks in this catego
 
 **Customer:** {{ data.customer_name | text }}<br>
 **Assessment date (UTC):** {{ data.created_at[:10] | text }}<br>
+{% if data.get('targets', []) | length > 1 %}
+**Targets:** {% for t in data.targets %}{{ t.target | text }} (runs {{ t.run_ids | join(', ') }}){{ '; ' if not loop.last }}{% endfor %}<br>
+{% else %}
 **Target:** {{ (data.target or 'No website assessed') | text }}<br>
+{% endif %}
 **Scope:** {{ scope_titles | join('; ') | text }}{% if data.get('stages') %}<br>
 **Stages completed:** {{ data.stages | join('; ') | text }}{% endif %}
 
@@ -141,11 +148,15 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 {{ ai.sections.presence | text }}
 
 {% endif %}
-Public assessment: statuses below come from the sampled pages ({{ p.pages_sampled | length }}), the crawl, public DNS and one bounded robots.txt/sitemap fetch.{% if p.status != 'assessed' %} **NOT ASSESSED:** {{ p.get('reason', '') | text }}.{% endif %}
+{% if p.get('target') %}Website: {{ p.target | text }} (run {{ p.run_id }}). {% endif %}Public assessment: statuses below come from the sampled pages ({{ p.pages_sampled | length }}), the crawl, public DNS and one bounded robots.txt/sitemap fetch.{% if p.status != 'assessed' %} **NOT ASSESSED:** {{ p.get('reason', '') | text }}.{% endif %}
 
 
 {% for note in p.notes %}
 > {{ note | text }}
+
+{% endfor %}
+{% for other in data.get('digital_presence_sites', []) if other.run_id != p.get('run_id') %}
+> Digital presence of {{ other.target | text }} was assessed in run {{ other.run_id }}; it is not shown here (see that run's report).
 
 {% endfor %}
 | Signal | Status | Detail | Evidence |
@@ -252,13 +263,26 @@ Digital presence was not in the selected scope.
 ### {{ section.title | text }}
 
 {% for s in section.statements %}
-- {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
+- {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %}{% if s.get('staff_time') %} Staff time: {{ s.staff_time | text }}.{% endif %}{% if s.get('errors_rework') %} Errors/rework: {{ s.errors_rework | text }}.{% endif %}{% if s.get('cost') %} Cost (as stated): {{ s.cost | text }}.{% endif %}{% if s.get('workaround') %} Current workaround: {{ s.workaround | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
 {% endfor %}
 
 {% endfor %}
 {% for finding in findings if finding.category == 'discovery' %}
 {{ finding_block(finding) }}
 {% endfor %}
+{% endif %}
+{% if data.get('needs_review') or data.get('finding_history') %}
+## Findings needing review & superseded findings
+
+{% for r in data.get('needs_review', []) %}
+- **Needs review:** {% if r.get('finding_id') %}{{ r.finding_id }}: {% endif %}{{ r.title | text }}; {{ r.reason | text }}{% if r.get('finding_ids') %} (affects {{ r.finding_ids | join(', ') }}){% endif %}. Evidence: {{ r.evidence_ids | join(', ') }}.
+{% endfor %}
+{% for f in data.get('finding_history', []) %}
+- **Superseded:** {{ f.id }}: {{ f.title | text }}; {{ f.reason | text }}{% if f.get('superseded_by') %} (replaced by {{ f.superseded_by }}){% endif %}. Evidence: {{ f.evidence_ids | join(', ') }}.
+{% endfor %}
+
+> Findings needing review are not included in the prioritised recommendations until a person confirms them; superseded findings are kept for history only.
+
 {% endif %}
 ## 8. Prioritised recommendations
 
@@ -285,11 +309,11 @@ No evidence-backed actions could be prioritised. Resolve the missing data before
 | Source | Status | Coverage or limitation |
 | --- | --- | --- |
 {% for module in data.modules %}
-| {{ module.name | text }} | {{ module.status }} | {{ (module.reason or 'Completed within the stated scope') | text }} |
+| {{ module.name | text }}{% if module.get('target') %} ({{ module.target | text }}){% endif %} | {{ module.status }} | {{ (module.reason or 'Completed within the stated scope') | text }} |
 {% endfor %}
 
 {% if 'siteone' in collected_sources %}
-- Crawl coverage: {{ data.pages | length }} successful HTML pages within a cap of {{ data.max_pages }} URLs (including assets).
+- Crawl coverage{% if data.get('pages_target') %} ({{ data.pages_target | text }}){% endif %}: {{ data.pages | length }} successful HTML pages within a cap of {{ data.max_pages }} URLs (including assets).
 {% endif %}
 {% if 'browser' in collected_sources %}
 - Browser coverage: {{ browser_observations }} page/viewport observations, with at most six key pages at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.

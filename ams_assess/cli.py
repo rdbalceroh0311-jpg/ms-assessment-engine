@@ -159,6 +159,17 @@ def main(argv: list[str] | None = None) -> int:
     report.add_argument("run_dir", type=Path, nargs="?")
     report.add_argument("--customer", help="Render from the customer store instead of a run")
     report.add_argument("--formats", default="md,html,pdf")
+    report.add_argument(
+        "--from-md",
+        type=Path,
+        help="With --customer: a human-edited report.md to save as a new revision and re-render",
+    )
+    report.add_argument(
+        "--based-on",
+        type=int,
+        help="With --from-md: the report revision the edit started from (else taken from its "
+        "reports/<revision>/ directory, or recorded as unknown)",
+    )
     args = parser.parse_args(argv)
     if args.command == "gsc-auth":
         return gsc_auth(args, parser)
@@ -191,9 +202,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "report":
         if bool(args.run_dir) == bool(args.customer):
             parser.error("Provide either a run directory or --customer")
+        if args.from_md and not args.customer:
+            parser.error("--from-md requires --customer")
+        if args.based_on is not None and not args.from_md:
+            parser.error("--based-on requires --from-md")
         try:
             if args.customer:
-                outputs = render_customer(data_root(), args.customer, formats)
+                outputs = render_customer(
+                    data_root(), args.customer, formats, args.from_md, args.based_on
+                )
             else:
                 outputs = render(args.run_dir.resolve(), formats)
         except (OSError, ValueError) as exc:

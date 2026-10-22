@@ -47,8 +47,16 @@ uv run ams-assess discover --customer acme --notes notes.json              # sta
 uv run ams-assess report --customer acme                                   # report at any stage
 ```
 
-`report --customer` regenerates `report.md/html/pdf` in `data/customers/<customer>/` from the store
-(and records them in its `report_files`); `report <run-dir>` still renders one run. Discovery notes:
+`report --customer` writes a new immutable revision to `data/customers/<customer>/reports/<NNN-timestamp>/`
+(files read-only, always including the markdown master), records it in the store's append-only
+`report_revisions` (with the assessment run it reflects) and copies it to `report.md/html/pdf` in the
+customer directory as the latest. To publish a human edit, edit the markdown and run
+`report --customer acme --from-md <file>`: it becomes a new revision and html/pdf are rendered
+from it. Its ancestry (`based_on`, `assessment_revision`) comes from the `reports/<revision>/`
+directory the file is in, else from `--based-on <revision>`, else it is recorded as `unknown`. `report <run-dir>` still renders one run. Imports and reports take an
+exclusive per-customer lock (`.assessment.lock`, waits up to 30 s, then fails with a clear error).
+A store with several websites lists every target and labels each module row and email-health summary
+with its website and run. Discovery notes:
 
 ```json
 {
@@ -67,15 +75,20 @@ uv run ams-assess report --customer acme                                   # rep
 }
 ```
 
-Sections: `enquiries_communication`, `sales_quoting`, `bookings_scheduling`, `systems_in_use`,
-`manual_duplicated_tasks`, `existing_automations`, `pain_points_bottlenecks`; statements are strings
-or objects with optional `frequency`, `systems`, `owner`, `impact`, `ref`. A finding must cite statements
+Sections: `business_overview`, `enquiries_communication`, `sales_quoting`, `bookings_scheduling`,
+`systems_in_use`, `manual_duplicated_tasks`, `existing_automations`, `pain_points_bottlenecks`,
+`data_integrations`, `opportunities_constraints`; statements are strings or objects with optional
+`frequency`, `systems`, `owner`, `impact`, `staff_time`, `errors_rework`, `cost` (as stated),
+`workaround`, `ref` (all customer statements until independently verified; shown only when given).
+Interview guide: [`examples/discovery/discovery-template.md`](examples/discovery/discovery-template.md)
+(questions mapped to section keys); a synthetic notes file is in
+[`examples/discovery/notes.example.json`](examples/discovery/notes.example.json). A finding must cite statements
 (`section` or `section:N`, 0-based) and its `ams_service` is one of AI & Automation, Business
 Systems, Digital Growth, Managed IT & Technology. Invalid notes exit 2 and write nothing. Discovery is
 not a crawler module and is never sent to AI.
 
 **Re-ingesting discovery notes.** A statement is identified by its text plus `owner` and `systems`
-(context); `frequency` and `impact` are detail. Order in the notes never matters and submitting a
+(context); `frequency`, `impact`, `staff_time`, `errors_rework`, `cost` and `workaround` are detail. Order in the notes never matters and submitting a
 subset is safe. An identical statement is reused (no new evidence). A changed version supersedes
 the stored one only when unambiguous (one new version, one stored candidate): it gets a new
 evidence ID that records `supersedes`, while the old evidence stays intact for findings that cite it.
@@ -103,6 +116,14 @@ with the same mapping. Findings consolidate across runs by category and check ke
 severity and priority win and `needs_verification`/`subjective` confidence sticks. The store is
 cumulative: a finding from an earlier run stays until superseded, so re-run and review rather than
 assuming a missing finding was fixed.
+
+**Finding versions.** A finding whose cited statements have all been superseded is retired to
+`finding_history` (kept, never recommended); re-importing a discovery finding with a changed claim
+creates a new version that supersedes the old one instead of merging text. A finding citing a
+superseded statement whose new version it does not cite, or two current versions of the same
+statement (together with every finding citing either version), are listed under "needs review"
+in the report and left out of the recommendations and roadmap.
+Limitation: stores created by pre-merge development builds of PR #4 are not migrated; recreate them.
 
 **Provenance.** Evidence is `technical_evidence` (default), `customer_statement` or `assumption`. A
 finding takes the worst provenance of the evidence it cites and can never be `confirmed` unless all
