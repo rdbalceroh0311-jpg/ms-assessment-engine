@@ -12,6 +12,9 @@ from ams_assess import store
 from ams_assess.discovery import load_notes
 from ams_assess.models import CATEGORIES, Context, create_run_dir, normalize_target
 from ams_assess.modules import FUTURE, REGISTRY, gsc
+from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
+from ams_assess.presence_discovery import MAX_KEYWORDS
+from ams_assess.profile import Location, Profile, load_verifications, read_json
 from ams_assess.report import render, render_customer
 from ams_assess.runner import run
 
@@ -112,6 +115,33 @@ def gsc_auth(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return 0
 
 
+def profile_changes(args: argparse.Namespace) -> dict:
+    """Fields to set: the --file profile first, then any field flags on top of it."""
+    changes = {}
+    if args.file:
+        loaded = read_json(args.file, "Profile")
+        if not isinstance(loaded, dict) or set(loaded) - Profile.model_fields.keys():
+            raise ValueError(
+                "Profile file must be an object with fields: " + ", ".join(Profile.model_fields)
+            )
+        changes.update(loaded)
+    flags = {
+        "name": args.name,
+        "aliases": args.alias,
+        "websites": args.website,
+        "abn": args.abn,
+        "industry": args.industry,
+        "buying_model": args.buying_model,
+        "service_area": args.service_area,
+        "phones": args.phone,
+        "locations": [Location.parse(v).model_dump() for v in args.location]
+        if args.location
+        else None,
+    }
+    changes.update({k: v for k, v in flags.items() if v is not None})
+    return changes
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="ams-assess", description="AMS evidence-backed assessment"
@@ -139,6 +169,11 @@ def main(argv: list[str] | None = None) -> int:
     assess.add_argument("--max-pages", type=int, default=100)
     assess.add_argument("--dataforseo-max-usd", type=float)
     assess.add_argument("--dataforseo-location-code", type=int)
+    assess.add_argument(
+        "--keywords",
+        help=f"Up to {MAX_KEYWORDS} comma-separated keywords for organic position samples "
+        "(paid; requires --dataforseo-max-usd)",
+    )
     assess.add_argument("--dkim-selectors", help="Comma-separated DKIM selectors to check")
     assess.add_argument(
         "--mail-tls-check",
@@ -153,6 +188,27 @@ def main(argv: list[str] | None = None) -> int:
     discover.add_argument("--customer", required=True)
     discover.add_argument("--customer-name")
     discover.add_argument("--notes", required=True, type=Path, help="Discovery notes JSON file")
+    customer = commands.add_parser(
+        "customer", help="Create or update a customer's business identity profile"
+    )
+    customer.add_argument("--customer", required=True)
+    customer.add_argument("--file", type=Path, help="Profile JSON (fields as below)")
+    customer.add_argument("--name", help="Business name")
+    customer.add_argument("--alias", action="append", help="Other trading name (repeatable)")
+    customer.add_argument("--website", action="append", help="Website URL (repeatable)")
+    customer.add_argument("--abn", help="ABN (format and check digits only; never looked up)")
+    customer.add_argument("--industry", help="One of: " + ", ".join(INDUSTRIES))
+    customer.add_argument("--buying-model", help="One of: " + ", ".join(BUYING_MODELS))
+    customer.add_argument("--service-area", action="append", help="Suburb/region (repeatable)")
+    customer.add_argument(
+        "--location", action="append", help="'12 Example St, Sydney NSW 2000' (repeatable)"
+    )
+    customer.add_argument("--phone", action="append", help="Phone number (repeatable)")
+    verify = commands.add_parser(
+        "presence-verify", help="Import human-verified platform presence facts"
+    )
+    verify.add_argument("--customer", required=True)
+    verify.add_argument("--file", required=True, type=Path, help="Verifications JSON file")
     report = commands.add_parser(
         "report", help="Regenerate reports from one existing run or a customer's whole assessment"
     )
@@ -183,6 +239,31 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"Status: complete (discovery); {counts['statements']} statements "
             f"({counts['new']} new), {counts['findings']} findings"
+        )
+        return 0
+    if args.command == "customer":
+        try:
+            changes = profile_changes(args)
+            if not changes:
+                parser.error("Provide --file or at least one profile field")
+            profile, eid, changed = store.set_profile(data_root(), args.customer, changes)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc) if isinstance(exc, ValueError) else "Cannot read profile")
+        print(
+            f"Profile {'saved' if changed else 'unchanged'}: {profile['name'] or '-'} "
+            f"(industry: {profile['industry'] or 'not recorded'}; buying model: "
+            f"{profile['buying_model'] or 'not recorded'}); evidence {eid} (customer statement)"
+        )
+        return 0
+    if args.command == "presence-verify":
+        try:
+            records = load_verifications(args.file)
+            counts = store.add_presence_verifications(data_root(), args.customer, records)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc) if isinstance(exc, ValueError) else "Cannot read verifications")
+        print(
+            f"Presence verification: {counts['entries']} entries ({counts['new']} new, "
+            f"{counts['unchanged']} unchanged)"
         )
         return 0
     formats = csv(args.formats)
@@ -225,6 +306,17 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("DKIM selectors must be DNS labels separated by commas")
     if args.mail_tls_check:
         settings["AMS_MAIL_TLS_CHECK"] = "1"
+    keywords = list(dict.fromkeys(k.strip() for k in (args.keywords or "").split(",")))
+    keywords = [k for k in keywords if k]
+    if args.keywords is not None and not 1 <= len(keywords) <= MAX_KEYWORDS:
+        parser.error(f"--keywords must list 1 to {MAX_KEYWORDS} keywords")
+    if any(len(k) > 100 for k in keywords):
+        parser.error("Each keyword must be at most 100 characters")
+    try:
+        existing = store.load(data_root(), args.customer)
+    except (OSError, ValueError):
+        existing = None  # An invalid slug is reported below; a bad store fails at merge.
+    profile = ((existing or {}).get("profile") or {}).get("fields")
     try:
         target = normalize_target(args.target)
         directory = create_run_dir(data_root(), args.customer)
@@ -232,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(exc))
     ctx = Context(
         customer_id=args.customer,
-        customer_name=args.customer_name or args.customer,
+        customer_name=args.customer_name or (profile or {}).get("name") or args.customer,
         target=target,
         categories=categories,
         connections=set(args.connect),
@@ -242,6 +334,8 @@ def main(argv: list[str] | None = None) -> int:
         store_root=data_root(),
         max_pages=args.max_pages,
         dataforseo_max_usd=args.dataforseo_max_usd,
+        profile=profile,
+        keywords=keywords,
     )
     data = run(ctx, no_ai=args.no_ai, formats=formats)
     print(f"Run directory: {directory}\nStatus: {data['status']}; {len(data['findings'])} findings")

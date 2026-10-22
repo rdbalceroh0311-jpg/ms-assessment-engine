@@ -6,6 +6,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import urlsplit, urlunsplit
@@ -36,12 +37,16 @@ AMS_SERVICES = (
     "Digital Growth",
     "Managed IT & Technology",
 )
-Provenance = Literal["technical_evidence", "customer_statement", "assumption"]
-# Lower is stronger; a finding is only as strong as its weakest cited evidence.
+Provenance = Literal[
+    "technical_evidence", "manual_verification", "customer_statement", "assumption"
+]
+# Lower is stronger; a finding is only as strong as its weakest cited evidence. A manual
+# verification is a person's observation of a public profile: never technical evidence.
 PROVENANCE_RANK: dict[str, int] = {
     "technical_evidence": 0,
-    "customer_statement": 1,
-    "assumption": 2,
+    "manual_verification": 1,
+    "customer_statement": 2,
+    "assumption": 3,
 }
 _STRONGEST = "technical_evidence"
 CUSTOMER_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
@@ -190,6 +195,13 @@ class Context:
     # Root of data/customers; when set, run() also merges the run into the customer store.
     store_root: Path | None = None
     pages: list[str] = field(default_factory=list)
+    # Customer business profile from the store (customer-supplied values), if one exists.
+    profile: dict[str, Any] | None = None
+    # Optional --keywords for point-in-time organic position samples (paid, same cap).
+    keywords: list[str] = field(default_factory=list)
+    # Shared DataForSEO ledger for this run: every paid call books against the one cap.
+    dataforseo_spent_usd: Decimal = Decimal(0)
+    dataforseo_serp_calls: int = 0
     # Results of modules that already ran, so later modules reuse evidence instead of refetching.
     results: list[ModuleResult] = field(default_factory=list)
 

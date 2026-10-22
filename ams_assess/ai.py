@@ -14,10 +14,14 @@ from ams_assess.models import Context, Evidence, Finding, worst_provenance
 LOG = logging.getLogger(__name__)
 # Narratives citing non-technical evidence carry the label of the WEAKEST cited provenance.
 LABELS = {
+    "manual_verification": "Manually recorded observation, not technically measured: ",
     "customer_statement": "Customer-reported, not technically verified: ",
     "assumption": "Assumption, not verified: ",
 }
 QUALIFIERS = {
+    "manual_verification": re.compile(
+        r"manual(?:ly)?[- ](?:recorded|observ\w*|verification)", re.I
+    ),
     "customer_statement": re.compile(
         r"customer[- ](stated|reported|statement|says|said)|according to the customer", re.I
     ),
