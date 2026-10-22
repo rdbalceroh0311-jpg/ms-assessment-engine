@@ -270,7 +270,7 @@ def test_organization_breadcrumb_invalid_jsonld_and_graph():
     crumb["itemListElement"][0]["item"] = "javascript:alert(1)"
     crumb["itemListElement"][1]["position"] = True
     errors = structured_data([crumb])["errors"]
-    assert any("absolute HTTP" in e for e in errors)
+    assert any("valid HTTP" in e for e in errors)
     assert any("positive integer" in e for e in errors)
     assert any("consecutively" in e for e in errors)
     invalid = {
@@ -1017,3 +1017,138 @@ def test_review_9_encoded_response_is_incomplete_instead_of_bypassing_raw_byte_c
     assert all(
         not r["complete"] and r["error"] == "UnexpectedContentEncoding" for r in data.values()
     )
+
+
+@pytest.mark.parametrize(
+    ("pattern", "status"),
+    [
+        ("/", "ERROR"),
+        ("/*", "ERROR"),
+        ("*", "ERROR"),
+        ("/private", "PASS"),
+        ("*private*", "PASS"),
+        ("/*.pdf$", "PASS"),
+    ],
+)
+def test_rereview_sitewide_disallow_with_homepage_exception(tmp_path, monkeypatch, pattern, status):
+    body = f"User-agent: *\nDisallow: {pattern}\nAllow: /$"
+    assert robots_allowed(applicable_rules(robots_groups(body), "Googlebot"), "/")
+    _, rows = run_checks(context(tmp_path, results=[sitemap(body)]), monkeypatch)
+    assert rows["robots"]["status"] == status
+    assert rows["robots"]["detail"]["broad_blocks"] == (
+        ["*", "Googlebot", "Bingbot"] if status == "ERROR" else []
+    )
+
+
+@pytest.mark.parametrize(
+    ("values", "status"),
+    [
+        (["googlebot-news: nosnippet", "noindex"], "ERROR"),
+        (["noindex", "googlebot-news: nosnippet"], "ERROR"),
+        (["otherbot: noindex", "bingbot: none"], "ERROR"),
+        (["googlebot-news: noindex", "otherbot: none"], "PASS"),
+    ],
+)
+def test_rereview_repeated_x_robots_headers_keep_independent_scopes(
+    tmp_path, monkeypatch, values, status
+):
+    def handler(request):
+        return httpx.Response(
+            200,
+            headers=[("content-type", "text/html"), *[("x-robots-tag", v) for v in values]],
+            stream=httpx.ByteStream(b"<html><title>Fixture</title></html>"),
+        )
+
+    home = "https://example.com/"
+    ctx = context(
+        tmp_path,
+        results=[sitemap(), crawl({home: 200}, {home: {"robotsIndex": "1"}})],
+    )
+    probes = site_checks.collect_probes(ctx, httpx.MockTransport(handler))
+    headers = probes["normal"]["headers"]
+    assert headers["x-robots-tag"] == values
+    assert headers["content-type"] == "text/html"
+    _, rows = run_checks(ctx, monkeypatch, probes)
+    assert rows["noindex"]["status"] == status
+
+
+@pytest.mark.parametrize(("valid", "status"), [(True, "PASS"), (False, "ERROR")])
+@pytest.mark.parametrize("in_graph", [False, True])
+def test_rereview_nested_breadcrumbs_validated_without_nested_entity_requirements(
+    tmp_path, monkeypatch, valid, status, in_graph
+):
+    breadcrumb = {
+        "@type": "BreadcrumbList",
+        "@id": "#breadcrumb",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://example.com/"},
+            {"@type": "ListItem", "position": 2, "name": "Services"},
+        ]
+        if valid
+        else [],
+    }
+    page = {
+        "@type": "WebPage",
+        "breadcrumb": breadcrumb,
+        "provider": {"@type": "LocalBusiness", "@id": "#business", "name": "Demo"},
+        "publisher": {"@type": "Organization", "logo": "javascript:invalid"},
+        "relatedLink": {"@type": "BreadcrumbList", "@id": "#reference-only"},
+    }
+    values = [{"@graph": [page]} if in_graph else page]
+    data = structured_data(values)
+    assert data["checked"] == ["BreadcrumbList"]
+    assert data["errors"] == ([] if valid else ["BreadcrumbList needs at least two ListItems"])
+    _, rows = run_checks(
+        context(tmp_path, results=[browser({"https://example.com/": {"json_ld": values}})]),
+        monkeypatch,
+    )
+    assert rows["structured-data"]["status"] == status
+
+
+@pytest.mark.parametrize("target", ["/", "../home", {"@id": "/"}])
+def test_rereview_relative_breadcrumb_items_are_suggestions(tmp_path, monkeypatch, target):
+    values = [
+        {
+            "@type": "WebPage",
+            "breadcrumb": {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {"@type": "ListItem", "position": 1, "name": "Home", "item": target},
+                    {"@type": "ListItem", "position": 2, "name": "Services"},
+                ],
+            },
+        }
+    ]
+    data = structured_data(values)
+    assert not data["errors"]
+    assert any("relative item" in note for note in data["recommended"])
+    _, rows = run_checks(
+        context(tmp_path, results=[browser({"https://example.com/": {"json_ld": values}})]),
+        monkeypatch,
+    )
+    assert rows["structured-data"]["status"] == "INFO"
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://meetings-na2.hubspot.com/demo/consult", "HubSpot"),
+        ("https://meetings-eu1.hubspot.com/demo/consult", "HubSpot"),
+        ("https://meetings-na2.hubspot.com.evil.test/demo", None),
+        ("https://www.acuityscheduling.com/blog", None),
+        ("https://www.acuityscheduling.com/pricing", None),
+        ("https://www.acuityscheduling.com/", None),
+        ("https://app.acuityscheduling.com/login.php", None),
+        ("https://demo.as.me/", "Acuity"),
+        ("https://demo.as.me/consult", "Acuity"),
+        ("https://www.as.me/marketing", None),
+        ("https://app.acuityscheduling.com/schedule.php", "Acuity"),
+        ("https://acuityscheduling.com/schedule.php?owner=123", "Acuity"),
+        ("https://www.acuityscheduling.com/schedule.php?owner=123", "Acuity"),
+        ("https://acuityscheduling.com/schedule.php?owner=", None),
+        ("https://acuityscheduling.com/schedule.php?not-owner=123", None),
+    ],
+)
+def test_rereview_regional_hubspot_and_acuity_booking_links(url, expected):
+    hits = tool_signals({"links": [url]}, "https://example.com/")
+    assert {hit["tool"] for hit in hits} == ({expected} if expected else set())

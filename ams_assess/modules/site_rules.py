@@ -12,7 +12,7 @@ import math
 import re
 from html.parser import HTMLParser
 from typing import Any
-from urllib.parse import quote, urljoin, urlsplit
+from urllib.parse import parse_qs, quote, urljoin, urlsplit
 
 from ams_assess.modules.presence import as_list, jsonld_nodes, resolve
 
@@ -244,19 +244,20 @@ def schema_types(node: dict[str, Any]) -> set[str]:
 
 
 def entity_definitions(values: Any) -> list[dict[str, Any]]:
-    """Collect declared roots/@graph members and combine descriptions of the same @id."""
+    """Collect roots/@graph members and nested breadcrumbs, merging matching @ids."""
     roots: list[dict[str, Any]] = []
 
-    def visit(value: Any) -> None:
+    def visit(value: Any, declared: bool = False) -> None:
         if isinstance(value, list):
             for item in value:
-                visit(item)
+                visit(item, declared)
         elif isinstance(value, dict):
-            roots.append(value)
-            if "@graph" in value:
-                visit(value["@graph"])
+            if declared or "BreadcrumbList" in schema_types(value):
+                roots.append(value)
+            for key, child in value.items():
+                visit(child, declared=key == "@graph")
 
-    visit(values)
+    visit(values, declared=True)
     by_id: dict[str, dict[str, Any]] = {}
     definitions = []
     for node in roots:
@@ -348,7 +349,14 @@ def structured_data(values: list[Any]) -> dict[str, Any]:
                 if index < len(items) - 1 or target is not None:
                     url = target.get("@id") if isinstance(target, dict) else target
                     if not resolve(url, ""):
-                        errors.append("Breadcrumb item needs an absolute HTTP(S) URL")
+                        if (
+                            isinstance(url, str)
+                            and not urlsplit(url).scheme
+                            and resolve(url, "https://example.com/")
+                        ):
+                            recommended.append("Breadcrumb: use an absolute URL for relative item")
+                        else:
+                            errors.append("Breadcrumb item needs a valid HTTP(S) URL")
             if positions != list(range(1, len(items) + 1)):
                 errors.append("Breadcrumb positions must be ordered consecutively from 1")
             continue
@@ -433,7 +441,7 @@ TOOLS = {
         "msgsndr.com",
         "msgsndr.net",
     ),
-    "Acuity": ("acuityscheduling.com", "squarespacescheduling.com"),
+    "Acuity": ("acuityscheduling.com", "squarespacescheduling.com", "as.me"),
     "Square Appointments": ("squareup.com/appointments", "book.squareup.com", "square.site/book"),
     "SimplyBook.me": ("simplybook.me", "simplybook.it"),
     "Setmore": ("setmore.com",),
@@ -456,11 +464,10 @@ TOOLS = {
 # Anchors need evidence of a booking/customer endpoint. A vendor's marketing site is not
 # evidence that the assessed business uses that vendor. Script/iframe contexts are separate.
 ACCOUNT_LINKS = {
-    "HubSpot": r"meetings\.hubspot\.com(?:/|$)|(?:share|forms)\.hsforms\.(?:com|net)/.+",
+    "HubSpot": r"meetings(?:-[a-z0-9-]+)?\.hubspot\.com(?:/|$)|"
+    r"(?:share|forms)\.hsforms\.(?:com|net)/.+",
     "GoHighLevel / LeadConnector": r"[^/]+\.leadconnectorhq\.com(?:/|$)|"
     r"(?:[^/]+\.)?msgsndr\.(?:com|net)/widget/(?:booking|form|survey)/.+",
-    "Acuity": r"[^/]+\.(?:acuityscheduling|squarespacescheduling)\.com(?:/|$)|"
-    r"(?:www\.)?acuityscheduling\.com/schedule\.php\?.*\bowner=.+",
     "Square Appointments": r"book\.squareup\.com(?:/|$)|(?:[^/]+\.)?square\.site/book/.+|"
     r"(?:www\.)?squareup\.com/appointments/book/.+",
     "SimplyBook.me": r"[^/]+\.simplybook\.(?:me|it)(?:/|$)",
@@ -487,6 +494,15 @@ def account_link(tool: str, url: str) -> bool:
         "Acuity",
     }:
         return False
+    if tool == "Acuity":
+        if re.fullmatch(r"[a-z0-9-]+\.as\.me", host):
+            return host.split(".")[0] not in {"www", "blog", "docs", "help", "support"}
+        if parts.path != "/schedule.php":
+            return False
+        return host == "app.acuityscheduling.com" or (
+            host in {"acuityscheduling.com", "www.acuityscheduling.com"}
+            and bool(parse_qs(parts.query).get("owner"))
+        )
     if tool == "Calendly":
         if host not in {"calendly.com", "www.calendly.com"}:
             return False

@@ -84,7 +84,7 @@ def probe(client: httpx.Client, url: str, ua: str, deadline: float) -> dict[str,
                 "complete": complete,
                 "body": body.decode("utf-8", "replace"),
                 "headers": {
-                    k: response.headers[k]
+                    k: response.headers.get_list(k) if k == "x-robots-tag" else response.headers[k]
                     for k in ("x-robots-tag", "content-type")
                     if k in response.headers
                 },
@@ -239,20 +239,24 @@ class Checks:
         absent = data.get("robots_status") in {404, 410}
         groups = robots_groups(data.get("robots_body", "")) if complete else []
         broad = []
+        # Evaluate rules locally: a homepage-only Allow must not hide a site-wide block.
+        paths_checked = ["/", "/ams-site-wide-probe"]
         if complete:
             for bot in ("*", "Googlebot", "Bingbot"):
                 rules = applicable_rules(groups, bot)
-                if not robots_allowed(rules, "/"):
+                if any(not robots_allowed(rules, path) for path in paths_checked):
                     broad.append(bot)
         self.row(
             "robots",
             "Robots rules / site-wide Disallow",
             ["seo", "technical"],
             "ERROR" if broad else "PASS" if complete else "INFO" if absent else "NOT ASSESSED",
-            f"Parsed {len(groups)} robots groups. Homepage path / blocked for {', '.join(broad)}."
+            f"Parsed {len(groups)} robots groups. Root or representative public path blocked "
+            f"for {', '.join(broad)}."
             if broad
             else (
-                f"Parsed {len(groups)} groups; homepage path / allowed for *, Googlebot or Bingbot."
+                f"Parsed {len(groups)} groups; root and representative public path allowed "
+                "for *, Googlebot and Bingbot."
                 if complete
                 else "robots.txt absent (404/410); no rules to parse."
                 if absent
@@ -260,7 +264,11 @@ class Checks:
             ),
             "Broad rules can prevent search engines crawling public pages.",
             "Confirm intended visibility, remove unintended broad Disallow rules, then retest.",
-            {"groups": groups, "broad_blocks": broad},
+            {
+                "groups": groups,
+                "broad_blocks": broad,
+                "paths_checked": paths_checked if complete else [],
+            },
             self.sitemap_ids,
         )
         paths = sorted({urlsplit(u).path or "/" for u in [self.ctx.target, *self.ctx.pages]})[:100]
