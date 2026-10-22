@@ -776,6 +776,10 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
         data: dict[str, Any] = {
             "robots_url": base + "/robots.txt",
             "robots_status": robots.get("status") or robots.get("error"),
+            # Retain a bounded body for site_checks; no second robots request.
+            "robots_body": robots.get("body", b"")[:65_536].decode("utf-8", "replace"),
+            "robots_complete": bool(robots.get("complete")) and
+            len(robots.get("body", b"")) <= 65_536,
             "declared": declared if declared is not None else "unknown",
             "confirmed": True,
         }
@@ -827,6 +831,13 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
     data["kind"] = kind
     if kind == "invalid":
         return data | {"status": WARNING, "detail": f"Sitemap invalid at {url}: {problem}"}
+    # parse_sitemap has already rejected DTDs, entities and invalid encodings.
+    if kind == "urlset":
+        root = ET.fromstring(response["body"].decode("utf-8-sig"))
+        urls = [(node.findtext(SITEMAP_NS + "loc") or "").strip()
+                for node in root.findall(SITEMAP_NS + "url")]
+        data["sitemap_urls"] = urls[:500]
+        data["sitemap_urls_truncated"] = len(urls) > 500
     noun = "URLs" if kind == "urlset" else "child sitemaps"
     return data | {
         "entries": count,

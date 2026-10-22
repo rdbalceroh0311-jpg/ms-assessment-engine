@@ -313,6 +313,14 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
 
         def do_GET(self):
             requests.append(("GET", self.path))
+            if self.path in {"/old-service", "/older-service"}:
+                self.send_response(301)
+                self.send_header(
+                    "Location",
+                    "/older-service" if self.path == "/old-service" else "/services.html",
+                )
+                self.end_headers()
+                return
             super().do_GET()
 
         def do_POST(self):
@@ -343,7 +351,7 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
         server.shutdown()
         server.server_close()
         thread.join()
-    directory = next((cli.ROOT / "data/customers" / customer).iterdir())
+    directory = next(p for p in (cli.ROOT / "data/customers" / customer).iterdir() if p.is_dir())
     for file in [
         "results.json",
         "evidence.json",
@@ -357,8 +365,8 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     evidence = json.loads((directory / "evidence.json").read_text())
     known = {e["id"] for e in evidence}
     assert len(known) == len(evidence)
-    assert len(results["pages"]) == 5
-    assert len(list((directory / "screenshots").glob("*.png"))) == 10
+    assert len(results["pages"]) == 7
+    assert len(list((directory / "screenshots").glob("*.png"))) == 12
     keys = {f["check_key"] for f in results["findings"]}
     assert {
         "missing-description",
@@ -370,8 +378,8 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert set(results["selected_categories"]) == set(CATEGORIES)
     report = (directory / "report.md").read_text()
     report_html = (directory / "report.html").read_text()
-    assert "Crawl coverage: 5 successful HTML pages" in report
-    assert "Browser coverage: 10 page/viewport observations" in report
+    assert "Crawl coverage: 7 successful HTML pages" in report
+    assert "Browser coverage: 12 page/viewport observations" in report
     assert all(f["priority"] == "P1" for f in results["findings"] if f["severity"] == "high")
     assert all(f["priority"] == "P3" for f in results["findings"] if f["severity"] == "low")
     assert report_html.count("<td>") >= 4 * len(evidence) + 3 * len(results["modules"])
@@ -394,13 +402,35 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert listings["yellow_pages"] == listings["instagram"] == "Detected (linked from website)"
     assert not any("WordPress" in item["service"] for item in presence["checklist"])
     sitemap = next(r for r in presence["signals"] if r["signal"] == "XML sitemap")
-    assert sitemap["status"] == "PASS" and "lists 5 URLs" in sitemap["detail"]
+    assert sitemap["status"] == "PASS" and "lists 7 URLs" in sitemap["detail"]
     assert {
         "nap-inconsistent",
         "canonical-missing",
         "listing:sameas-incomplete",
         "tracking:unconfirmed",
     } <= keys
+    site = next(m for m in results["modules"] if m["name"] == "site_checks")
+    assert site["status"] == "ok" and len(site["checks"]) == 15
+    rows = {r["site_check"]: r for r in site["checks"]}
+    assert all(r["area"].replace("_", "\\_") in report for r in rows.values())
+    assert rows["robots"]["status"] == "PASS"
+    assert rows["ai-robots"]["status"] == "WARNING"
+    assert rows["canonicals"]["status"] == "PASS"
+    assert rows["location-duplicates"]["status"] == "WARNING"
+    assert rows["cwv"]["status"] == "NOT ASSESSED"
+    assert rows["conversion-events"]["detail"]["state"] == "Unknown"
+    assert {e["event"] for e in rows["conversion-events"]["detail"]["events"]} == {
+        "generate_lead",
+        "Lead",
+    }
+    assert any(t["tool"] == "Calendly" for t in rows["booking-tools"]["detail"])
+    assert rows["llms-txt"]["status"] == "INFO"
+    assert rows["page-quality"]["detail"]["duplicates"]["title"]
+    assert len(rows["page-quality"]["detail"]["redirect_chains"][0]["chain"]) == 3
+    assert any(p["faq_qa_schema"] for p in rows["answer-readiness"]["detail"])
+    assert "Form submissions: NOT TESTED" in report
+    assert all(set(r["evidence_ids"]) <= known for r in rows.values())
+    assert all(set(e["data"].get("source_evidence_ids", [])) <= known for e in site["evidence"])
     pdf_text = "".join(page.extract_text() for page in PdfReader(directory / "report.pdf").pages)
     numbered = [
         "1. Executive summary",
@@ -424,7 +454,8 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
         assert heading.split(". ", 1)[1] in pdf_text
     for finding in results["findings"]:
         assert finding["evidence_ids"] and set(finding["evidence_ids"]) <= known
-        block = report.split(f"### {finding['id']}:", 1)[1].split("###", 1)[0]
+        escaped_id = finding["id"].replace("_", "\\_")
+        block = report.split(f"### {escaped_id}:", 1)[1].split("###", 1)[0]
         refs = set(re.findall(r"ev-[a-z_]+-\d+", block))
         assert set(finding["evidence_ids"]) <= refs <= known
     assert set(re.findall(r"ev-[a-z_]+-\d+", report)) <= known
