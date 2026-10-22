@@ -1,6 +1,31 @@
 [
   {
-    "id": "ev-siteone-001",
+    "id": "ev-profile-r1-001",
+    "source": "profile",
+    "url": "customer-profile",
+    "description": "Customer business profile (customer statement)",
+    "data": {
+      "name": "Harbour Demo Plumbing",
+      "aliases": [],
+      "websites": [
+        "http://127.0.0.1:18765/"
+      ],
+      "abn": "",
+      "industry": "trades",
+      "buying_model": "service-area",
+      "service_area": [
+        "Sydney"
+      ],
+      "locations": [],
+      "phones": [
+        "02 5550 0101"
+      ],
+      "supersedes": null
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-siteone-r2-001",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne HTTP response",
@@ -9,14 +34,32 @@
       "cacheTypeFlags": 8,
       "elapsedTime": 0.001,
       "extras": [],
-      "size": 1684,
+      "size": 4078,
       "status": "200",
       "type": 1,
       "url": "http://127.0.0.1:18765/"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-002",
+    "id": "ev-siteone-r2-002",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/old-service",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 32768,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 93,
+      "status": "301",
+      "type": 9,
+      "url": "http://127.0.0.1:18765/old-service"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-003",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/contact.html",
     "description": "SiteOne HTTP response",
@@ -29,10 +72,11 @@
       "status": "200",
       "type": 1,
       "url": "http://127.0.0.1:18765/contact.html"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-003",
+    "id": "ev-siteone-r2-004",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/style.css",
     "description": "SiteOne HTTP response",
@@ -45,26 +89,11 @@
       "status": "200",
       "type": 3,
       "url": "http://127.0.0.1:18765/style.css"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-004",
-    "source": "siteone",
-    "url": "http://127.0.0.1:18765/about.html",
-    "description": "SiteOne HTTP response",
-    "data": {
-      "cacheLifetime": null,
-      "cacheTypeFlags": 8,
-      "elapsedTime": 0.004,
-      "extras": [],
-      "size": 1342,
-      "status": "200",
-      "type": 1,
-      "url": "http://127.0.0.1:18765/about.html"
-    }
-  },
-  {
-    "id": "ev-siteone-005",
+    "id": "ev-siteone-r2-005",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/services.html",
     "description": "SiteOne HTTP response",
@@ -77,10 +106,11 @@
       "status": "200",
       "type": 1,
       "url": "http://127.0.0.1:18765/services.html"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-006",
+    "id": "ev-siteone-r2-006",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/quote.html",
     "description": "SiteOne HTTP response",
@@ -93,26 +123,96 @@
       "status": "200",
       "type": 1,
       "url": "http://127.0.0.1:18765/quote.html"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-007",
+    "id": "ev-siteone-r2-007",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/service/a/",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 8,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 1296,
+      "status": "200",
+      "type": 1,
+      "url": "http://127.0.0.1:18765/service/a/"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-008",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/service/b/",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 8,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 1296,
+      "status": "200",
+      "type": 1,
+      "url": "http://127.0.0.1:18765/service/b/"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-009",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/about.html",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 8,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 1342,
+      "status": "200",
+      "type": 1,
+      "url": "http://127.0.0.1:18765/about.html"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-010",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/older-service",
+    "description": "SiteOne HTTP response",
+    "data": {
+      "cacheLifetime": null,
+      "cacheTypeFlags": 32768,
+      "elapsedTime": 0.001,
+      "extras": [],
+      "size": 93,
+      "status": "301",
+      "type": 9,
+      "url": "http://127.0.0.1:18765/older-service"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-011",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/missing-offer.html",
     "description": "SiteOne HTTP response",
     "data": {
       "cacheLifetime": null,
       "cacheTypeFlags": 32768,
-      "elapsedTime": 0.002,
+      "elapsedTime": 0.001,
       "extras": [],
       "size": 335,
       "status": "404",
       "type": 1,
       "url": "http://127.0.0.1:18765/missing-offer.html"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-008",
+    "id": "ev-siteone-r2-012",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/work.svg",
     "description": "SiteOne HTTP response",
@@ -125,10 +225,11 @@
       "status": "200",
       "type": 4,
       "url": "http://127.0.0.1:18765/work.svg"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-009",
+    "id": "ev-siteone-r2-013",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne SEO metadata",
@@ -141,10 +242,11 @@
       "robotsIndex": "1",
       "title": "Harbour Demo Plumbing - Sydney",
       "urlPathAndQuery": "/"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-010",
+    "id": "ev-siteone-r2-014",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/about.html",
     "description": "SiteOne SEO metadata",
@@ -157,10 +259,11 @@
       "robotsIndex": "1",
       "title": "About - Harbour Demo Plumbing",
       "urlPathAndQuery": "/about.html"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-011",
+    "id": "ev-siteone-r2-015",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/contact.html",
     "description": "SiteOne SEO metadata",
@@ -173,10 +276,11 @@
       "robotsIndex": "1",
       "title": "Contact - Harbour Demo Plumbing",
       "urlPathAndQuery": "/contact.html"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-012",
+    "id": "ev-siteone-r2-016",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/quote.html",
     "description": "SiteOne SEO metadata",
@@ -189,10 +293,45 @@
       "robotsIndex": "1",
       "title": "Quote - Harbour Demo Plumbing",
       "urlPathAndQuery": "/quote.html"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-013",
+    "id": "ev-siteone-r2-017",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/service/a/",
+    "description": "SiteOne SEO metadata",
+    "data": {
+      "deniedByRobotsTxt": "false",
+      "description": "Local plumbing services and maintenance.",
+      "h1": "Plumbing in service area A",
+      "indexing": "",
+      "keywords": "",
+      "robotsIndex": "1",
+      "title": "Local plumbing service area",
+      "urlPathAndQuery": "/service/a/"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-018",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/service/b/",
+    "description": "SiteOne SEO metadata",
+    "data": {
+      "deniedByRobotsTxt": "false",
+      "description": "Local plumbing services and maintenance.",
+      "h1": "Plumbing in service area B",
+      "indexing": "",
+      "keywords": "",
+      "robotsIndex": "1",
+      "title": "Local plumbing service area",
+      "urlPathAndQuery": "/service/b/"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-019",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/services.html",
     "description": "SiteOne SEO metadata",
@@ -205,40 +344,43 @@
       "robotsIndex": "1",
       "title": "Plumbing services - Harbour Demo Plumbing",
       "urlPathAndQuery": "/services.html"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-014",
+    "id": "ev-siteone-r2-020",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
     "data": {
-      "critical": "6",
+      "critical": "8",
       "header": "Content-Security-Policy",
       "highestSeverity": "4",
       "notice": "0",
       "ok": "0",
       "recommendation": "Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks.",
       "warning": "0"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-015",
+    "id": "ev-siteone-r2-021",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
     "data": {
-      "critical": "6",
+      "critical": "8",
       "header": "Server",
       "highestSeverity": "4",
       "notice": "0",
       "ok": "0",
       "recommendation": "Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.",
       "warning": "0"
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-016",
+    "id": "ev-siteone-r2-022",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
@@ -249,11 +391,12 @@
       "notice": "0",
       "ok": "0",
       "recommendation": "X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks.",
-      "warning": "6"
-    }
+      "warning": "8"
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-017",
+    "id": "ev-siteone-r2-023",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
@@ -264,11 +407,12 @@
       "notice": "0",
       "ok": "0",
       "recommendation": "Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security.",
-      "warning": "6"
-    }
+      "warning": "8"
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-018",
+    "id": "ev-siteone-r2-024",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne header analysis (crawl aggregate)",
@@ -279,11 +423,36 @@
       "notice": "0",
       "ok": "0",
       "recommendation": "Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.",
-      "warning": "6"
-    }
+      "warning": "8"
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-019",
+    "id": "ev-siteone-r2-025",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/",
+    "description": "SiteOne robots.txt load",
+    "data": {
+      "aplCode": "robots-txt-127.0.0.1",
+      "status": "NOTICE",
+      "text": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 6 ms."
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-026",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/",
+    "description": "SiteOne canonical link summary",
+    "data": {
+      "aplCode": "seo-canonical-missing",
+      "status": "NOTICE",
+      "text": "4 page(s) without a rel=canonical link"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-027",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne seo-headings table",
@@ -296,10 +465,10 @@
         "urlPathAndQuery": "/quote.html"
       },
       {
-        "headings": "<h1> Reliable plumbing for Sydney homes <h2> How we help <h2> Local experience",
-        "headingsCount": "3",
+        "headings": "<h1> Reliable plumbing for Sydney homes <h2> How we help <h2> Local experience <h2> Frequently asked questions <h3> How do I request a quote?",
+        "headingsCount": "5",
         "headingsErrorsCount": "0",
-        "headingsHtml": "<ul><li>&lt;h1&gt; Reliable plumbing for Sydney homes<ul><li>&lt;h2&gt; How we help</li><li>&lt;h2&gt; Local experience</li></ul></li></ul>",
+        "headingsHtml": "<ul><li>&lt;h1&gt; Reliable plumbing for Sydney homes<ul><li>&lt;h2&gt; How we help</li><li>&lt;h2&gt; Local experience</li><li>&lt;h2&gt; Frequently asked questions<ul><li>&lt;h3&gt; How do I request a quote?</li></ul></li></ul></li></ul>",
         "urlPathAndQuery": "/"
       },
       {
@@ -310,23 +479,59 @@
         "urlPathAndQuery": "/contact.html"
       },
       {
-        "headings": "<h1> A local service with clear communication <h2> Our approach <h2> Customer feedback",
-        "headingsCount": "3",
-        "headingsErrorsCount": "0",
-        "headingsHtml": "<ul><li>&lt;h1&gt; A local service with clear communication<ul><li>&lt;h2&gt; Our approach</li><li>&lt;h2&gt; Customer feedback</li></ul></li></ul>",
-        "urlPathAndQuery": "/about.html"
-      },
-      {
         "headings": "<h1> Plumbing services <h2> Leak repairs <h2> Drain clearing <h3> What happens next?",
         "headingsCount": "4",
         "headingsErrorsCount": "0",
         "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing services<ul><li>&lt;h2&gt; Leak repairs</li><li>&lt;h2&gt; Drain clearing<ul><li>&lt;h3&gt; What happens next?</li></ul></li></ul></li></ul>",
         "urlPathAndQuery": "/services.html"
+      },
+      {
+        "headings": "<h1> Plumbing in service area A",
+        "headingsCount": "1",
+        "headingsErrorsCount": "0",
+        "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing in service area A</li></ul>",
+        "urlPathAndQuery": "/service/a/"
+      },
+      {
+        "headings": "<h1> Plumbing in service area B",
+        "headingsCount": "1",
+        "headingsErrorsCount": "0",
+        "headingsHtml": "<ul><li>&lt;h1&gt; Plumbing in service area B</li></ul>",
+        "urlPathAndQuery": "/service/b/"
+      },
+      {
+        "headings": "<h1> A local service with clear communication <h2> Our approach <h2> Customer feedback",
+        "headingsCount": "3",
+        "headingsErrorsCount": "0",
+        "headingsHtml": "<ul><li>&lt;h1&gt; A local service with clear communication<ul><li>&lt;h2&gt; Our approach</li><li>&lt;h2&gt; Customer feedback</li></ul></li></ul>",
+        "urlPathAndQuery": "/about.html"
       }
-    ]
+    ],
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-020",
+    "id": "ev-siteone-r2-028",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/",
+    "description": "SiteOne redirects table",
+    "data": [
+      {
+        "sourceUqId": "http://127.0.0.1:18765/",
+        "statusCode": "301",
+        "targetUrl": "/older-service",
+        "url": "http://127.0.0.1:18765/old-service"
+      },
+      {
+        "sourceUqId": "http://127.0.0.1:18765/old-service",
+        "statusCode": "301",
+        "targetUrl": "/services.html",
+        "url": "http://127.0.0.1:18765/older-service"
+      }
+    ],
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-siteone-r2-029",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne 404 table",
@@ -336,10 +541,11 @@
         "statusCode": "404",
         "url": "http://127.0.0.1:18765/missing-offer.html"
       }
-    ]
+    ],
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-021",
+    "id": "ev-siteone-r2-030",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne headers table",
@@ -354,9 +560,9 @@
       },
       {
         "header": "Content-Length",
-        "maxValue": "2 kB",
+        "maxValue": "4 kB",
         "minValue": "187 B",
-        "occurrences": "8",
+        "occurrences": "10",
         "uniqueValues": "-",
         "valuesPreview": "[ignored generic values]"
       },
@@ -364,38 +570,47 @@
         "header": "Content-Type",
         "maxValue": "",
         "minValue": "",
-        "occurrences": "8",
+        "occurrences": "12",
         "uniqueValues": "4",
-        "valuesPreview": "text/html (5) / text/css (1) / text/html;charset=utf-8 (1) / image/svg+xml (1)"
+        "valuesPreview": "text/html (9) / image/svg+xml (1) / text/css (1) / text/html;charset=utf-8 (1)"
       },
       {
         "header": "Date",
-        "maxValue": "2026-10-18",
-        "minValue": "2026-10-18",
-        "occurrences": "8",
+        "maxValue": "2026-10-22",
+        "minValue": "2026-10-22",
+        "occurrences": "12",
         "uniqueValues": "-",
         "valuesPreview": "[ignored generic values]"
       },
       {
         "header": "Last-Modified",
-        "maxValue": "2026-10-18",
-        "minValue": "2026-10-18",
-        "occurrences": "7",
+        "maxValue": "2026-10-22",
+        "minValue": "2026-10-22",
+        "occurrences": "9",
         "uniqueValues": "-",
         "valuesPreview": "[ignored generic values]"
+      },
+      {
+        "header": "Location",
+        "maxValue": "",
+        "minValue": "",
+        "occurrences": "2",
+        "uniqueValues": "2",
+        "valuesPreview": "/older-service (1) / /services.html (1)"
       },
       {
         "header": "Server",
         "maxValue": "",
         "minValue": "",
-        "occurrences": "8",
+        "occurrences": "12",
         "uniqueValues": "1",
         "valuesPreview": "SimpleHTTP/0.6 Python/3.12.13"
       }
-    ]
+    ],
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-siteone-022",
+    "id": "ev-siteone-r2-031",
     "source": "siteone",
     "url": "http://127.0.0.1:18765/",
     "description": "SiteOne headers-values table",
@@ -407,8 +622,13 @@
       },
       {
         "header": "Content-Type",
-        "occurrences": "5",
+        "occurrences": "9",
         "value": "text/html"
+      },
+      {
+        "header": "Content-Type",
+        "occurrences": "1",
+        "value": "image/svg+xml"
       },
       {
         "header": "Content-Type",
@@ -421,19 +641,69 @@
         "value": "text/html;charset=utf-8"
       },
       {
-        "header": "Content-Type",
+        "header": "Location",
         "occurrences": "1",
-        "value": "image/svg+xml"
+        "value": "/older-service"
+      },
+      {
+        "header": "Location",
+        "occurrences": "1",
+        "value": "/services.html"
       },
       {
         "header": "Server",
-        "occurrences": "8",
+        "occurrences": "12",
         "value": "SimpleHTTP/0.6 Python/3.12.13"
       }
-    ]
+    ],
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-001",
+    "id": "ev-siteone-r2-032",
+    "source": "siteone",
+    "url": "http://127.0.0.1:18765/",
+    "description": "SiteOne external-urls table",
+    "data": [
+      {
+        "count": "1",
+        "foundOn": "http://127.0.0.1:18765/",
+        "url": "https://assets.calendly.com/assets/external/widget.js"
+      },
+      {
+        "count": "1",
+        "foundOn": "http://127.0.0.1:18765/",
+        "url": "https://g.page/harbour-demo-plumbing-fixture"
+      },
+      {
+        "count": "1",
+        "foundOn": "http://127.0.0.1:18765/",
+        "url": "https://www.clarity.ms/tag/"
+      },
+      {
+        "count": "1",
+        "foundOn": "http://127.0.0.1:18765/",
+        "url": "https://www.facebook.com/harbour.demo.plumbing.fixture"
+      },
+      {
+        "count": "1",
+        "foundOn": "http://127.0.0.1:18765/",
+        "url": "https://www.googletagmanager.com/gtag/js?id=G-FIXTURE001"
+      },
+      {
+        "count": "1",
+        "foundOn": "http://127.0.0.1:18765/",
+        "url": "https://www.googletagmanager.com/gtm.js?id="
+      },
+      {
+        "count": "1",
+        "foundOn": "http://127.0.0.1:18765/",
+        "url": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture"
+      }
+    ],
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-browser-r2-001",
     "source": "browser",
     "url": "http://127.0.0.1:18765/",
     "description": "Rendered page evidence (desktop)",
@@ -450,6 +720,10 @@
           {
             "name": "description",
             "content": "Local plumbing maintenance in Sydney. Request a clear written quote."
+          },
+          {
+            "name": "google-site-verification",
+            "content": "fixture-fake-verification-token"
           }
         ],
         "headings": [
@@ -464,9 +738,17 @@
           {
             "level": "H2",
             "text": "Local experience"
+          },
+          {
+            "level": "H2",
+            "text": "Frequently asked questions"
+          },
+          {
+            "level": "H3",
+            "text": "How do I request a quote?"
           }
         ],
-        "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nReliable plumbing for Sydney homes\n\nWe help homeowners repair leaks and maintain working plumbing. Written quotes before work begins.\n\nHow we help\n\nTap repairs, blocked drains and scheduled maintenance.\n\nRequest a plumbing quote\nLocal experience\n\nOur fictional team serves central Sydney. Ask about licence details and insurance before booking.\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+        "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nReliable plumbing for Sydney homes\n\nWe help homeowners repair leaks and maintain working plumbing. Written quotes before work begins.\n\nHow we help\n\nTap repairs, blocked drains and scheduled maintenance.\n\nRequest a plumbing quote\nLocal experience\n\nOur fictional team serves central Sydney. Ask about licence details and insurance before booking.\n\nFrequently asked questions\nHow do I request a quote?\n\nContact our team with your service needs. We provide repairs and serve Sydney.\n\nNorth service areaSouth service areaOlder service link\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFind us: Google Business Profile | Facebook | Yellow Pages\n\nFictional fixture for AMS testing. No real business or customer data.",
         "visible_text_truncated": false,
         "ctas": [
           {
@@ -494,6 +776,18 @@
             "href": "http://127.0.0.1:18765/contact.html"
           },
           {
+            "text": "North service area",
+            "href": "http://127.0.0.1:18765/service/a/"
+          },
+          {
+            "text": "South service area",
+            "href": "http://127.0.0.1:18765/service/b/"
+          },
+          {
+            "text": "Older service link",
+            "href": "http://127.0.0.1:18765/old-service"
+          },
+          {
             "text": "02 5550 0100",
             "href": "tel:+61255500100"
           },
@@ -504,6 +798,18 @@
           {
             "text": "Privacy policy",
             "href": "http://127.0.0.1:18765/contact.html#privacy"
+          },
+          {
+            "text": "Google Business Profile",
+            "href": "https://g.page/harbour-demo-plumbing-fixture"
+          },
+          {
+            "text": "Facebook",
+            "href": "https://www.facebook.com/harbour.demo.plumbing.fixture"
+          },
+          {
+            "text": "Yellow Pages",
+            "href": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture"
           }
         ],
         "forms": [],
@@ -530,7 +836,24 @@
               "postalCode": "2000",
               "addressRegion": "NSW",
               "addressCountry": "AU"
-            }
+            },
+            "sameAs": [
+              "https://www.facebook.com/harbour.demo.plumbing.fixture",
+              "https://www.instagram.com/harbour.demo.plumbing.fixture"
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How do I request a quote?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Contact our team."
+                }
+              }
+            ]
           }
         ],
         "microdata": [],
@@ -563,19 +886,61 @@
         "trust_signals": [
           "Our fictional team serves central Sydney. Ask about licence details and insurance before booking.",
           "Privacy policy"
+        ],
+        "canonical": "http://127.0.0.1:18765/",
+        "script_srcs": [
+          "https://www.googletagmanager.com/gtag/js?id=G-FIXTURE001",
+          "https://assets.calendly.com/assets/external/widget.js"
+        ],
+        "tag_snippets": [
+          "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-FIXTURE001');",
+          "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-FIXTURE1');",
+          "(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, \"clarity\", \"script\", \"fixture01\");",
+          "gtag('event','generate_lead');fbq('track','Lead');"
+        ],
+        "resource_links": [
+          "http://127.0.0.1:18765/style.css",
+          "http://127.0.0.1:18765/"
+        ],
+        "gated_scripts": [
+          "https://www.googletagmanager.com/gtag/js?id=G-FIXTURE001",
+          "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-FIXTURE001');",
+          "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document",
+          "(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, \"clarity\", \"script\", \"fixture01\");",
+          "https://assets.calendly.com/assets/external/widget.js",
+          "gtag('event','generate_lead');fbq('track','Lead');"
+        ],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/services.html",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/service/a/",
+          "http://127.0.0.1:18765/service/b/",
+          "http://127.0.0.1:18765/old-service",
+          "http://127.0.0.1:18765/contact.html#privacy",
+          "https://g.page/harbour-demo-plumbing-fixture",
+          "https://www.facebook.com/harbour.demo.plumbing.fixture",
+          "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture"
         ]
       },
       "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/",
+        "http://127.0.0.1:18765/style.css"
+      ],
       "screenshot": "screenshots/01-desktop.png",
       "axe": {
         "version": "4.10.3",
         "violations": [],
         "incomplete": []
       }
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-002",
+    "id": "ev-browser-r2-002",
     "source": "browser",
     "url": "http://127.0.0.1:18765/about.html",
     "description": "Rendered page evidence (desktop)",
@@ -690,19 +1055,39 @@
         "trust_signals": [
           "Demo testimonial: The team explained our options clearly.",
           "Privacy policy"
+        ],
+        "canonical": "",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/services.html",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/contact.html#privacy"
         ]
       },
       "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/about.html",
+        "http://127.0.0.1:18765/style.css"
+      ],
       "screenshot": "screenshots/02-desktop.png",
       "axe": {
         "version": "4.10.3",
         "violations": [],
         "incomplete": []
       }
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-003",
+    "id": "ev-browser-r2-003",
     "source": "browser",
     "url": "http://127.0.0.1:18765/quote.html",
     "description": "Rendered page evidence (desktop)",
@@ -804,9 +1189,30 @@
         ],
         "trust_signals": [
           "Privacy policy"
+        ],
+        "canonical": "",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/services.html",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/missing-offer.html",
+          "http://127.0.0.1:18765/contact.html#privacy"
         ]
       },
       "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/quote.html",
+        "http://127.0.0.1:18765/style.css",
+        "http://127.0.0.1:18765/work.svg"
+      ],
       "screenshot": "screenshots/03-desktop.png",
       "axe": {
         "version": "4.10.3",
@@ -939,10 +1345,177 @@
         ],
         "incomplete": []
       }
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-004",
+    "id": "ev-browser-r2-004",
+    "source": "browser",
+    "url": "http://127.0.0.1:18765/service/a/",
+    "description": "Rendered page evidence (desktop)",
+    "data": {
+      "url": "http://127.0.0.1:18765/service/a/",
+      "viewport": "desktop",
+      "page": {
+        "title": "Local plumbing service area",
+        "meta": [
+          {
+            "name": "viewport",
+            "content": "width=device-width, initial-scale=1"
+          },
+          {
+            "name": "description",
+            "content": "Local plumbing services and maintenance."
+          }
+        ],
+        "headings": [
+          {
+            "level": "H1",
+            "text": "Plumbing in service area A"
+          }
+        ],
+        "visible_text_summary": "Home\nContact\nPlumbing in service area A\n\nOur local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests.",
+        "visible_text_truncated": false,
+        "ctas": [
+          {
+            "text": "Home",
+            "href": "http://127.0.0.1:18765/"
+          },
+          {
+            "text": "Contact",
+            "href": "http://127.0.0.1:18765/contact.html"
+          }
+        ],
+        "forms": [],
+        "contacts": [],
+        "json_ld": [],
+        "microdata": [],
+        "nap_candidates": [],
+        "nav_links": [
+          {
+            "text": "Home",
+            "href": "http://127.0.0.1:18765/"
+          },
+          {
+            "text": "Contact",
+            "href": "http://127.0.0.1:18765/contact.html"
+          }
+        ],
+        "trust_signals": [
+          "Our local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests."
+        ],
+        "canonical": "http://127.0.0.1:18765/service/a/",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/service/a/",
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/contact.html"
+        ]
+      },
+      "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/service/a/",
+        "http://127.0.0.1:18765/style.css"
+      ],
+      "screenshot": "screenshots/04-desktop.png",
+      "axe": {
+        "version": "4.10.3",
+        "violations": [],
+        "incomplete": []
+      }
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-browser-r2-005",
+    "source": "browser",
+    "url": "http://127.0.0.1:18765/service/b/",
+    "description": "Rendered page evidence (desktop)",
+    "data": {
+      "url": "http://127.0.0.1:18765/service/b/",
+      "viewport": "desktop",
+      "page": {
+        "title": "Local plumbing service area",
+        "meta": [
+          {
+            "name": "viewport",
+            "content": "width=device-width, initial-scale=1"
+          },
+          {
+            "name": "description",
+            "content": "Local plumbing services and maintenance."
+          }
+        ],
+        "headings": [
+          {
+            "level": "H1",
+            "text": "Plumbing in service area B"
+          }
+        ],
+        "visible_text_summary": "Home\nContact\nPlumbing in service area B\n\nOur local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests.",
+        "visible_text_truncated": false,
+        "ctas": [
+          {
+            "text": "Home",
+            "href": "http://127.0.0.1:18765/"
+          },
+          {
+            "text": "Contact",
+            "href": "http://127.0.0.1:18765/contact.html"
+          }
+        ],
+        "forms": [],
+        "contacts": [],
+        "json_ld": [],
+        "microdata": [],
+        "nap_candidates": [],
+        "nav_links": [
+          {
+            "text": "Home",
+            "href": "http://127.0.0.1:18765/"
+          },
+          {
+            "text": "Contact",
+            "href": "http://127.0.0.1:18765/contact.html"
+          }
+        ],
+        "trust_signals": [
+          "Our local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests."
+        ],
+        "canonical": "http://127.0.0.1:18765/service/b/",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/service/b/",
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/contact.html"
+        ]
+      },
+      "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/service/b/",
+        "http://127.0.0.1:18765/style.css"
+      ],
+      "screenshot": "screenshots/05-desktop.png",
+      "axe": {
+        "version": "4.10.3",
+        "violations": [],
+        "incomplete": []
+      }
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-browser-r2-006",
     "source": "browser",
     "url": "http://127.0.0.1:18765/contact.html",
     "description": "Rendered page evidence (desktop)",
@@ -1084,10 +1657,29 @@
         "trust_signals": [
           "Privacy policy",
           "Privacy policy"
+        ],
+        "canonical": "",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/services.html",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/contact.html#privacy"
         ]
       },
       "console_errors": [],
-      "screenshot": "screenshots/04-desktop.png",
+      "requests": [
+        "http://127.0.0.1:18765/contact.html",
+        "http://127.0.0.1:18765/style.css"
+      ],
+      "screenshot": "screenshots/06-desktop.png",
       "axe": {
         "version": "4.10.3",
         "violations": [],
@@ -1148,140 +1740,11 @@
           }
         ]
       }
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-005",
-    "source": "browser",
-    "url": "http://127.0.0.1:18765/services.html",
-    "description": "Rendered page evidence (desktop)",
-    "data": {
-      "url": "http://127.0.0.1:18765/services.html",
-      "viewport": "desktop",
-      "page": {
-        "title": "Plumbing services - Harbour Demo Plumbing",
-        "meta": [
-          {
-            "name": "viewport",
-            "content": "width=device-width, initial-scale=1"
-          },
-          {
-            "name": "description",
-            "content": "Explore tap repairs, drain clearing and home plumbing maintenance."
-          }
-        ],
-        "headings": [
-          {
-            "level": "H1",
-            "text": "Plumbing services"
-          },
-          {
-            "level": "H2",
-            "text": "Leak repairs"
-          },
-          {
-            "level": "H2",
-            "text": "Drain clearing"
-          },
-          {
-            "level": "H3",
-            "text": "What happens next?"
-          }
-        ],
-        "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nPlumbing services\nLeak repairs\n\nWe inspect visible leaks and discuss repair options.\n\nDrain clearing\n\nRequest an inspection to identify the blockage before agreeing to work.\n\nWhat happens next?\n\nDescribe your issue and we will arrange a suitable visit.\n\nGet a quote\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
-        "visible_text_truncated": false,
-        "ctas": [
-          {
-            "text": "Home",
-            "href": "http://127.0.0.1:18765/"
-          },
-          {
-            "text": "Services",
-            "href": "http://127.0.0.1:18765/services.html"
-          },
-          {
-            "text": "About",
-            "href": "http://127.0.0.1:18765/about.html"
-          },
-          {
-            "text": "Contact",
-            "href": "http://127.0.0.1:18765/contact.html"
-          },
-          {
-            "text": "Quote",
-            "href": "http://127.0.0.1:18765/quote.html"
-          },
-          {
-            "text": "Get a quote",
-            "href": "http://127.0.0.1:18765/quote.html"
-          },
-          {
-            "text": "02 5550 0100",
-            "href": "tel:+61255500100"
-          },
-          {
-            "text": "hello@example.test",
-            "href": "mailto:hello@example.test"
-          },
-          {
-            "text": "Privacy policy",
-            "href": "http://127.0.0.1:18765/contact.html#privacy"
-          }
-        ],
-        "forms": [],
-        "contacts": [
-          {
-            "text": "02 5550 0100",
-            "href": "tel:+61255500100"
-          },
-          {
-            "text": "hello@example.test",
-            "href": "mailto:hello@example.test"
-          }
-        ],
-        "json_ld": [],
-        "microdata": [],
-        "nap_candidates": [
-          "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
-          "02 5550 0100 | hello@example.test"
-        ],
-        "nav_links": [
-          {
-            "text": "Home",
-            "href": "http://127.0.0.1:18765/"
-          },
-          {
-            "text": "Services",
-            "href": "http://127.0.0.1:18765/services.html"
-          },
-          {
-            "text": "About",
-            "href": "http://127.0.0.1:18765/about.html"
-          },
-          {
-            "text": "Contact",
-            "href": "http://127.0.0.1:18765/contact.html"
-          },
-          {
-            "text": "Quote",
-            "href": "http://127.0.0.1:18765/quote.html"
-          }
-        ],
-        "trust_signals": [
-          "Privacy policy"
-        ]
-      },
-      "console_errors": [],
-      "screenshot": "screenshots/05-desktop.png",
-      "axe": {
-        "version": "4.10.3",
-        "violations": [],
-        "incomplete": []
-      }
-    }
-  },
-  {
-    "id": "ev-browser-006",
+    "id": "ev-browser-r2-007",
     "source": "browser",
     "url": "http://127.0.0.1:18765/",
     "description": "Rendered page evidence (mobile)",
@@ -1298,6 +1761,10 @@
           {
             "name": "description",
             "content": "Local plumbing maintenance in Sydney. Request a clear written quote."
+          },
+          {
+            "name": "google-site-verification",
+            "content": "fixture-fake-verification-token"
           }
         ],
         "headings": [
@@ -1312,9 +1779,17 @@
           {
             "level": "H2",
             "text": "Local experience"
+          },
+          {
+            "level": "H2",
+            "text": "Frequently asked questions"
+          },
+          {
+            "level": "H3",
+            "text": "How do I request a quote?"
           }
         ],
-        "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nReliable plumbing for Sydney homes\n\nWe help homeowners repair leaks and maintain working plumbing. Written quotes before work begins.\n\nHow we help\n\nTap repairs, blocked drains and scheduled maintenance.\n\nRequest a plumbing quote\nLocal experience\n\nOur fictional team serves central Sydney. Ask about licence details and insurance before booking.\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
+        "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nReliable plumbing for Sydney homes\n\nWe help homeowners repair leaks and maintain working plumbing. Written quotes before work begins.\n\nHow we help\n\nTap repairs, blocked drains and scheduled maintenance.\n\nRequest a plumbing quote\nLocal experience\n\nOur fictional team serves central Sydney. Ask about licence details and insurance before booking.\n\nFrequently asked questions\nHow do I request a quote?\n\nContact our team with your service needs. We provide repairs and serve Sydney.\n\nNorth service areaSouth service areaOlder service link\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFind us: Google Business Profile | Facebook | Yellow Pages\n\nFictional fixture for AMS testing. No real business or customer data.",
         "visible_text_truncated": false,
         "ctas": [
           {
@@ -1342,6 +1817,18 @@
             "href": "http://127.0.0.1:18765/contact.html"
           },
           {
+            "text": "North service area",
+            "href": "http://127.0.0.1:18765/service/a/"
+          },
+          {
+            "text": "South service area",
+            "href": "http://127.0.0.1:18765/service/b/"
+          },
+          {
+            "text": "Older service link",
+            "href": "http://127.0.0.1:18765/old-service"
+          },
+          {
             "text": "02 5550 0100",
             "href": "tel:+61255500100"
           },
@@ -1352,6 +1839,18 @@
           {
             "text": "Privacy policy",
             "href": "http://127.0.0.1:18765/contact.html#privacy"
+          },
+          {
+            "text": "Google Business Profile",
+            "href": "https://g.page/harbour-demo-plumbing-fixture"
+          },
+          {
+            "text": "Facebook",
+            "href": "https://www.facebook.com/harbour.demo.plumbing.fixture"
+          },
+          {
+            "text": "Yellow Pages",
+            "href": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture"
           }
         ],
         "forms": [],
@@ -1378,7 +1877,24 @@
               "postalCode": "2000",
               "addressRegion": "NSW",
               "addressCountry": "AU"
-            }
+            },
+            "sameAs": [
+              "https://www.facebook.com/harbour.demo.plumbing.fixture",
+              "https://www.instagram.com/harbour.demo.plumbing.fixture"
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How do I request a quote?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Contact our team."
+                }
+              }
+            ]
           }
         ],
         "microdata": [],
@@ -1411,19 +1927,61 @@
         "trust_signals": [
           "Our fictional team serves central Sydney. Ask about licence details and insurance before booking.",
           "Privacy policy"
+        ],
+        "canonical": "http://127.0.0.1:18765/",
+        "script_srcs": [
+          "https://www.googletagmanager.com/gtag/js?id=G-FIXTURE001",
+          "https://assets.calendly.com/assets/external/widget.js"
+        ],
+        "tag_snippets": [
+          "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-FIXTURE001');",
+          "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-FIXTURE1');",
+          "(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, \"clarity\", \"script\", \"fixture01\");",
+          "gtag('event','generate_lead');fbq('track','Lead');"
+        ],
+        "resource_links": [
+          "http://127.0.0.1:18765/style.css",
+          "http://127.0.0.1:18765/"
+        ],
+        "gated_scripts": [
+          "https://www.googletagmanager.com/gtag/js?id=G-FIXTURE001",
+          "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-FIXTURE001');",
+          "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document",
+          "(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, \"clarity\", \"script\", \"fixture01\");",
+          "https://assets.calendly.com/assets/external/widget.js",
+          "gtag('event','generate_lead');fbq('track','Lead');"
+        ],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/services.html",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/service/a/",
+          "http://127.0.0.1:18765/service/b/",
+          "http://127.0.0.1:18765/old-service",
+          "http://127.0.0.1:18765/contact.html#privacy",
+          "https://g.page/harbour-demo-plumbing-fixture",
+          "https://www.facebook.com/harbour.demo.plumbing.fixture",
+          "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture"
         ]
       },
       "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/",
+        "http://127.0.0.1:18765/style.css"
+      ],
       "screenshot": "screenshots/01-mobile.png",
       "axe": {
         "version": "4.10.3",
         "violations": [],
         "incomplete": []
       }
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-007",
+    "id": "ev-browser-r2-008",
     "source": "browser",
     "url": "http://127.0.0.1:18765/about.html",
     "description": "Rendered page evidence (mobile)",
@@ -1538,19 +2096,39 @@
         "trust_signals": [
           "Demo testimonial: The team explained our options clearly.",
           "Privacy policy"
+        ],
+        "canonical": "",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/services.html",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/contact.html#privacy"
         ]
       },
       "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/about.html",
+        "http://127.0.0.1:18765/style.css"
+      ],
       "screenshot": "screenshots/02-mobile.png",
       "axe": {
         "version": "4.10.3",
         "violations": [],
         "incomplete": []
       }
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-008",
+    "id": "ev-browser-r2-009",
     "source": "browser",
     "url": "http://127.0.0.1:18765/quote.html",
     "description": "Rendered page evidence (mobile)",
@@ -1652,9 +2230,30 @@
         ],
         "trust_signals": [
           "Privacy policy"
+        ],
+        "canonical": "",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/services.html",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/missing-offer.html",
+          "http://127.0.0.1:18765/contact.html#privacy"
         ]
       },
       "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/quote.html",
+        "http://127.0.0.1:18765/style.css",
+        "http://127.0.0.1:18765/work.svg"
+      ],
       "screenshot": "screenshots/03-mobile.png",
       "axe": {
         "version": "4.10.3",
@@ -1787,10 +2386,177 @@
         ],
         "incomplete": []
       }
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-009",
+    "id": "ev-browser-r2-010",
+    "source": "browser",
+    "url": "http://127.0.0.1:18765/service/a/",
+    "description": "Rendered page evidence (mobile)",
+    "data": {
+      "url": "http://127.0.0.1:18765/service/a/",
+      "viewport": "mobile",
+      "page": {
+        "title": "Local plumbing service area",
+        "meta": [
+          {
+            "name": "viewport",
+            "content": "width=device-width, initial-scale=1"
+          },
+          {
+            "name": "description",
+            "content": "Local plumbing services and maintenance."
+          }
+        ],
+        "headings": [
+          {
+            "level": "H1",
+            "text": "Plumbing in service area A"
+          }
+        ],
+        "visible_text_summary": "Home\nContact\nPlumbing in service area A\n\nOur local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests.",
+        "visible_text_truncated": false,
+        "ctas": [
+          {
+            "text": "Home",
+            "href": "http://127.0.0.1:18765/"
+          },
+          {
+            "text": "Contact",
+            "href": "http://127.0.0.1:18765/contact.html"
+          }
+        ],
+        "forms": [],
+        "contacts": [],
+        "json_ld": [],
+        "microdata": [],
+        "nap_candidates": [],
+        "nav_links": [
+          {
+            "text": "Home",
+            "href": "http://127.0.0.1:18765/"
+          },
+          {
+            "text": "Contact",
+            "href": "http://127.0.0.1:18765/contact.html"
+          }
+        ],
+        "trust_signals": [
+          "Our local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests."
+        ],
+        "canonical": "http://127.0.0.1:18765/service/a/",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/service/a/",
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/contact.html"
+        ]
+      },
+      "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/service/a/",
+        "http://127.0.0.1:18765/style.css"
+      ],
+      "screenshot": "screenshots/04-mobile.png",
+      "axe": {
+        "version": "4.10.3",
+        "violations": [],
+        "incomplete": []
+      }
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-browser-r2-011",
+    "source": "browser",
+    "url": "http://127.0.0.1:18765/service/b/",
+    "description": "Rendered page evidence (mobile)",
+    "data": {
+      "url": "http://127.0.0.1:18765/service/b/",
+      "viewport": "mobile",
+      "page": {
+        "title": "Local plumbing service area",
+        "meta": [
+          {
+            "name": "viewport",
+            "content": "width=device-width, initial-scale=1"
+          },
+          {
+            "name": "description",
+            "content": "Local plumbing services and maintenance."
+          }
+        ],
+        "headings": [
+          {
+            "level": "H1",
+            "text": "Plumbing in service area B"
+          }
+        ],
+        "visible_text_summary": "Home\nContact\nPlumbing in service area B\n\nOur local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests.",
+        "visible_text_truncated": false,
+        "ctas": [
+          {
+            "text": "Home",
+            "href": "http://127.0.0.1:18765/"
+          },
+          {
+            "text": "Contact",
+            "href": "http://127.0.0.1:18765/contact.html"
+          }
+        ],
+        "forms": [],
+        "contacts": [],
+        "json_ld": [],
+        "microdata": [],
+        "nap_candidates": [],
+        "nav_links": [
+          {
+            "text": "Home",
+            "href": "http://127.0.0.1:18765/"
+          },
+          {
+            "text": "Contact",
+            "href": "http://127.0.0.1:18765/contact.html"
+          }
+        ],
+        "trust_signals": [
+          "Our local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests."
+        ],
+        "canonical": "http://127.0.0.1:18765/service/b/",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/service/b/",
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/contact.html"
+        ]
+      },
+      "console_errors": [],
+      "requests": [
+        "http://127.0.0.1:18765/service/b/",
+        "http://127.0.0.1:18765/style.css"
+      ],
+      "screenshot": "screenshots/05-mobile.png",
+      "axe": {
+        "version": "4.10.3",
+        "violations": [],
+        "incomplete": []
+      }
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-browser-r2-012",
     "source": "browser",
     "url": "http://127.0.0.1:18765/contact.html",
     "description": "Rendered page evidence (mobile)",
@@ -1932,10 +2698,29 @@
         "trust_signals": [
           "Privacy policy",
           "Privacy policy"
+        ],
+        "canonical": "",
+        "script_srcs": [],
+        "tag_snippets": [],
+        "resource_links": [
+          "http://127.0.0.1:18765/style.css"
+        ],
+        "gated_scripts": [],
+        "links": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/services.html",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/contact.html#privacy"
         ]
       },
       "console_errors": [],
-      "screenshot": "screenshots/04-mobile.png",
+      "requests": [
+        "http://127.0.0.1:18765/contact.html",
+        "http://127.0.0.1:18765/style.css"
+      ],
+      "screenshot": "screenshots/06-mobile.png",
       "axe": {
         "version": "4.10.3",
         "violations": [],
@@ -1996,140 +2781,11 @@
           }
         ]
       }
-    }
+    },
+    "provenance": "technical_evidence"
   },
   {
-    "id": "ev-browser-010",
-    "source": "browser",
-    "url": "http://127.0.0.1:18765/services.html",
-    "description": "Rendered page evidence (mobile)",
-    "data": {
-      "url": "http://127.0.0.1:18765/services.html",
-      "viewport": "mobile",
-      "page": {
-        "title": "Plumbing services - Harbour Demo Plumbing",
-        "meta": [
-          {
-            "name": "viewport",
-            "content": "width=device-width, initial-scale=1"
-          },
-          {
-            "name": "description",
-            "content": "Explore tap repairs, drain clearing and home plumbing maintenance."
-          }
-        ],
-        "headings": [
-          {
-            "level": "H1",
-            "text": "Plumbing services"
-          },
-          {
-            "level": "H2",
-            "text": "Leak repairs"
-          },
-          {
-            "level": "H2",
-            "text": "Drain clearing"
-          },
-          {
-            "level": "H3",
-            "text": "What happens next?"
-          }
-        ],
-        "visible_text_summary": "Harbour Demo Plumbing\nHome\nServices\nAbout\nContact\nQuote\nPlumbing services\nLeak repairs\n\nWe inspect visible leaks and discuss repair options.\n\nDrain clearing\n\nRequest an inspection to identify the blockage before agreeing to work.\n\nWhat happens next?\n\nDescribe your issue and we will arrange a suitable visit.\n\nGet a quote\n\nHarbour Demo Plumbing | 12 Example Street, Sydney NSW 2000\n\n02 5550 0100 | hello@example.test\n\nPrivacy policy\n\nFictional fixture for AMS testing. No real business or customer data.",
-        "visible_text_truncated": false,
-        "ctas": [
-          {
-            "text": "Home",
-            "href": "http://127.0.0.1:18765/"
-          },
-          {
-            "text": "Services",
-            "href": "http://127.0.0.1:18765/services.html"
-          },
-          {
-            "text": "About",
-            "href": "http://127.0.0.1:18765/about.html"
-          },
-          {
-            "text": "Contact",
-            "href": "http://127.0.0.1:18765/contact.html"
-          },
-          {
-            "text": "Quote",
-            "href": "http://127.0.0.1:18765/quote.html"
-          },
-          {
-            "text": "Get a quote",
-            "href": "http://127.0.0.1:18765/quote.html"
-          },
-          {
-            "text": "02 5550 0100",
-            "href": "tel:+61255500100"
-          },
-          {
-            "text": "hello@example.test",
-            "href": "mailto:hello@example.test"
-          },
-          {
-            "text": "Privacy policy",
-            "href": "http://127.0.0.1:18765/contact.html#privacy"
-          }
-        ],
-        "forms": [],
-        "contacts": [
-          {
-            "text": "02 5550 0100",
-            "href": "tel:+61255500100"
-          },
-          {
-            "text": "hello@example.test",
-            "href": "mailto:hello@example.test"
-          }
-        ],
-        "json_ld": [],
-        "microdata": [],
-        "nap_candidates": [
-          "Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000",
-          "02 5550 0100 | hello@example.test"
-        ],
-        "nav_links": [
-          {
-            "text": "Home",
-            "href": "http://127.0.0.1:18765/"
-          },
-          {
-            "text": "Services",
-            "href": "http://127.0.0.1:18765/services.html"
-          },
-          {
-            "text": "About",
-            "href": "http://127.0.0.1:18765/about.html"
-          },
-          {
-            "text": "Contact",
-            "href": "http://127.0.0.1:18765/contact.html"
-          },
-          {
-            "text": "Quote",
-            "href": "http://127.0.0.1:18765/quote.html"
-          }
-        ],
-        "trust_signals": [
-          "Privacy policy"
-        ]
-      },
-      "console_errors": [],
-      "screenshot": "screenshots/05-mobile.png",
-      "axe": {
-        "version": "4.10.3",
-        "violations": [],
-        "incomplete": []
-      }
-    }
-  },
-  {
-    "id": "ev-security-001",
+    "id": "ev-security-r2-001",
     "source": "security",
     "url": "http://127.0.0.1:18765/",
     "description": "HTTP response security headers",
@@ -2138,11 +2794,2419 @@
       "status": 200,
       "headers": {
         "server": "SimpleHTTP/0.6 Python/3.12.13",
-        "date": "Sun, 18 Oct 2026 08:09:51 GMT",
+        "date": "Thu, 22 Oct 2026 22:34:09 GMT",
         "content-type": "text/html",
-        "content-length": "1684",
-        "last-modified": "Sun, 18 Oct 2026 07:38:04 GMT"
+        "content-length": "4078",
+        "last-modified": "Thu, 22 Oct 2026 22:19:37 GMT"
       }
-    }
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-001",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Digital presence detection coverage (no additional requests)",
+    "data": {
+      "pages_sampled": [
+        "http://127.0.0.1:18765/",
+        "http://127.0.0.1:18765/about.html",
+        "http://127.0.0.1:18765/contact.html",
+        "http://127.0.0.1:18765/quote.html",
+        "http://127.0.0.1:18765/service/a/",
+        "http://127.0.0.1:18765/service/b/"
+      ],
+      "browser_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012"
+      ],
+      "dns_evidence_ids": []
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-002",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Platform signal: Google Search Console",
+    "data": {
+      "platform": "gsc",
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-007"
+      ],
+      "ids": [
+        "fixture-fake-verification-token"
+      ],
+      "signals": [
+        "meta:google-site-verification=fixture-fake-verification-token"
+      ],
+      "evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-007"
+      ],
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "loaded": []
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-003",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Platform signal: Google Analytics 4",
+    "data": {
+      "platform": "ga4",
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-007"
+      ],
+      "ids": [
+        "G-FIXTURE001"
+      ],
+      "signals": [
+        "googletagmanager.com/gtag/js?id=G-FIXTURE001",
+        "gtag('config','G-FIXTURE001"
+      ],
+      "evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-007"
+      ],
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "loaded": []
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-004",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Platform signal: Google Tag Manager",
+    "data": {
+      "platform": "gtm",
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-007"
+      ],
+      "ids": [
+        "GTM-FIXTURE1"
+      ],
+      "signals": [
+        "'script','dataLayer','GTM-FIXTURE1'"
+      ],
+      "evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-007"
+      ],
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "loaded": []
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-005",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Platform signal: Microsoft Clarity",
+    "data": {
+      "platform": "clarity",
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-007"
+      ],
+      "ids": [
+        "fixture01"
+      ],
+      "signals": [
+        "\"clarity\", \"script\", \"fixture01\"",
+        "clarity.ms/tag/"
+      ],
+      "evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-007"
+      ],
+      "urls": [
+        "http://127.0.0.1:18765/"
+      ],
+      "loaded": []
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-006",
+    "source": "presence",
+    "url": "https://g.page/harbour-demo-plumbing-fixture",
+    "description": "Listing link: Google Business Profile / Google Maps",
+    "data": {
+      "links": [
+        {
+          "href": "https://g.page/harbour-demo-plumbing-fixture",
+          "page": "http://127.0.0.1:18765/",
+          "source": "website link",
+          "source_evidence_id": "ev-browser-r2-001"
+        },
+        {
+          "href": "https://g.page/harbour-demo-plumbing-fixture",
+          "page": "",
+          "source": "crawl external link",
+          "source_evidence_id": "ev-siteone-r2-032"
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-007",
+    "source": "presence",
+    "url": "https://www.facebook.com/harbour.demo.plumbing.fixture",
+    "description": "Listing link: Facebook",
+    "data": {
+      "links": [
+        {
+          "href": "https://www.facebook.com/harbour.demo.plumbing.fixture",
+          "page": "http://127.0.0.1:18765/",
+          "source": "website link",
+          "source_evidence_id": "ev-browser-r2-001"
+        },
+        {
+          "href": "https://www.facebook.com/harbour.demo.plumbing.fixture",
+          "page": "http://127.0.0.1:18765/",
+          "source": "JSON-LD sameAs",
+          "source_evidence_id": "ev-browser-r2-001"
+        },
+        {
+          "href": "https://www.facebook.com/harbour.demo.plumbing.fixture",
+          "page": "",
+          "source": "crawl external link",
+          "source_evidence_id": "ev-siteone-r2-032"
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-008",
+    "source": "presence",
+    "url": "https://www.instagram.com/harbour.demo.plumbing.fixture",
+    "description": "Listing link: Instagram",
+    "data": {
+      "links": [
+        {
+          "href": "https://www.instagram.com/harbour.demo.plumbing.fixture",
+          "page": "http://127.0.0.1:18765/",
+          "source": "JSON-LD sameAs",
+          "source_evidence_id": "ev-browser-r2-001"
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-009",
+    "source": "presence",
+    "url": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture",
+    "description": "Listing link: Yellow Pages AU",
+    "data": {
+      "links": [
+        {
+          "href": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture",
+          "page": "http://127.0.0.1:18765/",
+          "source": "website link",
+          "source_evidence_id": "ev-browser-r2-001"
+        },
+        {
+          "href": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture",
+          "page": "",
+          "source": "crawl external link",
+          "source_evidence_id": "ev-siteone-r2-032"
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-010",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/",
+    "description": "NAP consistency comparison",
+    "data": {
+      "status": "Inconsistent",
+      "entities": [
+        {
+          "page": "http://127.0.0.1:18765/",
+          "type": [
+            "LocalBusiness"
+          ],
+          "name": "Harbour Demo Plumbing",
+          "telephone": [
+            "+61 2 5550 0199"
+          ],
+          "street": "12 Example Street",
+          "postcode": "2000"
+        }
+      ],
+      "checks": [
+        {
+          "page": "http://127.0.0.1:18765/",
+          "field": "telephone",
+          "structured": "+61 2 5550 0199",
+          "result": "conflict",
+          "observed": [
+            "02 5550 0100"
+          ],
+          "reason": ""
+        },
+        {
+          "page": "http://127.0.0.1:18765/",
+          "field": "postcode",
+          "structured": "2000",
+          "result": "match",
+          "observed": [
+            "2000"
+          ],
+          "reason": ""
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-011",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Location / service-area page scan of crawled URLs",
+    "data": {
+      "pages_scanned": 7,
+      "matches": []
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-012",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/sitemap.xml",
+    "description": "Bounded robots.txt and XML sitemap fetch",
+    "data": {
+      "robots_url": "http://127.0.0.1:18765/robots.txt",
+      "robots_status": 200,
+      "robots_body": "User-agent: *\nAllow: /\n# Relative because the fixture port changes per run; production sitemaps use absolute URLs.\nSitemap: /sitemap.xml\n\n# Training choice, not a search restriction.\nUser-agent: GPTBot\nDisallow: /\nUser-agent: OAI-SearchBot\nAllow: /\nUser-agent: ChatGPT-User\nDisallow: /quote.html\n",
+      "robots_complete": true,
+      "declared": [
+        "http://127.0.0.1:18765/sitemap.xml"
+      ],
+      "confirmed": true,
+      "sitemap_url": "http://127.0.0.1:18765/sitemap.xml",
+      "source": "robots.txt Sitemap line",
+      "http_status": 200,
+      "content_type": "application/xml",
+      "complete": true,
+      "elapsed_seconds": 0.01,
+      "kind": "urlset",
+      "sitemap_urls": [
+        "/",
+        "/services.html",
+        "/about.html",
+        "/contact.html",
+        "/quote.html",
+        "/service/a/",
+        "/service/b/"
+      ],
+      "sitemap_urls_truncated": false,
+      "entries": 7,
+      "status": "PASS",
+      "detail": "Sitemap at http://127.0.0.1:18765/sitemap.xml (robots.txt Sitemap line) lists 7 URLs"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-013",
+    "source": "presence",
+    "url": "customer-profile",
+    "description": "Customer business profile (customer statement)",
+    "data": {
+      "name": "Harbour Demo Plumbing",
+      "aliases": [],
+      "websites": [
+        "http://127.0.0.1:18765/"
+      ],
+      "abn": "",
+      "industry": "trades",
+      "buying_model": "service-area",
+      "service_area": [
+        "Sydney"
+      ],
+      "locations": [],
+      "phones": [
+        "02 5550 0101"
+      ]
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-presence-r2-014",
+    "source": "presence",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Independent presence discovery plan and coverage",
+    "data": {
+      "identity": {
+        "name": "Harbour Demo Plumbing",
+        "names": [
+          "Harbour Demo Plumbing"
+        ],
+        "source": "customer profile (customer statement)",
+        "industry": "trades",
+        "industry_label": "Trades & home services (incl. painting)",
+        "buying_model": "service-area",
+        "buying_model_label": "Service-area (staff travel to customers)",
+        "localities": [
+          "Sydney"
+        ],
+        "postcodes": [
+          "2000"
+        ],
+        "domains": [
+          "127.0.0.1"
+        ]
+      },
+      "status": "Not assessed",
+      "reason": "no --dataforseo-max-usd cap was passed",
+      "queries": [],
+      "budget": {
+        "cap_usd": null,
+        "spent_usd_run_total": "0",
+        "serp_calls": 0,
+        "max_serp_calls": 12,
+        "estimates_usd": [
+          {
+            "endpoint": "organic",
+            "operators": "0",
+            "published_usd": "0.002",
+            "estimate_usd": "0.003"
+          },
+          {
+            "endpoint": "organic",
+            "operators": "1",
+            "published_usd": "0.010",
+            "estimate_usd": "0.015"
+          },
+          {
+            "endpoint": "maps",
+            "operators": "0",
+            "published_usd": "0.002",
+            "estimate_usd": "0.003"
+          },
+          {
+            "endpoint": "maps",
+            "operators": "1",
+            "published_usd": "0.010",
+            "estimate_usd": "0.015"
+          }
+        ],
+        "location_code": 2036,
+        "language_code": "en"
+      },
+      "relevance": {
+        "google_business_profile": "high",
+        "hipages": "high",
+        "bing_places": "medium",
+        "facebook": "medium",
+        "instagram": "medium",
+        "yellow_pages": "medium",
+        "true_local": "medium",
+        "localsearch": "medium",
+        "houzz": "medium",
+        "apple_maps": "low",
+        "linkedin": "low",
+        "youtube": "low",
+        "tiktok": "low",
+        "pinterest": "low",
+        "yelp": "low",
+        "hotfrog": "low",
+        "cylex": "low",
+        "whereis": "low",
+        "word_of_mouth": "low",
+        "associations": "low",
+        "airtasker": "low",
+        "serviceseeking": "low",
+        "tripadvisor": "not_applicable",
+        "opentable": "not_applicable",
+        "uber_eats": "not_applicable",
+        "doordash": "not_applicable",
+        "menulog": "not_applicable",
+        "fresha": "not_applicable",
+        "booksy": "not_applicable",
+        "timely": "not_applicable",
+        "buy_nsw": "not_applicable",
+        "austender": "not_applicable",
+        "icn_gateway": "not_applicable"
+      },
+      "profile_evidence_id": "ev-presence-r2-013"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-015",
+    "source": "presence",
+    "url": "https://g.page/harbour-demo-plumbing-fixture",
+    "description": "Presence candidates: Google Business Profile / Google Maps",
+    "data": {
+      "platform": "google_business_profile",
+      "state": "Found — likely match",
+      "candidates": [
+        {
+          "url": "https://g.page/harbour-demo-plumbing-fixture",
+          "state": "Found — likely match",
+          "score": null,
+          "matched": [
+            "linked from the website"
+          ],
+          "sources": [
+            "website link",
+            "crawl external link"
+          ],
+          "observed_phones": [],
+          "observed_postcodes": [],
+          "evidence_ids": [
+            "ev-browser-r2-001",
+            "ev-siteone-r2-032"
+          ],
+          "title": "",
+          "snippet": ""
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-016",
+    "source": "presence",
+    "url": "https://www.facebook.com/harbour.demo.plumbing.fixture",
+    "description": "Presence candidates: Facebook",
+    "data": {
+      "platform": "facebook",
+      "state": "Found — likely match",
+      "candidates": [
+        {
+          "url": "https://www.facebook.com/harbour.demo.plumbing.fixture",
+          "state": "Found — likely match",
+          "score": null,
+          "matched": [
+            "linked from the website"
+          ],
+          "sources": [
+            "website link",
+            "JSON-LD sameAs",
+            "crawl external link"
+          ],
+          "observed_phones": [],
+          "observed_postcodes": [],
+          "evidence_ids": [
+            "ev-browser-r2-001",
+            "ev-siteone-r2-032"
+          ],
+          "title": "",
+          "snippet": ""
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-017",
+    "source": "presence",
+    "url": "https://www.instagram.com/harbour.demo.plumbing.fixture",
+    "description": "Presence candidates: Instagram",
+    "data": {
+      "platform": "instagram",
+      "state": "Found — likely match",
+      "candidates": [
+        {
+          "url": "https://www.instagram.com/harbour.demo.plumbing.fixture",
+          "state": "Found — likely match",
+          "score": null,
+          "matched": [
+            "linked from the website"
+          ],
+          "sources": [
+            "JSON-LD sameAs"
+          ],
+          "observed_phones": [],
+          "observed_postcodes": [],
+          "evidence_ids": [
+            "ev-browser-r2-001"
+          ],
+          "title": "",
+          "snippet": ""
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-presence-r2-018",
+    "source": "presence",
+    "url": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture",
+    "description": "Presence candidates: Yellow Pages AU",
+    "data": {
+      "platform": "yellow_pages",
+      "state": "Found — likely match",
+      "candidates": [
+        {
+          "url": "https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture",
+          "state": "Found — likely match",
+          "score": null,
+          "matched": [
+            "linked from the website"
+          ],
+          "sources": [
+            "website link",
+            "crawl external link"
+          ],
+          "observed_phones": [],
+          "observed_postcodes": [],
+          "evidence_ids": [
+            "ev-browser-r2-001",
+            "ev-siteone-r2-032"
+          ],
+          "title": "",
+          "snippet": ""
+        }
+      ]
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-001",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Bounded site-check HTTP probes",
+    "data": {
+      "normal": {
+        "url": "http://127.0.0.1:18765/",
+        "status": 200,
+        "complete": true,
+        "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Harbour Demo Plumbing - Sydney</title><meta name=\"description\" content=\"Local plumbing maintenance in Sydney. Request a clear written quote.\"><meta name=\"google-site-verification\" content=\"fixture-fake-verification-token\"><link rel=\"stylesheet\" href=\"/style.css\"><!-- Fictional tag IDs. type=\"text/plain\" (consent-blocked) keeps them from loading or calling third parties. --><script type=\"text/plain\" data-consent=\"analytics\" async src=\"https://www.googletagmanager.com/gtag/js?id=G-FIXTURE001\"></script><script type=\"text/plain\" data-consent=\"analytics\">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-FIXTURE001');</script><script type=\"text/plain\" data-consent=\"analytics\">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-FIXTURE1');</script><script type=\"text/plain\" data-consent=\"analytics\">(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, \"clarity\", \"script\", \"fixture01\");</script><script type=\"application/ld+json\">{\"@context\": \"https://schema.org\", \"@type\": \"LocalBusiness\", \"name\": \"Harbour Demo Plumbing\", \"telephone\": \"+61 2 5550 0199\", \"address\": {\"@type\": \"PostalAddress\", \"streetAddress\": \"12 Example Street\", \"addressLocality\": \"Sydney\", \"postalCode\": \"2000\", \"addressRegion\": \"NSW\", \"addressCountry\": \"AU\"}, \"sameAs\": [\"https://www.facebook.com/harbour.demo.plumbing.fixture\", \"https://www.instagram.com/harbour.demo.plumbing.fixture\"]}</script><link rel=\"canonical\" href=\"/\"><script type=\"text/plain\" data-consent=\"booking\" src=\"https://assets.calendly.com/assets/external/widget.js\"></script><script type=\"text/plain\" data-consent=\"analytics\">gtag('event','generate_lead');fbq('track','Lead');</script><script type=\"application/ld+json\">{\"@type\":\"FAQPage\",\"mainEntity\":[{\"@type\":\"Question\",\"name\":\"How do I request a quote?\",\"acceptedAnswer\":{\"@type\":\"Answer\",\"text\":\"Contact our team.\"}}]}</script></head><body><header><strong>Harbour Demo Plumbing</strong><nav aria-label=\"Main\"><a href=\"/\">Home</a><a href=\"/services.html\">Services</a><a href=\"/about.html\">About</a><a href=\"/contact.html\">Contact</a><a href=\"/quote.html\">Quote</a></nav></header><main><h1>Reliable plumbing for Sydney homes</h1><p>We help homeowners repair leaks and maintain working plumbing. Written quotes before work begins.</p><h2>How we help</h2><p>Tap repairs, blocked drains and scheduled maintenance.</p><a class=\"button\" href=\"/contact.html\">Request a plumbing quote</a><h2>Local experience</h2><p>Our fictional team serves central Sydney. Ask about licence details and insurance before booking.</p><h2>Frequently asked questions</h2><h3>How do I request a quote?</h3><p>Contact our team with your service needs. We provide repairs and serve Sydney.</p><a href=\"/service/a/\">North service area</a><a href=\"/service/b/\">South service area</a><a href=\"/old-service\">Older service link</a></main><footer><p>Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000</p><p><a href=\"tel:+61255500100\">02 5550 0100</a> | <a href=\"mailto:hello@example.test\">hello@example.test</a></p><a href=\"/contact.html#privacy\">Privacy policy</a><p>Find us: <a href=\"https://g.page/harbour-demo-plumbing-fixture\">Google Business Profile</a> | <a href=\"https://www.facebook.com/harbour.demo.plumbing.fixture\">Facebook</a> | <a href=\"https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture\">Yellow Pages</a></p><p>Fictional fixture for AMS testing. No real business or customer data.</p></footer></body></html>\n",
+        "headers": {
+          "content-type": "text/html"
+        }
+      },
+      "search": {
+        "url": "http://127.0.0.1:18765/",
+        "status": 200,
+        "complete": true,
+        "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Harbour Demo Plumbing - Sydney</title><meta name=\"description\" content=\"Local plumbing maintenance in Sydney. Request a clear written quote.\"><meta name=\"google-site-verification\" content=\"fixture-fake-verification-token\"><link rel=\"stylesheet\" href=\"/style.css\"><!-- Fictional tag IDs. type=\"text/plain\" (consent-blocked) keeps them from loading or calling third parties. --><script type=\"text/plain\" data-consent=\"analytics\" async src=\"https://www.googletagmanager.com/gtag/js?id=G-FIXTURE001\"></script><script type=\"text/plain\" data-consent=\"analytics\">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-FIXTURE001');</script><script type=\"text/plain\" data-consent=\"analytics\">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-FIXTURE1');</script><script type=\"text/plain\" data-consent=\"analytics\">(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, \"clarity\", \"script\", \"fixture01\");</script><script type=\"application/ld+json\">{\"@context\": \"https://schema.org\", \"@type\": \"LocalBusiness\", \"name\": \"Harbour Demo Plumbing\", \"telephone\": \"+61 2 5550 0199\", \"address\": {\"@type\": \"PostalAddress\", \"streetAddress\": \"12 Example Street\", \"addressLocality\": \"Sydney\", \"postalCode\": \"2000\", \"addressRegion\": \"NSW\", \"addressCountry\": \"AU\"}, \"sameAs\": [\"https://www.facebook.com/harbour.demo.plumbing.fixture\", \"https://www.instagram.com/harbour.demo.plumbing.fixture\"]}</script><link rel=\"canonical\" href=\"/\"><script type=\"text/plain\" data-consent=\"booking\" src=\"https://assets.calendly.com/assets/external/widget.js\"></script><script type=\"text/plain\" data-consent=\"analytics\">gtag('event','generate_lead');fbq('track','Lead');</script><script type=\"application/ld+json\">{\"@type\":\"FAQPage\",\"mainEntity\":[{\"@type\":\"Question\",\"name\":\"How do I request a quote?\",\"acceptedAnswer\":{\"@type\":\"Answer\",\"text\":\"Contact our team.\"}}]}</script></head><body><header><strong>Harbour Demo Plumbing</strong><nav aria-label=\"Main\"><a href=\"/\">Home</a><a href=\"/services.html\">Services</a><a href=\"/about.html\">About</a><a href=\"/contact.html\">Contact</a><a href=\"/quote.html\">Quote</a></nav></header><main><h1>Reliable plumbing for Sydney homes</h1><p>We help homeowners repair leaks and maintain working plumbing. Written quotes before work begins.</p><h2>How we help</h2><p>Tap repairs, blocked drains and scheduled maintenance.</p><a class=\"button\" href=\"/contact.html\">Request a plumbing quote</a><h2>Local experience</h2><p>Our fictional team serves central Sydney. Ask about licence details and insurance before booking.</p><h2>Frequently asked questions</h2><h3>How do I request a quote?</h3><p>Contact our team with your service needs. We provide repairs and serve Sydney.</p><a href=\"/service/a/\">North service area</a><a href=\"/service/b/\">South service area</a><a href=\"/old-service\">Older service link</a></main><footer><p>Harbour Demo Plumbing | 12 Example Street, Sydney NSW 2000</p><p><a href=\"tel:+61255500100\">02 5550 0100</a> | <a href=\"mailto:hello@example.test\">hello@example.test</a></p><a href=\"/contact.html#privacy\">Privacy policy</a><p>Find us: <a href=\"https://g.page/harbour-demo-plumbing-fixture\">Google Business Profile</a> | <a href=\"https://www.facebook.com/harbour.demo.plumbing.fixture\">Facebook</a> | <a href=\"https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture\">Yellow Pages</a></p><p>Fictional fixture for AMS testing. No real business or customer data.</p></footer></body></html>\n",
+        "headers": {
+          "content-type": "text/html"
+        }
+      },
+      "llms": {
+        "url": "http://127.0.0.1:18765/llms.txt",
+        "status": 200,
+        "complete": true,
+        "body": "# Harbour Demo Plumbing\n\nFictional assessment fixture. Services in Sydney; contact the demo office for details.\n",
+        "headers": {
+          "content-type": "text/plain"
+        }
+      }
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-002",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Robots rules / site-wide Disallow",
+    "data": {
+      "site_check": "robots",
+      "area": "Robots rules / site-wide Disallow",
+      "category": "seo",
+      "status": "PASS",
+      "checked": "Parsed 4 groups; root and representative public path allowed for *, Googlebot and Bingbot.",
+      "why": "Broad rules can prevent search engines crawling public pages.",
+      "recommendation": "Confirm intended visibility, remove unintended broad Disallow rules, then retest.",
+      "detail": {
+        "groups": [
+          {
+            "agents": [
+              "*"
+            ],
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ]
+          },
+          {
+            "agents": [
+              "gptbot"
+            ],
+            "rules": [
+              [
+                "disallow",
+                "/"
+              ]
+            ]
+          },
+          {
+            "agents": [
+              "oai-searchbot"
+            ],
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ]
+          },
+          {
+            "agents": [
+              "chatgpt-user"
+            ],
+            "rules": [
+              [
+                "disallow",
+                "/quote.html"
+              ]
+            ]
+          }
+        ],
+        "broad_blocks": [],
+        "paths_checked": [
+          "/",
+          "/ams-site-wide-probe"
+        ]
+      },
+      "source_evidence_ids": [
+        "ev-presence-r2-012"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-003",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: AI crawler rules by purpose",
+    "data": {
+      "site_check": "ai-robots",
+      "area": "AI crawler rules by purpose",
+      "category": "geo",
+      "status": "WARNING",
+      "checked": "Search/user crawlers blocked on sampled paths: ChatGPT-User",
+      "why": "Search and user-initiated access differ from training consent; robots rules alone do not establish crawler access or visibility.",
+      "recommendation": "Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually.",
+      "detail": {
+        "crawlers": [
+          {
+            "crawler": "OAI-SearchBot",
+            "purpose": "search",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "Claude-SearchBot",
+            "purpose": "search",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "PerplexityBot",
+            "purpose": "search",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "Googlebot",
+            "purpose": "search",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "Bingbot",
+            "purpose": "search",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "GPTBot",
+            "purpose": "training",
+            "rules": [
+              [
+                "disallow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [
+              "/",
+              "/about.html",
+              "/contact.html",
+              "/quote.html",
+              "/service/a/",
+              "/service/b/",
+              "/services.html"
+            ],
+            "status": "INFO"
+          },
+          {
+            "crawler": "ClaudeBot",
+            "purpose": "training",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "Google-Extended",
+            "purpose": "training",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "CCBot",
+            "purpose": "training",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "Applebot-Extended",
+            "purpose": "training",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "meta-externalagent",
+            "purpose": "training",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "Bytespider",
+            "purpose": "training",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "ChatGPT-User",
+            "purpose": "user-initiated",
+            "rules": [
+              [
+                "disallow",
+                "/quote.html"
+              ]
+            ],
+            "blocked_paths": [
+              "/quote.html"
+            ],
+            "status": "WARNING"
+          },
+          {
+            "crawler": "Claude-User",
+            "purpose": "user-initiated",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          },
+          {
+            "crawler": "Perplexity-User",
+            "purpose": "user-initiated",
+            "rules": [
+              [
+                "allow",
+                "/"
+              ]
+            ],
+            "blocked_paths": [],
+            "status": "PASS"
+          }
+        ],
+        "paths_checked": [
+          "/",
+          "/about.html",
+          "/contact.html",
+          "/quote.html",
+          "/service/a/",
+          "/service/b/",
+          "/services.html"
+        ]
+      },
+      "source_evidence_ids": [
+        "ev-presence-r2-012"
+      ],
+      "confidence": "needs_verification"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-004",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Page noindex / X-Robots-Tag",
+    "data": {
+      "site_check": "noindex",
+      "area": "Page noindex / X-Robots-Tag",
+      "category": "seo",
+      "status": "PASS",
+      "checked": "No noindex in 7 crawl indexing records. Meta directives inspected where available; individual HTTP-header attribution may be unavailable outside the homepage.",
+      "why": "Unintended noindex on home or key pages prevents those pages appearing in search.",
+      "recommendation": "Confirm intended indexing per URL; inspect response headers on unsampled pages. Remove noindex only on pages intended for search.",
+      "detail": {
+        "pages": [],
+        "crawl_indexing_urls": [
+          "http://127.0.0.1:18765/",
+          "http://127.0.0.1:18765/about.html",
+          "http://127.0.0.1:18765/contact.html",
+          "http://127.0.0.1:18765/quote.html",
+          "http://127.0.0.1:18765/service/a/",
+          "http://127.0.0.1:18765/service/b/",
+          "http://127.0.0.1:18765/services.html"
+        ],
+        "aggregate_header_evidence": []
+      },
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012",
+        "ev-site_checks-r2-001",
+        "ev-siteone-r2-001",
+        "ev-siteone-r2-002",
+        "ev-siteone-r2-003",
+        "ev-siteone-r2-004",
+        "ev-siteone-r2-005",
+        "ev-siteone-r2-006",
+        "ev-siteone-r2-007",
+        "ev-siteone-r2-008",
+        "ev-siteone-r2-009",
+        "ev-siteone-r2-010",
+        "ev-siteone-r2-011",
+        "ev-siteone-r2-012",
+        "ev-siteone-r2-013",
+        "ev-siteone-r2-014",
+        "ev-siteone-r2-015",
+        "ev-siteone-r2-016",
+        "ev-siteone-r2-017",
+        "ev-siteone-r2-018",
+        "ev-siteone-r2-019"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-005",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Sitemap URL validity",
+    "data": {
+      "site_check": "sitemap-urls",
+      "area": "Sitemap URL validity",
+      "category": "seo",
+      "status": "PASS",
+      "checked": "Compared 7 sitemap URLs with existing crawl results: 0 with observed issues, 0 uncrawled/unavailable (NOT ASSESSED). ",
+      "why": "Sitemaps should list final, successful, indexable URLs; uncrawled URLs are unknown.",
+      "recommendation": "Replace redirects/non-200/noindex URLs; manually validate uncrawled entries. Use absolute HTTP(S) sitemap URLs in production.",
+      "detail": {
+        "urls": [
+          {
+            "url": "http://127.0.0.1:18765/",
+            "issues": [],
+            "unavailable": ""
+          },
+          {
+            "url": "http://127.0.0.1:18765/services.html",
+            "issues": [],
+            "unavailable": ""
+          },
+          {
+            "url": "http://127.0.0.1:18765/about.html",
+            "issues": [],
+            "unavailable": ""
+          },
+          {
+            "url": "http://127.0.0.1:18765/contact.html",
+            "issues": [],
+            "unavailable": ""
+          },
+          {
+            "url": "http://127.0.0.1:18765/quote.html",
+            "issues": [],
+            "unavailable": ""
+          },
+          {
+            "url": "http://127.0.0.1:18765/service/a/",
+            "issues": [],
+            "unavailable": ""
+          },
+          {
+            "url": "http://127.0.0.1:18765/service/b/",
+            "issues": [],
+            "unavailable": ""
+          }
+        ],
+        "truncated": false
+      },
+      "source_evidence_ids": [
+        "ev-presence-r2-012",
+        "ev-siteone-r2-001",
+        "ev-siteone-r2-002",
+        "ev-siteone-r2-003",
+        "ev-siteone-r2-004",
+        "ev-siteone-r2-005",
+        "ev-siteone-r2-006",
+        "ev-siteone-r2-007",
+        "ev-siteone-r2-008",
+        "ev-siteone-r2-009",
+        "ev-siteone-r2-010",
+        "ev-siteone-r2-011",
+        "ev-siteone-r2-012",
+        "ev-siteone-r2-013",
+        "ev-siteone-r2-014",
+        "ev-siteone-r2-015",
+        "ev-siteone-r2-016",
+        "ev-siteone-r2-017",
+        "ev-siteone-r2-018",
+        "ev-siteone-r2-019"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-006",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Canonical accessibility / consistency",
+    "data": {
+      "site_check": "canonicals",
+      "area": "Canonical accessibility / consistency",
+      "category": "seo",
+      "status": "PASS",
+      "checked": "3 declarations; 0 need review; 0 targets NOT ASSESSED. http://127.0.0.1:18765/ -> http://127.0.0.1:18765/: HTTP 200 ; http://127.0.0.1:18765/service/a/ -> http://127.0.0.1:18765/service/a/: HTTP 200 ; http://127.0.0.1:18765/service/b/ -> http://127.0.0.1:18765/service/b/: HTTP 200 ",
+      "why": "Canonical hints should consistently identify accessible, indexable preferred pages.",
+      "recommendation": "Review conflicting targets; use final indexable URLs. Manually verify uncrawled targets.",
+      "detail": [
+        {
+          "page": "http://127.0.0.1:18765/",
+          "target": "http://127.0.0.1:18765/",
+          "issues": [],
+          "accessibility": "HTTP 200"
+        },
+        {
+          "page": "http://127.0.0.1:18765/service/a/",
+          "target": "http://127.0.0.1:18765/service/a/",
+          "issues": [],
+          "accessibility": "HTTP 200"
+        },
+        {
+          "page": "http://127.0.0.1:18765/service/b/",
+          "target": "http://127.0.0.1:18765/service/b/",
+          "issues": [],
+          "accessibility": "HTTP 200"
+        }
+      ],
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012",
+        "ev-site_checks-r2-001",
+        "ev-siteone-r2-001",
+        "ev-siteone-r2-002",
+        "ev-siteone-r2-003",
+        "ev-siteone-r2-004",
+        "ev-siteone-r2-005",
+        "ev-siteone-r2-006",
+        "ev-siteone-r2-007",
+        "ev-siteone-r2-008",
+        "ev-siteone-r2-009",
+        "ev-siteone-r2-010",
+        "ev-siteone-r2-011",
+        "ev-siteone-r2-012",
+        "ev-siteone-r2-013",
+        "ev-siteone-r2-014",
+        "ev-siteone-r2-015",
+        "ev-siteone-r2-016",
+        "ev-siteone-r2-017",
+        "ev-siteone-r2-018",
+        "ev-siteone-r2-019"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-007",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Duplicates, headings / internal links",
+    "data": {
+      "site_check": "page-quality",
+      "area": "Duplicates, headings / internal links",
+      "category": "seo",
+      "status": "WARNING",
+      "checked": "Duplicate title groups: 1; duplicate description groups: 1; heading issues: 1; broken internal links: 2; unavailable links: 0; internal redirects: 2. Inbound links: NOT ASSESSED (incomplete sampled link graph).",
+      "why": "Distinct metadata, logical headings and direct internal links improve navigation and help crawlers interpret pages.",
+      "recommendation": "Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph.",
+      "detail": {
+        "duplicates": {
+          "title": [
+            [
+              "http://127.0.0.1:18765/service/a/",
+              "http://127.0.0.1:18765/service/b/"
+            ]
+          ],
+          "description": [
+            [
+              "http://127.0.0.1:18765/service/a/",
+              "http://127.0.0.1:18765/service/b/"
+            ]
+          ]
+        },
+        "heading_issues": [
+          {
+            "url": "http://127.0.0.1:18765/quote.html",
+            "issue": "skipped heading level"
+          }
+        ],
+        "broken_links": [
+          {
+            "source": "http://127.0.0.1:18765/quote.html",
+            "target": "http://127.0.0.1:18765/missing-offer.html",
+            "status": 404
+          },
+          {
+            "source": "http://127.0.0.1:18765/quote.html",
+            "target": "http://127.0.0.1:18765/missing-offer.html",
+            "status": 404
+          }
+        ],
+        "unavailable_links": [],
+        "redirect_chains": [
+          {
+            "source": "http://127.0.0.1:18765/",
+            "chain": [
+              "http://127.0.0.1:18765/old-service",
+              "http://127.0.0.1:18765/older-service",
+              "http://127.0.0.1:18765/services.html"
+            ],
+            "complete": true
+          },
+          {
+            "source": "http://127.0.0.1:18765/old-service",
+            "chain": [
+              "http://127.0.0.1:18765/older-service",
+              "http://127.0.0.1:18765/services.html"
+            ],
+            "complete": true
+          }
+        ],
+        "no_inbound": [],
+        "inbound_status": "NOT ASSESSED"
+      },
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012",
+        "ev-siteone-r2-001",
+        "ev-siteone-r2-002",
+        "ev-siteone-r2-003",
+        "ev-siteone-r2-004",
+        "ev-siteone-r2-005",
+        "ev-siteone-r2-006",
+        "ev-siteone-r2-007",
+        "ev-siteone-r2-008",
+        "ev-siteone-r2-009",
+        "ev-siteone-r2-010",
+        "ev-siteone-r2-011",
+        "ev-siteone-r2-012",
+        "ev-siteone-r2-013",
+        "ev-siteone-r2-014",
+        "ev-siteone-r2-015",
+        "ev-siteone-r2-016",
+        "ev-siteone-r2-017",
+        "ev-siteone-r2-018",
+        "ev-siteone-r2-019",
+        "ev-siteone-r2-027",
+        "ev-siteone-r2-028",
+        "ev-siteone-r2-029"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-008",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Organization / LocalBusiness / BreadcrumbList",
+    "data": {
+      "site_check": "structured-data",
+      "area": "Organization / LocalBusiness / BreadcrumbList",
+      "category": "entity",
+      "status": "INFO",
+      "checked": "Validated 1 supported JSON-LD nodes. No invalid supported properties found.  4 applicable-property suggestions; absence is not a failure.",
+      "why": "Consistent structured data clarifies entities; it does not guarantee rich results.",
+      "recommendation": "Fix invalid JSON-LD and required properties; review applicable recommended properties with Google's Rich Results Test. Organization has no required properties.",
+      "detail": [
+        {
+          "url": "http://127.0.0.1:18765/",
+          "errors": [],
+          "recommended": [
+            "LocalBusiness: consider geo where applicable",
+            "LocalBusiness: consider image where applicable",
+            "LocalBusiness: consider openingHoursSpecification where applicable",
+            "LocalBusiness: consider url where applicable"
+          ],
+          "checked": [
+            "LocalBusiness"
+          ],
+          "types": [
+            "Answer",
+            "FAQPage",
+            "LocalBusiness",
+            "PostalAddress",
+            "Question"
+          ]
+        },
+        {
+          "url": "http://127.0.0.1:18765/about.html",
+          "errors": [],
+          "recommended": [],
+          "checked": [],
+          "types": []
+        },
+        {
+          "url": "http://127.0.0.1:18765/quote.html",
+          "errors": [],
+          "recommended": [],
+          "checked": [],
+          "types": []
+        },
+        {
+          "url": "http://127.0.0.1:18765/service/a/",
+          "errors": [],
+          "recommended": [],
+          "checked": [],
+          "types": []
+        },
+        {
+          "url": "http://127.0.0.1:18765/service/b/",
+          "errors": [],
+          "recommended": [],
+          "checked": [],
+          "types": []
+        },
+        {
+          "url": "http://127.0.0.1:18765/contact.html",
+          "errors": [],
+          "recommended": [],
+          "checked": [],
+          "types": []
+        }
+      ],
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012",
+        "ev-site_checks-r2-001"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-009",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Near-duplicate location pages",
+    "data": {
+      "site_check": "location-duplicates",
+      "area": "Near-duplicate location pages",
+      "category": "local_seo",
+      "status": "WARNING",
+      "checked": "Compared 2 location-like URLs with >=80 sampled words using 5-word shingle Jaccard >=0.8: 1 similar pairs. Heuristic only; shared navigation and truncated text can influence similarity.",
+      "why": "Near-duplicate location pages may warrant review for doorway-page risk; this is never a confirmed doorway-page finding.",
+      "recommendation": "Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages.",
+      "detail": [
+        {
+          "urls": [
+            "http://127.0.0.1:18765/service/a/",
+            "http://127.0.0.1:18765/service/b/"
+          ],
+          "jaccard": 0.922,
+          "truncated": false
+        }
+      ],
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012"
+      ],
+      "confidence": "needs_verification"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-010",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Core Web Vitals (field p75)",
+    "data": {
+      "site_check": "cwv",
+      "area": "Core Web Vitals (field p75)",
+      "category": "performance",
+      "status": "NOT ASSESSED",
+      "checked": "No usable CrUX/PSI p75 field data. Lighthouse lab scores are not CWV.",
+      "why": "Field LCP, INP and CLS describe real-user experience; origin and URL scopes differ.",
+      "recommendation": "Investigate non-good field metrics and verify all three at p75. Good: LCP <=2500 ms, INP <=200 ms, CLS <=0.1. Poor: LCP >4000 ms, INP >500 ms, CLS >0.25. Missing field data requires manual verification; preserve separate lab findings.",
+      "detail": [],
+      "source_evidence_ids": [],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-011",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Booking / CRM / chat tools",
+    "data": {
+      "site_check": "booking-tools",
+      "area": "Booking / CRM / chat tools",
+      "category": "cro_ux",
+      "status": "INFO",
+      "checked": "Detected markup signals: Calendly. Script/link/iframe URLs and recognised inline API calls; prose excluded. Iframes outside the normal-UA homepage probe may be unavailable.",
+      "why": "Public integration signals help identify systems to discuss; they do not prove account existence, ownership or working integration.",
+      "recommendation": "Confirm customer-owned systems and test authorised journeys before proposing changes.",
+      "detail": [
+        {
+          "page": "http://127.0.0.1:18765/",
+          "tool": "Calendly",
+          "context": "script_srcs",
+          "url": "https://assets.calendly.com/assets/external/widget.js"
+        }
+      ],
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012",
+        "ev-site_checks-r2-001"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-012",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Conversion pathways / forms NOT TESTED",
+    "data": {
+      "site_check": "conversion-pathways",
+      "area": "Conversion pathways / forms NOT TESTED",
+      "category": "cro_ux",
+      "status": "INFO",
+      "checked": "6 rendered pages inspected for forms, booking links, tel/mailto, CTA wording, trust signals and case-study/portfolio/team/about links. Above-the-fold placement NOT ASSESSED where positions are unavailable. Form submissions: NOT TESTED. Trust claims and journey outcomes are unverified.",
+      "why": "Visible enquiry options help plan journey validation; their presence does not prove forms, booking, lead delivery or conversion performance work.",
+      "recommendation": "Review missing paths and CTA prominence manually; arrange an authorised safe journey test with the customer. No submissions were made.",
+      "detail": [
+        {
+          "url": "http://127.0.0.1:18765/",
+          "enquiry_forms": 0,
+          "forms_inspected": 0,
+          "booking_links": [],
+          "tel_mailto": [
+            {
+              "text": "02 5550 0100",
+              "href": "tel:+61255500100"
+            },
+            {
+              "text": "hello@example.test",
+              "href": "mailto:hello@example.test"
+            }
+          ],
+          "ctas": [
+            {
+              "text": "Contact",
+              "href": "http://127.0.0.1:18765/contact.html"
+            },
+            {
+              "text": "Quote",
+              "href": "http://127.0.0.1:18765/quote.html"
+            },
+            {
+              "text": "Request a plumbing quote",
+              "href": "http://127.0.0.1:18765/contact.html"
+            }
+          ],
+          "above_fold": [],
+          "above_fold_status": "NOT ASSESSED",
+          "trust_signals": [
+            "Our fictional team serves central Sydney. Ask about licence details and insurance before booking.",
+            "Privacy policy"
+          ],
+          "supporting_pages": [
+            "http://127.0.0.1:18765/about.html"
+          ],
+          "form_submissions": "NOT TESTED"
+        },
+        {
+          "url": "http://127.0.0.1:18765/about.html",
+          "enquiry_forms": 0,
+          "forms_inspected": 0,
+          "booking_links": [],
+          "tel_mailto": [
+            {
+              "text": "02 5550 0100",
+              "href": "tel:+61255500100"
+            },
+            {
+              "text": "hello@example.test",
+              "href": "mailto:hello@example.test"
+            }
+          ],
+          "ctas": [
+            {
+              "text": "Contact",
+              "href": "http://127.0.0.1:18765/contact.html"
+            },
+            {
+              "text": "Quote",
+              "href": "http://127.0.0.1:18765/quote.html"
+            }
+          ],
+          "above_fold": [],
+          "above_fold_status": "NOT ASSESSED",
+          "trust_signals": [
+            "Demo testimonial: The team explained our options clearly.",
+            "Privacy policy"
+          ],
+          "supporting_pages": [
+            "http://127.0.0.1:18765/about.html"
+          ],
+          "form_submissions": "NOT TESTED"
+        },
+        {
+          "url": "http://127.0.0.1:18765/quote.html",
+          "enquiry_forms": 0,
+          "forms_inspected": 0,
+          "booking_links": [],
+          "tel_mailto": [
+            {
+              "text": "02 5550 0100",
+              "href": "tel:+61255500100"
+            },
+            {
+              "text": "hello@example.test",
+              "href": "mailto:hello@example.test"
+            }
+          ],
+          "ctas": [
+            {
+              "text": "Contact",
+              "href": "http://127.0.0.1:18765/contact.html"
+            },
+            {
+              "text": "Quote",
+              "href": "http://127.0.0.1:18765/quote.html"
+            }
+          ],
+          "above_fold": [],
+          "above_fold_status": "NOT ASSESSED",
+          "trust_signals": [
+            "Privacy policy"
+          ],
+          "supporting_pages": [
+            "http://127.0.0.1:18765/about.html"
+          ],
+          "form_submissions": "NOT TESTED"
+        },
+        {
+          "url": "http://127.0.0.1:18765/service/a/",
+          "enquiry_forms": 0,
+          "forms_inspected": 0,
+          "booking_links": [],
+          "tel_mailto": [],
+          "ctas": [
+            {
+              "text": "Contact",
+              "href": "http://127.0.0.1:18765/contact.html"
+            }
+          ],
+          "above_fold": [],
+          "above_fold_status": "NOT ASSESSED",
+          "trust_signals": [
+            "Our local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests."
+          ],
+          "supporting_pages": [],
+          "form_submissions": "NOT TESTED"
+        },
+        {
+          "url": "http://127.0.0.1:18765/service/b/",
+          "enquiry_forms": 0,
+          "forms_inspected": 0,
+          "booking_links": [],
+          "tel_mailto": [],
+          "ctas": [
+            {
+              "text": "Contact",
+              "href": "http://127.0.0.1:18765/contact.html"
+            }
+          ],
+          "above_fold": [],
+          "above_fold_status": "NOT ASSESSED",
+          "trust_signals": [
+            "Our local plumbing services help homeowners plan maintenance and arrange repairs. We inspect visible leaks, explain the options, and provide a written quote before beginning work. Our team can discuss tap repairs, drain clearing, water pressure concerns and routine maintenance. Contact our office to describe the issue and arrange an appointment at a suitable time. Service availability depends on the location and type of work requested. We discuss access requirements, estimated duration, materials and any follow-up checks before confirming an appointment. We provide clear communication throughout the job and explain how to maintain repaired fixtures. Ask us about local coverage, licence details, insurance and the expected next steps. This fictional demonstration page is used only for automated assessment tests."
+          ],
+          "supporting_pages": [],
+          "form_submissions": "NOT TESTED"
+        },
+        {
+          "url": "http://127.0.0.1:18765/contact.html",
+          "enquiry_forms": 1,
+          "forms_inspected": 1,
+          "booking_links": [],
+          "tel_mailto": [
+            {
+              "text": "02 5550 0100",
+              "href": "tel:+61255500100"
+            },
+            {
+              "text": "hello@example.test",
+              "href": "mailto:hello@example.test"
+            }
+          ],
+          "ctas": [
+            {
+              "text": "Contact",
+              "href": "http://127.0.0.1:18765/contact.html"
+            },
+            {
+              "text": "Quote",
+              "href": "http://127.0.0.1:18765/quote.html"
+            },
+            {
+              "text": "Request a quote",
+              "href": ""
+            }
+          ],
+          "above_fold": [],
+          "above_fold_status": "NOT ASSESSED",
+          "trust_signals": [
+            "Privacy policy",
+            "Privacy policy"
+          ],
+          "supporting_pages": [
+            "http://127.0.0.1:18765/about.html"
+          ],
+          "form_submissions": "NOT TESTED"
+        }
+      ],
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-013",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Analytics / conversion-event code signals",
+    "data": {
+      "site_check": "conversion-events",
+      "area": "Analytics / conversion-event code signals",
+      "category": "cro_ux",
+      "status": "NOT ASSESSED",
+      "checked": "Unknown: consent manager/gated scripts prevent confirming execution. Analytics/advertising tags: ga4, gtm, clarity; visible event calls: 2. Events are not proof of measured conversions.",
+      "why": "An event call can indicate measurement intent; consent, delivery and key-event configuration need separate verification.",
+      "recommendation": "Use customer-authorised tag diagnostics and analytics access to verify post-consent events and conversion configuration.",
+      "detail": {
+        "events": [
+          {
+            "page": "http://127.0.0.1:18765/",
+            "library": "gtag",
+            "event": "generate_lead"
+          },
+          {
+            "page": "http://127.0.0.1:18765/",
+            "library": "fbq",
+            "event": "Lead"
+          }
+        ],
+        "state": "Unknown",
+        "presence_platforms": [
+          {
+            "key": "ga4",
+            "platform": "Google Analytics 4",
+            "group": "analytics",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [
+              "G-FIXTURE001"
+            ],
+            "evidence_ids": [
+              "ev-presence-r2-003"
+            ],
+            "detail": "Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages",
+            "action": "Verify manually",
+            "signals": [
+              "googletagmanager.com/gtag/js?id=G-FIXTURE001",
+              "gtag('config','G-FIXTURE001"
+            ]
+          },
+          {
+            "key": "ua",
+            "platform": "Universal Analytics (legacy)",
+            "group": "analytics",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [],
+            "evidence_ids": [
+              "ev-presence-r2-001"
+            ],
+            "detail": "Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent",
+            "action": "Verify manually"
+          },
+          {
+            "key": "gtm",
+            "platform": "Google Tag Manager",
+            "group": "analytics",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [
+              "GTM-FIXTURE1"
+            ],
+            "evidence_ids": [
+              "ev-presence-r2-004"
+            ],
+            "detail": "Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages",
+            "action": "Verify manually",
+            "signals": [
+              "'script','dataLayer','GTM-FIXTURE1'"
+            ]
+          },
+          {
+            "key": "clarity",
+            "platform": "Microsoft Clarity",
+            "group": "analytics",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [
+              "fixture01"
+            ],
+            "evidence_ids": [
+              "ev-presence-r2-005"
+            ],
+            "detail": "Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages",
+            "action": "Verify manually",
+            "signals": [
+              "\"clarity\", \"script\", \"fixture01\"",
+              "clarity.ms/tag/"
+            ]
+          },
+          {
+            "key": "hotjar",
+            "platform": "Hotjar",
+            "group": "analytics",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [],
+            "evidence_ids": [
+              "ev-presence-r2-001"
+            ],
+            "detail": "Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent",
+            "action": "Verify manually"
+          },
+          {
+            "key": "google_ads",
+            "platform": "Google Ads",
+            "group": "advertising",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [],
+            "evidence_ids": [
+              "ev-presence-r2-001"
+            ],
+            "detail": "Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent",
+            "action": "Verify manually"
+          },
+          {
+            "key": "meta_pixel",
+            "platform": "Meta Pixel",
+            "group": "advertising",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [],
+            "evidence_ids": [
+              "ev-presence-r2-001"
+            ],
+            "detail": "Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent",
+            "action": "Verify manually"
+          },
+          {
+            "key": "linkedin",
+            "platform": "LinkedIn Insight Tag",
+            "group": "advertising",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [],
+            "evidence_ids": [
+              "ev-presence-r2-001"
+            ],
+            "detail": "Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent",
+            "action": "Verify manually"
+          },
+          {
+            "key": "bing_uet",
+            "platform": "Microsoft Advertising UET",
+            "group": "advertising",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [],
+            "evidence_ids": [
+              "ev-presence-r2-001"
+            ],
+            "detail": "Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent",
+            "action": "Verify manually"
+          },
+          {
+            "key": "tiktok",
+            "platform": "TikTok Pixel",
+            "group": "advertising",
+            "status": "Unknown",
+            "connected": "Unsupported",
+            "ids": [],
+            "evidence_ids": [
+              "ev-presence-r2-001"
+            ],
+            "detail": "Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent",
+            "action": "Verify manually"
+          }
+        ],
+        "tag_keys": [
+          "ga4",
+          "gtm",
+          "clarity"
+        ],
+        "consent": {
+          "managers": [],
+          "gated_scripts": [
+            "(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src",
+            "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTag",
+            "gtag('event','generate_lead');fbq('track','Lead');",
+            "https://assets.calendly.com/assets/external/widget.js",
+            "https://www.googletagmanager.com/gtag/js?id=G-FIXTURE001",
+            "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-"
+          ]
+        }
+      },
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012",
+        "ev-site_checks-r2-001"
+      ],
+      "confidence": "needs_verification"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-014",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Suspected CDN / firewall crawler blocking",
+    "data": {
+      "site_check": "firewall",
+      "area": "Suspected CDN / firewall crawler blocking",
+      "category": "technical",
+      "status": "PASS",
+      "checked": "Normal UA HTTP 200; AI-search UA HTTP 200. No differential HTTP block observed in this pair.",
+      "why": "A differing response may indicate a CDN/firewall policy, rate limit or transient failure; spoofing a UA does not reproduce a verified crawler IP.",
+      "recommendation": "Review CDN/server logs and allow intentional search access after customer approval. Verify with the real crawler; do not bypass challenges.",
+      "detail": {
+        "normal": {
+          "url": "http://127.0.0.1:18765/",
+          "status": 200,
+          "complete": true,
+          "headers": {
+            "content-type": "text/html"
+          }
+        },
+        "search": {
+          "url": "http://127.0.0.1:18765/",
+          "status": 200,
+          "complete": true,
+          "headers": {
+            "content-type": "text/html"
+          }
+        }
+      },
+      "source_evidence_ids": [
+        "ev-site_checks-r2-001"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-015",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: llms.txt (informational)",
+    "data": {
+      "site_check": "llms-txt",
+      "area": "llms.txt (informational)",
+      "category": "geo",
+      "status": "INFO",
+      "checked": "llms.txt present; HTTP 200. One bounded fetch; HTML fallbacks, redirects, empty or incomplete responses are not confirmed files.",
+      "why": "llms.txt is an optional informational convention, not an indexing requirement or evidence of ranking or AI-search visibility.",
+      "recommendation": "No correction required for absence. Review accuracy if choosing to publish this file.",
+      "detail": {
+        "state": "present",
+        "http_status": 200
+      },
+      "source_evidence_ids": [
+        "ev-site_checks-r2-001"
+      ],
+      "confidence": "confirmed"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-site_checks-r2-016",
+    "source": "site_checks",
+    "url": "http://127.0.0.1:18765/",
+    "description": "Site check: Answer readiness (heuristic)",
+    "data": {
+      "site_check": "answer-readiness",
+      "area": "Answer readiness (heuristic)",
+      "category": "geo",
+      "status": "INFO",
+      "checked": "6 pages checked for FAQPage/QAPage, question headings, FAQ sections, and service/location/contact statements. Signals are heuristic; clarity, correctness and AI-search visibility are not established.",
+      "why": "Explicit answers and business context can make content easier to interpret.",
+      "recommendation": "Review accurate answers, service scope, locations and contact details with the customer; do not add unsupported schema or claim AI-search rankings.",
+      "detail": [
+        {
+          "url": "http://127.0.0.1:18765/",
+          "faq_qa_schema": [
+            "FAQPage"
+          ],
+          "question_headings": [
+            "How we help",
+            "How do I request a quote?"
+          ],
+          "faq_section": true,
+          "service_statement": true,
+          "location_statement": true,
+          "contact_statement": true
+        },
+        {
+          "url": "http://127.0.0.1:18765/about.html",
+          "faq_qa_schema": [],
+          "question_headings": [],
+          "faq_section": false,
+          "service_statement": false,
+          "location_statement": false,
+          "contact_statement": true
+        },
+        {
+          "url": "http://127.0.0.1:18765/quote.html",
+          "faq_qa_schema": [],
+          "question_headings": [],
+          "faq_section": false,
+          "service_statement": false,
+          "location_statement": false,
+          "contact_statement": true
+        },
+        {
+          "url": "http://127.0.0.1:18765/service/a/",
+          "faq_qa_schema": [],
+          "question_headings": [],
+          "faq_section": false,
+          "service_statement": true,
+          "location_statement": true,
+          "contact_statement": false
+        },
+        {
+          "url": "http://127.0.0.1:18765/service/b/",
+          "faq_qa_schema": [],
+          "question_headings": [],
+          "faq_section": false,
+          "service_statement": true,
+          "location_statement": true,
+          "contact_statement": false
+        },
+        {
+          "url": "http://127.0.0.1:18765/contact.html",
+          "faq_qa_schema": [],
+          "question_headings": [],
+          "faq_section": false,
+          "service_statement": false,
+          "location_statement": false,
+          "contact_statement": true
+        }
+      ],
+      "source_evidence_ids": [
+        "ev-browser-r2-001",
+        "ev-browser-r2-002",
+        "ev-browser-r2-003",
+        "ev-browser-r2-004",
+        "ev-browser-r2-005",
+        "ev-browser-r2-006",
+        "ev-browser-r2-007",
+        "ev-browser-r2-008",
+        "ev-browser-r2-009",
+        "ev-browser-r2-010",
+        "ev-browser-r2-011",
+        "ev-browser-r2-012",
+        "ev-site_checks-r2-001"
+      ],
+      "confidence": "needs_verification"
+    },
+    "provenance": "technical_evidence"
+  },
+  {
+    "id": "ev-discovery-r3-001",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Business model, services, customers & priorities): Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits",
+    "data": {
+      "section": "business_overview",
+      "statement": "Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits",
+      "frequency": "",
+      "systems": [],
+      "owner": "Owner",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-002",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Business model, services, customers & priorities): Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs",
+    "data": {
+      "section": "business_overview",
+      "statement": "Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs",
+      "frequency": "",
+      "systems": [],
+      "owner": "Owner",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-003",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Systems in use): Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar",
+    "data": {
+      "section": "systems_in_use",
+      "statement": "Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar",
+      "frequency": "",
+      "systems": [
+        "Spreadsheet",
+        "Xero",
+        "Google Calendar"
+      ],
+      "owner": "",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-004",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Systems in use): Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox",
+    "data": {
+      "section": "systems_in_use",
+      "statement": "Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox",
+      "frequency": "",
+      "systems": [
+        "Landline",
+        "Gmail"
+      ],
+      "owner": "",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-005",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Enquiries & communication): Calls during jobs or after 5pm go to voicemail and some are never returned",
+    "data": {
+      "section": "enquiries_communication",
+      "statement": "Calls during jobs or after 5pm go to voicemail and some are never returned",
+      "frequency": "several times a week",
+      "systems": [
+        "Landline"
+      ],
+      "owner": "Office manager",
+      "impact": "Customer believes some new jobs go to competitors",
+      "staff_time": "about 1 hour a day listening to and returning voicemails",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "Engineers sometimes take calls on their own mobiles",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-006",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Enquiries & communication): Website form enquiries arrive in the shared inbox and can wait a day for a reply",
+    "data": {
+      "section": "enquiries_communication",
+      "statement": "Website form enquiries arrive in the shared inbox and can wait a day for a reply",
+      "frequency": "daily",
+      "systems": [
+        "Gmail"
+      ],
+      "owner": "",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "Occasionally two people reply to the same enquiry",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-007",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Sales & quoting): Quotes for refits are typed up in a word processor from the engineer's site notes",
+    "data": {
+      "section": "sales_quoting",
+      "statement": "Quotes for refits are typed up in a word processor from the engineer's site notes",
+      "frequency": "8-10 quotes a week",
+      "systems": [],
+      "owner": "Office manager",
+      "impact": "",
+      "staff_time": "about 45 minutes per quote",
+      "errors_rework": "Prices sometimes copied from an out-of-date price list",
+      "cost": "",
+      "workaround": "Owner re-checks large quotes before they are sent",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-008",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Sales & quoting): Nobody follows up quotes that get no response",
+    "data": {
+      "section": "sales_quoting",
+      "statement": "Nobody follows up quotes that get no response",
+      "frequency": "",
+      "systems": [],
+      "owner": "",
+      "impact": "Customer does not know how many quotes are lost this way",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-009",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Bookings & scheduling): Engineers' diaries are juggled by phone when an emergency job comes in",
+    "data": {
+      "section": "bookings_scheduling",
+      "statement": "Engineers' diaries are juggled by phone when an emergency job comes in",
+      "frequency": "most days",
+      "systems": [
+        "Google Calendar"
+      ],
+      "owner": "Office manager",
+      "impact": "",
+      "staff_time": "1-2 hours a day",
+      "errors_rework": "Double bookings happen about twice a month",
+      "cost": "",
+      "workaround": "A paper whiteboard in the office mirrors the calendar",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-010",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Manual & duplicated tasks): Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices",
+    "data": {
+      "section": "manual_duplicated_tasks",
+      "statement": "Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices",
+      "frequency": "weekly, on Fridays",
+      "systems": [
+        "Spreadsheet",
+        "Xero"
+      ],
+      "owner": "Office manager",
+      "impact": "",
+      "staff_time": "about 4 hours a week",
+      "errors_rework": "Missed or duplicated invoices found at month end",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-011",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Manual & duplicated tasks): Annual service reminders are sent by hand from a list",
+    "data": {
+      "section": "manual_duplicated_tasks",
+      "statement": "Annual service reminders are sent by hand from a list",
+      "frequency": "monthly",
+      "systems": [],
+      "owner": "",
+      "impact": "",
+      "staff_time": "half a day a month",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-012",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Data duplication, integrations & disconnected systems): Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree",
+    "data": {
+      "section": "data_integrations",
+      "statement": "Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree",
+      "frequency": "",
+      "systems": [
+        "Spreadsheet",
+        "Xero"
+      ],
+      "owner": "",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "Invoices sent to old addresses a few times a quarter",
+      "cost": "Owner estimates one or two unpaid invoices a quarter, around 300 GBP each",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-013",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Pain points & bottlenecks): Month-end invoicing is the biggest bottleneck and delays cash coming in",
+    "data": {
+      "section": "pain_points_bottlenecks",
+      "statement": "Month-end invoicing is the biggest bottleneck and delays cash coming in",
+      "frequency": "monthly",
+      "systems": [],
+      "owner": "Owner",
+      "impact": "Payment typically arrives 3-4 weeks after the job",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-014",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Pain points & bottlenecks): The office laptop holding the job spreadsheet has no backup",
+    "data": {
+      "section": "pain_points_bottlenecks",
+      "statement": "The office laptop holding the job spreadsheet has no backup",
+      "frequency": "",
+      "systems": [],
+      "owner": "",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "Owner occasionally copies it to a USB stick",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-015",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Existing automations): Xero sends automatic payment reminders; nothing else is automated and no AI tools are used",
+    "data": {
+      "section": "existing_automations",
+      "statement": "Xero sends automatic payment reminders; nothing else is automated and no AI tools are used",
+      "frequency": "",
+      "systems": [
+        "Xero"
+      ],
+      "owner": "",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-016",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Opportunities, constraints & required human approvals): Owner would most like enquiries and bookings to run without the office chasing them",
+    "data": {
+      "section": "opportunities_constraints",
+      "statement": "Owner would most like enquiries and bookings to run without the office chasing them",
+      "frequency": "",
+      "systems": [],
+      "owner": "Owner",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-017",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Opportunities, constraints & required human approvals): Quotes and any message about price must be approved by the owner before sending",
+    "data": {
+      "section": "opportunities_constraints",
+      "statement": "Quotes and any message about price must be approved by the owner before sending",
+      "frequency": "",
+      "systems": [],
+      "owner": "Owner",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
+  },
+  {
+    "id": "ev-discovery-r3-018",
+    "source": "discovery",
+    "url": "customer-discovery-notes",
+    "description": "Customer statement (Opportunities, constraints & required human approvals): Budget is limited this year and the team wants to keep Xero",
+    "data": {
+      "section": "opportunities_constraints",
+      "statement": "Budget is limited this year and the team wants to keep Xero",
+      "frequency": "",
+      "systems": [
+        "Xero"
+      ],
+      "owner": "",
+      "impact": "",
+      "staff_time": "",
+      "errors_rework": "",
+      "cost": "Owner mentioned up to 150 GBP a month for new software",
+      "workaround": "",
+      "ref": ""
+    },
+    "provenance": "customer_statement"
   }
 ]
