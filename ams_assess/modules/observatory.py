@@ -16,7 +16,7 @@ def run(ctx: Context) -> ModuleResult:
     try:
         response = httpx.post(
             "https://observatory-api.mdn.mozilla.net/api/v2/scan",
-            params={"host": ctx.host},
+            params={"host": ctx.site_host},
             timeout=45,
         )
         data = response.json()
@@ -24,7 +24,7 @@ def run(ctx: Context) -> ModuleResult:
         response.raise_for_status()
         if data.get("error") or "grade" not in data:
             raise ValueError("No completed grade")
-        eid = result.add_evidence(ctx.target, "MDN Observatory public security grade", data)
+        eid = result.add_evidence(ctx.site_url, "MDN Observatory public security grade", data)
         if data.get("tests_failed", 0):
             result.finding(
                 "observatory-review",

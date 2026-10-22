@@ -104,6 +104,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         "customer_name": ctx.customer_name,
         "profile": {"fields": ctx.profile} if ctx.profile else None,
         "target": ctx.target,
+        "resolved_url": ctx.site_url,
         "created_at": datetime.now(UTC).isoformat(),
         "selected_categories": sorted(ctx.categories),
         "assessed_categories": assessed,

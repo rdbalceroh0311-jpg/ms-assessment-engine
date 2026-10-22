@@ -16,6 +16,7 @@ import dns.resolver
 import httpx
 
 from ams_assess.models import Context, ModuleResult
+from ams_assess.targets import registrable
 
 name = "domain_email"
 categories = {"domain_email"}
@@ -703,28 +704,34 @@ def run(ctx: Context) -> ModuleResult:
         return ModuleResult(
             name=name, status="skipped", reason="Local/private target has no public domain audit"
         )
+    domain_host = ctx.host
+    domain = registrable(domain_host)
+    if domain and domain_host == "www." + domain:
+        domain_host = domain
     result = ModuleResult(name=name)
     raw, limitations, eids = {}, [], {}
     resolver = dns.resolver.Resolver()
     resolver.timeout, resolver.lifetime = 2, 4
     for kind in ["A", "AAAA", "MX", "NS", "TXT", "CAA"]:
         try:
-            records = [r.to_text() for r in resolver.resolve(ctx.host, kind)]
+            records = [r.to_text() for r in resolver.resolve(domain_host, kind)]
             raw[kind] = {"status": "ok", "records": records}
         except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN) as exc:
             raw[kind] = {"status": "absent", "reason": type(exc).__name__, "records": []}
         except dns.exception.DNSException as exc:
             raw[kind] = {"status": "error", "reason": type(exc).__name__}
             limitations.append(f"{kind} lookup failed ({type(exc).__name__})")
-        eids[kind] = result.add_evidence(ctx.target, f"DNS {kind} lookup for {ctx.host}", raw[kind])
+        eids[kind] = result.add_evidence(
+            ctx.target, f"DNS {kind} lookup for {domain_host}", raw[kind]
+        )
     try:
-        zone = dns.resolver.zone_for_name(ctx.host, resolver=resolver).to_text().rstrip(".")
+        zone = dns.resolver.zone_for_name(domain_host, resolver=resolver).to_text().rstrip(".")
     except dns.exception.DNSException:
-        zone = ctx.host
+        zone = domain_host
     zone_dns = {"zone": zone, "SOA": _lookup(resolver, zone, "SOA")}
     zone_dns["NS"] = (
         _lookup(resolver, zone, "NS")
-        if zone != ctx.host
+        if zone != domain_host
         else (raw["NS"]["status"], raw["NS"].get("records", []))
     )
     raw["zone"] = zone_dns
@@ -747,7 +754,7 @@ def run(ctx: Context) -> ModuleResult:
     checks, dmarc_eid = None, ""
     try:
         process = subprocess.run(
-            [sys.executable, "-c", code, ctx.host],
+            [sys.executable, "-c", code, domain_host],
             capture_output=True,
             text=True,
             timeout=60,
@@ -846,7 +853,7 @@ def run(ctx: Context) -> ModuleResult:
         addresses = check(
             "A/AAAA",
             "ERROR",
-            f"{ctx.host} has no A or AAAA record.",
+            f"{domain_host} has no A or AAAA record.",
             [eids["A"], eids["AAAA"]],
             "Point the website host at its server.",
             "Website host does not resolve",
@@ -873,7 +880,7 @@ def run(ctx: Context) -> ModuleResult:
         )
     rows = {"dns": [ns, soa, addresses, caa, dnssec]}
 
-    rows["dns_consistency"] = consistency_checks(result, ctx.host, zone)
+    rows["dns_consistency"] = consistency_checks(result, domain_host, zone)
 
     if checks is None:
         spf = check("SPF", NOT_ASSESSED, "checkdmarc unavailable")
@@ -885,7 +892,7 @@ def run(ctx: Context) -> ModuleResult:
     ]
     rows["email_auth"] = [
         spf,
-        dkim_check(result, resolver, ctx.host, selectors, mail is False),
+        dkim_check(result, resolver, domain_host, selectors, mail is False),
         dmarc,
     ]
 
@@ -913,7 +920,7 @@ def run(ctx: Context) -> ModuleResult:
     mx_ips: dict[str, str] = {}
     if mx_hosts:
         resolved = {h: {k: _lookup(resolver, h, k) for k in ["A", "AAAA"]} for h in mx_hosts[:5]}
-        eid = result.add_evidence(f"dns:{ctx.host}", "MX host address resolution", resolved)
+        eid = result.add_evidence(f"dns:{domain_host}", "MX host address resolution", resolved)
         ok = [h for h, r in resolved.items() if any(s == "ok" for s, _ in r.values())]
         dead = [h for h, r in resolved.items() if all(s == "absent" for s, _ in r.values())]
         failed = [h for h in resolved if h not in ok and h not in dead]
@@ -985,7 +992,8 @@ def run(ctx: Context) -> ModuleResult:
                 check(
                     label,
                     NOT_ASSESSED,
-                    f"no {prefix} TXT on {ctx.host}; ownership may be verified by another method",
+                    f"no {prefix} TXT on {domain_host}; "
+                    "ownership may be verified by another method",
                     [eids["TXT"]],
                 )
             )

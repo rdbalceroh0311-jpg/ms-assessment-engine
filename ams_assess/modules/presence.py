@@ -771,8 +771,8 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
     """
     started = time.monotonic()
     deadline = started + SITEMAP_TIMEOUT
-    origin = origin_of(ctx.target)
-    parts = urlsplit(ctx.target)
+    origin = origin_of(ctx.site_url)
+    parts = urlsplit(ctx.site_url)
     base = f"{parts.scheme}://{parts.netloc}"
     with httpx.Client(follow_redirects=False, transport=transport) as client:
         robots = fetch(client, base + "/robots.txt", origin, deadline)
@@ -875,7 +875,7 @@ def build(
     coverage = ""
     if assessed:
         coverage = result.add_evidence(
-            ctx.target,
+            ctx.site_url,
             "Digital presence detection coverage (no additional requests)",
             {
                 "pages_sampled": page_urls,
@@ -1039,7 +1039,7 @@ def build(
 
     def add_link(value: Any, page: str, source: str, eid: str) -> None:
         # Resolved and classified per item: one malformed URL never stops the rest.
-        href = resolve(value, page or ctx.target)
+        href = resolve(value, page or ctx.site_url)
         key = classify_listing(href) if href else None
         if (
             href
@@ -1053,7 +1053,7 @@ def build(
     same_as: set[str] = set()
     for eid, record in pages:
         page = record.get("page", {})
-        page_url = str(record.get("url", "")) or ctx.target
+        page_url = str(record.get("url", "")) or ctx.site_url
         for href in page.get("links", []):
             add_link(href, page_url, "website link", eid)
         for node in jsonld_nodes(page.get("json_ld", [])):
@@ -1097,7 +1097,7 @@ def build(
     site = site_identity(pages)
     if pages:
         nap = nap_check(pages)
-        nap_eid = result.add_evidence(ctx.target, "NAP consistency comparison", nap)
+        nap_eid = result.add_evidence(ctx.site_url, "NAP consistency comparison", nap)
         site["evidence_ids"] = [nap_eid]
         conflicts = [c for c in nap["checks"] if c["result"] == "conflict"]
         unconfirmed = [c for c in nap["checks"] if c["result"] == "unconfirmed"]
@@ -1133,7 +1133,7 @@ def build(
     if ctx.pages and (pages or siteone):
         matches = [u for u in ctx.pages if LOCATION_PAGE.search(urlsplit(u).path)]
         location_eid = result.add_evidence(
-            ctx.target,
+            ctx.site_url,
             "Location / service-area page scan of crawled URLs",
             {"pages_scanned": len(ctx.pages), "matches": matches},
         )
@@ -1170,7 +1170,7 @@ def build(
     if siteone and siteone.status == "ok":
         sitemap = sitemap_check(ctx)
         sitemap_eid = result.add_evidence(
-            sitemap.get("sitemap_url") or ctx.target,
+            sitemap.get("sitemap_url") or ctx.site_url,
             "Bounded robots.txt and XML sitemap fetch",
             sitemap,
         )
@@ -1282,7 +1282,7 @@ def build(
             "Publish a valid XML sitemap of indexable pages and declare it in robots.txt.",
             severity="low",
             confidence="confirmed" if sitemap_row["confirmed"] else "needs_verification",
-            urls=[ctx.target],
+            urls=[ctx.site_url],
         )
     tables = {
         "status": "assessed" if assessed else NOT_ASSESSED,

@@ -173,7 +173,7 @@ MONEY = re.compile(r"[$£€]|\b(?:USD|AUD|GBP|EUR|dollars?|pounds?|euros?)\b", 
 OUTCOMES = re.compile(
     r"\b(?:guarantee[ds]?|will (?:increase|boost|generate|deliver|improve|rank)|"
     r"lost[- ]leads?|revenue loss|return on investment|ROI)\b|"
-    r"\b\d+(?:\.\d+)?%?\s+(?:(?:new|more|additional)\s+)?(?:leads?|sales|conversions)\b|"
+    r"\b\d+(?:\.\d+)?%?\s+(?:(?:new|more|additional)\s+)?(?:leads?|sales|conversions|enquiries|calls|bookings|jobs|customers|visitors|traffic|clicks)\b|"
     r"\b(?:ranked|ranking|rank|position)\s+(?:(?:of|at|is)\s+)?#?\d+\b",
     re.I,
 )
@@ -460,12 +460,22 @@ scores. "Not detected" only means no public signal on the sampled pages. Do not 
 in the presence category or findings cited only by ev-presence-* evidence; they are dropped.
 Evidence with provenance customer_statement is what the customer said, not a measured fact:
 never present it as confirmed and never change any provenance. Narratives that cite it must
-say it was customer-reported and must not say technical checks confirmed it. NAP
+use the exact prefix "Customer-reported, not technically verified: " or the phrase
+"The customer reported ..." followed by its supplied evidence ID. Example wording (replace
+bracketed placeholders with supplied data): "The customer reported that [business name]
+provides [service] in [area] ([customer-statement evidence ID])." Do not call these facts
+confirmed, measured, established or verified, and do not combine a technical-confirmation
+claim with customer statements in one narrative. This rule also covers business name,
+industry and buying model in profile evidence. Prefer leaving these profile facts to the
+report's deterministic business-context line: the executive summary can then cite only
+technical evidence about coverage and findings. If you do include profile facts, qualify
+them as above. A properly qualified summary is valid even when crawling failed. NAP
 mismatches are the deterministic nap-inconsistent finding: enrich it rather than repeating it.
 """
     payload = {
         "customer": ctx.customer_name,
         "target": ctx.target,
+        "resolved_url": ctx.site_url,
         "categories": sorted(ctx.categories),
         "local_fixture": ctx.local,
         "collection": {

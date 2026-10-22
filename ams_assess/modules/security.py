@@ -21,7 +21,7 @@ HEADERS = {
 def run(ctx: Context) -> ModuleResult:
     result, raw, limitations = ModuleResult(name=name), {}, []
     try:
-        response = httpx.get(ctx.target, timeout=15, follow_redirects=True)
+        response = httpx.get(ctx.site_url, timeout=15, follow_redirects=True)
         # Cookies and auth headers never belong in report evidence.
         headers = {
             k: v for k, v in response.headers.items() if k not in {"set-cookie", "www-authenticate"}
@@ -60,12 +60,12 @@ def run(ctx: Context) -> ModuleResult:
             )
     except httpx.HTTPError as exc:
         limitations.append(f"HTTP headers unavailable ({type(exc).__name__})")
-    parts = urlsplit(ctx.target)
+    parts = urlsplit(ctx.site_url)
     if parts.scheme == "https":
         try:
-            with socket.create_connection((ctx.host, parts.port or 443), timeout=8) as sock:
+            with socket.create_connection((ctx.site_host, parts.port or 443), timeout=8) as sock:
                 with ssl.create_default_context().wrap_socket(
-                    sock, server_hostname=ctx.host
+                    sock, server_hostname=ctx.site_host
                 ) as tls:
                     cert = tls.getpeercert()
                     if not cert or not isinstance(cert.get("notAfter"), str):
@@ -80,7 +80,7 @@ def run(ctx: Context) -> ModuleResult:
                         "protocol": tls.version(),
                         "hostname_match": True,
                     }
-                    eid = result.add_evidence(ctx.target, "Verified TLS certificate", raw["tls"])
+                    eid = result.add_evidence(ctx.site_url, "Verified TLS certificate", raw["tls"])
                     if raw["tls"]["days_to_expiry"] < 30:
                         result.finding(
                             "tls-expiry",
@@ -93,7 +93,9 @@ def run(ctx: Context) -> ModuleResult:
                         )
         except (OSError, ValueError) as exc:
             raw["tls"] = {"error": type(exc).__name__, "hostname_match": None}
-            eid = result.add_evidence(ctx.target, "TLS verification could not complete", raw["tls"])
+            eid = result.add_evidence(
+                ctx.site_url, "TLS verification could not complete", raw["tls"]
+            )
             limitations.append(f"TLS verification unavailable ({type(exc).__name__})")
             result.finding(
                 "tls-unverified",

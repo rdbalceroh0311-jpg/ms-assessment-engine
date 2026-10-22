@@ -324,11 +324,25 @@ class Context:
     # Shared DataForSEO ledger for this run: every paid call books against the one cap.
     dataforseo_spent_usd: Decimal = Decimal(0)
     dataforseo_serp_calls: int = 0
-    # Shared stop for access/payment rejection or any charge above its estimate.
+    # Shared stop for definitive rejection or any charge above its estimate.
     dataforseo_stopped: str = ""
     dataforseo_failure: dict[str, Any] = field(default_factory=dict)
     # Results of modules that already ran, so later modules reuse evidence instead of refetching.
     results: list[ModuleResult] = field(default_factory=list)
+    # Website redirects must never change the requested domain/store identity.
+    resolved_url: str = ""
+
+    @property
+    def site_url(self) -> str:
+        return self.resolved_url or self.target
+
+    @site_url.setter
+    def site_url(self, value: str) -> None:
+        self.resolved_url = value
+
+    @property
+    def site_host(self) -> str:
+        return urlsplit(self.site_url).hostname or ""
 
     @property
     def host(self) -> str:

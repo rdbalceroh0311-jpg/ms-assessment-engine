@@ -357,6 +357,7 @@ def _merge_run(
         "status": data["status"],
         "stages": stages,
         "target": data["target"],
+        "resolved_url": data.get("resolved_url", data["target"]),
         "selected_categories": data["selected_categories"],
         "assessed_categories": data["assessed_categories"],
         "ai": ai,
@@ -730,6 +731,7 @@ def report_data(
         "coverage": [
             {
                 "target": r["target"],
+                "resolved_url": r.get("resolved_url", r["target"]),
                 "run_id": r["run_id"],
                 "created_at": r["created_at"],
                 "pages": len(r["pages"]),
@@ -740,6 +742,7 @@ def report_data(
         ],
         "created_at": store["updated_at"],
         "target": latest("target", ""),
+        "resolved_url": latest("resolved_url", latest("target", "")),
         "targets": [{"target": t, "run_ids": ids} for t, ids in targets.items() if t],
         "selected_categories": selected,
         "assessed_categories": assessed,

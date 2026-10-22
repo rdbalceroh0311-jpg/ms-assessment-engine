@@ -106,7 +106,7 @@ def safe_message(value: Any, ctx: Context) -> str:
 def paid_request(
     ctx: Context, endpoint: str, task: dict[str, Any], estimate: Decimal, timeout: float
 ) -> dict[str, Any]:
-    """Book once; stop on access rejection; retain uncertain charges on timeout/5xx."""
+    """Book once; stop on definitive rejection; retain uncertain charges on timeout/5xx."""
     ctx.dataforseo_spent_usd += estimate
     try:
         response = httpx.post(
@@ -156,9 +156,6 @@ def paid_request(
     reason += "; " + "; ".join(
         details or [safe_message(response.reason_phrase, ctx), "task did not complete"]
     )
-    if denied:
-        ctx.dataforseo_stopped = reason
-        ctx.dataforseo_failure = provider
     try:
         cost = Decimal(str(data["cost"])) if "cost" in data else None
     except (ArithmeticError, ValueError):
@@ -170,6 +167,9 @@ def paid_request(
     rejected = (400 <= response.status_code < 500 and response.status_code != 408) or (
         response.is_success and denied
     )
+    if denied or rejected:
+        ctx.dataforseo_stopped = reason
+        ctx.dataforseo_failure = {**provider, "denied": denied}
     reserved = (
         (cost or Decimal(0))
         if rejected
@@ -202,19 +202,22 @@ def failure_evidence(ctx: Context, result: ModuleResult, outcome: dict[str, Any]
     if ctx.dataforseo_failure:
         # Presence may encounter a denial after a successful domain overview. Update its
         # shared readiness row, or create one when only presence was selected.
+        state: ConnectionStatus = (
+            "Permission required" if ctx.dataforseo_failure.get("denied") else "Not assessed"
+        )
         rows = [c for r in ctx.results for c in r.connections if c.key == name]
         if not rows:
             result.connections.append(
                 Connection(
                     key=name,
                     service="DataForSEO",
-                    status="Permission required",
+                    status=state,
                     detail=ctx.dataforseo_stopped,
                     evidence_ids=[eid],
                 )
             )
         for row in rows:
-            row.status, row.detail = "Permission required", ctx.dataforseo_stopped
+            row.status, row.detail = state, ctx.dataforseo_stopped
             row.evidence_ids.append(eid)
     return eid
 
@@ -224,7 +227,9 @@ def run(ctx: Context) -> ModuleResult:
     try:
         result = collect(ctx)
         if ctx.dataforseo_failure:
-            state = "Permission required"
+            state = (
+                "Permission required" if ctx.dataforseo_failure.get("denied") else "Not assessed"
+            )
         elif result.evidence and result.status == "ok":
             state = "Connected successfully"
         elif "credentials" in result.reason:

@@ -313,3 +313,18 @@ Tests cover consolidation, AI evidence rejection, customer separation, paid-call
 matching, quota failure, module isolation, platform/listing detection, readiness and access
 checklist rules, and a real no-AI fixture run with PDF/citation checks.
 The fixture test skips only when SiteOne, Chromium or axe is absent; run setup to exercise it.
+
+Opt-in public HTTPS smoke check (SiteOne only, no paid APIs or AI):
+
+```sh
+AMS_LIVE_SMOKE=1 uv run pytest -q tests/test_https_crawl.py::test_live_siteone_https_example_com
+```
+
+This checks `https://example.com/` with certificate verification enabled. It is skipped in the
+default suite. A successful smoke check does not establish that every customer host is reachable.
+SiteOne transport statuses such as `-4:SEND-ERROR` and its fatal error appear in the module reason
+and evidence; its 2.5.1 binary does not expose the underlying request exception. Inspect the
+run's `raw/siteone.json` and `raw/target-resolution.json` when diagnosing a failed crawl.
+Redirects retain the requested target for domain/email checks and store identity; website
+collectors use the separately recorded `resolved_url`. A preflight timeout or HTTP rejection
+is a limitation and still allows SiteOne to try the last safe URL. Unsafe redirects stop it.

@@ -189,7 +189,8 @@ def test_redirect_host_change_crawls_both_hosts_and_feeds_downstream(tmp_path, m
         server.shutdown()
         server.server_close()
         thread.join()
-    assert ctx.target == data["target"] == f"http://localhost:{server.server_port}/"
+    assert ctx.target == data["target"] == target
+    assert ctx.site_url == data["resolved_url"] == f"http://localhost:{server.server_port}/"
     assert any(u.startswith("http://localhost:") for u in ctx.pages)
     assert any(u.startswith("http://127.0.0.1:") and u.endswith("about.html") for u in ctx.pages)
     modules = {m["name"]: m for m in data["modules"]}
@@ -198,7 +199,7 @@ def test_redirect_host_change_crawls_both_hosts_and_feeds_downstream(tmp_path, m
     assert chain["requested"] == target and [r["http_status"] for r in chain["chain"]] == [301, 200]
     assert modules["browser"]["evidence"] and modules["presence"]["evidence"]
     assert any(row["status"] != "NOT ASSESSED" for row in modules["site_checks"]["checks"])
-    assert all(e["url"] == ctx.target for e in modules["site_checks"]["evidence"])
+    assert all(e["url"] == ctx.site_url for e in modules["site_checks"]["evidence"])
 
 
 @pytest.mark.parametrize("exit_code", [0, 3])

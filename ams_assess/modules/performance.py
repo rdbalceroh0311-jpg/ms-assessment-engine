@@ -27,7 +27,7 @@ def run(ctx: Context) -> ModuleResult:
     )
     result.connections = [psi, crux]
     for strategy in ["mobile", "desktop"]:
-        params = {"url": ctx.target, "strategy": strategy, "category": "performance"}
+        params = {"url": ctx.site_url, "strategy": strategy, "category": "performance"}
         if ctx.config.get("PAGESPEED_API_KEY"):
             params["key"] = ctx.config["PAGESPEED_API_KEY"]
         try:
@@ -75,7 +75,7 @@ def run(ctx: Context) -> ModuleResult:
                 "fetch_time": lighthouse.get("fetchTime"),
             }
             eid = result.add_evidence(
-                ctx.target, f"PageSpeed {strategy}: lab and available field data", summary
+                ctx.site_url, f"PageSpeed {strategy}: lab and available field data", summary
             )
             psi.status = "Connected successfully"
             psi.evidence_ids.append(eid)
@@ -98,7 +98,7 @@ def run(ctx: Context) -> ModuleResult:
             response = httpx.post(
                 "https://chromeuxreport.googleapis.com/v1/records:queryRecord",
                 params={"key": crux_key},
-                json={"url": ctx.target},
+                json={"url": ctx.site_url},
                 timeout=30,
             )
             response.raise_for_status()
@@ -107,7 +107,9 @@ def run(ctx: Context) -> ModuleResult:
                 crux.status, crux.detail = "Not assessed", "CrUX returned no usable field metrics"
                 limitations.append(crux.detail)
             else:
-                eid = result.add_evidence(ctx.target, "CrUX field data (separate API)", raw["crux"])
+                eid = result.add_evidence(
+                    ctx.site_url, "CrUX field data (separate API)", raw["crux"]
+                )
                 crux.status, crux.detail = "Connected successfully", "Field metrics returned"
                 crux.evidence_ids = [eid]
         except (httpx.HTTPError, ValueError) as exc:

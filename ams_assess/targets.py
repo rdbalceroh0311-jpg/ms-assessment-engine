@@ -13,6 +13,8 @@ from ams_assess.models import is_local, normalize_target
 
 MAX_REDIRECTS = 5
 RESOLUTION_SECONDS = 20
+REQUEST_SECONDS = 8
+NORMAL_UA = "Mozilla/5.0 (compatible; AMSAssessment/1.0)"
 LOOPBACK_ALIASES = {"localhost", "127.0.0.1", "::1"}
 
 
@@ -61,14 +63,21 @@ def resolve_target(target: str) -> dict[str, Any]:
     if upgraded:
         current = urlunsplit(("https", parts.netloc, parts.path, "", ""))
     chain: list[dict[str, Any]] = []
-    outcome: dict[str, Any] = {"requested": requested, "resolved": None, "chain": chain}
+    outcome: dict[str, Any] = {
+        "requested": requested,
+        "resolved": None,
+        "chain": chain,
+        "unsafe": False,
+    }
     visited: set[str] = set()
     deadline = time.monotonic() + RESOLUTION_SECONDS
     redirects = 0
     with httpx.Client(follow_redirects=False) as client:
         while True:
+            outcome["last_safe_url"] = current
             if current in visited:
                 outcome["error"] = "Target redirect loop"
+                outcome["unsafe"] = True
                 break
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -77,7 +86,12 @@ def resolve_target(target: str) -> dict[str, Any]:
             visited.add(current)
             try:
                 # Stream and close without downloading a potentially unbounded page body.
-                with client.stream("GET", current, timeout=min(5.0, remaining)) as response:
+                with client.stream(
+                    "GET",
+                    current,
+                    timeout=min(REQUEST_SECONDS, remaining),
+                    headers={"User-Agent": NORMAL_UA},
+                ) as response:
                     status = response.status_code
                     location = response.headers.get("location")
             except httpx.HTTPError as exc:
@@ -103,16 +117,20 @@ def resolve_target(target: str) -> dict[str, Any]:
             except ValueError:
                 # Do not retain a Location containing credentials or query secrets.
                 outcome["error"] = "Target redirect has an unsupported or unsafe Location"
+                outcome["unsafe"] = True
                 break
             entry["location"] = following
             if not same_site(requested, following):
                 outcome["error"] = "Target redirect leaves the registrable domain; not followed"
+                outcome["unsafe"] = True
                 break
             if current.startswith("https:") and following.startswith("http:"):
                 outcome["error"] = "Target redirect downgrades HTTPS to HTTP; not followed"
+                outcome["unsafe"] = True
                 break
             if redirects >= MAX_REDIRECTS:
                 outcome["error"] = "Target redirect limit reached (5 hops)"
+                outcome["unsafe"] = True
                 break
             redirects += 1
             current = following
