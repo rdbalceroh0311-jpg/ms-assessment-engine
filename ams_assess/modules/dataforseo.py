@@ -6,7 +6,7 @@ from urllib.parse import unquote
 
 import httpx
 
-from ams_assess.models import Context, ModuleResult
+from ams_assess.models import Connection, ConnectionStatus, Context, ModuleResult
 
 name = "dataforseo"
 categories = {"seo", "local_seo", "entity"}
@@ -82,6 +82,40 @@ def market(ctx: Context) -> dict[str, Any]:
 
 
 def run(ctx: Context) -> ModuleResult:
+    state: ConnectionStatus = "Not assessed"
+    try:
+        result = collect(ctx)
+        if result.evidence:
+            state = "Connected successfully"
+        elif "credentials" in result.reason:
+            state = "Not connected"
+    except httpx.HTTPStatusError as exc:
+        state = "Permission required" if exc.response.status_code in {401, 403} else "Not assessed"
+        result = ModuleResult(
+            name=name, status="error", reason=f"DataForSEO HTTP {exc.response.status_code}"
+        )
+    except Exception as exc:
+        result = ModuleResult(
+            name=name, status="error", reason=f"DataForSEO unavailable ({type(exc).__name__})"
+        )
+    result.connections = [
+        Connection(
+            key=name,
+            service="DataForSEO",
+            status=state,
+            detail=result.reason,
+            evidence_ids=[e.id for e in result.evidence],
+        )
+    ]
+    # Keep any paid response/budget already written when response parsing fails.
+    for filename in ("dataforseo.json", "dataforseo-budget.json"):
+        path = "raw/" + filename
+        if (ctx.run_dir / path).is_file() and path not in result.raw_paths:
+            result.raw_paths.append(path)
+    return result
+
+
+def collect(ctx: Context) -> ModuleResult:
     if not all(ctx.config.get(k) for k in ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"]):
         return ModuleResult(
             name=name, status="skipped", reason="Missing DataForSEO credentials; disabled"

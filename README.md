@@ -1,6 +1,6 @@
 # AMS Assessment Engine
 
-Website assessment CLI for AI Managed Services. One SiteOne crawl supplies the page inventory;
+Business assessment CLI for AI Managed Services. One SiteOne crawl supplies the page inventory;
 bounded browser checks and optional public/connected services collect evidence. Deterministic findings
 are consolidated, optionally interpreted by AI, and rendered into one branded Markdown, HTML and PDF
 report. Assessments do not submit forms or modify websites.
@@ -23,12 +23,45 @@ uv run ams-assess report data/customers/acme/<timestamp>
 Options: `--max-pages 100` (a conservative **URL** cap including assets), `--formats md,html,pdf`,
 `--no-ai`, `--connect gsc`, `--dataforseo-max-usd X`, `--keywords 'k1,k2'`, `--dkim-selectors a,b`, `--mail-tls-check`. Default categories: technical, seo, geo,
 performance, accessibility, cro_ux, copywriting, security, domain_email, local_seo, entity, presence.
-The report has nine numbered sections (summary; website, technical SEO & infrastructure; local SEO &
-digital presence; listings & platforms; analytics & tracking; connected assessment; customer access;
-recommendations; roadmap), with each category as a subsection, then limitations and evidence.
+The report follows ten sections: context; scope and limitations; critical risks; website checks;
+digital presence; domain/email/security; connected systems; operational discovery; opportunities and
+roadmap; customer verification/access/decisions. Sections without assessed content are omitted;
+unavailable checks stay in scope/limitations. An evidence index follows. Every generated report starts
+with the draft human-review banner. Findings use Confirmed / Reported by customer / Inferred / Not
+assessed basis labels and exactly one of the four AMS service categories. The planning approach is
+to improve processes and integrate existing systems first; there are no ranking, traffic, lead or
+revenue guarantees, and AI-search readiness does not measure AI visibility.
 Only required modules run; a domain/security/performance-only run has no crawl. Customer IDs must be
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
+
+### Run the next customer assessment
+
+Replace the synthetic name, target and file paths with the authorised customer's details. Start with
+public evidence and customer notes; optional paid searches need an explicit USD cap. Do not request
+passwords. The four service categories are AI & Automation, Business Systems, Digital Growth and
+Managed IT & Technology.
+
+```sh
+uv run ams-assess customer --customer acme --name 'Acme Services' --industry trades \
+  --buying-model service-area --service-area Sydney --website https://example.com
+uv run ams-assess run --customer acme --target https://example.com --no-ai
+uv run ams-assess discover --customer acme --notes /path/to/customer-notes.json
+uv run ams-assess presence-verify --customer acme --file /path/to/verified-profiles.json
+uv run ams-assess report --customer acme
+# Review/edit data/customers/acme/report.md; remove the draft banner only after AMS approval.
+uv run ams-assess report --customer acme --from-md data/customers/acme/report.md --based-on 1
+```
+
+Use the actual generated revision number for `--based-on`. Markdown is the editable master; HTML/PDF
+are regenerated from it and earlier revisions remain readable. `presence-verify` is for observations
+actually checked by a person, not assumed ownership. See the notes and verification formats below.
+Connected readiness distinguishes Connected successfully, Permission required, Not connected,
+Unsupported (no connector) and Not assessed. GSC unverified users and HTTP 403 require permission.
+The [documented GSC API](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)
+does not expose a separate generative-AI performance report/filter (checked 2026-10-23); review a
+customer-provided [Search Console UI export](https://support.google.com/webmasters/answer/16984139)
+manually. No new business-system connectors are implemented.
 
 ### Progressive assessment: one customer, one evolving assessment
 
@@ -134,19 +167,23 @@ discovery section appears in the report only when discovery notes exist.
 
 ```sh
 uv run python -m http.server 18765 --bind 127.0.0.1 --directory fixtures/site
-# In another terminal; empty ANTHROPIC_API_KEY selects the authenticated Claude CLI:
-ANTHROPIC_API_KEY= uv run ams-assess run --customer fixture-ai \
-  --customer-name 'Harbour Demo Plumbing' --target http://127.0.0.1:18765 --max-pages 30
+# In another terminal (no AI or paid API calls):
+uv run ams-assess customer --customer fixture-v1 --name 'Harbour Demo Plumbing' \
+  --industry trades --buying-model service-area --service-area Sydney
+uv run ams-assess run --customer fixture-v1 --target http://127.0.0.1:18765 --max-pages 30 --no-ai
+uv run ams-assess discover --customer fixture-v1 --notes examples/discovery/notes.example.json
+uv run ams-assess report --customer fixture-v1
 ```
 
-The five-page synthetic fixture includes a broken link, missing H1/meta description/alt text, low
+The synthetic fixture includes a broken link, missing H1/meta description/alt text, low
 contrast, a weak CTA and a structured-data telephone mismatch. Its home page also carries fictional,
 consent-gated, non-loading (`type="text/plain"`) GA4, GTM and Clarity tags (reported Unknown), a
-`google-site-verification` meta tag, a robots.txt `Sitemap:` line with a five-URL sitemap,
+`google-site-verification` meta tag, a robots.txt `Sitemap:` line with a seven-URL sitemap,
 JSON-LD `sameAs` and footer links to fictional Google Business Profile, Facebook and Yellow Pages
 listings. It contains no real customer data and makes no third-party requests.
-An AI-generated sample from an authenticated fixture run is committed under
-[`examples/fixture-report/`](examples/fixture-report/) (report, results, findings and evidence).
+A synthetic public + discovery + customer-profile sample, generated with AI disabled, is committed
+under [`examples/fixture-report/`](examples/fixture-report/) (Markdown, HTML, PDF, results, findings
+and evidence). No live customer or paid/connected API data is included.
 
 ### Business identity and platform presence discovery
 
@@ -225,7 +262,7 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | PageSpeed/CrUX | Mobile/desktop PageSpeed v5 with available URL/origin CrUX fields. Optional `PAGESPEED_API_KEY`. Separate CrUX only with `CRUX_API_KEY` or `GOOGLE_API_KEY`. Localhost and exhausted keyless quota are skipped. |
 | DataForSEO | Disabled unless `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` and explicit `--dataforseo-max-usd` are present. One Australia/English domain rank overview request by default (`DATAFORSEO_LOCATION_CODE`, overridden by `--dataforseo-location-code`), one result, no retries/pagination. Estimated $0.0101 is recorded before the call; a lower cap is refused. Presence discovery and `--keywords` SERP calls book against the same cap. Provider price changes are outside this client cap; verify [pricing](https://dataforseo.com/pricing/dataforseo-labs/dataforseo-labs-api) before enabling. No paid endpoint is used in tests. |
 | Google Search Console | Explicit `--connect gsc`, service-account `GOOGLE_APPLICATION_CREDENTIALS` or OAuth `AMS_GSC_TOKEN_FILE`, and an accessible matching property. Optional `AMS_GSC_PROPERTY`. Read-only: top 100 queries/pages over 28 complete days with 3-day lag, plus sitemaps. OAuth requires an authorized-user JSON file created by `gsc-auth`. |
-| Digital presence (`presence`) | Reuses browser DOM (meta tags, script URLs, inline tag snippets, `<link>` URLs, anchors, JSON-LD, request URLs), SiteOne headers/external URLs/robots.txt/canonical summary, domain_email MX/TXT and the GSC connection state. Its only requests, and only after a SiteOne crawl, are one `robots.txt` GET and one GET of the first same-origin `Sitemap:` URL (else `/sitemap.xml`), each with at most one redirect that keeps scheme, host and port, all within one 10-second deadline (passed as each request's timeout) and a 2 MB cap; no recursion. The complete body is parsed with ElementTree. Sitemap PASS (sitemaps.org `urlset`/`sitemapindex` with at least one `<loc>`) / WARNING (404, or fully retrieved but invalid; needs verification when robots.txt could not be read) / NOT ASSESSED (fetch failed, incomplete or declared on another origin). Detects Search Console/Bing verification, GA4, legacy UA, GTM, Clarity, Hotjar, Google Ads, Meta, LinkedIn, Bing UET, TikTok, WordPress/Shopify/Wix/Squarespace/Webflow/Joomla/Drupal and Google Workspace/Microsoft 365, with IDs as evidence. IDs count only in tag context (gtag calls, tag URLs, the GTM loader), never as bare strings. Listings (Google Business Profile, Bing, Apple Maps, Facebook, Instagram, LinkedIn and AU directories) only when the website links to them. Produces platform, listing, search/local signal (NAP, location pages, robots.txt, sitemap, canonicals), connected-readiness and customer access checklist tables. Statuses: Detected / Not detected (no public signal on sampled pages, never "no account") / Unknown (GTM present but GA4 not seen, or a consent manager / consent-gated tags present and the tag not seen loading) / NOT ASSESSED. NAP is a confirmed mismatch only on one page with one business entity, untruncated text and exactly one different phone or postcode shown; several entities or values, truncation, absence or values from different pages give a manual verification item. AI cannot create presence findings or findings cited only by presence evidence; GSC data appears only under "Authorised connection findings". Listings always need ownership confirmation; platform pages are never fetched, and search happens only through the DataForSEO SERP under the cap (see above). `AMS_ACCESS_EMAIL` names the AMS account in the checklist (placeholder if unset). |
+| Digital presence (`presence`) | Reuses browser DOM (meta tags, script URLs, inline tag snippets, `<link>` URLs, anchors, JSON-LD, request URLs), SiteOne headers/external URLs/robots.txt/canonical summary, domain_email MX/TXT and the GSC connection state. Its only requests, and only after a SiteOne crawl, are one `robots.txt` GET and one GET of the first same-origin `Sitemap:` URL (else `/sitemap.xml`), each with at most one redirect that keeps scheme, host and port, all within one 10-second deadline (passed as each request's timeout) and a 2 MB cap; no recursion. The complete body is parsed with ElementTree. Sitemap PASS (sitemaps.org `urlset`/`sitemapindex` with at least one `<loc>`) / WARNING (404, or fully retrieved but invalid; needs verification when robots.txt could not be read) / NOT ASSESSED (fetch failed, incomplete or declared on another origin). Detects Search Console/Bing verification, GA4, legacy UA, GTM, Clarity, Hotjar, Google Ads, Meta, LinkedIn, Bing UET, TikTok, WordPress/Shopify/Wix/Squarespace/Webflow/Joomla/Drupal and Google Workspace/Microsoft 365, with IDs as evidence. IDs count only in tag context (gtag calls, tag URLs, the GTM loader), never as bare strings. Listings (Google Business Profile, Bing, Apple Maps, Facebook, Instagram, LinkedIn and AU directories) only when the website links to them. Produces platform, listing, search/local signal (NAP, location pages, robots.txt, sitemap, canonicals), connected-readiness and customer access checklist tables. Statuses: Detected / Not detected (no public signal on sampled pages, never "no account") / Unknown (GTM present but GA4 not seen, or a consent manager / consent-gated tags present and the tag not seen loading) / NOT ASSESSED. NAP is a confirmed mismatch only on one page with one business entity, untruncated text and exactly one different phone or postcode shown; several entities or values, truncation, absence or values from different pages give a manual verification item. AI cannot create presence findings or findings cited only by presence evidence; GSC data appears only under "Connected business-system findings". Listings always need ownership confirmation; platform pages are never fetched, and search happens only through the DataForSEO SERP under the cap (see above). `AMS_ACCESS_EMAIL` names the AMS account in the checklist (placeholder if unset). |
 | AI | `ANTHROPIC_API_KEY` selects Anthropic SDK (billable; no retries); otherwise authenticated `claude -p --output-format json` with strict schema, tools/hooks/MCP disabled and 300-second timeout; otherwise deterministic fallback. `--no-ai` disables both. Prompt/raw responses stay in the run directory. |
 
 ## Outputs and interpretation
@@ -237,7 +274,7 @@ data/customers/<customer>/<UTC timestamp>/
   evidence.json                # stable ev-<module>-NNN IDs within the run
   findings.json
   results.json                 # scope, statuses, limitations, AI, findings, digital_presence
-  report.md                    # master Jinja2 template
+report.md                    # editable master generated from Jinja2
   report.html                  # python-markdown + print CSS
   report.pdf                   # same HTML printed by Chromium
 ```
@@ -256,7 +293,7 @@ fixture headers say nothing about production hosting. Public quotas/outages may 
 Observatory unavailable. GSC, DataForSEO and the SDK path require credentials and are not proven live
 by the fixture. Platform and listing detection only sees the sampled pages: tags behind consent or
 loaded from unsampled templates, and profiles not linked from the site, are reported as not detected
-or unknown, never as absent. The access checklist never requests passwords; customers keep ownership. `modules` and report limitations list future capabilities (Elmo, Houtini, OpenSEO, GBP,
+or unknown, never as absent. The access checklist never requests passwords; customers keep ownership. `modules` lists future capabilities (Elmo, Houtini, OpenSEO, GBP,
 GA4, WP-CLI, Workspace/M365, social SEO, PR, A/B and heatmaps); none is implemented or measured.
 
 ## Development

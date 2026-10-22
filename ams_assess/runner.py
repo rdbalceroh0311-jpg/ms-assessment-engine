@@ -90,6 +90,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         "schema_version": 1,
         "customer_id": ctx.customer_id,
         "customer_name": ctx.customer_name,
+        "profile": {"fields": ctx.profile} if ctx.profile else None,
         "target": ctx.target,
         "created_at": datetime.now(UTC).isoformat(),
         "selected_categories": sorted(ctx.categories),
@@ -123,6 +124,10 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             if (ctx.run_dir / f"report.{ext}").is_file()
         ]
     write_json(ctx.run_dir / "results.json", data)
+    # External collectors also write raw files/screenshots; keep the whole run owner-only.
+    for path in ctx.run_dir.rglob("*"):
+        if not path.is_symlink():
+            path.chmod(0o700 if path.is_dir() else 0o600)
     if ctx.store_root is not None and not merge_into_store(ctx, data, evidence, results):
         # Only on the returned dict: results.json keeps its per-run contract.
         data["store_status"] = "failed"

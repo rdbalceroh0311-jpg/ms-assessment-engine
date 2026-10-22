@@ -1,6 +1,6 @@
 import httpx
 
-from ams_assess.models import Context, ModuleResult
+from ams_assess.models import Connection, Context, ModuleResult
 
 name = "performance"
 categories = {"performance"}
@@ -13,6 +13,19 @@ def run(ctx: Context) -> ModuleResult:
             name=name, status="skipped", reason="PageSpeed/CrUX cannot access localhost"
         )
     result, raw, limitations = ModuleResult(name=name), {}, []
+    psi = Connection(
+        key="pagespeed",
+        service="PageSpeed Insights",
+        status="Not assessed",
+        detail="No usable lab measurement",
+    )
+    crux = Connection(
+        key="crux",
+        service="CrUX (separate API)",
+        status="Not connected",
+        detail="Separate API requires CRUX_API_KEY/GOOGLE_API_KEY",
+    )
+    result.connections = [psi, crux]
     for strategy in ["mobile", "desktop"]:
         params = {"url": ctx.target, "strategy": strategy, "category": "performance"}
         if ctx.config.get("PAGESPEED_API_KEY"):
@@ -24,6 +37,13 @@ def run(ctx: Context) -> ModuleResult:
                 timeout=90,
             )
             if response.status_code != 200:
+                if psi.status != "Connected successfully":
+                    psi.status = (
+                        "Permission required"
+                        if response.status_code in {401, 403}
+                        else "Not assessed"
+                    )
+                psi.detail = f"PageSpeed {strategy}: HTTP {response.status_code}"
                 raw[strategy] = {"http_status": response.status_code}
                 limitations.append(
                     f"PageSpeed {strategy}: HTTP {response.status_code} (quota/access)"
@@ -57,6 +77,8 @@ def run(ctx: Context) -> ModuleResult:
             eid = result.add_evidence(
                 ctx.target, f"PageSpeed {strategy}: lab and available field data", summary
             )
+            psi.status = "Connected successfully"
+            psi.evidence_ids.append(eid)
             if score is not None and score < 0.9:
                 result.finding(
                     f"lighthouse-{strategy}",
@@ -81,13 +103,29 @@ def run(ctx: Context) -> ModuleResult:
             )
             response.raise_for_status()
             raw["crux"] = response.json()
-            result.add_evidence(ctx.target, "CrUX field data (separate API)", raw["crux"])
+            if not raw["crux"].get("record", {}).get("metrics"):
+                crux.status, crux.detail = "Not assessed", "CrUX returned no usable field metrics"
+                limitations.append(crux.detail)
+            else:
+                eid = result.add_evidence(ctx.target, "CrUX field data (separate API)", raw["crux"])
+                crux.status, crux.detail = "Connected successfully", "Field metrics returned"
+                crux.evidence_ids = [eid]
         except (httpx.HTTPError, ValueError) as exc:
+            crux.status = (
+                "Permission required"
+                if (
+                    isinstance(exc, httpx.HTTPStatusError)
+                    and exc.response.status_code in {401, 403}
+                )
+                else "Not assessed"
+            )
+            crux.detail = f"Separate CrUX API unavailable ({type(exc).__name__})"
             limitations.append(f"Separate CrUX API unavailable ({type(exc).__name__})")
     else:
         limitations.append("Separate CrUX API skipped: missing CRUX_API_KEY/GOOGLE_API_KEY")
     result.raw_paths = [ctx.raw(name, raw)]
     result.reason = "; ".join(limitations)
+    psi.detail = result.reason or "Mobile and desktop lab measurements returned"
     if not result.evidence:
         result.status = "skipped"
     return result

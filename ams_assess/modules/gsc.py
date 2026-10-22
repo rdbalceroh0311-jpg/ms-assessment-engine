@@ -8,7 +8,7 @@ import httpx
 from google.auth.transport.requests import Request
 from google.oauth2 import credentials, service_account
 
-from ams_assess.models import Context, ModuleResult
+from ams_assess.models import Connection, ConnectionStatus, Context, ModuleResult
 
 name = "gsc"
 categories = {"seo", "geo"}
@@ -19,6 +19,16 @@ requires = [
 ]
 SCOPE = "https://www.googleapis.com/auth/webmasters.readonly"
 SITES_URL = "https://www.googleapis.com/webmasters/v3/sites"
+# Documentation checked 2026-10-23. The UI report exists; the API reference documents no
+# separate generative-AI report type/dimension. Do not interpret aggregate web data as AI data.
+AI_REPORT_NOTE = (
+    "The generative-AI performance report is available in the Search Console interface. "
+    "As of 2026-10-23, the documented API has no separate generative-AI report endpoint or "
+    "filter; use a customer-provided UI export for manual review. Aggregate Web results "
+    "cannot establish AI visibility. Sources: "
+    "https://developers.google.com/webmaster-tools/v1/searchanalytics/query and "
+    "https://support.google.com/webmasters/answer/16984139"
+)
 
 
 def save_token(path: Path, auth: credentials.Credentials) -> None:
@@ -60,6 +70,38 @@ def matches_target(prop: str, target: str) -> bool:
 
 
 def run(ctx: Context) -> ModuleResult:
+    state: ConnectionStatus = "Not connected"
+    try:
+        result = collect(ctx)
+        if result.evidence:
+            state = "Connected successfully"
+        elif "permission" in result.reason.lower() or "accessible" in result.reason.lower():
+            state = "Permission required"
+        elif ctx.local:
+            state = "Not assessed"
+    except httpx.HTTPStatusError as exc:
+        state = "Permission required" if exc.response.status_code in {401, 403} else "Not assessed"
+        result = ModuleResult(
+            name=name, status="skipped", reason=f"GSC HTTP {exc.response.status_code}"
+        )
+    except Exception as exc:
+        state = "Not connected"
+        result = ModuleResult(
+            name=name, status="error", reason=f"GSC unavailable ({type(exc).__name__})"
+        )
+    result.connections = [
+        Connection(
+            key=name,
+            service="Google Search Console",
+            status=state,
+            detail=result.reason + ". " + AI_REPORT_NOTE,
+            evidence_ids=[e.id for e in result.evidence],
+        )
+    ]
+    return result
+
+
+def collect(ctx: Context) -> ModuleResult:
     credential = ctx.config.get("GOOGLE_APPLICATION_CREDENTIALS")
     token = ctx.config.get("AMS_GSC_TOKEN_FILE")
     if "gsc" not in ctx.connections or not (credential or token):
@@ -83,13 +125,28 @@ def run(ctx: Context) -> ModuleResult:
     if not auth.valid:
         auth.refresh(Request())
     with httpx.Client(headers={"Authorization": f"Bearer {auth.token}"}, timeout=30) as client:
+        sites = list_sites(client)
+        desired = ctx.config.get("AMS_GSC_PROPERTY")
+        if any(
+            e.get("permissionLevel") == "siteUnverifiedUser"
+            and matches_target(e["siteUrl"], ctx.target)
+            and (not desired or desired == e["siteUrl"])
+            for e in sites
+        ) and not any(
+            e.get("permissionLevel") in {"siteOwner", "siteFullUser", "siteRestrictedUser"}
+            and matches_target(e["siteUrl"], ctx.target)
+            and (not desired or desired == e["siteUrl"])
+            for e in sites
+        ):
+            return ModuleResult(
+                name=name, status="skipped", reason="GSC permission required: siteUnverifiedUser"
+            )
         accessible = [
             e["siteUrl"]
-            for e in list_sites(client)
-            if e.get("permissionLevel") != "siteUnverifiedUser"
+            for e in sites
+            if e.get("permissionLevel") in {"siteOwner", "siteFullUser", "siteRestrictedUser"}
             and matches_target(e["siteUrl"], ctx.target)
         ]
-        desired = ctx.config.get("AMS_GSC_PROPERTY")
         prop = (
             desired
             if desired in accessible

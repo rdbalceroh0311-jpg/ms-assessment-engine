@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Report order: website and technical findings, then local SEO and digital presence.
 CATEGORIES = {
@@ -37,6 +37,29 @@ AMS_SERVICES = (
     "Digital Growth",
     "Managed IT & Technology",
 )
+AMSService = Literal[
+    "AI & Automation", "Business Systems", "Digital Growth", "Managed IT & Technology"
+]
+SERVICE_BY_CATEGORY = {
+    **dict.fromkeys(CATEGORIES, "Digital Growth"),
+    "security": "Managed IT & Technology",
+    "domain_email": "Managed IT & Technology",
+    "technical": "Managed IT & Technology",
+    "discovery": "Business Systems",
+}
+ConnectionStatus = Literal[
+    "Connected successfully", "Permission required", "Not connected", "Unsupported", "Not assessed"
+]
+
+
+class Connection(BaseModel):
+    key: str
+    service: str
+    status: ConnectionStatus
+    detail: str
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
 Provenance = Literal[
     "technical_evidence", "manual_verification", "customer_statement", "assumption"
 ]
@@ -80,9 +103,76 @@ class Finding(BaseModel):
     likely_cause: str = ""
     business_impact: str = ""
     priority: Literal["P1", "P2", "P3"] = "P2"
-    ams_service: str = "Website improvement"
+    ams_service: AMSService = "Digital Growth"
+    urgency: str = ""
+    dependencies: list[str] = Field(
+        default_factory=lambda: [
+            "Customer approval of scope and an accountable system owner before changes"
+        ]
+    )
+    information_required: list[str] = Field(
+        default_factory=lambda: [
+            "Confirm the current setup, existing integrations, access and business priority"
+        ]
+    )
     # Derived worst-of from cited evidence by consolidate(); never trusted from AI output.
     provenance: Provenance = "technical_evidence"
+
+    @model_validator(mode="before")
+    @classmethod
+    def material_fields(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        value = dict(value)
+        # Migrate known pre-v1 labels when reading old evidence/report revisions. Arbitrary
+        # service names are rejected by the enum; AI validation rejects legacy labels too.
+        if value.get("ams_service") in {
+            None,
+            "Website improvement",
+            "Local SEO",
+            "Analytics & tracking",
+        }:
+            value["ams_service"] = SERVICE_BY_CATEGORY.get(
+                value.get("category"), "Business Systems"
+            )
+        if not value.get("urgency"):
+            value["urgency"] = {
+                "P1": "Review within 0-30 days",
+                "P2": "Plan within 30-90 days",
+                "P3": "Consider after 90 days",
+            }.get(value.get("priority", "P2"), "Confirm urgency with the customer")
+        if not value.get("business_impact"):
+            value["business_impact"] = (
+                {
+                    "Managed IT & Technology": (
+                        "May affect reliability or protection of business systems; "
+                        "impact requires verification."
+                    ),
+                    "Business Systems": (
+                        "May affect staff hand-offs or data consistency; "
+                        "impact requires verification."
+                    ),
+                    "AI & Automation": (
+                        "May reduce repetitive work if the process is suitable; "
+                        "benefits are not measured."
+                    ),
+                    "Digital Growth": (
+                        "May affect how customers find, understand or use the business online; "
+                        "outcomes are not measured."
+                    ),
+                }[value.get("ams_service", "Digital Growth")]
+                if value.get("ams_service", "Digital Growth") in AMS_SERVICES
+                else "Impact requires verification."
+            )
+        return value
+
+    @property
+    def basis(self) -> str:
+        if self.provenance == "customer_statement":
+            return "Reported by customer"
+        if self.provenance == "technical_evidence" and self.confidence == "confirmed":
+            return "Confirmed (technical evidence)"
+        return "Inferred (heuristic or AI, needs verification)"
 
 
 class ModuleResult(BaseModel):
@@ -94,6 +184,7 @@ class ModuleResult(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
     # Optional structured per-area check rows (domain_email health summary).
     checks: list[dict[str, Any]] = Field(default_factory=list)
+    connections: list[Connection] = Field(default_factory=list)
 
     def add_evidence(self, url: str, description: str, data: Any) -> str:
         eid = f"ev-{self.name}-{len(self.evidence) + 1:03d}"
@@ -134,6 +225,7 @@ class ModuleResult(BaseModel):
 def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, ensure_ascii=False, default=str) + "\n")
+    path.chmod(0o600)
 
 
 def normalize_target(value: str) -> str:
@@ -175,8 +267,8 @@ def create_run_dir(root: Path, customer: str) -> Path:
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
     result = customer_dir / stamp
     result.mkdir(parents=True, mode=0o700)
-    (result / "raw").mkdir()
-    (result / "screenshots").mkdir()
+    (result / "raw").mkdir(mode=0o700)
+    (result / "screenshots").mkdir(mode=0o700)
     return result
 
 

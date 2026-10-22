@@ -10,11 +10,77 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from playwright.sync_api import sync_playwright
 
 from ams_assess.ai import PHASES
+from ams_assess.consolidate import consolidate
 from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding, customer_path
+from ams_assess.modules.gsc import AI_REPORT_NOTE
+from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
 from ams_assess.store import load, locked, now, report_data, save
 
 LOCAL = {"local_seo", "entity", "presence"}
 MAX_MARKDOWN_BYTES = 5_000_000
+DRAFT_BANNER = (
+    "Draft — AI-assisted analysis requires AMS human review before it is sent to the customer"
+)
+
+
+def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Use collected status, with conservative fallbacks for readable pre-v1 runs."""
+    rows = []
+    for module in data["modules"]:
+        target = module.get("target", data.get("target", ""))
+        connections = module.get("connections", [])
+        if connections:
+            rows.extend({**c, "target": target} for c in connections)
+            continue
+        services = {
+            "gsc": [("gsc", "Google Search Console")],
+            "performance": [("pagespeed", "PageSpeed Insights"), ("crux", "CrUX")],
+            "dataforseo": [("dataforseo", "DataForSEO")],
+        }
+        for key, service in services.get(module["name"], []):
+            rows.append(
+                {
+                    "key": key,
+                    "service": service,
+                    "target": target,
+                    "status": "Not assessed",
+                    "evidence_ids": [],
+                    "detail": module.get("reason") or "Connection status not recorded in this run",
+                }
+            )
+    # Unsupported connectors are opportunities for a manual review, never connected evidence.
+    sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
+    for p in filter(None, sites):
+        for r in p.get("readiness", []):
+            target = p.get("target", data.get("target", ""))
+            if any(c["key"] == r["key"] and c["target"] == target for c in rows):
+                continue
+            status = (
+                r["access"]
+                if r["access"]
+                in {
+                    "Connected successfully",
+                    "Permission required",
+                    "Not connected",
+                    "Not assessed",
+                }
+                else "Not assessed"
+            )
+            rows.append(
+                {
+                    "key": r["key"],
+                    "service": r["service"],
+                    "target": target,
+                    "status": status if r["key"] == "gsc" else "Unsupported",
+                    "detail": r["insights"],
+                    "evidence_ids": r["evidence_ids"],
+                }
+            )
+    for row in rows:
+        if row["key"] == "gsc" and AI_REPORT_NOTE not in row["detail"]:
+            row["detail"] += ". " + AI_REPORT_NOTE
+    return rows
+
 
 CSS = """@page { size: A4; margin: 18mm 17mm 20mm; }
 body { font-family: Arial, sans-serif; color: #20303d; font-size: 10pt; line-height: 1.48;
@@ -24,12 +90,20 @@ h1 { color: #143c52; font-size: 29pt; line-height: 1.12; border-bottom: 4px soli
 h2 { color: #143c52; font-size: 16pt; margin-top: 26px; border-bottom: 1px solid #cbd8df;
      padding-bottom: 6px; break-after: avoid; }
 h3 { color: #195b68; font-size: 12pt; margin-top: 20px; break-after: avoid; }
+h4 { break-after: avoid; }
 h3 + p, h3 + p + p { break-after: avoid; }
 p,li { orphans: 3; widows: 3; overflow-wrap: anywhere; }
 a { color: #166c7c; overflow-wrap: anywhere; }
 table { width: 100%; border-collapse: collapse; font-size: 8pt; table-layout: fixed; }
 th:first-child { width: 20%; } th:nth-child(2) { width: 12%; }
 table:has(th:nth-child(4)) th:nth-child(3) { width: 38%; }
+table:has(th:nth-child(5)) th { width: auto; }
+table:has(th:nth-child(6)) th:nth-child(n) { width: auto; }
+table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(1) { width: 22%; }
+table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(2) { width: 10%; }
+table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(3) { width: 24%; }
+table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(4) { width: 20%; }
+table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(5) { width: 24%; }
 th,td { border: 1px solid #cfdae0; padding: 6px; text-align: left; vertical-align: top;
         overflow-wrap: anywhere; }
 th { background: #eaf2f5; } tr { break-inside: avoid; }
@@ -51,7 +125,7 @@ def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
     evidence = [
         Evidence.model_validate(e) for e in json.loads((run_dir / "evidence.json").read_text())
     ]
-    return render_data(run_dir, data, evidence, formats)
+    return render_data(run_dir, data, evidence, formats, data.get("discovery"))
 
 
 def output_path(directory: Path, name: str) -> Path:
@@ -113,6 +187,7 @@ def render_customer(
         for name in written:
             (revision / name).chmod(0o400)  # a revision is never rewritten
             output_path(directory, name).write_bytes((revision / name).read_bytes())
+            output_path(directory, name).chmod(0o600)
         runs = store["runs"]
         revisions.append(
             {
@@ -168,7 +243,8 @@ def render_data(
 def render_markdown(
     data: dict[str, Any], evidence: list[Evidence], discovery: dict[str, Any] | None = None
 ) -> str:
-    findings = [Finding.model_validate(f) for f in data["findings"]]
+    # Recheck each basis without merging distinct customer-store findings across websites.
+    findings = [consolidate([Finding.model_validate(f)], evidence)[0] for f in data["findings"]]
     known = {e.id for e in evidence}
     if any(not set(f.evidence_ids) <= known for f in findings):
         raise ValueError("Report refused: a finding references missing evidence")
@@ -211,13 +287,56 @@ def render_markdown(
         m["name"] == "domain_email" and m["status"] != "skipped" for m in data["modules"]
     ):
         shown.add("domain_email")
+    connected_ids = {e.id for e in evidence if e.source == "gsc"}
+    connected = [f for f in findings if connected_ids.intersection(f.evidence_ids)]
+    public = [f for f in findings if f not in connected]
+    sources = {e.id: e.source for e in evidence}
+    presence_sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
+    presence_sites = [p for p in presence_sites if p]
+    assessed_presence = [
+        p
+        for p in presence_sites
+        if p.get("status") == "assessed"
+        or p.get("discovery", {}).get("status") in {"Assessed", "Partially assessed"}
+        or any(r.get("manual") for r in p.get("discovery", {}).get("platforms", []))
+    ]
+    # GSC alone must not create empty website/SEO sections.
+    public_categories = {f.category for f in public}
+    if any(
+        e.source in {"siteone", "browser", "site_checks", "performance", "dataforseo"}
+        for e in evidence
+    ):
+        public_categories |= shown
+    security_categories = shown & {"security", "domain_email"}
+    connections = connection_rows(data)
+    profile = (data.get("profile") or {}).get("fields") or {}
+    profile = {
+        **profile,
+        "industry": INDUSTRIES.get(profile.get("industry"), profile.get("industry")),
+        "buying_model": BUYING_MODELS.get(profile.get("buying_model"), profile.get("buying_model")),
+    }
     content = template.render(
         data=data,
         ai=ai,
         evidence=evidence,
         findings=findings,
-        # Sections 2 and 3 of the report; presence renders from data["digital_presence"].
-        web_sections={k: t for k, t in CATEGORIES.items() if k in shown and k not in LOCAL},
+        public_findings=public,
+        finding_categories={f.category for f in public},
+        connected_findings=connected,
+        connected_evidence=[e for e in evidence if e.id in connected_ids],
+        critical_findings=[f for f in findings if f.severity in {"critical", "high"}],
+        sources=sources,
+        banner=DRAFT_BANNER,
+        profile=profile,
+        connections=connections,
+        presence_sites=presence_sites,
+        assessed_presence=assessed_presence,
+        security_sections={k: t for k, t in CATEGORIES.items() if k in security_categories},
+        web_sections={
+            k: t
+            for k, t in CATEGORIES.items()
+            if k in shown & public_categories and k not in LOCAL | {"security", "domain_email"}
+        },
         local_sections={
             k: t for k, t in CATEGORIES.items() if k in shown & {"local_seo", "entity"}
         },
@@ -228,6 +347,15 @@ def render_markdown(
         discovery=discovery,
         collected_sources={e.source for e in evidence},
         browser_observations=sum(e.source == "browser" for e in evidence),
+        show_verification=bool(
+            connections
+            or discovery
+            or data.get("needs_review")
+            or data.get("finding_history")
+            or data.get("limitations")
+            or any(f.confidence != "confirmed" for f in findings)
+            or any(e.source in {"browser", "site_checks"} for e in evidence)
+        ),
     )
     return content
 

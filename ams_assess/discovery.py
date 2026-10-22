@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from ams_assess.models import AMS_SERVICES
+from ams_assess.models import AMS_SERVICES, AMSService
 
 # Keys are stable: add new sections, never rename or remove one (stored notes reference them).
 DISCOVERY_SECTIONS = {
@@ -58,7 +58,7 @@ class DerivedFinding(BaseModel):
     severity: Literal["critical", "high", "medium", "low", "info"] = "medium"
     detail: str = Field(min_length=1, max_length=2000)
     recommendation: str = Field(min_length=1, max_length=2000)
-    ams_service: str
+    ams_service: AMSService
     # "section" cites every statement in it; "section:N" cites the Nth (0-based) one.
     cites: list[str] = Field(min_length=1, max_length=50)
     likely_cause: str = Field(default="", max_length=1000)

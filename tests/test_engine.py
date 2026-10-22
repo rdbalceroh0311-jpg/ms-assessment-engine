@@ -453,25 +453,20 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert all(set(e["data"].get("source_evidence_ids", [])) <= known for e in site["evidence"])
     pdf_text = "".join(page.extract_text() for page in PdfReader(directory / "report.pdf").pages)
     numbered = [
-        "1. Executive summary",
-        "2. Website, technical SEO & infrastructure findings",
-        "3. Local SEO & digital presence",
-        "4. Business listings & platform opportunities",
-        "5. Analytics & tracking readiness",
-        "6. Connected assessment opportunities",
-        "7. Customer access requirements",
-        "8. Prioritised recommendations",
-        "9. Proposed implementation roadmap",
+        "1. Executive summary and business context",
+        "2. Scope, sources, dates and coverage limitations",
+        "3. Critical findings and business risks",
+        "4. Website, SEO, performance, accessibility and AI-search readiness",
+        "5. Digital presence: maps, social, directories and industry channels",
+        "6. Domain, DNS, email and relevant security observations",
+        "9. Prioritised improvement opportunities and recommended roadmap",
+        "10. Items requiring customer verification, access or decisions",
     ]
     top_level = re.findall(r"^## (.+)$", report, re.M)
-    assert top_level[1:10] == numbered
-    assert top_level[10:] == [
-        "Data sources, missing data & limitations",
-        "Appendix: evidence index",
-    ]
+    assert top_level == ["Business assessment report", *numbered, "Appendix: evidence index"]
     for heading in numbered:
         assert heading.replace("&", "&amp;") in report_html
-        assert heading.split(". ", 1)[1] in pdf_text
+        assert heading.split(". ", 1)[1] in " ".join(pdf_text.split())
     for finding in results["findings"]:
         assert finding["evidence_ids"] and set(finding["evidence_ids"]) <= known
         escaped_id = finding["id"].replace("_", "\\_")

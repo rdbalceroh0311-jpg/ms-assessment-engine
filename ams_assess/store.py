@@ -366,7 +366,12 @@ def _merge_run(
             "modules": len(data["modules"]),
         },
         "modules": [
-            {"name": m["name"], "status": m["status"], "reason": m["reason"]}
+            {
+                "name": m["name"],
+                "status": m["status"],
+                "reason": m["reason"],
+                "connections": remap(m.get("connections", []), mapping),
+            }
             for m in data["modules"]
         ],
         "pages": data["pages"],
@@ -684,7 +689,12 @@ def report_data(
     for run in runs:
         targets.setdefault(run["target"], []).append(run["run_id"])
         for module in run["modules"]:
-            latest_modules[(run["target"], module["name"])] = {**module, "target": run["target"]}
+            latest_modules[(run["target"], module["name"])] = {
+                **module,
+                "target": run["target"],
+                "created_at": run["created_at"],
+                "run_id": run["run_id"],
+            }
     limitations = [
         line
         for line in dict.fromkeys(x for r in runs for x in r["limitations"])
@@ -711,6 +721,23 @@ def report_data(
     }
     data: dict[str, Any] = {
         "customer_name": store["customer_name"],
+        "profile": store.get("profile"),
+        "reported_sources": [
+            {"source": r["kind"], "created_at": r["created_at"], "run_id": r["run_id"]}
+            for r in store["runs"]
+            if r["kind"] != "assessment"
+        ],
+        "coverage": [
+            {
+                "target": r["target"],
+                "run_id": r["run_id"],
+                "created_at": r["created_at"],
+                "pages": len(r["pages"]),
+                "max_pages": r["max_pages"],
+                "status": r["status"],
+            }
+            for r in runs
+        ],
         "created_at": store["updated_at"],
         "target": latest("target", ""),
         "targets": [{"target": t, "run_ids": ids} for t, ids in targets.items() if t],
@@ -739,6 +766,10 @@ def report_data(
     if verified and data.get("digital_presence", {}).get("discovery"):
         # Manual verification supersedes the automated state; the automated state stays shown.
         data["digital_presence"] = apply_verifications(data["digital_presence"], verified)
+        data["digital_presence_sites"] = [
+            data["digital_presence"] if p["run_id"] == data["digital_presence"]["run_id"] else p
+            for p in data.get("digital_presence_sites", [])
+        ]
         data["findings"] = current_findings(data["findings"], data["digital_presence"], verified)
     elif verified:
         limitations.append(

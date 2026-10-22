@@ -19,6 +19,7 @@ from ams_assess import platforms as catalogue
 from ams_assess import presence_discovery
 from ams_assess.models import Context, ModuleResult
 from ams_assess.modules import dataforseo
+from ams_assess.modules.gsc import AI_REPORT_NOTE
 from ams_assess.profile import phone_key
 
 name = "presence"
@@ -242,7 +243,11 @@ LOCATION_PAGE = re.compile(
 PHONE = re.compile(r"(?:\+?61|\b0)[\d ()-]{7,14}\d")
 POSTCODE = re.compile(r"\b(?:NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\s+(\d{4})\b")
 READINESS = [
-    ("gsc", "Google Search Console", "Search queries, clicks, impressions, indexing and sitemaps"),
+    (
+        "gsc",
+        "Google Search Console",
+        "Search queries, clicks, impressions and sitemaps. " + AI_REPORT_NOTE,
+    ),
     ("ga4", "Google Analytics 4", "Traffic sources, key events/conversions and engagement"),
     (
         "google_business_profile",
@@ -545,10 +550,11 @@ def gsc_state(ctx: Context, gsc: ModuleResult | None) -> tuple[str, list[str], s
     if gsc and gsc.status == "ok" and gsc.evidence:
         data = gsc.evidence[0].data if isinstance(gsc.evidence[0].data, dict) else {}
         prop = str(data.get("property", ""))
-        return f"Connected & verified ({prop})", [gsc.evidence[0].id], prop
+        return "Connected successfully", [gsc.evidence[0].id], prop
+    if gsc and gsc.connections:
+        return gsc.connections[0].status, [], ""
     if "gsc" in ctx.connections:
-        reason = gsc.reason if gsc else "Search Console module did not run"
-        return f"{NOT_CONNECTED} ({reason})", [], ""
+        return "Not assessed" if gsc is None else NOT_CONNECTED, [], ""
     return NOT_CONNECTED, [], ""
 
 
@@ -560,7 +566,7 @@ def platform_row(key: str, label: str, group: str, status: str, **fields: Any) -
         "platform": label,
         "group": group,
         "status": status,
-        "connected": NOT_CONNECTED if key in CONNECTABLE else "n/a",
+        "connected": NOT_CONNECTED if key == "gsc" else "Unsupported",
         "ids": [],
         "evidence_ids": [],
         "detail": "",
@@ -785,8 +791,8 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
             "robots_status": robots.get("status") or robots.get("error"),
             # Retain a bounded body for site_checks; no second robots request.
             "robots_body": robots.get("body", b"")[:65_536].decode("utf-8", "replace"),
-            "robots_complete": bool(robots.get("complete")) and
-            len(robots.get("body", b"")) <= 65_536,
+            "robots_complete": bool(robots.get("complete"))
+            and len(robots.get("body", b"")) <= 65_536,
             "declared": declared if declared is not None else "unknown",
             "confirmed": True,
         }
@@ -841,8 +847,10 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
     # parse_sitemap has already rejected DTDs, entities and invalid encodings.
     if kind == "urlset":
         root = ET.fromstring(response["body"].decode("utf-8-sig"))
-        urls = [(node.findtext(SITEMAP_NS + "loc") or "").strip()
-                for node in root.findall(SITEMAP_NS + "url")]
+        urls = [
+            (node.findtext(SITEMAP_NS + "loc") or "").strip()
+            for node in root.findall(SITEMAP_NS + "url")
+        ]
         data["sitemap_urls"] = urls[:500]
         data["sitemap_urls_truncated"] = len(urls) > 500
     noun = "URLs" if kind == "urlset" else "child sitemaps"
@@ -1207,8 +1215,9 @@ def build(
                 "public_evidence": public,
                 "evidence_ids": source["evidence_ids"],
                 "confirmation": "Account existence and customer ownership confirmation needed",
-                "access": gsc_text if key == "gsc" else NOT_CONNECTED,
-                "insights": insight,
+                "access": gsc_text if key == "gsc" else "Unsupported",
+                "insights": insight
+                + (". No connector implemented; manual review only." if key != "gsc" else ""),
             }
         )
     email = ctx.config.get("AMS_ACCESS_EMAIL") or PLACEHOLDER_EMAIL

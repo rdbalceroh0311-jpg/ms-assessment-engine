@@ -231,8 +231,13 @@ def main(argv: list[str] | None = None) -> int:
         return gsc_auth(args, parser)
     if args.command == "modules":
         for module in REGISTRY.values():
+            availability = "available"
+            if module.name == "siteone":
+                binary = ROOT / "tools/siteone/siteone-crawler/siteone-crawler"
+                if not binary.is_file() or not os.access(binary, os.X_OK):
+                    availability = "unavailable (run scripts/setup.sh)"
             print(
-                f"{module.name}: available | {','.join(sorted(module.categories))} | "
+                f"{module.name}: {availability} | {','.join(sorted(module.categories))} | "
                 f"requires: {', '.join(module.requires)}"
             )
         for name, description, requirement, _ in FUTURE:
