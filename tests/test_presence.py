@@ -133,7 +133,10 @@ def test_listings_from_links_and_same_as_never_claim_ownership(tmp_path):
     ctx.results = [
         browser(
             {
-                "links": ["https://www.facebook.com/acme", "https://www.yellowpages.com.au/x/acme"],
+                "links": [
+                    "https://www.facebook.com/acme",
+                    "https://www.yellowpages.com.au/nsw/sydney/acme",
+                ],
                 "json_ld": [
                     {
                         "@type": "Plumber",
@@ -183,8 +186,8 @@ def test_readiness_and_checklist_follow_detections(tmp_path):
     readiness = rows(tables, "readiness")
     assert readiness["m365"]["status"] == DETECTED
     assert "google_workspace" not in readiness
-    assert readiness["gsc"]["access"] == "Connected & verified (sc-domain:example.com)"
-    assert readiness["ga4"]["access"] == "Not connected"
+    assert readiness["gsc"]["access"] == "Connected successfully"
+    assert readiness["ga4"]["access"] == "Unsupported"
     assert readiness["wordpress"]["status"] == NOT_DETECTED
     checklist = {item["service"]: item for item in tables["checklist"]}
     assert not any("WordPress" in service for service in checklist)
@@ -210,22 +213,13 @@ def test_report_renders_presence_sections_not_assessed_without_inputs(tmp_path, 
     assert data["digital_presence"]["status"] == NOT_ASSESSED
     assert "digital_presence" in json.loads((ctx.run_dir / "results.json").read_text())
     report = (ctx.run_dir / "report.md").read_text()
-    for heading in [
-        "## 3. Local SEO & digital presence",
-        "## 4. Business listings & platform opportunities",
-        "## 5. Analytics & tracking readiness",
-        "## 6. Connected assessment opportunities",
-        "### Public assessment",
-        "### Authorised connection findings",
-        "## 7. Customer access requirements",
-    ]:
-        assert heading in report
-    assert "| Google Analytics 4 | NOT ASSESSED |" in report
-    assert "| Google Business Profile | NOT ASSESSED |" in report
+    assert "## 5. Digital presence" not in report
+    assert "## 7. Connected business-system findings" not in report
+    assert "## 10. Items requiring customer verification" in report
+    assert f"| Google Search Console<br>{ctx.target} | Not connected |" in report
+    assert f"| Google Analytics 4<br>{ctx.target} | Unsupported |" in report
     assert "set AMS\\_ACCESS\\_EMAIL" in report
-    assert [h.split(".")[0] for h in re.findall(r"^## (\d\.[^\n]*)", report, re.M)] == list(
-        "123456789"
-    )
+    assert re.findall(r"^## (\d+)\.", report, re.M) == ["1", "2", "10"]
     other = context(tmp_path, categories={"security"})
     monkeypatch.setattr(
         runner,
@@ -240,7 +234,7 @@ def test_report_renders_presence_sections_not_assessed_without_inputs(tmp_path, 
     assert "digital_presence" not in data
     other_report = (other.run_dir / "report.md").read_text()
     assert "### Public assessment" not in other_report
-    assert "Digital presence was not in the selected scope." in other_report
+    assert "## 5. Digital presence" not in other_report
 
 
 def test_ids_outside_tag_context_are_not_detections():

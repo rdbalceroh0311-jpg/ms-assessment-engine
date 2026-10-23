@@ -1,40 +1,78 @@
+{% macro site_checks_table() %}
+{# Site checks: self-contained additive block; stored evidence survives customer report merges. #}
+{% set site = namespace(rows={}) %}
+{% for e in evidence if e.source == 'site_checks' and e.data.get('site_check') %}
+{% set _ = site.rows.update({(e.url, e.data.site_check): e}) %}
+{% endfor %}
+{% if site.rows %}
+### Website checks: status and evidence
+
+Each row describes the sampled evidence. NOT ASSESSED means evidence is unavailable or incomplete. Optional features are informational. Form submissions are always **NOT TESTED**. AI-search readiness is not measured visibility.
+
+Checks with findings are described in their finding blocks; the remaining checks are listed here.
+
+| Check / evidence | Status | What was checked | Why it matters | Recommended correction |
+| --- | --- | --- | --- | --- |
+{% for e in site.rows.values() if (e.url, e.data.site_check) not in represented_site_checks %}
+| {{ e.data.area | text }} ({{ e.id }})<br>{{ e.url | text }} | {{ e.data.status }} | {{ e.data.checked | text }} | {{ e.data.why | text }} | {{ e.data.recommendation | text }} |
+{% endfor %}
+
+Crawler-policy detail (training restrictions are customer choices):
+
+{% for e in site.rows.values() if e.data.site_check == 'ai-robots' %}
+Website: {{ e.url | text }} ({{ e.id }}).
+
+| Crawler | Purpose | Status | Blocked sampled paths |
+| --- | --- | --- | --- |
+{% for bot in e.data.detail.crawlers %}
+| {{ bot.crawler | text }} | {{ bot.purpose | text }} | {{ bot.status }} | {{ bot.blocked_paths | join('; ') | text or '-' }} |
+{% endfor %}
+
+{% endfor %}
+The probes use at most two homepage GETs and one llms.txt GET, with no redirects, a 64 KiB raw body cap per response, identity encoding and a 3-second request timeout capped by the remaining 10-second shared deadline. Robots/sitemap data reuses the presence collector. No canonical or sitemap target URLs are fetched by these checks. Sample limits, missing header attribution, iframe coverage, CTA positions and incomplete link graphs remain explicit; no forms are submitted.
+
+{% endif %}
+{% endmacro %}
 {% macro finding_block(finding) %}
 #### {{ finding.id | text }}: {{ finding.title | text }}
 
-**Severity:** {{ finding.severity }} | **Confidence:** {{ finding.confidence }} | **Type:** {{ finding.kind }} | **Priority:** {{ finding.priority }}
+**Basis:** {{ finding.basis }}. **Verification status:** {{ finding.confidence | replace('_', ' ') }}{% if finding.provenance == 'manual_verification' %}; manually recorded observation, not a technical measurement{% endif %}.
 
-{% if finding.provenance != 'technical_evidence' %}
-**Basis:** {{ 'Customer statement, not independently verified' if finding.provenance == 'customer_statement' else 'Assumption, not verified' }}.
+**Importance:** {{ finding.severity }} | **Priority:** {{ finding.priority }} | **Urgency:** {{ finding.urgency | text }} | **Type:** {{ finding.kind }}
 
-{% endif %}
-{{ finding.detail | text }}
+**Observed / reported:** {{ finding.detail | text }}
 
-**Recommended action:** {{ finding.recommendation | text }}
+**Potential business impact (interpretation, not measured):** {{ finding.business_impact | text }}
+
+**Recommended next action:** {{ finding.recommendation | text }}{{ ' Review the current process first; prefer keeping and integrating existing systems before considering replacement.' if finding.ams_service in ['Business Systems', 'AI & Automation'] else '' }}
 
 {% if finding.likely_cause %}
 **Likely cause (interpretation):** {{ finding.likely_cause | text }}
 
 {% endif %}
-{% if finding.business_impact %}
-**Potential business impact:** {{ finding.business_impact | text }}
+**AMS service category:** {{ finding.ams_service | text }}
 
-{% endif %}
-**Suggested AMS service:** {{ finding.ams_service | text }}
+**Dependencies:** {{ finding.dependencies | join('; ') | text or 'Confirm dependencies with the system owner' }}.
+
+**Information still required:** {{ finding.information_required | join('; ') | text or 'Confirm scope and access with the customer' }}.
 
 {% if finding.urls %}
 **Affected URLs:** {{ finding.urls | join('; ') | text }}
 
 {% endif %}
+**Source:** {% for eid in finding.evidence_ids %}{{ sources[eid] | text }} ({{ eid }}){{ '; ' if not loop.last }}{% endfor %}.
+
 **Evidence:** {{ finding.evidence_ids | join(', ') }}
 {% endmacro %}
 {% macro platform_table(rows) %}
-| Platform | Status | Connected & verified | Evidence | Recommended next action |
+| Platform | Status | Connection readiness | Evidence | Recommended next action |
 | --- | --- | --- | --- | --- |
 {% for r in rows %}
 | {{ r.platform | text }}{% if r.ids %} ({{ r.ids | join(', ') | text }}){% endif %} | {{ r.status | text }} | {{ r.connected | text }} | {{ r.detail | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %} | {{ r.action | text }} |
 {% endfor %}
 {% endmacro %}
 {% macro category_section(category, title) %}
+{% if category in finding_categories or ai.get('sections', {}).get(category) or (category == 'domain_email' and data.get('domain_email_health')) %}
 ### {{ title }}
 
 {% if ai.get('sections', {}).get(category) %}
@@ -66,15 +104,18 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
-{% for finding in findings if finding.category == category %}
+{% for finding in public_findings if finding.category == category %}
 {{ finding_block(finding) }}
 {% else %}
 No reportable findings were established from the available checks in this category. This does not establish that the category is free of issues; coverage and missing data are listed below.
 
 {% endfor %}
+{% endif %}
 {% endmacro %}
+> {{ banner }}
+
 # AI Managed Services
-## Website assessment report
+## Business assessment report
 
 **Customer:** {{ data.customer_name | text }}<br>
 **Assessment date (UTC):** {{ data.created_at[:10] | text }}<br>
@@ -88,59 +129,101 @@ No reportable findings were established from the available checks in this catego
 
 > Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.
 
-## 1. Executive summary
+## 1. Executive summary and business context
+
+This report connects the evidence to practical decisions about your business. A finding is an observation or a customer statement; a recommendation is a proposed next step for review.
+
+{% if profile %}
+**Business context — Reported by customer:** {{ profile.get('name', data.customer_name) | text }}. Industry: {{ (profile.get('industry') or 'Not assessed') | text }}. Buying model: {{ (profile.get('buying_model') or 'Not assessed') | text }}. Service area: {{ profile.get('service_area', []) | join(', ') | text or 'Not assessed' }}.{% if (data.get('profile') or {}).get('evidence_id') %} Evidence: {{ data.profile.evidence_id }}.{% endif %}
+
+{% endif %}
+
 
 {% if ai.get('executive_summary') %}
 {{ ai.executive_summary | text }}
 {% else %}
-The assessment recorded {{ findings | length }} evidence-backed findings across {{ data.assessed_categories | length }} categories with available evidence. The recommendations below prioritise the observed issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
+The assessment recorded {{ findings | length }} findings supported by collected evidence or customer statements. The recommendations below prioritise the observed or reported issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
 {% endif %}
 
-## 2. Website, technical SEO & infrastructure findings
+> No ranking, traffic, lead or revenue guarantees. AI-search readiness is not measured AI visibility. This technical assessment is a limited, point-in-time sample, not a full security, accessibility or operational audit. Potential impacts and likely causes require verification.
+
+Basis labels: **Confirmed (technical evidence)** means directly observed; **Manually verified** means a person's recorded observation, not a technical measurement or proof of account ownership; **Reported by customer** is not independently verified; **Inferred (heuristic or AI, needs verification)** is provisional; **Not assessed** means no usable evidence was obtained. Optional features and unavailable integrations are not failures.
+
+## 2. Scope, sources, dates and coverage limitations
+
+The table explains what ran and where evidence was unavailable. Results apply only to the website, date and sample shown; they do not establish account ownership or complete coverage.
+
+{% if data.get('coverage') %}
+| Website / run | Date (UTC) | Successful HTML pages / crawl URL budget | Run outcome |
+| --- | --- | --- | --- |
+{% for r in data.coverage %}
+| {{ r.target | text }} ({{ r.run_id }}) | {{ r.created_at[:10] }} | {{ r.pages }} / {{ r.max_pages }} ({{ 'static assets excluded' if r.get('crawl_assets_excluded') else 'including assets' }}) | {{ r.status }} |
+{% endfor %}
+
+{% endif %}
+
+
+| Source / website / date | Status | Coverage or limitation |
+| --- | --- | --- |
+{% for module in data.modules %}
+| {{ module.name | text }}{% if module.get('target') %} ({{ module.target | text }}){% endif %}<br>{{ module.get('created_at', data.created_at)[:10] }} | {{ {'ok': 'Assessed', 'skipped': 'Not assessed', 'error': 'Not assessed'}.get(module.status, module.status) }} | {{ (module.reason or 'Completed within the stated scope') | text }} |
+{% endfor %}
+{% for source in data.get('reported_sources', []) %}
+| {{ source.source | text }} ({{ source.run_id }})<br>{{ source.created_at[:10] }} | Recorded | Customer-supplied information or manual observation; not independent technical verification. See evidence index. |
+{% endfor %}
+
+{% if 'siteone' in collected_sources %}
+- Crawl coverage{% if data.get('pages_target') %} ({{ data.pages_target | text }}){% endif %}: {{ data.pages | length }} successful HTML pages within a crawl budget of {{ data.max_pages }} URLs ({{ 'static assets excluded; redirects and failed/non-HTML responses can consume slots' if data.get('crawl_assets_excluded') else 'including assets' }}).
+{% endif %}
+{% if 'browser' in collected_sources %}
+- Browser coverage: {{ browser_observations }} page/viewport observations across the included runs, with at most six key pages per run at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.
+{% endif %}
+- Observations are a point-in-time sample. Form submission, booking, payment and account journeys were not exercised.
+- AI search visibility was **NOT measured**. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.
+- AI analysis: {{ ai.status | text }}{% if ai.get('provider') %} via {{ ai.provider | text }}{% endif %}. {{ ai.get('reason', '') | text }}
+{% for warning in ai.get('warnings', []) %}
+- AI validation: {{ warning | text }}.
+{% endfor %}
+{% for limitation in data.limitations %}
+- {{ limitation | text }}
+{% endfor %}
+
+{% if not web_sections %}
+{{ site_checks_table() }}
+{% endif %}
+{% if critical_findings %}
+## 3. Critical findings and business risks
+
+Review these higher-importance observations first. Their business impact is potential, not a measured loss; the full finding explains the action and dependencies.
+
+| Finding | Basis / source | Potential risk | Urgency |
+| --- | --- | --- | --- |
+{% for f in critical_findings %}
+| {{ f.title | text }} ({{ f.id }}) | {{ f.basis }}; {% for eid in f.evidence_ids %}{{ sources[eid] }} ({{ eid }}){{ '; ' if not loop.last }}{% endfor %} | {{ f.business_impact | text }} | {{ f.urgency | text }} |
+{% endfor %}
+
+{% endif %}
+{% if web_sections %}
+## 4. Website, SEO, performance, accessibility and AI-search readiness
+
+These checks look at whether customers and search engines can reach and understand the sampled pages. SEO means search engine optimisation; AI-search readiness concerns content and crawler access, not measured appearances in AI answers.
 
 {% for category, title in web_sections.items() %}
 {{ category_section(category, title) }}
-{% else %}
-No website, technical or infrastructure category was assessed in this run.
-
 {% endfor %}
-{% set p = data.get('digital_presence') %}
-{# Site checks: self-contained additive block; stored evidence survives customer report merges. #}
-{% set site = namespace(rows={}) %}
-{% for e in evidence if e.source == 'site_checks' and e.data.get('site_check') %}
-{% set _ = site.rows.update({(e.url, e.data.site_check): e}) %}
-{% endfor %}
-{% if site.rows %}
-### Website checks: status and evidence
-
-Each row describes the sampled evidence. NOT ASSESSED means evidence is unavailable or incomplete. Optional features are informational. Form submissions are always **NOT TESTED**. AI-search readiness is not measured visibility.
-
-| Check / evidence | Status | What was checked | Why it matters | Recommended correction |
-| --- | --- | --- | --- | --- |
-{% for e in site.rows.values() %}
-| {{ e.data.area | text }} ({{ e.id }})<br>{{ e.url | text }} | {{ e.data.status }} | {{ e.data.checked | text }} | {{ e.data.why | text }} | {{ e.data.recommendation | text }} |
-{% endfor %}
-
-Crawler-policy detail (training restrictions are customer choices):
-
-{% for e in site.rows.values() if e.data.site_check == 'ai-robots' %}
-Website: {{ e.url | text }} ({{ e.id }}).
-
-| Crawler | Purpose | Status | Blocked sampled paths |
-| --- | --- | --- | --- |
-{% for bot in e.data.detail.crawlers %}
-| {{ bot.crawler | text }} | {{ bot.purpose | text }} | {{ bot.status }} | {{ bot.blocked_paths | join('; ') | text or '-' }} |
-{% endfor %}
-
-{% endfor %}
-The probes use at most two homepage GETs and one llms.txt GET, with no redirects, a 64 KiB raw body cap per response, identity encoding and a 3-second request timeout capped by the remaining 10-second shared deadline. Robots/sitemap data reuses the presence collector. No canonical or sitemap target URLs are fetched by these checks. Sample limits, missing header attribution, iframe coverage, CTA positions and incomplete link graphs remain explicit; no forms are submitted.
-
+{{ site_checks_table() }}
 {% endif %}
-## 3. Local SEO & digital presence
+{% if assessed_presence or local_sections %}
+## 5. Digital presence: maps, social, directories and industry channels
+
+These observations help you confirm where customers can find the business. A likely profile match still needs customer verification; missing search results do not prove that an account or listing does not exist.
 
 {% for category, title in local_sections.items() %}
 {{ category_section(category, title) }}
 {% endfor %}
+{% for p in assessed_presence %}
+
+
 {% if p %}
 ### Search & local presence signals
 
@@ -155,10 +238,7 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 > {{ note | text }}
 
 {% endfor %}
-{% for other in data.get('digital_presence_sites', []) if other.run_id != p.get('run_id') %}
-> Digital presence of {{ other.target | text }} was assessed in run {{ other.run_id }}; it is not shown here (see that run's report).
 
-{% endfor %}
 | Signal | Status | Detail | Evidence |
 | --- | --- | --- | --- |
 {% for r in p.signals %}
@@ -167,11 +247,8 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 | Search and local presence signals | NOT ASSESSED | No page or crawl evidence collected | - |
 {% endfor %}
 
-{% elif not local_sections %}
-Local SEO and digital presence were not assessed in this run.
-
 {% endif %}
-## 4. Business listings & platform opportunities
+
 
 {% if p %}
 ### Business listings linked from the website
@@ -182,6 +259,55 @@ Local SEO and digital presence were not assessed in this run.
 | {{ r.listing | text }} | {{ r.status | text }} | {{ r.sources | join(', ') | text or '-' }} | {{ r.urls | join('; ') | text or '-' }} | {{ r.ownership | text }} | {{ r.evidence_ids | join(', ') or '-' }} |
 {% endfor %}
 
+{% set d = p.get('discovery') %}
+{% if d %}
+### Platform presence discovery
+
+Independent search: **{{ d.status | text }}**{% if d.reason %} ({{ d.reason | text }}){% endif %}. Business searched: {{ d.identity.name | text or 'unknown' }}{% if d.identity.source %} (source: {{ d.identity.source | text }}){% endif %}; industry: {{ d.identity.industry_label | text }}; buying model: {{ d.identity.buying_model_label | text }}. Paid search calls: {{ d.budget.serp_calls }} of at most {{ d.budget.max_serp_calls }}{% if d.budget.cap_usd %} (run total ${{ d.budget.spent_usd_run_total }} of the ${{ d.budget.cap_usd }} cap, estimated where the provider reported no cost){% endif %}.
+
+**Google Business Profile eligibility:** {{ d.gbp_eligibility | text }}
+
+{% for note in d.notes %}
+> {{ note | text }}
+
+{% endfor %}
+| Relevance | Platform | State | Candidate profiles and match evidence | Detail | Evidence |
+| --- | --- | --- | --- | --- | --- |
+{% for r in d.platforms | discovery_rows %}
+| {{ r.relevance | text }} | {{ r.platform | text }} | {{ r.state | text }}{% if r.get('manual') %} (manual verification {{ r.manual.date | text }} by {{ r.manual.verified_by | text }}; automated: {{ r.automated_state | text }}){% endif %} | {% for c in r.candidates %}{{ c.url | text }} [{{ c.matched | join(', ') | text }}{% if c.score is not none %}; score {{ c.score }}{% endif %}]{% if not loop.last %}; {% endif %}{% else %}-{% endfor %} | {{ r.detail | text }}{% if r.get('manual') and r.manual.note %} Manual note: {{ r.manual.note | text }}{% endif %} | {{ r.evidence_ids | join(', ') }} |
+{% endfor %}
+
+{% if d.queries %}
+Paid search queries (estimate checked against the remaining cap before each call; a call whose outcome is unknown stays booked at its estimate):
+
+| Purpose | Query | Status | Estimate (USD) | Reported cost (USD) | Evidence |
+| --- | --- | --- | --- | --- | --- |
+{% for q in d.queries %}
+| {{ q.purpose | text }} | {{ q.keyword | text }} | {{ q.status | text }}{% if q.reason %}: {{ q.reason | text }}{% endif %} | {{ q.estimated_usd | text or '-' }} | {{ q.cost_usd | text or '-' }} | {{ q.evidence_id or '-' }} |
+{% endfor %}
+
+{% endif %}
+{% if d.nap %}
+NAP comparison (only fields obtained from search results, against the website and customer profile):
+
+| Platform | Candidate | Field | Observed | Business value(s) | Result | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for n in d.nap %}
+| {{ n.platform | text }} | {{ n.url | text }} | {{ n.field | text }} | {{ n.observed | text }} | {{ n.reference | join(', ') | text or '-' }} | {{ n.result | text }} | {{ n.evidence_ids | join(', ') }} |
+{% endfor %}
+
+{% endif %}
+{% if d.keywords %}
+Keyword positions (point-in-time sample, one location; not a ranking guarantee):
+
+| Keyword | Result | URL | Sampled | Location code | Evidence |
+| --- | --- | --- | --- | --- | --- |
+{% for k in d.keywords %}
+| {{ k.keyword | text }} | {{ k.state | text }} | {{ k.url | text or '-' }} | {{ k.sampled_at | text or '-' }} | {{ k.location_code }} | {{ k.evidence_ids | join(', ') }} |
+{% endfor %}
+
+{% endif %}
+{% endif %}
 ### Website and email platforms
 
 {% set cms = p.platforms | selectattr('group', 'in', ['cms', 'email']) | list %}
@@ -191,14 +317,13 @@ Local SEO and digital presence were not assessed in this run.
 Other website platforms not detected on the sampled pages: {{ cms_missing | map(attribute='platform') | join(', ') | text }} (evidence {{ cms_missing[0].evidence_ids | join(', ') }}).
 
 {% endif %}
-{% for finding in findings if finding.category == 'presence' and not finding.check_key.startswith('tracking:') %}
-{{ finding_block(finding) }}
-{% endfor %}
-{% else %}
-Digital presence was not in the selected scope.
 
 {% endif %}
-## 5. Analytics & tracking readiness
+### Analytics & tracking readiness
+
+Public tags suggest which tools may be in use; they do not establish access to the accounts or prove that tracking is configured correctly.
+
+
 
 {% if p %}
 {% if p.consent.managers or p.consent.gated_scripts %}
@@ -206,37 +331,100 @@ Consent management observed ({{ (p.consent.managers or ['consent-gated scripts']
 
 {% endif %}
 {{ platform_table(p.platforms | selectattr('group', 'in', ['search', 'analytics', 'advertising']) | list) }}
-{% for finding in findings if finding.category == 'presence' and finding.check_key.startswith('tracking:') %}
+
+{% endif %}
+{% endfor %}
+{% for finding in public_findings if finding.category == 'presence' and not finding.check_key.startswith('tracking:') %}
 {{ finding_block(finding) }}
 {% endfor %}
-{% else %}
-Digital presence was not in the selected scope.
+{% for finding in public_findings if finding.category == 'presence' and finding.check_key.startswith('tracking:') %}
+{{ finding_block(finding) }}
+{% endfor %}
+{% endif %}
+{% if security_sections %}
+## 6. Domain, DNS, email and relevant security observations
+
+These checks concern the technical services behind the website and email. DNS is the domain's public address book; email authentication helps receiving systems recognise authorised senders. These observations do not guarantee security or email delivery.
+
+{% for category, title in security_sections.items() %}
+{{ category_section(category, title) }}
+{% endfor %}
+{% endif %}
+{% if connected_evidence %}
+## 7. Connected business-system findings
+
+The evidence below came from authorised access, separate from public website checks. It describes the returned sample and reporting period, not a complete account audit.
+
+{% for e in connected_evidence %}
+**Confirmed (technical evidence) — {{ e.source | text }}:** {{ e.description | text }}. Website: {{ e.url | text }}. Property: {{ e.data.get('property', 'Not recorded') | text }}. Reporting period: {{ e.data.get('start_date', 'Not recorded') | text }} to {{ e.data.get('end_date', 'Not recorded') | text }}. Evidence: {{ e.id }}.
+
+{% if e.source == 'gsc' %}
+Returned sample: {{ e.data.get('query', {}).get('rows', []) | length }} query rows; {{ e.data.get('page', {}).get('rows', []) | length }} page rows; {{ e.data.get('sitemaps', {}).get('sitemap', []) | length }} submitted sitemap records. Top rows only, with reporting delay and possible omission of low-volume queries. These are not separate AI-visibility measurements.
 
 {% endif %}
-## 6. Connected assessment opportunities
+{% endfor %}
+{% for f in connected_findings %}
+{{ finding_block(f) }}
+{% endfor %}
+{% endif %}
+{% if discovery %}
+## 8. Operational-process and automation findings
 
-{% if p %}
-### Public assessment
+Business discovery: customer-provided information
 
-| Service | Public evidence | Account / ownership | Authorised access | What access would provide | Customer next step |
-| --- | --- | --- | --- | --- | --- |
-{% for r in p.readiness %}
-| {{ r.service | text }} | {{ r.public_evidence | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %} | {{ r.confirmation | text }} | {{ r.access | text }} | {{ r.insights | text }} | {{ r.next_step | text }} |
+> The statements below were provided by the customer during discovery. They are not technical evidence and have not been independently verified; findings that rest on them are labelled as such.
+
+{% for section in discovery.sections %}
+### {{ section.title | discovery_heading }}
+
+{% for s in section.statements %}
+- {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %}{% if s.get('staff_time') %} Staff time: {{ s.staff_time | text }}.{% endif %}{% if s.get('errors_rework') %} Errors/rework: {{ s.errors_rework | text }}.{% endif %}{% if s.get('cost') %} Cost (as stated): {{ s.cost | text }}.{% endif %}{% if s.get('workaround') %} Current workaround: {{ s.workaround | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
 {% endfor %}
 
-### Authorised connection findings
+{% endfor %}
+{% for finding in findings if finding.category == 'discovery' %}
+{{ finding_block(finding) }}
+{% endfor %}
+{% endif %}
+{% if recommendations %}
+## 9. Prioritised improvement opportunities and recommended roadmap
 
-{% for r in p.authorised %}
-- **{{ r.source | text }}:** {{ r.detail | text }} Evidence: {{ r.evidence_ids | join(', ') }}.
-{% else %}
-No authorised connections were used in this assessment; every status above comes from public evidence.
+Agree the process, owner and desired outcome before selecting products. Timing is a planning suggestion, dependent on verification, access, budget and approval.
+
+{% for phase, items in roadmap.items() if items %}
+### {{ phase }}
+
+{% for f in items %}
+- **{{ f.priority }} - {{ f.title | text }} ({{ f.id }}):** {{ f.recommendation | text }}{% if f.ams_service in ['Business Systems', 'AI & Automation'] %} Prefer keeping and integrating existing systems before considering replacement.{% endif %} Evidence: {{ f.evidence_ids | join(', ') }}.
 {% endfor %}
 
-{% else %}
-Digital presence was not in the selected scope.
+{% endfor %}
+{% endif %}
+{% if show_verification %}
+## 10. Items requiring customer verification, access or decisions
+
+Resolve these uncertainties before approving changes. Confirm business priorities and the existing systems to retain; access should be named, limited and revocable.
+
+{% if 'browser' in collected_sources or 'site_checks' in collected_sources %}
+**Form submissions: NOT TESTED.** Arrange an owner-approved test of enquiry, booking and payment journeys; this assessment submitted no forms.
 
 {% endif %}
-## 7. Customer access requirements
+{% if connections %}
+### Connection readiness
+
+A successful connection means evidence was returned for this sample. Unsupported means this engine has no connector; any review would be manual. Public detection is separate from authorised access.
+
+| Service / website | Readiness status | Coverage, limitation or next step | Evidence |
+| --- | --- | --- | --- |
+{% for c in connections %}
+| {{ c.service | text }}<br>{{ c.target | text }} | {{ c.status }} | {{ c.detail | text }} | {{ c.evidence_ids | join(', ') or '-' }} |
+{% endfor %}
+
+{% endif %}
+{% for p in presence_sites %}
+### Customer access requirements{% if p.get('target') %}: {{ p.target | text }}{% endif %}
+
+
 
 {% if p %}
 {% for rule in p.rules %}
@@ -250,29 +438,20 @@ Digital presence was not in the selected scope.
 {{ loop.index }}. **{{ item.service | text }}** (access: {{ item.access | text }}{% if item.condition %}; {{ item.condition | text }}{% endif %}): {{ item.action | text }}{% if item.evidence_ids %} Evidence: {{ item.evidence_ids | join(', ') }}.{% endif %}
 
 {% endfor %}
-{% else %}
-Digital presence was not in the selected scope.
+{% endif %}
+{% set d = p.get('discovery') %}
+{% if d and d.manual_tasks %}
+
+Manual verification tasks (record results with `ams-assess presence-verify`):
+
+{% for t in d.manual_tasks %}
+{{ loop.index }}. **{{ t.platform | text }}** ({{ t.relevance | text }}): {{ t.action | text }}. Search: {{ t.query | text }} ({{ t.url | text }}){% if t.candidates %}; candidates: {{ t.candidates | join('; ') | text }}{% endif %}.
+{% endfor %}
 
 {% endif %}
-{% if discovery %}
-## Business discovery: customer-provided information
-
-> The statements below were provided by the customer during discovery. They are not technical evidence and have not been independently verified; findings that rest on them are labelled as such.
-
-{% for section in discovery.sections %}
-### {{ section.title | text }}
-
-{% for s in section.statements %}
-- {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %}{% if s.get('staff_time') %} Staff time: {{ s.staff_time | text }}.{% endif %}{% if s.get('errors_rework') %} Errors/rework: {{ s.errors_rework | text }}.{% endif %}{% if s.get('cost') %} Cost (as stated): {{ s.cost | text }}.{% endif %}{% if s.get('workaround') %} Current workaround: {{ s.workaround | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
 {% endfor %}
-
-{% endfor %}
-{% for finding in findings if finding.category == 'discovery' %}
-{{ finding_block(finding) }}
-{% endfor %}
-{% endif %}
 {% if data.get('needs_review') or data.get('finding_history') %}
-## Findings needing review & superseded findings
+### Findings needing review & superseded findings
 
 {% for r in data.get('needs_review', []) %}
 - **Needs review:** {% if r.get('finding_id') %}{{ r.finding_id }}: {% endif %}{{ r.title | text }}; {{ r.reason | text }}{% if r.get('finding_ids') %} (affects {{ r.finding_ids | join(', ') }}){% endif %}. Evidence: {{ r.evidence_ids | join(', ') }}.
@@ -281,55 +460,12 @@ Digital presence was not in the selected scope.
 - **Superseded:** {{ f.id }}: {{ f.title | text }}; {{ f.reason | text }}{% if f.get('superseded_by') %} (replaced by {{ f.superseded_by }}){% endif %}. Evidence: {{ f.evidence_ids | join(', ') }}.
 {% endfor %}
 
-> Findings needing review are not included in the prioritised recommendations until a person confirms them; superseded findings are kept for history only.
+> Findings needing review are held here until a person confirms them; they are excluded from the findings and recommendations above. Superseded findings are kept for history only.
 
 {% endif %}
-## 8. Prioritised recommendations
-
-{% for f in recommendations %}
-{{ loop.index }}. **{{ f.priority }} - {{ f.title | text }} ({{ f.id }}):** {{ f.recommendation | text }} Evidence: {{ f.evidence_ids | join(', ') }}.
-{% else %}
-No evidence-backed actions could be prioritised. Resolve the missing data before proposing work.
-{% endfor %}
-
-## 9. Proposed implementation roadmap
-
-{% for phase, items in roadmap.items() %}
-### {{ phase }}
-
-{% for f in items %}
-- {{ f.title | text }} ({{ f.id }}). Evidence: {{ f.evidence_ids | join(', ') }}.
-{% else %}
-- Reassess after earlier work and agree any further scope.
-{% endfor %}
-
-{% endfor %}
-## Data sources, missing data & limitations
-
-| Source | Status | Coverage or limitation |
-| --- | --- | --- |
-{% for module in data.modules %}
-| {{ module.name | text }}{% if module.get('target') %} ({{ module.target | text }}){% endif %} | {{ module.status }} | {{ (module.reason or 'Completed within the stated scope') | text }} |
-{% endfor %}
-
-{% if 'siteone' in collected_sources %}
-- Crawl coverage{% if data.get('pages_target') %} ({{ data.pages_target | text }}){% endif %}: {{ data.pages | length }} successful HTML pages within a cap of {{ data.max_pages }} URLs (including assets).
-{% endif %}
-{% if 'browser' in collected_sources %}
-- Browser coverage: {{ browser_observations }} page/viewport observations, with at most six key pages at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.
-{% endif %}
-- Observations are a point-in-time sample. Form submission, booking, payment and account journeys were not exercised.
-- AI search visibility was **NOT measured**. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.
-- Confidence labels: **confirmed** means directly observed by a deterministic check; **needs_verification** means a hypothesis or incomplete check; **subjective** means editorial or UX judgement. Likely causes and business impacts are interpretations, not measured outcomes.
-- AI analysis: {{ ai.status | text }}{% if ai.get('provider') %} via {{ ai.provider | text }}{% endif %}. {{ ai.get('reason', '') | text }}
-{% for warning in ai.get('warnings', []) %}
-- AI validation: {{ warning | text }}.
-{% endfor %}
-{% for limitation in data.limitations %}
-- {{ limitation | text }}
-{% endfor %}
-
 ### Manual verification items
+
+
 
 {% for f in findings if f.confidence != 'confirmed' %}
 - {{ f.id }}: {{ f.title | text }}. Evidence: {{ f.evidence_ids | join(', ') }}.
@@ -337,12 +473,11 @@ No evidence-backed actions could be prioritised. Resolve the missing data before
 - Verify the automated observations in the production environment and with the website owner before implementation.
 {% endfor %}
 
-### Future capabilities outside this assessment
-
-{% for item in data.future %}
-- **{{ item.name | text }}:** {{ item.description | text }}. Requires {{ item.requirement | text }}. Not implemented or measured.
+{% for m in data.modules if m.status != 'ok' %}
+- **Not assessed:** {{ m.name | text }}{% if m.get('target') %} ({{ m.target | text }}){% endif %}. {{ m.reason | text }}. Confirm access or arrange a manual check if this is important to the customer.
 {% endfor %}
 
+{% endif %}
 ## Appendix: evidence index
 
 The machine-readable evidence.json retains the observed snippets and links to raw source artefacts. Evidence IDs below are the stable references used throughout this report.

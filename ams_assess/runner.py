@@ -3,7 +3,7 @@ from typing import Any
 
 from ams_assess import store
 from ams_assess.ai import analyse
-from ams_assess.consolidate import consolidate
+from ams_assess.consolidate import consolidate, consolidate_security_headers
 from ams_assess.models import (
     CATEGORIES,
     DISCOVERY_CATEGORY,
@@ -41,6 +41,18 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             result.raw_paths.append(ctx.raw(f"{name}-error", {"reason": result.reason}))
         if not result.raw_paths:
             result.raw_paths = [ctx.raw(name, {"status": result.status, "reason": result.reason})]
+        if name == "siteone" and result.status != "ok":
+            # Give the narrative a citation for failed coverage, including the zero-page
+            # quantity. A status in the prompt alone is not cited measurement evidence.
+            result.add_evidence(
+                ctx.target,
+                "SiteOne crawl coverage unavailable",
+                {
+                    "status": result.status,
+                    "reason": result.reason,
+                    "successful_html_pages": len(ctx.pages),
+                },
+            )
         result.findings = [f for f in result.findings if f.category in ctx.categories]
         results.append(result)
         print(
@@ -49,6 +61,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         )
     evidence = [e for result in results for e in result.evidence]
     findings = consolidate([f for result in results for f in result.findings], evidence)
+    findings = consolidate_security_headers(findings, evidence)
     write_json(ctx.run_dir / "evidence.json", [e.model_dump() for e in evidence])
     print("[ai] analysing" if not no_ai else "[ai] disabled", flush=True)
     ai, findings = analyse(ctx, findings, evidence, no_ai)
@@ -90,11 +103,14 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         "schema_version": 1,
         "customer_id": ctx.customer_id,
         "customer_name": ctx.customer_name,
+        "profile": {"fields": ctx.profile} if ctx.profile else None,
         "target": ctx.target,
+        "resolved_url": ctx.site_url,
         "created_at": datetime.now(UTC).isoformat(),
         "selected_categories": sorted(ctx.categories),
         "assessed_categories": assessed,
         "max_pages": ctx.max_pages,
+        "crawl_assets_excluded": True,
         "pages": ctx.pages,
         "modules": [r.model_dump() for r in results],
         "ai": ai,
@@ -123,6 +139,10 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             if (ctx.run_dir / f"report.{ext}").is_file()
         ]
     write_json(ctx.run_dir / "results.json", data)
+    # External collectors also write raw files/screenshots; keep the whole run owner-only.
+    for path in ctx.run_dir.rglob("*"):
+        if not path.is_symlink():
+            path.chmod(0o700 if path.is_dir() else 0o600)
     if ctx.store_root is not None and not merge_into_store(ctx, data, evidence, results):
         # Only on the returned dict: results.json keeps its per-run contract.
         data["store_status"] = "failed"

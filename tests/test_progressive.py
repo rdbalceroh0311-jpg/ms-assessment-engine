@@ -432,13 +432,16 @@ def test_report_from_store_discovery_only_renders_with_labels(home, tmp_path):
     cli.main(["discover", "--customer", "acme", "--notes", str(notes_file(tmp_path))])
     assert cli.main(["report", "--customer", "acme", "--formats", "md,html,pdf"]) == 0
     report = (home / "acme/report.md").read_text()
-    assert "## Business discovery: customer-provided information" in report
+    assert "## 8. Operational-process and automation findings" in report
     assert "Quotes are built by hand in spreadsheets" in report
-    assert "Customer statement, not independently verified" in report
+    assert "Reported by customer" in report
     assert "No website assessed" in report
     assert "customer statement" in report  # evidence index label
-    assert "**Suggested AMS service:** AI &amp; Automation" in report
-    assert "Quote automation" in report.split("## 8. Prioritised recommendations")[1]
+    assert "**AMS service category:** AI & Automation" in report
+    assert (
+        "Quote automation"
+        in report.split("## 9. Prioritised improvement opportunities and recommended roadmap")[1]
+    )
     assert (home / "acme/report.pdf").stat().st_size > 1000
     assert set(re.findall(r"ev-[a-z_]+-r\d+-\d+", report)) <= {
         e["id"] for e in must_load(home, "acme")["evidence"]
@@ -460,8 +463,8 @@ def test_report_renders_for_every_stage_sequence(home, tmp_path, monkeypatch, or
     assert set(re.findall(r"ev-[a-z_]+-r\d+-\d+", report)) <= known
     assert saved["stages_assessed"] == ["public", "discovery"]
     headings = re.findall(r"^## (.+)$", report, re.M)
-    assert headings.index("Business discovery: customer-provided information") < headings.index(
-        "8. Prioritised recommendations"
+    assert headings.index("8. Operational-process and automation findings") < headings.index(
+        "9. Prioritised improvement opportunities and recommended roadmap"
     )
 
 
@@ -674,13 +677,19 @@ def test_collision_rename_preserves_fallback_key_so_repeat_merges_consolidate(tm
 
 
 def test_ai_narratives_cannot_present_customer_statements_as_technical(caplog):
-    technical = Evidence(id="ev-a-001", source="a", url="u", description="d", data={})
+    technical = Evidence(
+        id="ev-a-001",
+        source="a",
+        url="u",
+        description="d",
+        data={"statement": "20 hours lost weekly"},
+    )
     statement = Evidence(
         id="ev-discovery-r1-001",
         source="discovery",
         url="u",
         description="d",
-        data={},
+        data={"statement": "20 hours lost weekly"},
         provenance="customer_statement",
     )
     bad = "Technical checks confirm 20 hours lost weekly (ev-a-001, ev-discovery-r1-001)."
@@ -750,7 +759,13 @@ def test_discovery_refresh_supersedes_evidence_and_keeps_cited_originals(home, t
 
 
 def test_narrative_label_follows_weakest_provenance_and_revalidates():
-    technical = Evidence(id="ev-a-001", source="a", url="u", description="d", data={})
+    technical = Evidence(
+        id="ev-a-001",
+        source="a",
+        url="u",
+        description="d",
+        data={"statement": "20 hours lost weekly"},
+    )
     stated = technical.model_copy(
         update={"id": "ev-discovery-r1-001", "provenance": "customer_statement"}
     )
@@ -918,7 +933,7 @@ def test_compound_negation_fails_closed_and_intent_is_not_a_claim():
         source="discovery",
         url="u",
         description="d",
-        data={},
+        data={"statement": "20 hours lost weekly"},
         provenance="customer_statement",
     )
 
@@ -1224,7 +1239,7 @@ def test_guard_accepts_only_not_verified_and_todo_wordings(fine):
         source="discovery",
         url="u",
         description="d",
-        data={},
+        data={"statement": "20 hours lost weekly"},
         provenance="customer_statement",
     )
     summary = f"The customer reported this: {fine} (ev-discovery-r1-001)."

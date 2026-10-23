@@ -170,7 +170,8 @@ def test_dataforseo_market_default_config_and_cli(
             200,
             request=httpx.Request("POST", url),
             json={
-                "status_code": 20000, "cost": 0.0101,
+                "status_code": 20000,
+                "cost": 0.0101,
                 "tasks": [{"status_code": 20000, "result": []}],
             },
         )
@@ -179,7 +180,9 @@ def test_dataforseo_market_default_config_and_cli(
         result = dataforseo.run(ctx)
         assert result.status == "ok"
         assert result.evidence[0].data == {
-            "location_code": expected, "language_code": "en", "result": [],
+            "location_code": expected,
+            "language_code": "en",
+            "result": [],
         }
         assert f"location_code={expected}, language_code=en" in result.evidence[0].description
         assert f"location_code={expected}, language_code=en" in result.reason
@@ -351,6 +354,7 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
         server.shutdown()
         server.server_close()
         thread.join()
+    # The customer directory also holds the store file (assessment.json); pick the run.
     directory = next(p for p in (cli.ROOT / "data/customers" / customer).iterdir() if p.is_dir())
     for file in [
         "results.json",
@@ -401,6 +405,22 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert listings["google_business_profile"] == "Detected (linked from website)"
     assert listings["yellow_pages"] == listings["instagram"] == "Detected (linked from website)"
     assert not any("WordPress" in item["service"] for item in presence["checklist"])
+    # No DataForSEO cap: independent search is Not assessed, with ready-to-use manual tasks,
+    # while profiles the fixture links to are still found from website evidence.
+    discovery = presence["discovery"]
+    assert discovery["status"] == "Not assessed" and "cap" in discovery["reason"]
+    assert discovery["budget"]["serp_calls"] == 0 and discovery["identity"]["name"]
+    states = {r["key"]: r["state"] for r in discovery["platforms"]}
+    for key in ["google_business_profile", "facebook", "yellow_pages", "instagram"]:
+        assert states[key] == "Found — likely match"
+    assert states["true_local"] == states["bing_places"] == "Not assessed"
+    assert not {"Not found in searches", "Inconsistent"} & set(states.values())
+    tasks = {t["key"]: t for t in discovery["manual_tasks"]}
+    assert tasks["true_local"]["query"] == 'site:truelocal.com.au "Harbour Demo Plumbing"'
+    assert tasks["true_local"]["url"].startswith("https://www.google.com.au/search?q=site%3A")
+    assert "facebook" not in tasks
+    assert "### Platform presence discovery" in report and "Manual verification tasks" in report
+    assert "platform:priority-verification" in keys
     sitemap = next(r for r in presence["signals"] if r["signal"] == "XML sitemap")
     assert sitemap["status"] == "PASS" and "lists 7 URLs" in sitemap["detail"]
     assert {
@@ -433,25 +453,20 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert all(set(e["data"].get("source_evidence_ids", [])) <= known for e in site["evidence"])
     pdf_text = "".join(page.extract_text() for page in PdfReader(directory / "report.pdf").pages)
     numbered = [
-        "1. Executive summary",
-        "2. Website, technical SEO & infrastructure findings",
-        "3. Local SEO & digital presence",
-        "4. Business listings & platform opportunities",
-        "5. Analytics & tracking readiness",
-        "6. Connected assessment opportunities",
-        "7. Customer access requirements",
-        "8. Prioritised recommendations",
-        "9. Proposed implementation roadmap",
+        "1. Executive summary and business context",
+        "2. Scope, sources, dates and coverage limitations",
+        "3. Critical findings and business risks",
+        "4. Website, SEO, performance, accessibility and AI-search readiness",
+        "5. Digital presence: maps, social, directories and industry channels",
+        "6. Domain, DNS, email and relevant security observations",
+        "9. Prioritised improvement opportunities and recommended roadmap",
+        "10. Items requiring customer verification, access or decisions",
     ]
     top_level = re.findall(r"^## (.+)$", report, re.M)
-    assert top_level[1:10] == numbered
-    assert top_level[10:] == [
-        "Data sources, missing data & limitations",
-        "Appendix: evidence index",
-    ]
+    assert top_level == ["Business assessment report", *numbered, "Appendix: evidence index"]
     for heading in numbered:
         assert heading.replace("&", "&amp;") in report_html
-        assert heading.split(". ", 1)[1] in pdf_text
+        assert heading.split(". ", 1)[1] in " ".join(pdf_text.split())
     for finding in results["findings"]:
         assert finding["evidence_ids"] and set(finding["evidence_ids"]) <= known
         escaped_id = finding["id"].replace("_", "\\_")

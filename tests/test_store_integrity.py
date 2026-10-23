@@ -120,7 +120,9 @@ def test_finding_resting_on_superseded_statement_is_retired_not_recommended(home
     [old] = saved["finding_history"]
     assert old["id"] == active["id"] and old["status"] == "superseded"
     text = report(home)
-    recommendations = text.split("## 8. Prioritised recommendations")[1].split("## 9.")[0]
+    recommendations = text.partition(
+        "## 9. Prioritised improvement opportunities and recommended roadmap"
+    )[2].split("## 10.")[0]
     assert "Quote automation" not in recommendations
     assert f"**Superseded:** {active['id']}: Quote automation" in text
 
@@ -155,8 +157,7 @@ def test_partly_superseded_or_conflicting_basis_is_flagged_for_review(home, tmp_
     assert flag["finding_id"] == active["id"] and len(flag["evidence_ids"]) == 1
     text = report(home)
     assert f"**Needs review:** {active['id']}: Quote automation" in text
-    section_8 = text.split("## 8. Prioritised recommendations")[1].split("## 9.")[0]
-    assert "Quote automation" not in section_8
+    assert "Quote automation" not in text.split("## 10.", 1)[0]
 
 
 def test_finding_citing_conflicting_statements_is_held_for_review(home, tmp_path):
@@ -164,7 +165,7 @@ def test_finding_citing_conflicting_statements_is_held_for_review(home, tmp_path
     daily = {"sales_quoting": [{"statement": "Chasing quotes", "frequency": "daily"}]}
     discover(tmp_path, "acme", daily)
     both = [{"statement": "Chasing quotes", "frequency": f} for f in ("daily", "yearly")]
-    chasing = finding(cites=("sales_quoting",))
+    chasing = {**finding(cites=("sales_quoting",)), "severity": "high"}
     discover(tmp_path, "acme", {"sales_quoting": both}, [chasing], name="b")
     saved = must_load(home, "acme")
     [active] = saved["findings"]
@@ -172,9 +173,8 @@ def test_finding_citing_conflicting_statements_is_held_for_review(home, tmp_path
     assert "conflicting" in conflict["reason"] and len(conflict["evidence_ids"]) == 2
     assert conflict["finding_ids"] == [active["id"]]
     text = report(home)
-    section_8, roadmap = text.split("## 8. Prioritised recommendations")[1].split("## 9.")
-    roadmap = roadmap.split("## Data sources")[0]
-    assert "Quote automation" not in section_8 and "Quote automation" not in roadmap
+    assert "Quote automation" not in text.split("## 10.", 1)[0]
+    assert "## 3. Critical findings" not in text
     assert f"(affects {active['id']})" in text
 
 
@@ -286,5 +286,8 @@ def test_multi_site_report_attributes_checks_to_their_website(home):
     text = render_markdown(data, evidence, discovery)
     assert f"**Targets:** {site_a} (runs r1); {site_b} (runs r2)" in text
     assert f"Domain, DNS & Email Health summary: {site_a} (run r1)" in text
-    assert f"| domain\\_email ({site_a}) | ok |" in text
-    assert f"| security ({site_b}) | ok |" in text
+    assert (
+        f"| domain\\_email ({site_a})<br>{data['modules'][0]['created_at'][:10]} | Assessed |"
+        in text
+    )
+    assert f"| security ({site_b})<br>{data['modules'][0]['created_at'][:10]} | Assessed |" in text

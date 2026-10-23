@@ -13,6 +13,7 @@ dependencies = [
   "pydantic>=2.10,<3", "python-dotenv>=1,<2", "anthropic>=0.50,<1",
   "google-auth[requests]>=2.38,<3",
   "google-auth-oauthlib>=1.2,<2",
+  "publicsuffixlist>=1,<2",
 ]
 
 [project.scripts]

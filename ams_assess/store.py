@@ -26,6 +26,13 @@ from ams_assess.models import (
     Finding,
     customer_path,
 )
+from ams_assess.platforms import BY_KEY
+from ams_assess.profile import (
+    Verification,
+    apply_verifications,
+    current_findings,
+    merge_profile,
+)
 
 SCHEMA_VERSION = 2
 STORE_FILE = "assessment.json"
@@ -350,6 +357,8 @@ def _merge_run(
         "status": data["status"],
         "stages": stages,
         "target": data["target"],
+        "resolved_url": data.get("resolved_url", data["target"]),
+        "crawl_assets_excluded": data.get("crawl_assets_excluded", False),
         "selected_categories": data["selected_categories"],
         "assessed_categories": data["assessed_categories"],
         "ai": ai,
@@ -359,7 +368,12 @@ def _merge_run(
             "modules": len(data["modules"]),
         },
         "modules": [
-            {"name": m["name"], "status": m["status"], "reason": m["reason"]}
+            {
+                "name": m["name"],
+                "status": m["status"],
+                "reason": m["reason"],
+                "connections": remap(m.get("connections", []), mapping),
+            }
             for m in data["modules"]
         ],
         "pages": data["pages"],
@@ -544,6 +558,115 @@ def _add_discovery(
     return store, {"statements": statements, "new": added, "findings": len(incoming)}
 
 
+def _record(store: dict[str, Any], run_id: str, kind: str, summary: dict[str, Any]) -> None:
+    """Book a non-assessment change as a run so the next one gets a fresh run ID."""
+    store["runs"].append(
+        {
+            "run_id": run_id,
+            "run_dir": None,
+            "created_at": now(),
+            "kind": kind,
+            "status": "complete",
+            "stages": [],
+            "ai": dict(NO_AI),
+            "summary": summary,
+        }
+    )
+
+
+def set_profile(
+    root: Path, customer: str, changes: dict[str, Any]
+) -> tuple[dict[str, Any], str, bool]:
+    """Create or update the business identity profile; returns (profile, evidence ID, changed).
+
+    Values are customer-supplied, so the evidence is a customer statement. An unchanged
+    profile writes nothing; a changed one mints new evidence and keeps the old evidence.
+    """
+    with locked(root, customer):
+        return _set_profile(root, customer, changes)
+
+
+def _set_profile(
+    root: Path, customer: str, changes: dict[str, Any]
+) -> tuple[dict[str, Any], str, bool]:
+    store, run_id = _begin(root, customer, customer)
+    current = store.get("profile") or {}
+    profile = merge_profile(current.get("fields"), changes).model_dump(mode="json")
+    if current and current["fields"] == profile:
+        return profile, current["evidence_id"], False
+    eid = f"ev-profile-{run_id}-001"
+    data = {**profile, "supersedes": current.get("evidence_id")}
+    store["evidence"].append(
+        Evidence(
+            id=eid,
+            source="profile",
+            url="customer-profile",
+            description="Customer business profile (customer statement)",
+            data=data,
+            provenance="customer_statement",
+        ).model_dump(mode="json")
+    )
+    store["profile"] = {"fields": profile, "evidence_id": eid, "updated_at": now()}
+    # A new or changed business name becomes the report name; an unchanged one leaves any
+    # explicitly given --customer-name alone.
+    if profile["name"] and profile["name"] != (current.get("fields") or {}).get("name"):
+        store["customer_name"] = profile["name"]
+    _record(store, run_id, "profile", {"evidence": 1})
+    save(root, customer, store)
+    return profile, eid, True
+
+
+def add_presence_verifications(
+    root: Path, customer: str, records: list[Verification]
+) -> dict[str, int]:
+    """Import human-verified presence facts as manual_verification evidence.
+
+    Each platform keeps one current verification that supersedes the automated state in
+    reports; a changed record mints new evidence and keeps the earlier evidence. Importing the
+    same records again changes nothing.
+    """
+    with locked(root, customer):
+        return _add_presence_verifications(root, customer, records)
+
+
+def _add_presence_verifications(
+    root: Path, customer: str, records: list[Verification]
+) -> dict[str, int]:
+    store, run_id = _begin(root, customer, customer)
+    current: dict[str, Any] = store.setdefault("presence_verifications", {})
+    added = 0
+    for record in records:
+        fields = record.model_dump(mode="json")
+        previous = current.get(record.platform)
+        if previous and {k: previous[k] for k in fields} == fields:
+            continue
+        added += 1
+        eid = f"ev-presence_verification-{run_id}-{added:03d}"
+        store["evidence"].append(
+            Evidence(
+                id=eid,
+                source="presence_verification",
+                url=record.profile_url or "manual-presence-verification",
+                description=f"Manual presence verification: {BY_KEY[record.platform].label} "
+                f"- {record.state}",
+                data={**fields, "supersedes": previous["evidence_id"] if previous else None},
+                provenance="manual_verification",
+            ).model_dump(mode="json")
+        )
+        history = [*previous["history"], previous["evidence_id"]] if previous else []
+        current[record.platform] = {
+            **fields,
+            "evidence_id": eid,
+            "history": history,
+            "run_id": run_id,
+            "ingested_at": now(),
+        }
+    if added:
+        _record(store, run_id, "presence_verification", {"evidence": added})
+        save(root, customer, store)
+    return {"entries": len(records), "new": added, "unchanged": len(records) - added}
+
+
 def report_data(
     store: dict[str, Any],
 ) -> tuple[dict[str, Any], list[Evidence], dict[str, Any] | None]:
@@ -568,7 +691,12 @@ def report_data(
     for run in runs:
         targets.setdefault(run["target"], []).append(run["run_id"])
         for module in run["modules"]:
-            latest_modules[(run["target"], module["name"])] = {**module, "target": run["target"]}
+            latest_modules[(run["target"], module["name"])] = {
+                **module,
+                "target": run["target"],
+                "created_at": run["created_at"],
+                "run_id": run["run_id"],
+            }
     limitations = [
         line
         for line in dict.fromkeys(x for r in runs for x in r["limitations"])
@@ -595,13 +723,37 @@ def report_data(
     }
     data: dict[str, Any] = {
         "customer_name": store["customer_name"],
+        "profile": store.get("profile"),
+        "reported_sources": [
+            {"source": r["kind"], "created_at": r["created_at"], "run_id": r["run_id"]}
+            for r in store["runs"]
+            if r["kind"] != "assessment"
+        ],
+        "coverage": [
+            {
+                "target": r["target"],
+                "resolved_url": r.get("resolved_url", r["target"]),
+                "run_id": r["run_id"],
+                "created_at": r["created_at"],
+                "pages": len(r["pages"]),
+                "max_pages": r["max_pages"],
+                "crawl_assets_excluded": r.get("crawl_assets_excluded", False),
+                "status": r["status"],
+            }
+            for r in runs
+        ],
         "created_at": store["updated_at"],
         "target": latest("target", ""),
+        "resolved_url": latest("resolved_url", latest("target", "")),
         "targets": [{"target": t, "run_ids": ids} for t, ids in targets.items() if t],
         "selected_categories": selected,
         "assessed_categories": assessed,
         "stages": [stages[s] for s in store["stages_assessed"]],
         "max_pages": latest("max_pages", 0),
+        "crawl_assets_excluded": next(
+            (r.get("crawl_assets_excluded", False) for r in reversed(runs) if r.get("pages")),
+            False,
+        ),
         "pages": latest("pages", []),
         "pages_target": next((r["target"] for r in reversed(runs) if r.get("pages")), ""),
         "modules": list(latest_modules.values()),
@@ -619,6 +771,20 @@ def report_data(
         if found is not None:
             data[key] = attributed(found, key)
             data[f"{key}_sites"] = list(sites.values())
+    verified = store.get("presence_verifications") or {}
+    if verified and data.get("digital_presence", {}).get("discovery"):
+        # Manual verification supersedes the automated state; the automated state stays shown.
+        data["digital_presence"] = apply_verifications(data["digital_presence"], verified)
+        data["digital_presence_sites"] = [
+            data["digital_presence"] if p["run_id"] == data["digital_presence"]["run_id"] else p
+            for p in data.get("digital_presence_sites", [])
+        ]
+        data["findings"] = current_findings(data["findings"], data["digital_presence"], verified)
+    elif verified:
+        limitations.append(
+            "Manual presence verifications are recorded (see the evidence index) but no "
+            "presence discovery run exists to compare them with"
+        )
     sections = [
         {"title": title, "statements": store["discovery"]["sections"][key]}
         for key, title in DISCOVERY_SECTIONS.items()

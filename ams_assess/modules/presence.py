@@ -15,7 +15,12 @@ from xml.parsers import expat
 
 import httpx
 
+from ams_assess import platforms as catalogue
+from ams_assess import presence_discovery
 from ams_assess.models import Context, ModuleResult
+from ams_assess.modules import dataforseo
+from ams_assess.modules.gsc import AI_REPORT_NOTE
+from ams_assess.profile import phone_key
 
 name = "presence"
 categories = {"presence"}
@@ -23,6 +28,8 @@ requires = [
     "browser page evidence",
     "domain_email DNS evidence (email platform, DNS verification)",
     "one bounded same-origin robots.txt + sitemap fetch after a SiteOne crawl",
+    "optional: DataForSEO Google SERP/Maps discovery under --dataforseo-max-usd "
+    f"(<= {dataforseo.MAX_SERP_CALLS} queries)",
 ]
 
 DETECTED, NOT_DETECTED, UNKNOWN, NOT_ASSESSED = (
@@ -35,6 +42,7 @@ LINKED = "Detected (linked from website)"
 UNKNOWN_MANUAL = "Unknown - manual verification"
 OWNERSHIP = "Ownership confirmation needed"
 NOT_CONNECTED = "Not connected"
+PAID_EVIDENCE = "DataForSEO Google"
 PLACEHOLDER_EMAIL = "[AMS access account - set AMS_ACCESS_EMAIL]"
 PASS, WARNING = "PASS", "WARNING"
 SITEMAP_TIMEOUT, SITEMAP_MAX_BYTES = 10, 2_000_000
@@ -211,43 +219,23 @@ DEFAULT_ACTIONS = {
     "cms": ("Record the platform for future work", "None"),
 }
 
-# (key, host full-match after stripping "www.", path search). First match wins.
-LISTINGS: list[tuple[str, str, str]] = [
-    (
-        "google_business_profile",
-        r"g\.page|business\.google\.com|maps\.app\.goo\.gl|maps\.google\.[a-z.]+",
-        "",
-    ),
-    ("google_business_profile", r"google\.[a-z.]+|goo\.gl", r"^/maps"),
-    ("bing_places", r"bing\.com", r"^/maps"),
-    ("bing_places", r"bingplaces\.com", ""),
-    ("apple_maps", r"maps\.apple\.com", ""),
-    ("facebook", r"(?:m\.)?facebook\.com|fb\.com", r"^/(?!sharer|share|dialog|plugins|tr\b)[^/]+"),
-    ("instagram", r"instagram\.com", r"^/(?!p/|share)[^/]+"),
-    ("linkedin", r"(?:[a-z]{2}\.)?linkedin\.com", r"^/(?:company|in|school)/"),
-    ("yellow_pages", r"yellowpages\.com\.au", r"^/."),
-    ("true_local", r"truelocal\.com\.au", r"^/."),
-    ("hipages", r"hipages\.com\.au", r"^/."),
-    ("serviceseeking", r"serviceseeking\.com\.au", r"^/."),
-    ("oneflare", r"oneflare\.com\.au", r"^/."),
-    ("word_of_mouth", r"wordofmouth\.com\.au", r"^/."),
-    ("houzz", r"houzz\.com(?:\.au)?", r"^/."),
+# Listings-table rows; recognition patterns and labels come from the platform catalogue.
+# Other catalogue platforms get a row only when the website links to them.
+LISTING_KEYS = [
+    "google_business_profile",
+    "bing_places",
+    "apple_maps",
+    "facebook",
+    "instagram",
+    "linkedin",
+    "yellow_pages",
+    "true_local",
+    "hipages",
+    "serviceseeking",
+    "word_of_mouth",
+    "houzz",
 ]
-LISTING_LABELS = {
-    "google_business_profile": "Google Business Profile",
-    "bing_places": "Bing Places / Bing Maps",
-    "apple_maps": "Apple Maps",
-    "facebook": "Facebook",
-    "instagram": "Instagram",
-    "linkedin": "LinkedIn",
-    "yellow_pages": "Yellow Pages AU",
-    "true_local": "True Local",
-    "hipages": "hipages",
-    "serviceseeking": "ServiceSeeking",
-    "oneflare": "Oneflare",
-    "word_of_mouth": "Word of Mouth",
-    "houzz": "Houzz",
-}
+LISTING_LABELS = {key: catalogue.BY_KEY[key].label for key in LISTING_KEYS}
 LOCATION_PAGE = re.compile(
     r"/(?:locations?|service-areas?|areas?(?:-we)?-serve[ds]?|suburbs?|regions?|near-me)(?:[/.-]|$)",
     re.I,
@@ -255,7 +243,11 @@ LOCATION_PAGE = re.compile(
 PHONE = re.compile(r"(?:\+?61|\b0)[\d ()-]{7,14}\d")
 POSTCODE = re.compile(r"\b(?:NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\s+(\d{4})\b")
 READINESS = [
-    ("gsc", "Google Search Console", "Search queries, clicks, impressions, indexing and sitemaps"),
+    (
+        "gsc",
+        "Google Search Console",
+        "Search queries, clicks, impressions and sitemaps. " + AI_REPORT_NOTE,
+    ),
     ("ga4", "Google Analytics 4", "Traffic sources, key events/conversions and engagement"),
     (
         "google_business_profile",
@@ -289,11 +281,11 @@ RULES = [
 NOTES = [
     "Not detected means no public signal on the pages sampled; it does not mean an account "
     "does not exist. Tags may load through Google Tag Manager or only after cookie consent.",
-    "Listings are recorded only when the website links to them (links or JSON-LD sameAs). "
-    "Ownership, verification and management are not confirmed. Google Maps, Facebook, Apple, "
-    "Bing and directory sites were not queried.",
-    "Google Business Profile existence is not looked up; without a website link its status "
-    "needs manual verification.",
+    "The listings table records only profiles the website links to (links or JSON-LD sameAs). "
+    "Ownership, verification and management are not confirmed. Platform pages are never "
+    "fetched; independent search results appear in the platform discovery table.",
+    "Google Business Profile existence is looked up only through the DataForSEO Google Maps "
+    "SERP when a USD cap is set; otherwise its status needs manual verification.",
     "Readiness rows describe what authorised access would add; only existing integrations "
     "(Search Console) can be connected by this engine.",
 ]
@@ -342,18 +334,7 @@ def resolve(href: Any, base: str) -> str | None:
 
 
 def classify_listing(url: str) -> str | None:
-    try:
-        parts = urlsplit(str(url).strip())
-        hostname = parts.hostname
-    except ValueError:
-        return None
-    if parts.scheme not in {"http", "https"}:
-        return None
-    host = (hostname or "").removeprefix("www.")
-    for key, hosts, path in LISTINGS:
-        if re.fullmatch(hosts, host) and re.search(path, parts.path or "/"):
-            return key
-    return None
+    return catalogue.classify(url)
 
 
 def jsonld_nodes(value: Any):
@@ -369,11 +350,6 @@ def jsonld_nodes(value: Any):
 
 def as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else ([] if value is None else [value])
-
-
-def phone_key(value: str) -> str:
-    digits = re.sub(r"\D", "", value)
-    return "0" + digits[2:] if digits.startswith("61") and len(digits) == 11 else digits
 
 
 def page_lines(record: dict[str, Any]) -> list[str]:
@@ -513,6 +489,42 @@ def nap_check(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
     return {"status": status, "entities": entities, "checks": checks}
 
 
+def site_identity(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
+    """Business name, phones, postcodes and suburbs the website itself publishes."""
+    names, phones, postcodes, localities = [], {}, set(), []
+    for _, record in pages:
+        page = record.get("page", {})
+        for node in jsonld_nodes(page.get("json_ld", [])):
+            try:
+                if "PostalAddress" in as_list(node.get("@type")) or not (
+                    node.get("telephone") or node.get("address")
+                ):
+                    continue
+                if node.get("name"):
+                    names.append(str(node["name"]))
+                for phone in as_list(node.get("telephone")):
+                    phones.setdefault(phone_key(str(phone)), str(phone))
+                for address in as_list(node.get("address")):
+                    if isinstance(address, dict):
+                        if address.get("postalCode"):
+                            postcodes.add(str(address["postalCode"]))
+                        if address.get("addressLocality"):
+                            localities.append(str(address["addressLocality"]))
+            except (AttributeError, TypeError):
+                continue
+        for contact in page.get("contacts", []):
+            href = str(contact.get("href", ""))
+            if href.startswith("tel:"):
+                phones.setdefault(phone_key(href), str(contact.get("text") or href[4:]))
+    return {
+        "names": list(dict.fromkeys(names)),
+        "phones": {k: v for k, v in phones.items() if len(k) >= 8},
+        "postcodes": sorted(postcodes),
+        "localities": list(dict.fromkeys(localities)),
+        "evidence_ids": [],
+    }
+
+
 def page_evidence(browser: ModuleResult | None) -> list[tuple[str, dict[str, Any]]]:
     if browser is None:
         return []
@@ -538,10 +550,11 @@ def gsc_state(ctx: Context, gsc: ModuleResult | None) -> tuple[str, list[str], s
     if gsc and gsc.status == "ok" and gsc.evidence:
         data = gsc.evidence[0].data if isinstance(gsc.evidence[0].data, dict) else {}
         prop = str(data.get("property", ""))
-        return f"Connected & verified ({prop})", [gsc.evidence[0].id], prop
+        return "Connected successfully", [gsc.evidence[0].id], prop
+    if gsc and gsc.connections:
+        return gsc.connections[0].status, [], ""
     if "gsc" in ctx.connections:
-        reason = gsc.reason if gsc else "Search Console module did not run"
-        return f"{NOT_CONNECTED} ({reason})", [], ""
+        return "Not assessed" if gsc is None else NOT_CONNECTED, [], ""
     return NOT_CONNECTED, [], ""
 
 
@@ -553,7 +566,7 @@ def platform_row(key: str, label: str, group: str, status: str, **fields: Any) -
         "platform": label,
         "group": group,
         "status": status,
-        "connected": NOT_CONNECTED if key in CONNECTABLE else "n/a",
+        "connected": NOT_CONNECTED if key == "gsc" else "Unsupported",
         "ids": [],
         "evidence_ids": [],
         "detail": "",
@@ -758,8 +771,8 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
     """
     started = time.monotonic()
     deadline = started + SITEMAP_TIMEOUT
-    origin = origin_of(ctx.target)
-    parts = urlsplit(ctx.target)
+    origin = origin_of(ctx.site_url)
+    parts = urlsplit(ctx.site_url)
     base = f"{parts.scheme}://{parts.netloc}"
     with httpx.Client(follow_redirects=False, transport=transport) as client:
         robots = fetch(client, base + "/robots.txt", origin, deadline)
@@ -778,8 +791,8 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
             "robots_status": robots.get("status") or robots.get("error"),
             # Retain a bounded body for site_checks; no second robots request.
             "robots_body": robots.get("body", b"")[:65_536].decode("utf-8", "replace"),
-            "robots_complete": bool(robots.get("complete")) and
-            len(robots.get("body", b"")) <= 65_536,
+            "robots_complete": bool(robots.get("complete"))
+            and len(robots.get("body", b"")) <= 65_536,
             "declared": declared if declared is not None else "unknown",
             "confirmed": True,
         }
@@ -834,8 +847,10 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
     # parse_sitemap has already rejected DTDs, entities and invalid encodings.
     if kind == "urlset":
         root = ET.fromstring(response["body"].decode("utf-8-sig"))
-        urls = [(node.findtext(SITEMAP_NS + "loc") or "").strip()
-                for node in root.findall(SITEMAP_NS + "url")]
+        urls = [
+            (node.findtext(SITEMAP_NS + "loc") or "").strip()
+            for node in root.findall(SITEMAP_NS + "url")
+        ]
         data["sitemap_urls"] = urls[:500]
         data["sitemap_urls_truncated"] = len(urls) > 500
     noun = "URLs" if kind == "urlset" else "child sitemaps"
@@ -847,7 +862,9 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
     }
 
 
-def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> dict[str, Any]:
+def build(
+    ctx: Context, results: list[ModuleResult], result: ModuleResult, discover: bool = False
+) -> dict[str, Any]:
     modules = {r.name: r for r in results}
     pages = page_evidence(modules.get("browser"))
     dns = dns_evidence(modules.get("domain_email"))
@@ -858,7 +875,7 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
     coverage = ""
     if assessed:
         coverage = result.add_evidence(
-            ctx.target,
+            ctx.site_url,
             "Digital presence detection coverage (no additional requests)",
             {
                 "pages_sampled": page_urls,
@@ -1022,7 +1039,7 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
 
     def add_link(value: Any, page: str, source: str, eid: str) -> None:
         # Resolved and classified per item: one malformed URL never stops the rest.
-        href = resolve(value, page or ctx.target)
+        href = resolve(value, page or ctx.site_url)
         key = classify_listing(href) if href else None
         if (
             href
@@ -1036,7 +1053,7 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
     same_as: set[str] = set()
     for eid, record in pages:
         page = record.get("page", {})
-        page_url = str(record.get("url", "")) or ctx.target
+        page_url = str(record.get("url", "")) or ctx.site_url
         for href in page.get("links", []):
             add_link(href, page_url, "website link", eid)
         for node in jsonld_nodes(page.get("json_ld", [])):
@@ -1052,7 +1069,8 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
                     if isinstance(item, dict):
                         add_link(item.get("url"), "", "crawl external link", e.id)
     listings = []
-    for key, label in LISTING_LABELS.items():
+    for key in LISTING_KEYS + [k for k in catalogue.BY_KEY if k in links and k not in LISTING_KEYS]:
+        label = catalogue.BY_KEY[key].label
         found = links.get(key, [])
         if found:
             eid = result.add_evidence(found[0]["href"], f"Listing link: {label}", {"links": found})
@@ -1076,9 +1094,11 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
         )
 
     signals: list[dict[str, Any]] = []
+    site = site_identity(pages)
     if pages:
         nap = nap_check(pages)
-        nap_eid = result.add_evidence(ctx.target, "NAP consistency comparison", nap)
+        nap_eid = result.add_evidence(ctx.site_url, "NAP consistency comparison", nap)
+        site["evidence_ids"] = [nap_eid]
         conflicts = [c for c in nap["checks"] if c["result"] == "conflict"]
         unconfirmed = [c for c in nap["checks"] if c["result"] == "unconfirmed"]
         detail = "; ".join(
@@ -1113,7 +1133,7 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
     if ctx.pages and (pages or siteone):
         matches = [u for u in ctx.pages if LOCATION_PAGE.search(urlsplit(u).path)]
         location_eid = result.add_evidence(
-            ctx.target,
+            ctx.site_url,
             "Location / service-area page scan of crawled URLs",
             {"pages_scanned": len(ctx.pages), "matches": matches},
         )
@@ -1150,7 +1170,7 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
     if siteone and siteone.status == "ok":
         sitemap = sitemap_check(ctx)
         sitemap_eid = result.add_evidence(
-            sitemap.get("sitemap_url") or ctx.target,
+            sitemap.get("sitemap_url") or ctx.site_url,
             "Bounded robots.txt and XML sitemap fetch",
             sitemap,
         )
@@ -1195,8 +1215,9 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
                 "public_evidence": public,
                 "evidence_ids": source["evidence_ids"],
                 "confirmation": "Account existence and customer ownership confirmation needed",
-                "access": gsc_text if key == "gsc" else NOT_CONNECTED,
-                "insights": insight,
+                "access": gsc_text if key == "gsc" else "Unsupported",
+                "insights": insight
+                + (". No connector implemented; manual review only." if key != "gsc" else ""),
             }
         )
     email = ctx.config.get("AMS_ACCESS_EMAIL") or PLACEHOLDER_EMAIL
@@ -1240,8 +1261,15 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
             }
         )
 
+    discovery = None
+    if discover:
+        # Linked profiles from the website, then bounded paid search only under the cap.
+        discovery = presence_discovery.discover(ctx, result, site, links, paid=True)
     if pages:
-        add_findings(result, by_key, listings, signals, same_as, coverage, refs)
+        gbp = next(
+            (r for r in (discovery or {}).get("platforms", []) if r["key"] == LISTING_KEYS[0]), {}
+        )
+        add_findings(result, by_key, listings, signals, same_as, coverage, refs, gbp.get("state"))
     sitemap_row = next((r for r in signals if r["signal"] == "XML sitemap"), None)
     if sitemap_row and sitemap_row["status"] == WARNING:
         invalid = sitemap_row["detail"].startswith("Sitemap invalid")
@@ -1254,9 +1282,9 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
             "Publish a valid XML sitemap of indexable pages and declare it in robots.txt.",
             severity="low",
             confidence="confirmed" if sitemap_row["confirmed"] else "needs_verification",
-            urls=[ctx.target],
+            urls=[ctx.site_url],
         )
-    return {
+    tables = {
         "status": "assessed" if assessed else NOT_ASSESSED,
         "pages_sampled": page_urls,
         "consent": consent,
@@ -1270,6 +1298,9 @@ def build(ctx: Context, results: list[ModuleResult], result: ModuleResult) -> di
         "access_email_configured": bool(ctx.config.get("AMS_ACCESS_EMAIL")),
         "notes": NOTES,
     }
+    if discovery is not None:
+        tables["discovery"] = discovery
+    return tables
 
 
 def add_findings(
@@ -1280,6 +1311,7 @@ def add_findings(
     same_as: set[str],
     coverage: str,
     refs: dict[str, str],
+    gbp_state: str | None = None,
 ) -> None:
     nap = next((s for s in signals if s["signal"].startswith("NAP")), None)
     if nap and nap["status"] == "Inconsistent":
@@ -1349,14 +1381,20 @@ def add_findings(
             ams_service="Analytics & tracking",
         )
     gbp = next(r for r in listings if r["key"] == "google_business_profile")
-    if gbp["status"] == UNKNOWN_MANUAL:
+    gbp_searched = gbp_state not in {None, presence_discovery.NOT_ASSESSED}
+    # An online-only business is generally not eligible, so linking a profile is no opportunity.
+    if gbp["status"] == UNKNOWN_MANUAL and gbp_state != presence_discovery.NOT_APPLICABLE:
         result.finding(
             "listing:gbp-not-linked",
             "Google Business Profile not linked from the website",
             "presence",
             [coverage],
             "No Google Business Profile or Google Maps link was found on the sampled pages. "
-            "Whether a profile exists was not checked.",
+            + (
+                "Independent search results are listed in the platform discovery table."
+                if gbp_searched
+                else "Whether a profile exists was not checked."
+            ),
             "Confirm the profile exists and is customer-owned, then link it from the contact "
             "page and structured data.",
             severity="low",
@@ -1386,23 +1424,33 @@ def add_findings(
 def run(ctx: Context) -> ModuleResult:
     result = ModuleResult(name=name)
     try:
-        tables = build(ctx, ctx.results, result)
+        tables = build(ctx, ctx.results, result, True)
     except Exception as exc:
         # Fail soft: the report shows NOT ASSESSED presence tables instead of losing the run.
+        # Paid search results already obtained are self-contained evidence and are kept, as is
+        # the spend ledger, so a failure never discards what was paid for.
         return ModuleResult(
             name=name,
             status="error",
             reason=f"Presence analysis failed ({type(exc).__name__}); other results unaffected",
+            evidence=[e for e in result.evidence if e.description.startswith(PAID_EVIDENCE)],
+            raw_paths=result.raw_paths,
         )
-    if tables["status"] == NOT_ASSESSED:
+    paid = any(e.description.startswith(PAID_EVIDENCE) for e in result.evidence)
+    if tables["status"] == NOT_ASSESSED and not paid:
         return ModuleResult(
             name=name,
             status="skipped",
             reason="Requires browser page evidence or public DNS evidence (domain_email)",
+            raw_paths=result.raw_paths,
+        )
+    if tables["status"] == NOT_ASSESSED:
+        result.reason = (
+            "No browser page or DNS evidence; only independent presence discovery was assessed"
         )
     # Stored on the module result so results.json and re-rendering reuse the same tables.
     result.checks = [{"key": key, "value": value} for key, value in tables.items()]
-    result.raw_paths = [ctx.raw(name, tables)]
+    result.raw_paths = [*result.raw_paths, ctx.raw(name, tables)]
     return result
 
 

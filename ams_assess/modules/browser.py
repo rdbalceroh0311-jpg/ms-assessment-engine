@@ -101,7 +101,7 @@ def run(ctx: Context) -> ModuleResult:
                         else route.abort()
                     ),
                 )
-                for index, url in enumerate(select_pages(ctx.pages, ctx.target)):
+                for index, url in enumerate(select_pages(ctx.pages, ctx.site_url)):
                     page = session.new_page()
                     console, requested = [], []
                     page.on(

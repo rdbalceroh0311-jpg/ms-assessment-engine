@@ -12,6 +12,9 @@ tmp/
 !.env.example
 *credentials*.json
 *token*.json
+*.pem
+*.key
+*service-account*.json
 dist/
 *.egg-info/
 .DS_Store

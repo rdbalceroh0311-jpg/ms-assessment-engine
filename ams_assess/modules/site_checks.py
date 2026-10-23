@@ -9,7 +9,7 @@ from urllib.parse import urldefrag, urljoin, urlsplit
 import httpx
 
 from ams_assess.models import Context, ModuleResult
-from ams_assess.modules import presence
+from ams_assess.modules import presence, siteone
 from ams_assess.modules.site_rules import (
     CRAWLERS,
     LOCATION,
@@ -24,6 +24,7 @@ from ams_assess.modules.site_rules import (
     structured_data,
     tool_signals,
 )
+from ams_assess.targets import NORMAL_UA
 
 name = "site_checks"
 categories = {"technical", "seo", "geo", "performance", "cro_ux", "entity", "local_seo", "presence"}
@@ -31,7 +32,6 @@ requires = ["Existing crawl/browser/performance/presence evidence; bounded publi
 MAX_BYTES = 65_536
 PROBE_SECONDS = 10
 PROBE_REQUEST_SECONDS = 3
-NORMAL_UA = "Mozilla/5.0 (compatible; AMSAssessment/1.0)"
 # Documented token: https://platform.openai.com/docs/bots (UA simulation, not a verified bot IP).
 SEARCH_UA = "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; OAI-SearchBot/1.3; +https://openai.com/searchbot"
 LIMITS = (
@@ -95,7 +95,7 @@ def probe(client: httpx.Client, url: str, ua: str, deadline: float) -> dict[str,
 
 def collect_probes(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[str, Any]:
     deadline = time.monotonic() + PROBE_SECONDS
-    home = urljoin(ctx.target, "/")
+    home = urljoin(ctx.site_url, "/")
     out = {}
     with httpx.Client(transport=transport, follow_redirects=False) as client:
         if ctx.categories & (categories - {"performance"}):
@@ -151,7 +151,7 @@ class Checks:
                     self.pages[url][key] = merged
         home = probes.get("normal", {})
         self.probe_eid = self.result.add_evidence(
-            ctx.target, "Bounded site-check HTTP probes", probes
+            ctx.site_url, "Bounded site-check HTTP probes", probes
         )
         if (
             home.get("status") == 200
@@ -183,7 +183,9 @@ class Checks:
         crawl = self.modules.get("siteone")
         if self.ctx.categories & {"seo", "geo", "technical"} and crawl and crawl.status == "ok":
             data = presence.sitemap_check(self.ctx)
-            eid = self.result.add_evidence(self.ctx.target, "Reused robots/sitemap collector", data)
+            eid = self.result.add_evidence(
+                self.ctx.site_url, "Reused robots/sitemap collector", data
+            )
             return data, [eid]
         return {}, []
 
@@ -218,7 +220,7 @@ class Checks:
             "source_evidence_ids": sorted(set(refs)),
             "confidence": confidence,
         }
-        eid = self.result.add_evidence(self.ctx.target, f"Site check: {title}", row)
+        eid = self.result.add_evidence(self.ctx.site_url, f"Site check: {title}", row)
         self.result.checks.append({**row, "evidence_ids": [eid]})
         if status in {"WARNING", "ERROR"}:
             self.result.finding(
@@ -271,7 +273,9 @@ class Checks:
             },
             self.sitemap_ids,
         )
-        paths = sorted({urlsplit(u).path or "/" for u in [self.ctx.target, *self.ctx.pages]})[:100]
+        paths = sorted({urlsplit(u).path or "/" for u in [self.ctx.site_url, *self.ctx.pages]})[
+            :100
+        ]
         bots: list[dict[str, Any]] = []
         for purpose, tokens in CRAWLERS.items():
             for bot in tokens:
@@ -343,7 +347,7 @@ class Checks:
 
         def page_role(url: str) -> str:
             parts = urlsplit(url)
-            if presence.origin_of(url) == presence.origin_of(self.ctx.target) and parts.path in {
+            if presence.origin_of(url) == presence.origin_of(self.ctx.site_url) and parts.path in {
                 "",
                 "/",
             }:
@@ -418,7 +422,7 @@ class Checks:
         entries = self.sitemap.get("sitemap_urls", [])
         rows = []
         for loc in entries:
-            url = presence.resolve(loc, self.sitemap.get("sitemap_url", self.ctx.target))
+            url = presence.resolve(loc, self.sitemap.get("sitemap_url", self.ctx.site_url))
             issues = []
             unavailable_reason = ""
             if not url:
@@ -428,7 +432,7 @@ class Checks:
                 if row is None:
                     unavailable_reason = "not crawled"
                 else:
-                    status_code = int(row.get("status", 0))
+                    status_code = siteone.status_code(row.get("status"))
                     if status_code <= 0:
                         unavailable_reason = "no HTTP response (NOT ASSESSED)"
                     elif status_code == 429 or status_code >= 500:
@@ -480,7 +484,7 @@ class Checks:
                 issues.append("invalid canonical URL")
             elif urlsplit(target).netloc != urlsplit(url).netloc:
                 issues.append("different host; confirm intended canonical")
-            target_status = int(response.get("status", 0)) if response else 0
+            target_status = siteone.status_code(response.get("status")) if response else 0
             unavailable = target_status <= 0 or target_status == 429 or target_status >= 500
             if response and not unavailable and target_status != 200:
                 issues.append(f"target HTTP {target_status}")
@@ -568,7 +572,7 @@ class Checks:
             if e.description == "SiteOne seo-headings table":
                 heading_ids.append(e.id)
                 for row in e.data:
-                    headings[urljoin(self.ctx.target, row["urlPathAndQuery"])] = [
+                    headings[urljoin(self.ctx.site_url, row["urlPathAndQuery"])] = [
                         int(n) for n in re.findall(r"<h([1-6])>", row.get("headings", ""), re.I)
                     ]
             if e.description == "SiteOne redirects table":
@@ -578,21 +582,21 @@ class Checks:
                     source = row.get("url") or row.get("sourceUrl")
                     target = row.get("redirectUrl") or row.get("targetUrl") or row.get("location")
                     if source and target:
-                        redirects[urljoin(self.ctx.target, source)] = urljoin(
-                            self.ctx.target, target
+                        redirects[urljoin(self.ctx.site_url, source)] = urljoin(
+                            self.ctx.site_url, target
                         )
                         if row.get("sourceUqId"):
                             edges.add(
                                 (
-                                    urljoin(self.ctx.target, row["sourceUqId"]),
-                                    urljoin(self.ctx.target, source),
+                                    urljoin(self.ctx.site_url, row["sourceUqId"]),
+                                    urljoin(self.ctx.site_url, source),
                                 )
                             )
             if e.description == "SiteOne 404 table":
                 heading_ids.append(e.id)
                 for row in e.data:
                     if presence.origin_of(row.get("url", "")) == presence.origin_of(
-                        self.ctx.target
+                        self.ctx.site_url
                     ):
                         status = int(row.get("statusCode", 0))
                         entry = {
@@ -619,12 +623,13 @@ class Checks:
                     edges.add((url, clean_url(target)))
         for url, target in sorted(edges):
             if any(
-                presence.origin_of(u) != presence.origin_of(self.ctx.target) for u in (url, target)
+                presence.origin_of(u) != presence.origin_of(self.ctx.site_url)
+                for u in (url, target)
             ):
                 continue
             if target != url:
                 inbound[target].add(url)
-            status = int(self.responses.get(target, {}).get("status", 0))
+            status = siteone.status_code(self.responses.get(target, {}).get("status"))
             if target in self.responses and (status <= 0 or status == 429 or status >= 500):
                 unavailable_links.append({"source": url, "target": target, "status": status})
             elif 400 <= status < 500:
@@ -636,7 +641,7 @@ class Checks:
                     chain.append(onward)
                     if onward in chain[:-1]:
                         break
-                final_status = int(self.responses.get(chain[-1], {}).get("status", 0))
+                final_status = siteone.status_code(self.responses.get(chain[-1], {}).get("status"))
                 chains.append(
                     {
                         "source": url,
@@ -657,7 +662,7 @@ class Checks:
             )
         )
         no_inbound = (
-            [u for u in self.ctx.pages if u != self.ctx.target and not inbound[u]]
+            [u for u in self.ctx.pages if u != self.ctx.site_url and not inbound[u]]
             if (graph_complete)
             else []
         )
@@ -825,7 +830,7 @@ class Checks:
             supporting = [
                 u
                 for u in page.get("links", [])
-                if presence.origin_of(u) == presence.origin_of(self.ctx.target)
+                if presence.origin_of(u) == presence.origin_of(self.ctx.site_url)
                 and re.search(r"case[-_/]?stud|portfolio|team|about", urlsplit(u).path, re.I)
             ]
             paths.append(
