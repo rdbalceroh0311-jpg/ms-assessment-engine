@@ -713,8 +713,9 @@ def run(ctx: Context) -> ModuleResult:
     resolver = dns.resolver.Resolver()
     resolver.timeout, resolver.lifetime = 2, 4
     for kind in ["A", "AAAA", "MX", "NS", "TXT", "CAA"]:
+        query_host = ctx.site_host if kind in {"A", "AAAA"} else domain_host
         try:
-            records = [r.to_text() for r in resolver.resolve(domain_host, kind)]
+            records = [r.to_text() for r in resolver.resolve(query_host, kind)]
             raw[kind] = {"status": "ok", "records": records}
         except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN) as exc:
             raw[kind] = {"status": "absent", "reason": type(exc).__name__, "records": []}
@@ -722,7 +723,7 @@ def run(ctx: Context) -> ModuleResult:
             raw[kind] = {"status": "error", "reason": type(exc).__name__}
             limitations.append(f"{kind} lookup failed ({type(exc).__name__})")
         eids[kind] = result.add_evidence(
-            ctx.target, f"DNS {kind} lookup for {domain_host}", raw[kind]
+            f"dns:{query_host}", f"DNS {kind} lookup for {query_host}", raw[kind]
         )
     try:
         zone = dns.resolver.zone_for_name(domain_host, resolver=resolver).to_text().rstrip(".")
@@ -853,7 +854,7 @@ def run(ctx: Context) -> ModuleResult:
         addresses = check(
             "A/AAAA",
             "ERROR",
-            f"{domain_host} has no A or AAAA record.",
+            f"{ctx.site_host} has no A or AAAA record.",
             [eids["A"], eids["AAAA"]],
             "Point the website host at its server.",
             "Website host does not resolve",

@@ -437,7 +437,7 @@ def test_report_from_store_discovery_only_renders_with_labels(home, tmp_path):
     assert "Reported by customer" in report
     assert "No website assessed" in report
     assert "customer statement" in report  # evidence index label
-    assert "**AMS service category:** AI &amp; Automation" in report
+    assert "**AMS service category:** AI & Automation" in report
     assert (
         "Quote automation"
         in report.split("## 9. Prioritised improvement opportunities and recommended roadmap")[1]

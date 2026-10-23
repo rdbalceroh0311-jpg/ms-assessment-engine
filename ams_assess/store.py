@@ -358,6 +358,7 @@ def _merge_run(
         "stages": stages,
         "target": data["target"],
         "resolved_url": data.get("resolved_url", data["target"]),
+        "crawl_assets_excluded": data.get("crawl_assets_excluded", False),
         "selected_categories": data["selected_categories"],
         "assessed_categories": data["assessed_categories"],
         "ai": ai,
@@ -736,6 +737,7 @@ def report_data(
                 "created_at": r["created_at"],
                 "pages": len(r["pages"]),
                 "max_pages": r["max_pages"],
+                "crawl_assets_excluded": r.get("crawl_assets_excluded", False),
                 "status": r["status"],
             }
             for r in runs
@@ -748,6 +750,10 @@ def report_data(
         "assessed_categories": assessed,
         "stages": [stages[s] for s in store["stages_assessed"]],
         "max_pages": latest("max_pages", 0),
+        "crawl_assets_excluded": next(
+            (r.get("crawl_assets_excluded", False) for r in reversed(runs) if r.get("pages")),
+            False,
+        ),
         "pages": latest("pages", []),
         "pages_target": next((r["target"] for r in reversed(runs) if r.get("pages")), ""),
         "modules": list(latest_modules.values()),

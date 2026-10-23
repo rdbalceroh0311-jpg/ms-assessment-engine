@@ -587,7 +587,7 @@ def test_report_review_basis_and_concise_customer_actions():
     assert "**Basis:** Inferred" not in manual_block
     assert "not a technical measurement" in manual_block
     assert "**Manually verified** means a person's recorded observation" in text
-    assert "<script>" not in text and "&lt;script&gt;" in text
+    assert "<script>" not in text and r"\<script\>" in text
     assert "### Functionality & accessibility" in text
     assert "### Sales & quoting" in text
 

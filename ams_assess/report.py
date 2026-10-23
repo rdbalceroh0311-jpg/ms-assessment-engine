@@ -4,9 +4,11 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 import markdown
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from markdown.inlinepatterns import InlineProcessor
 from playwright.sync_api import sync_playwright
 
 from ams_assess.ai import PHASES
@@ -144,8 +146,24 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 
 
 def mdtext(value: object) -> str:
-    value = html.escape(" ".join(str(value).split()), quote=False)
-    return re.sub(r"([\\`*_{}\[\]#|])", r"\\\1", value)
+    value = html.unescape(" ".join(str(value).split()))
+    return re.sub(r"([\\`*_{}\[\]#|<>])", r"\\\1", value)
+
+
+class ReportLineBreak(InlineProcessor):
+    def handleMatch(self, m, data):
+        return ElementTree.Element("br"), m.start(0), m.end(0)
+
+
+def markdown_html(content: str) -> str:
+    # HTML escaping belongs here, not in the editable Markdown master. Disable raw HTML
+    # (including in edited reports); retain only the template's attribute-free line breaks.
+    renderer = markdown.Markdown(extensions=["tables", "toc"])
+    renderer.preprocessors.deregister("html_block")
+    renderer.inlinePatterns.deregister("html")
+    renderer.ESCAPED_CHARS = [*renderer.ESCAPED_CHARS, "<", ">"]
+    renderer.inlinePatterns.register(ReportLineBreak(r"<br\s*/?>"), "report-br", 175)
+    return renderer.convert(content)
 
 
 def render(run_dir: Path, formats: set[str] | None = None) -> list[str]:
@@ -409,7 +427,7 @@ def write_outputs(run_dir: Path, content: str, formats: set[str]) -> list[str]:
     if "md" in formats:
         targets["md"].write_text(content)
         written.append("report.md")
-    body = markdown.markdown(content, extensions=["tables", "toc"])
+    body = markdown_html(content)
     document = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta http-equiv="Content-Security-Policy" '

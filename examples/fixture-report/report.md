@@ -4,9 +4,9 @@
 ## Business assessment report
 
 **Customer:** Harbour Demo Plumbing<br>
-**Assessment date (UTC):** 2026-10-22<br>
+**Assessment date (UTC):** 2026-10-23<br>
 **Target:** http://127.0.0.1:18765/<br>
-**Scope:** Functionality &amp; accessibility; Copywriting &amp; messaging; CRO &amp; UX/UI; Domain, DNS &amp; email health; Entity &amp; brand authority; GEO / AI search readiness; Local SEO; Website performance; Digital presence &amp; integration readiness; Security observations; SEO findings; Website technical health; Business discovery (customer statements)<br>
+**Scope:** Functionality & accessibility; Copywriting & messaging; CRO & UX/UI; Domain, DNS & email health; Entity & brand authority; GEO / AI search readiness; Local SEO; Website performance; Digital presence & integration readiness; Security observations; SEO findings; Website technical health; Business discovery (customer statements)<br>
 **Stages completed:** public technical assessment; business discovery
 > Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.
 
@@ -14,10 +14,10 @@
 
 This report connects the evidence to practical decisions about your business. A finding is an observation or a customer statement; a recommendation is a proposed next step for review.
 
-**Business context — Reported by customer:** Harbour Demo Plumbing. Industry: Trades &amp; home services (incl. painting). Buying model: Service-area (staff travel to customers). Service area: Sydney. Evidence: ev-profile-r1-001.
+**Business context — Reported by customer:** Harbour Demo Plumbing. Industry: Trades & home services (incl. painting). Buying model: Service-area (staff travel to customers). Service area: Sydney. Evidence: ev-profile-r1-001.
 
 
-The assessment recorded 24 findings supported by collected evidence or customer statements. The recommendations below prioritise the observed or reported issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
+The assessment recorded 20 findings supported by collected evidence or customer statements. The recommendations below prioritise the observed or reported issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
 
 > No ranking, traffic, lead or revenue guarantees. AI-search readiness is not measured AI visibility. This technical assessment is a limited, point-in-time sample, not a full security, accessibility or operational audit. Potential impacts and likely causes require verification.
 
@@ -27,28 +27,28 @@ Basis labels: **Confirmed (technical evidence)** means directly observed; **Manu
 
 The table explains what ran and where evidence was unavailable. Results apply only to the website, date and sample shown; they do not establish account ownership or complete coverage.
 
-| Website / run | Date (UTC) | Successful HTML pages / URL cap | Run outcome |
+| Website / run | Date (UTC) | Successful HTML pages / crawl URL budget | Run outcome |
 | --- | --- | --- | --- |
-| http://127.0.0.1:18765/ (r2) | 2026-10-22 | 7 / 30 | partial |
+| http://127.0.0.1:18765/ (r2) | 2026-10-23 | 7 / 30 (static assets excluded) | partial |
 
 
 
 | Source / website / date | Status | Coverage or limitation |
 | --- | --- | --- |
-| siteone (http://127.0.0.1:18765/)<br>2026-10-22 | Assessed | Completed within the stated scope |
-| browser (http://127.0.0.1:18765/)<br>2026-10-22 | Assessed | Completed within the stated scope |
-| domain\_email (http://127.0.0.1:18765/)<br>2026-10-22 | Not assessed | Local/private target has no public domain audit |
-| security (http://127.0.0.1:18765/)<br>2026-10-22 | Assessed | TLS not checked: supplied target uses HTTP; Local fixture security headers are not evidence about production hosting |
-| performance (http://127.0.0.1:18765/)<br>2026-10-22 | Not assessed | PageSpeed/CrUX cannot access localhost |
-| observatory (http://127.0.0.1:18765/)<br>2026-10-22 | Not assessed | Observatory cannot scan local targets |
-| dataforseo (http://127.0.0.1:18765/)<br>2026-10-22 | Not assessed | Missing DataForSEO credentials; disabled |
-| gsc (http://127.0.0.1:18765/)<br>2026-10-22 | Not assessed | GSC requires --connect gsc and credentials; missing connection or credentials |
-| presence (http://127.0.0.1:18765/)<br>2026-10-22 | Assessed | Completed within the stated scope |
-| site\_checks (http://127.0.0.1:18765/)<br>2026-10-22 | Assessed | 2 of 15 checks NOT ASSESSED; see status rows for missing evidence and manual verification |
-| profile (r1)<br>2026-10-22 | Recorded | Customer-supplied information or manual observation; not independent technical verification. See evidence index. |
-| discovery (r3)<br>2026-10-22 | Recorded | Customer-supplied information or manual observation; not independent technical verification. See evidence index. |
+| siteone (http://127.0.0.1:18765/)<br>2026-10-23 | Assessed | Completed within the stated scope |
+| browser (http://127.0.0.1:18765/)<br>2026-10-23 | Assessed | Completed within the stated scope |
+| domain\_email (http://127.0.0.1:18765/)<br>2026-10-23 | Not assessed | Local/private target has no public domain audit |
+| security (http://127.0.0.1:18765/)<br>2026-10-23 | Assessed | TLS not checked: supplied target uses HTTP; Local fixture security headers are not evidence about production hosting |
+| performance (http://127.0.0.1:18765/)<br>2026-10-23 | Not assessed | PageSpeed/CrUX cannot access localhost |
+| observatory (http://127.0.0.1:18765/)<br>2026-10-23 | Not assessed | Observatory cannot scan local targets |
+| dataforseo (http://127.0.0.1:18765/)<br>2026-10-23 | Not assessed | Missing DataForSEO credentials; disabled |
+| gsc (http://127.0.0.1:18765/)<br>2026-10-23 | Not assessed | GSC requires --connect gsc and credentials; missing connection or credentials |
+| presence (http://127.0.0.1:18765/)<br>2026-10-23 | Assessed | Completed within the stated scope |
+| site\_checks (http://127.0.0.1:18765/)<br>2026-10-23 | Assessed | 2 of 15 checks NOT ASSESSED; see status rows for missing evidence and manual verification |
+| profile (r1)<br>2026-10-23 | Recorded | Customer-supplied information or manual observation; not independent technical verification. See evidence index. |
+| discovery (r3)<br>2026-10-23 | Recorded | Customer-supplied information or manual observation; not independent technical verification. See evidence index. |
 
-- Crawl coverage (http://127.0.0.1:18765/): 7 successful HTML pages within a cap of 30 URLs (including assets).
+- Crawl coverage (http://127.0.0.1:18765/): 7 successful HTML pages within a crawl budget of 30 URLs (static assets excluded; redirects and failed/non-HTML responses can consume slots).
 - Browser coverage: 12 page/viewport observations across the included runs, with at most six key pages per run at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.
 - Observations are a point-in-time sample. Form submission, booking, payment and account journeys were not exercised.
 - AI search visibility was **NOT measured**. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.
@@ -56,7 +56,7 @@ The table explains what ran and where evidence was unavailable. Results apply on
 - domain\_email: no successful evidence collection; category was not assessed
 - DNS, authentication and blacklist checks do not measure inbox placement; they cannot guarantee email deliverability.
 - Local fixture demonstration: observations do not describe a live business
-- AI interpretation is unavailable for Copywriting &amp; messaging, CRO &amp; UX/UI, Entity &amp; brand authority, GEO / AI search readiness, Local SEO; collect or review page evidence manually
+- AI interpretation is unavailable for Copywriting & messaging, CRO & UX/UI, Entity & brand authority, GEO / AI search readiness, Local SEO; collect or review page evidence manually
 
 ## 3. Critical findings and business risks
 
@@ -67,7 +67,7 @@ Review these higher-importance observations first. Their business impact is pote
 | Elements must meet minimum color contrast ratio thresholds (browser-001) | Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009) | Low contrast may make service information or controls hard to read. | Review within 0-30 days |
 | Images must have alternative text (browser-002) | Confirmed (technical evidence); browser (ev-browser-r2-003); browser (ev-browser-r2-009) | Customers using screen readers may miss information conveyed by images. | Review within 0-30 days |
 | Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies) | Reported by customer; discovery (ev-discovery-r3-005); discovery (ev-discovery-r3-006); discovery (ev-discovery-r3-017) | Customer believes some new work goes to competitors (not measured) | Review within 0-30 days |
-| Broken URLs (siteone-002) | Confirmed (technical evidence); siteone (ev-siteone-r2-011) | Broken links may prevent customers reaching the information they need. | Review within 0-30 days |
+| Broken URLs (siteone-002) | Confirmed (technical evidence); siteone (ev-siteone-r2-010) | Broken links may prevent customers reaching the information they need. | Review within 0-30 days |
 
 ## 4. Website, SEO, performance, accessibility and AI-search readiness
 
@@ -87,7 +87,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Recommended next action:** Repair internal links and restore or redirect unavailable pages.
 
-**AMS service category:** Managed IT &amp; Technology
+**AMS service category:** Managed IT & Technology
 
 **Dependencies:** Customer approval of scope and an accountable system owner before changes.
 
@@ -95,9 +95,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/missing-offer.html
 
-**Source:** siteone (ev-siteone-r2-011).
+**Source:** siteone (ev-siteone-r2-010).
 
-**Evidence:** ev-siteone-r2-011
+**Evidence:** ev-siteone-r2-010
 
 #### siteone-001: Review internal redirects
 
@@ -111,7 +111,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Recommended next action:** Link directly to the final canonical URL.
 
-**AMS service category:** Managed IT &amp; Technology
+**AMS service category:** Managed IT & Technology
 
 **Dependencies:** Customer approval of scope and an accountable system owner before changes.
 
@@ -119,9 +119,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/old-service; http://127.0.0.1:18765/older-service
 
-**Source:** siteone (ev-siteone-r2-007); siteone (ev-siteone-r2-013).
+**Source:** siteone (ev-siteone-r2-009); siteone (ev-siteone-r2-011).
 
-**Evidence:** ev-siteone-r2-007, ev-siteone-r2-013
+**Evidence:** ev-siteone-r2-009, ev-siteone-r2-011
 
 
 ### SEO findings
@@ -146,9 +146,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
 
-**Source:** siteone (ev-siteone-r2-017).
+**Source:** siteone (ev-siteone-r2-015).
 
-**Evidence:** ev-siteone-r2-017
+**Evidence:** ev-siteone-r2-015
 
 #### siteone-005: Missing H1
 
@@ -170,9 +170,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
 
-**Source:** siteone (ev-siteone-r2-017).
+**Source:** siteone (ev-siteone-r2-015).
 
-**Evidence:** ev-siteone-r2-017
+**Evidence:** ev-siteone-r2-015
 
 #### site\_checks-002: Duplicates, headings / internal links
 
@@ -196,7 +196,7 @@ These checks look at whether customers and search engines can reach and understa
 
 **Evidence:** ev-site_checks-r2-007
 
-#### siteone-011: Pages without a canonical link
+#### siteone-010: Pages without a canonical link
 
 **Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
 
@@ -216,9 +216,9 @@ These checks look at whether customers and search engines can reach and understa
 
 **Affected URLs:** http://127.0.0.1:18765/
 
-**Source:** siteone (ev-siteone-r2-027).
+**Source:** siteone (ev-siteone-r2-024).
 
-**Evidence:** ev-siteone-r2-027
+**Evidence:** ev-siteone-r2-024
 
 
 ### GEO / AI search readiness
@@ -311,9 +311,9 @@ Checks with findings are described in their finding blocks; the remaining checks
 | Robots rules / site-wide Disallow (ev-site_checks-r2-002)<br>http://127.0.0.1:18765/ | PASS | Parsed 4 groups; root and representative public path allowed for \*, Googlebot and Bingbot. | Broad rules can prevent search engines crawling public pages. | Confirm intended visibility, remove unintended broad Disallow rules, then retest. |
 | Page noindex / X-Robots-Tag (ev-site_checks-r2-004)<br>http://127.0.0.1:18765/ | PASS | No noindex in 7 crawl indexing records. Meta directives inspected where available; individual HTTP-header attribution may be unavailable outside the homepage. | Unintended noindex on home or key pages prevents those pages appearing in search. | Confirm intended indexing per URL; inspect response headers on unsampled pages. Remove noindex only on pages intended for search. |
 | Sitemap URL validity (ev-site_checks-r2-005)<br>http://127.0.0.1:18765/ | PASS | Compared 7 sitemap URLs with existing crawl results: 0 with observed issues, 0 uncrawled/unavailable (NOT ASSESSED). | Sitemaps should list final, successful, indexable URLs; uncrawled URLs are unknown. | Replace redirects/non-200/noindex URLs; manually validate uncrawled entries. Use absolute HTTP(S) sitemap URLs in production. |
-| Canonical accessibility / consistency (ev-site_checks-r2-006)<br>http://127.0.0.1:18765/ | PASS | 3 declarations; 0 need review; 0 targets NOT ASSESSED. http://127.0.0.1:18765/ -&gt; http://127.0.0.1:18765/: HTTP 200 ; http://127.0.0.1:18765/service/a/ -&gt; http://127.0.0.1:18765/service/a/: HTTP 200 ; http://127.0.0.1:18765/service/b/ -&gt; http://127.0.0.1:18765/service/b/: HTTP 200 | Canonical hints should consistently identify accessible, indexable preferred pages. | Review conflicting targets; use final indexable URLs. Manually verify uncrawled targets. |
+| Canonical accessibility / consistency (ev-site_checks-r2-006)<br>http://127.0.0.1:18765/ | PASS | 3 declarations; 0 need review; 0 targets NOT ASSESSED. http://127.0.0.1:18765/ -\> http://127.0.0.1:18765/: HTTP 200 ; http://127.0.0.1:18765/service/a/ -\> http://127.0.0.1:18765/service/a/: HTTP 200 ; http://127.0.0.1:18765/service/b/ -\> http://127.0.0.1:18765/service/b/: HTTP 200 | Canonical hints should consistently identify accessible, indexable preferred pages. | Review conflicting targets; use final indexable URLs. Manually verify uncrawled targets. |
 | Organization / LocalBusiness / BreadcrumbList (ev-site_checks-r2-008)<br>http://127.0.0.1:18765/ | INFO | Validated 1 supported JSON-LD nodes. No invalid supported properties found. 4 applicable-property suggestions; absence is not a failure. | Consistent structured data clarifies entities; it does not guarantee rich results. | Fix invalid JSON-LD and required properties; review applicable recommended properties with Google's Rich Results Test. Organization has no required properties. |
-| Core Web Vitals (field p75) (ev-site_checks-r2-010)<br>http://127.0.0.1:18765/ | NOT ASSESSED | No usable CrUX/PSI p75 field data. Lighthouse lab scores are not CWV. | Field LCP, INP and CLS describe real-user experience; origin and URL scopes differ. | Investigate non-good field metrics and verify all three at p75. Good: LCP &lt;=2500 ms, INP &lt;=200 ms, CLS &lt;=0.1. Poor: LCP &gt;4000 ms, INP &gt;500 ms, CLS &gt;0.25. Missing field data requires manual verification; preserve separate lab findings. |
+| Core Web Vitals (field p75) (ev-site_checks-r2-010)<br>http://127.0.0.1:18765/ | NOT ASSESSED | No usable CrUX/PSI p75 field data. Lighthouse lab scores are not CWV. | Field LCP, INP and CLS describe real-user experience; origin and URL scopes differ. | Investigate non-good field metrics and verify all three at p75. Good: LCP \<=2500 ms, INP \<=200 ms, CLS \<=0.1. Poor: LCP \>4000 ms, INP \>500 ms, CLS \>0.25. Missing field data requires manual verification; preserve separate lab findings. |
 | Booking / CRM / chat tools (ev-site_checks-r2-011)<br>http://127.0.0.1:18765/ | INFO | Detected markup signals: Calendly. Script/link/iframe URLs and recognised inline API calls; prose excluded. Iframes outside the normal-UA homepage probe may be unavailable. | Public integration signals help identify systems to discuss; they do not prove account existence, ownership or working integration. | Confirm customer-owned systems and test authorised journeys before proposing changes. |
 | Conversion pathways / forms NOT TESTED (ev-site_checks-r2-012)<br>http://127.0.0.1:18765/ | INFO | 6 rendered pages inspected for forms, booking links, tel/mailto, CTA wording, trust signals and case-study/portfolio/team/about links. Above-the-fold placement NOT ASSESSED where positions are unavailable. Form submissions: NOT TESTED. Trust claims and journey outcomes are unverified. | Visible enquiry options help plan journey validation; their presence does not prove forms, booking, lead delivery or conversion performance work. | Review missing paths and CTA prominence manually; arrange an authorised safe journey test with the customer. No submissions were made. |
 | Analytics / conversion-event code signals (ev-site_checks-r2-013)<br>http://127.0.0.1:18765/ | NOT ASSESSED | Unknown: consent manager/gated scripts prevent confirming execution. Analytics/advertising tags: ga4, gtm, clarity; visible event calls: 2. Events are not proof of measured conversions. | An event call can indicate measurement intent; consent, delivery and key-event configuration need separate verification. | Use customer-authorised tag diagnostics and analytics access to verify post-consent events and conversion configuration. |
@@ -380,7 +380,7 @@ These observations help you confirm where customers can find the business. A lik
 
 **Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** problem
 
-**Observed / reported:** Compared 2 location-like URLs with &gt;=80 sampled words using 5-word shingle Jaccard &gt;=0.8: 1 similar pairs. Heuristic only; shared navigation and truncated text can influence similarity.
+**Observed / reported:** Compared 2 location-like URLs with \>=80 sampled words using 5-word shingle Jaccard \>=0.8: 1 similar pairs. Heuristic only; shared navigation and truncated text can influence similarity.
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
@@ -442,8 +442,8 @@ Website: http://127.0.0.1:18765/ (run r2). Public assessment: statuses below com
 | NAP consistency (structured data vs visible text and phone links) | Inconsistent | on http://127.0.0.1:18765/, structured telephone '+61 2 5550 0199' differs from the only value shown (02 5550 0100) | ev-presence-r2-010 |
 | Structured business entity (JSON-LD) | Detected | LocalBusiness; sameAs links: 2 | ev-presence-r2-010 |
 | Location / service-area pages | Not detected | No location or service-area URL among 7 crawled pages | ev-presence-r2-011 |
-| robots.txt | Detected | Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms. | ev-siteone-r2-026 |
-| Canonical links | Incomplete | 4 page(s) without a rel=canonical link | ev-siteone-r2-027 |
+| robots.txt | Detected | Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 2 ms. | ev-siteone-r2-023 |
+| Canonical links | Incomplete | 4 page(s) without a rel=canonical link | ev-siteone-r2-024 |
 | XML sitemap | PASS | Sitemap at http://127.0.0.1:18765/sitemap.xml (robots.txt Sitemap line) lists 7 URLs | ev-presence-r2-012 |
 
 
@@ -467,7 +467,7 @@ Website: http://127.0.0.1:18765/ (run r2). Public assessment: statuses below com
 
 ### Platform presence discovery
 
-Independent search: **Not assessed** (no --dataforseo-max-usd cap was passed). Business searched: Harbour Demo Plumbing (source: customer profile (customer statement)); industry: Trades &amp; home services (incl. painting); buying model: Service-area (staff travel to customers). Paid search calls: 0 of at most 12.
+Independent search: **Not assessed** (no --dataforseo-max-usd cap was passed). Business searched: Harbour Demo Plumbing (source: customer profile (customer statement)); industry: Trades & home services (incl. painting); buying model: Service-area (staff travel to customers). Paid search calls: 0 of at most 12.
 
 **Google Business Profile eligibility:** Service-area business: eligible only if staff genuinely travel to customers; hide the street address and set the real service areas. Never invent addresses, use virtual offices or create per-suburb profiles; one profile per genuine location.
 
@@ -491,7 +491,7 @@ Independent search: **Not assessed** (no --dataforseo-max-usd cap was passed). B
 | low | Apple Business / Apple Maps | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Apple Business replaced Apple Business Connect. No provider search; manual only. | ev-presence-r2-014 |
 | low | LinkedIn, YouTube, TikTok, Yelp, Hotfrog, Cylex, Whereis, Word of Mouth, Airtasker, ServiceSeeking | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
 | low | Pinterest | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Relevant only where visual inspiration drives enquiries. | ev-presence-r2-014 |
-| low | Chambers of commerce / professional &amp; industry associations | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Generic manual item: membership directories differ by industry and region (e.g. local chambers, trade or traffic-management industry bodies). | ev-presence-r2-014 |
+| low | Chambers of commerce / professional & industry associations | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Generic manual item: membership directories differ by industry and region (e.g. local chambers, trade or traffic-management industry bodies). | ev-presence-r2-014 |
 | not\_applicable | Tripadvisor, OpenTable, Uber Eats, DoorDash, Menulog, Fresha, Booksy, Timely, NSW buy.nsw Supplier Hub, AusTender, ICN Gateway | Not applicable | - | Not relevant for the recorded industry and buying model. | ev-presence-r2-014 |
 
 ### Website and email platforms
@@ -534,7 +534,7 @@ Consent management observed (consent-gated scripts): tags not seen loading are r
 
 **Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** opportunity
 
-**Observed / reported:** In priority order for industry Trades &amp; home services (incl. painting), buying model Service-area (staff travel to customers): hipages (high): Not assessed; Bing Places / Bing Maps (medium): Not assessed; True Local (medium): Not assessed; Localsearch (medium): Not assessed; Houzz (medium): Not assessed. Independent search: Not assessed (no --dataforseo-max-usd cap was passed).
+**Observed / reported:** In priority order for industry Trades & home services (incl. painting), buying model Service-area (staff travel to customers): hipages (high): Not assessed; Bing Places / Bing Maps (medium): Not assessed; True Local (medium): Not assessed; Localsearch (medium): Not assessed; Houzz (medium): Not assessed. Independent search: Not assessed (no --dataforseo-max-usd cap was passed).
 
 **Potential business impact (interpretation, not measured):** May affect how customers find, understand or use the business online; outcomes are not measured.
 
@@ -578,147 +578,53 @@ These checks concern the technical services behind the website and email. DNS is
 
 ### Security observations
 
-#### security-004: No explicit framing protection observed
+#### security-005: Recommended security headers missing or need review
 
-**Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
+**Basis:** Inferred (heuristic or AI, needs verification). **Verification status:** needs verification.
 
-**Importance:** medium | **Priority:** P2 | **Urgency:** Plan within 30-90 days | **Type:** problem
+**Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** problem
 
-**Observed / reported:** Neither X-Frame-Options nor CSP frame-ancestors was observed.
+**Observed / reported:** Framing protection (importance: low): Neither X-Frame-Options nor CSP frame-ancestors was observed. Evidence: ev-security-r2-001. content-security-policy (importance: low): Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy. Evidence: ev-security-r2-001, ev-siteone-r2-019. x-content-type-options (importance: low): X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options. Evidence: ev-security-r2-001, ev-siteone-r2-020. referrer-policy (importance: low): Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy. Evidence: ev-security-r2-001, ev-siteone-r2-021. permissions-policy (importance: low): Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security. The sampled response did not include permissions-policy. Evidence: ev-security-r2-001, ev-siteone-r2-022.
 
 **Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
 
-**Recommended next action:** Set an appropriate frame-ancestors policy after checking embedding needs.
+**Recommended next action:** Have the hosting team review the listed policies together, prioritising the higher importance items. Test content loading, embedding and HTTPS compatibility before deployment, then recheck the affected HTML responses and Observatory assessment.
 
-**AMS service category:** Managed IT &amp; Technology
+**AMS service category:** Managed IT & Technology
 
 **Dependencies:** Customer approval of scope and an accountable system owner before changes.
 
 **Information still required:** Confirm the current setup, existing integrations, access and business priority.
+
+**Affected URLs:** http://127.0.0.1:18765/
+
+**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-019); siteone (ev-siteone-r2-020); siteone (ev-siteone-r2-021); siteone (ev-siteone-r2-022).
+
+**Evidence:** ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022
+
+#### security-006: Server software version disclosed
+
+**Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
+
+**Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** problem
+
+**Observed / reported:** Server response header discloses a version: SimpleHTTP/0.6 Python/3.12.13.
+
+**Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
+
+**Recommended next action:** Remove unnecessary version detail in the hosting configuration; a version string alone does not establish a vulnerability.
+
+**AMS service category:** Managed IT & Technology
+
+**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+
+**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+
+**Affected URLs:** http://127.0.0.1:18765/
 
 **Source:** security (ev-security-r2-001).
 
 **Evidence:** ev-security-r2-001
-
-#### siteone-006: Review content-security-policy header
-
-**Basis:** Inferred (heuristic or AI, needs verification). **Verification status:** needs verification.
-
-**Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** problem
-
-**Observed / reported:** Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy.
-
-**Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
-
-**Recommended next action:** Review and test the header policy for the affected responses.
-
-**AMS service category:** Managed IT &amp; Technology
-
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
-
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
-
-**Affected URLs:** http://127.0.0.1:18765/
-
-**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-021).
-
-**Evidence:** ev-security-r2-001, ev-siteone-r2-021
-
-#### siteone-007: Review server header
-
-**Basis:** Inferred (heuristic or AI, needs verification). **Verification status:** needs verification.
-
-**Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** problem
-
-**Observed / reported:** Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.
-
-**Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
-
-**Recommended next action:** Review and test the header policy for the affected responses.
-
-**AMS service category:** Managed IT &amp; Technology
-
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
-
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
-
-**Affected URLs:** http://127.0.0.1:18765/
-
-**Source:** siteone (ev-siteone-r2-022).
-
-**Evidence:** ev-siteone-r2-022
-
-#### siteone-008: Review x-content-type-options header
-
-**Basis:** Inferred (heuristic or AI, needs verification). **Verification status:** needs verification.
-
-**Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** problem
-
-**Observed / reported:** X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options.
-
-**Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
-
-**Recommended next action:** Review and test the header policy for the affected responses.
-
-**AMS service category:** Managed IT &amp; Technology
-
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
-
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
-
-**Affected URLs:** http://127.0.0.1:18765/
-
-**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-023).
-
-**Evidence:** ev-security-r2-001, ev-siteone-r2-023
-
-#### siteone-009: Review referrer-policy header
-
-**Basis:** Inferred (heuristic or AI, needs verification). **Verification status:** needs verification.
-
-**Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** problem
-
-**Observed / reported:** Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy.
-
-**Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
-
-**Recommended next action:** Review and test the header policy for the affected responses.
-
-**AMS service category:** Managed IT &amp; Technology
-
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
-
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
-
-**Affected URLs:** http://127.0.0.1:18765/
-
-**Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-024).
-
-**Evidence:** ev-security-r2-001, ev-siteone-r2-024
-
-#### siteone-010: Review permissions-policy header
-
-**Basis:** Inferred (heuristic or AI, needs verification). **Verification status:** needs verification.
-
-**Importance:** low | **Priority:** P3 | **Urgency:** Consider after 90 days | **Type:** problem
-
-**Observed / reported:** Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.
-
-**Potential business impact (interpretation, not measured):** May affect reliability or protection of business systems; impact requires verification.
-
-**Recommended next action:** Review and test the header policy for the affected responses.
-
-**AMS service category:** Managed IT &amp; Technology
-
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
-
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
-
-**Affected URLs:** http://127.0.0.1:18765/
-
-**Source:** siteone (ev-siteone-r2-025).
-
-**Evidence:** ev-siteone-r2-025
 
 
 ## 8. Operational-process and automation findings
@@ -789,7 +695,7 @@ Business discovery: customer-provided information
 
 **Likely cause (interpretation):** No cover for calls while the office is busy or closed
 
-**AMS service category:** AI &amp; Automation
+**AMS service category:** AI & Automation
 
 **Dependencies:** Customer approval of scope and an accountable system owner before changes.
 
@@ -833,7 +739,7 @@ Business discovery: customer-provided information
 
 **Recommended next action:** Confirm the current setup on site, then put managed backup in place for business data.
 
-**AMS service category:** Managed IT &amp; Technology
+**AMS service category:** Managed IT & Technology
 
 **Dependencies:** Customer approval of scope and an accountable system owner before changes.
 
@@ -874,16 +780,15 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 - **P1 - Elements must meet minimum color contrast ratio thresholds (browser-001):** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.
 - **P1 - Images must have alternative text (browser-002):** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.
 - **P1 - Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies):** Map the enquiry journey, then trial call capture with a missed-call text-back and a shared enquiry queue; keep pricing replies for human approval. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.
-- **P1 - Broken URLs (siteone-002):** Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-011.
+- **P1 - Broken URLs (siteone-002):** Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-010.
 
 ### 30-90 days
 
 - **P2 - Job, scheduling and invoicing data live in disconnected tools (discovery-job-scheduling-and-invoicing-data-live-in-disconne):** Assess a job-management system that integrates with Xero, within the stated budget, before considering any automation on top. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.
 - **P2 - Job spreadsheet has no backup (discovery-job-spreadsheet-has-no-backup):** Confirm the current setup on site, then put managed backup in place for business data. Evidence: ev-discovery-r3-014.
 - **P2 - Business name, address or phone differs between structured data and the page (presence-002):** Use one canonical name, address and phone number in structured data, the footer, contact page and external listings. Evidence: ev-presence-r2-010.
-- **P2 - No explicit framing protection observed (security-004):** Set an appropriate frame-ancestors policy after checking embedding needs. Evidence: ev-security-r2-001.
-- **P2 - Missing meta description (siteone-004):** Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-017.
-- **P2 - Missing H1 (siteone-005):** Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-017.
+- **P2 - Missing meta description (siteone-004):** Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-015.
+- **P2 - Missing H1 (siteone-005):** Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-015.
 
 ### 90+ days
 
@@ -893,14 +798,11 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 - **P3 - Near-duplicate location pages (site_checks-003):** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.
 - **P3 - Priority platforms still need presence verification (presence-001):** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Evidence: ev-presence-r2-014, ev-presence-r2-013.
 - **P3 - Analytics or tracking tags could not be confirmed (presence-003):** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
-- **P3 - Review content-security-policy header (siteone-006):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-021.
-- **P3 - Review server header (siteone-007):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-022.
-- **P3 - Review x-content-type-options header (siteone-008):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-023.
-- **P3 - Review referrer-policy header (siteone-009):** Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-024.
-- **P3 - Review permissions-policy header (siteone-010):** Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-025.
+- **P3 - Recommended security headers missing or need review (security-005):** Have the hosting team review the listed policies together, prioritising the higher importance items. Test content loading, embedding and HTTPS compatibility before deployment, then recheck the affected HTML responses and Observatory assessment. Evidence: ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.
+- **P3 - Server software version disclosed (security-006):** Remove unnecessary version detail in the hosting configuration; a version string alone does not establish a vulnerability. Evidence: ev-security-r2-001.
 - **P3 - Duplicates, headings / internal links (site_checks-002):** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.
-- **P3 - Pages without a canonical link (siteone-011):** Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-027.
-- **P3 - Review internal redirects (siteone-001):** Link directly to the final canonical URL. Evidence: ev-siteone-r2-007, ev-siteone-r2-013.
+- **P3 - Pages without a canonical link (siteone-010):** Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-024.
+- **P3 - Review internal redirects (siteone-001):** Link directly to the final canonical URL. Evidence: ev-siteone-r2-009, ev-siteone-r2-011.
 
 ## 10. Items requiring customer verification, access or decisions
 
@@ -956,7 +858,7 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 13. **Cylex** (low): Search Cylex for the business and record what you find. Search: site:cylex.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Acylex.com.au+%22Harbour+Demo+Plumbing%22).
 14. **Whereis** (low): Search Whereis for the business and record what you find. Search: site:whereis.com "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Awhereis.com+%22Harbour+Demo+Plumbing%22).
 15. **Word of Mouth** (low): Search Word of Mouth for the business and record what you find. Search: site:wordofmouth.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Awordofmouth.com.au+%22Harbour+Demo+Plumbing%22).
-16. **Chambers of commerce / professional &amp; industry associations** (low): Search Chambers of commerce / professional &amp; industry associations for the business and record what you find. Search: "Harbour Demo Plumbing" member (chamber OR association) Sydney (https://www.google.com.au/search?q=%22Harbour+Demo+Plumbing%22+member+%28chamber+OR+association%29+Sydney).
+16. **Chambers of commerce / professional & industry associations** (low): Search Chambers of commerce / professional & industry associations for the business and record what you find. Search: "Harbour Demo Plumbing" member (chamber OR association) Sydney (https://www.google.com.au/search?q=%22Harbour+Demo+Plumbing%22+member+%28chamber+OR+association%29+Sydney).
 17. **Airtasker** (low): Search Airtasker for the business and record what you find. Search: site:airtasker.com "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Aairtasker.com+%22Harbour+Demo+Plumbing%22).
 18. **ServiceSeeking** (low): Search ServiceSeeking for the business and record what you find. Search: site:serviceseeking.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Aserviceseeking.com.au+%22Harbour+Demo+Plumbing%22).
 
@@ -972,11 +874,7 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 - site_checks-003: Near-duplicate location pages. Evidence: ev-site_checks-r2-009.
 - presence-001: Priority platforms still need presence verification. Evidence: ev-presence-r2-014, ev-presence-r2-013.
 - presence-003: Analytics or tracking tags could not be confirmed. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
-- siteone-006: Review content-security-policy header. Evidence: ev-security-r2-001, ev-siteone-r2-021.
-- siteone-007: Review server header. Evidence: ev-siteone-r2-022.
-- siteone-008: Review x-content-type-options header. Evidence: ev-security-r2-001, ev-siteone-r2-023.
-- siteone-009: Review referrer-policy header. Evidence: ev-security-r2-001, ev-siteone-r2-024.
-- siteone-010: Review permissions-policy header. Evidence: ev-siteone-r2-025.
+- security-005: Recommended security headers missing or need review. Evidence: ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.
 
 - **Not assessed:** domain\_email (http://127.0.0.1:18765/). Local/private target has no public domain audit. Confirm access or arrange a manual check if this is important to the customer.
 - **Not assessed:** performance (http://127.0.0.1:18765/). PageSpeed/CrUX cannot access localhost. Confirm access or arrange a manual check if this is important to the customer.
@@ -993,37 +891,34 @@ The machine-readable evidence.json retains the observed snippets and links to ra
 | ev-profile-r1-001 | profile | Customer business profile (customer statement) (customer statement) | customer-profile |
 | ev-siteone-r2-001 | siteone | Target redirect resolution before crawling | http://127.0.0.1:18765/ |
 | ev-siteone-r2-002 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/ |
-| ev-siteone-r2-003 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/about.html |
-| ev-siteone-r2-004 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/quote.html |
-| ev-siteone-r2-005 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/contact.html |
-| ev-siteone-r2-006 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/style.css |
-| ev-siteone-r2-007 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/old-service |
-| ev-siteone-r2-008 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/a/ |
-| ev-siteone-r2-009 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/b/ |
-| ev-siteone-r2-010 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/services.html |
-| ev-siteone-r2-011 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/missing-offer.html |
-| ev-siteone-r2-012 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/work.svg |
-| ev-siteone-r2-013 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/older-service |
-| ev-siteone-r2-014 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/ |
-| ev-siteone-r2-015 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/about.html |
-| ev-siteone-r2-016 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/contact.html |
-| ev-siteone-r2-017 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/quote.html |
-| ev-siteone-r2-018 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/a/ |
-| ev-siteone-r2-019 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/b/ |
-| ev-siteone-r2-020 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/services.html |
+| ev-siteone-r2-003 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/a/ |
+| ev-siteone-r2-004 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/about.html |
+| ev-siteone-r2-005 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/services.html |
+| ev-siteone-r2-006 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/contact.html |
+| ev-siteone-r2-007 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/b/ |
+| ev-siteone-r2-008 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/quote.html |
+| ev-siteone-r2-009 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/old-service |
+| ev-siteone-r2-010 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/missing-offer.html |
+| ev-siteone-r2-011 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/older-service |
+| ev-siteone-r2-012 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/ |
+| ev-siteone-r2-013 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/about.html |
+| ev-siteone-r2-014 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/contact.html |
+| ev-siteone-r2-015 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/quote.html |
+| ev-siteone-r2-016 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/a/ |
+| ev-siteone-r2-017 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/b/ |
+| ev-siteone-r2-018 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/services.html |
+| ev-siteone-r2-019 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
+| ev-siteone-r2-020 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
 | ev-siteone-r2-021 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
 | ev-siteone-r2-022 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-023 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-024 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-025 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-026 | siteone | SiteOne robots.txt load | http://127.0.0.1:18765/ |
-| ev-siteone-r2-027 | siteone | SiteOne canonical link summary | http://127.0.0.1:18765/ |
-| ev-siteone-r2-028 | siteone | SiteOne seo-headings table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-029 | siteone | SiteOne redirects table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-030 | siteone | SiteOne 404 table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-031 | siteone | SiteOne headers table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-032 | siteone | SiteOne headers-values table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-033 | siteone | SiteOne external-urls table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-023 | siteone | SiteOne robots.txt load | http://127.0.0.1:18765/ |
+| ev-siteone-r2-024 | siteone | SiteOne canonical link summary | http://127.0.0.1:18765/ |
+| ev-siteone-r2-025 | siteone | SiteOne seo-headings table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-026 | siteone | SiteOne redirects table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-027 | siteone | SiteOne 404 table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-028 | siteone | SiteOne headers table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-029 | siteone | SiteOne headers-values table | http://127.0.0.1:18765/ |
+| ev-siteone-r2-030 | siteone | SiteOne external-urls table | http://127.0.0.1:18765/ |
 | ev-browser-r2-001 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/ |
 | ev-browser-r2-002 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/about.html |
 | ev-browser-r2-003 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/quote.html |
@@ -1071,21 +966,21 @@ The machine-readable evidence.json retains the observed snippets and links to ra
 | ev-site_checks-r2-014 | site\_checks | Site check: Suspected CDN / firewall crawler blocking | http://127.0.0.1:18765/ |
 | ev-site_checks-r2-015 | site\_checks | Site check: llms.txt (informational) | http://127.0.0.1:18765/ |
 | ev-site_checks-r2-016 | site\_checks | Site check: Answer readiness (heuristic) | http://127.0.0.1:18765/ |
-| ev-discovery-r3-001 | discovery | Customer statement (Business model, services, customers &amp; priorities): Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-002 | discovery | Customer statement (Business model, services, customers &amp; priorities): Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-001 | discovery | Customer statement (Business model, services, customers & priorities): Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-002 | discovery | Customer statement (Business model, services, customers & priorities): Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs (customer statement) | customer-discovery-notes |
 | ev-discovery-r3-003 | discovery | Customer statement (Systems in use): Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar (customer statement) | customer-discovery-notes |
 | ev-discovery-r3-004 | discovery | Customer statement (Systems in use): Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-005 | discovery | Customer statement (Enquiries &amp; communication): Calls during jobs or after 5pm go to voicemail and some are never returned (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-006 | discovery | Customer statement (Enquiries &amp; communication): Website form enquiries arrive in the shared inbox and can wait a day for a reply (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-007 | discovery | Customer statement (Sales &amp; quoting): Quotes for refits are typed up in a word processor from the engineer's site notes (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-008 | discovery | Customer statement (Sales &amp; quoting): Nobody follows up quotes that get no response (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-009 | discovery | Customer statement (Bookings &amp; scheduling): Engineers' diaries are juggled by phone when an emergency job comes in (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-010 | discovery | Customer statement (Manual &amp; duplicated tasks): Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-011 | discovery | Customer statement (Manual &amp; duplicated tasks): Annual service reminders are sent by hand from a list (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-012 | discovery | Customer statement (Data duplication, integrations &amp; disconnected systems): Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-013 | discovery | Customer statement (Pain points &amp; bottlenecks): Month-end invoicing is the biggest bottleneck and delays cash coming in (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-014 | discovery | Customer statement (Pain points &amp; bottlenecks): The office laptop holding the job spreadsheet has no backup (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-005 | discovery | Customer statement (Enquiries & communication): Calls during jobs or after 5pm go to voicemail and some are never returned (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-006 | discovery | Customer statement (Enquiries & communication): Website form enquiries arrive in the shared inbox and can wait a day for a reply (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-007 | discovery | Customer statement (Sales & quoting): Quotes for refits are typed up in a word processor from the engineer's site notes (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-008 | discovery | Customer statement (Sales & quoting): Nobody follows up quotes that get no response (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-009 | discovery | Customer statement (Bookings & scheduling): Engineers' diaries are juggled by phone when an emergency job comes in (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-010 | discovery | Customer statement (Manual & duplicated tasks): Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-011 | discovery | Customer statement (Manual & duplicated tasks): Annual service reminders are sent by hand from a list (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-012 | discovery | Customer statement (Data duplication, integrations & disconnected systems): Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-013 | discovery | Customer statement (Pain points & bottlenecks): Month-end invoicing is the biggest bottleneck and delays cash coming in (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-014 | discovery | Customer statement (Pain points & bottlenecks): The office laptop holding the job spreadsheet has no backup (customer statement) | customer-discovery-notes |
 | ev-discovery-r3-015 | discovery | Customer statement (Existing automations): Xero sends automatic payment reminders; nothing else is automated and no AI tools are used (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-016 | discovery | Customer statement (Opportunities, constraints &amp; required human approvals): Owner would most like enquiries and bookings to run without the office chasing them (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-017 | discovery | Customer statement (Opportunities, constraints &amp; required human approvals): Quotes and any message about price must be approved by the owner before sending (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-018 | discovery | Customer statement (Opportunities, constraints &amp; required human approvals): Budget is limited this year and the team wants to keep Xero (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-016 | discovery | Customer statement (Opportunities, constraints & required human approvals): Owner would most like enquiries and bookings to run without the office chasing them (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-017 | discovery | Customer statement (Opportunities, constraints & required human approvals): Quotes and any message about price must be approved by the owner before sending (customer statement) | customer-discovery-notes |
+| ev-discovery-r3-018 | discovery | Customer statement (Opportunities, constraints & required human approvals): Budget is limited this year and the team wants to keep Xero (customer statement) | customer-discovery-notes |

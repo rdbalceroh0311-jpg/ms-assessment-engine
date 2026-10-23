@@ -101,17 +101,41 @@ def run(ctx: Context) -> ModuleResult:
                 json={"url": ctx.site_url},
                 timeout=30,
             )
-            response.raise_for_status()
-            raw["crux"] = response.json()
-            if not raw["crux"].get("record", {}).get("metrics"):
-                crux.status, crux.detail = "Not assessed", "CrUX returned no usable field metrics"
+            if response.status_code == 404:
+                try:
+                    error = response.json().get("error", {})
+                except (ValueError, AttributeError):
+                    error = {}
+            else:
+                error = {}
+            # Documented no-data envelope; an arbitrary HTTP 404 is still an API error.
+            # https://developer.chrome.com/docs/crux/guides/crux-api#errors
+            no_data = (
+                isinstance(error, dict)
+                and error.get("code") == 404
+                and error.get("status") == "NOT_FOUND"
+                and error.get("message") == "chrome ux report data not found"
+            )
+            if no_data:
+                raw["crux"] = {"http_status": 404, "status": "NOT_FOUND"}
+                crux.status = "Not assessed"
+                crux.detail = "No CrUX field data for this origin/URL (insufficient traffic)"
                 limitations.append(crux.detail)
             else:
-                eid = result.add_evidence(
-                    ctx.site_url, "CrUX field data (separate API)", raw["crux"]
-                )
-                crux.status, crux.detail = "Connected successfully", "Field metrics returned"
-                crux.evidence_ids = [eid]
+                response.raise_for_status()
+                raw["crux"] = response.json()
+                if not raw["crux"].get("record", {}).get("metrics"):
+                    crux.status, crux.detail = (
+                        "Not assessed",
+                        "CrUX returned no usable field metrics",
+                    )
+                    limitations.append(crux.detail)
+                else:
+                    eid = result.add_evidence(
+                        ctx.site_url, "CrUX field data (separate API)", raw["crux"]
+                    )
+                    crux.status, crux.detail = "Connected successfully", "Field metrics returned"
+                    crux.evidence_ids = [eid]
         except (httpx.HTTPError, ValueError) as exc:
             crux.status = (
                 "Permission required"
@@ -121,8 +145,14 @@ def run(ctx: Context) -> ModuleResult:
                 )
                 else "Not assessed"
             )
-            crux.detail = f"Separate CrUX API unavailable ({type(exc).__name__})"
-            limitations.append(f"Separate CrUX API unavailable ({type(exc).__name__})")
+            detail = (
+                f"HTTP {exc.response.status_code}"
+                if isinstance(exc, httpx.HTTPStatusError)
+                else type(exc).__name__
+            )
+            crux.detail = f"Separate CrUX API unavailable ({detail})"
+            raw["crux"] = {"error": detail}
+            limitations.append(crux.detail)
     else:
         limitations.append("Separate CrUX API skipped: missing CRUX_API_KEY/GOOGLE_API_KEY")
     result.raw_paths = [ctx.raw(name, raw)]

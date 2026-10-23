@@ -154,10 +154,10 @@ Basis labels: **Confirmed (technical evidence)** means directly observed; **Manu
 The table explains what ran and where evidence was unavailable. Results apply only to the website, date and sample shown; they do not establish account ownership or complete coverage.
 
 {% if data.get('coverage') %}
-| Website / run | Date (UTC) | Successful HTML pages / URL cap | Run outcome |
+| Website / run | Date (UTC) | Successful HTML pages / crawl URL budget | Run outcome |
 | --- | --- | --- | --- |
 {% for r in data.coverage %}
-| {{ r.target | text }} ({{ r.run_id }}) | {{ r.created_at[:10] }} | {{ r.pages }} / {{ r.max_pages }} | {{ r.status }} |
+| {{ r.target | text }} ({{ r.run_id }}) | {{ r.created_at[:10] }} | {{ r.pages }} / {{ r.max_pages }} ({{ 'static assets excluded' if r.get('crawl_assets_excluded') else 'including assets' }}) | {{ r.status }} |
 {% endfor %}
 
 {% endif %}
@@ -173,7 +173,7 @@ The table explains what ran and where evidence was unavailable. Results apply on
 {% endfor %}
 
 {% if 'siteone' in collected_sources %}
-- Crawl coverage{% if data.get('pages_target') %} ({{ data.pages_target | text }}){% endif %}: {{ data.pages | length }} successful HTML pages within a cap of {{ data.max_pages }} URLs (including assets).
+- Crawl coverage{% if data.get('pages_target') %} ({{ data.pages_target | text }}){% endif %}: {{ data.pages | length }} successful HTML pages within a crawl budget of {{ data.max_pages }} URLs ({{ 'static assets excluded; redirects and failed/non-HTML responses can consume slots' if data.get('crawl_assets_excluded') else 'including assets' }}).
 {% endif %}
 {% if 'browser' in collected_sources %}
 - Browser coverage: {{ browser_observations }} page/viewport observations across the included runs, with at most six key pages per run at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.

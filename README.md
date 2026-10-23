@@ -20,7 +20,7 @@ uv run ams-assess run --customer acme --target example.com \
 uv run ams-assess report data/customers/acme/<timestamp>
 ```
 
-Options: `--max-pages 100` (a conservative **URL** cap including assets), `--formats md,html,pdf`,
+Options: `--max-pages 100` (a page-crawl URL budget excluding static assets; redirects and failed/non-HTML responses can consume slots), `--formats md,html,pdf`,
 `--no-ai`, `--connect gsc`, `--dataforseo-max-usd X`, `--keywords 'k1,k2'`, `--dkim-selectors a,b`, `--mail-tls-check`. Default categories: technical, seo, geo,
 performance, accessibility, cro_ux, copywriting, security, domain_email, local_seo, entity, presence.
 The report follows ten sections: context; scope and limitations; critical risks; website checks;

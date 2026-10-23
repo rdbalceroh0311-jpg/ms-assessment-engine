@@ -84,7 +84,7 @@ def test_plain_tool_identity_is_shared_by_siteone_preflight_and_probes(tmp_path,
     )
     commands = mock_crawler(monkeypatch, ctx)
     result = siteone.run(ctx)
-    assert result.status == "ok" and not result.reason
+    assert result.status == "ok" and "preflight limitation" not in result.reason
     # SiteOne strips the ! and does not append its own signature. Pin the actual option,
     # rather than asserting equality to the same constant used by the implementation.
     assert "--user-agent=AMSAssessment/1.0!" in commands[0]
@@ -212,6 +212,8 @@ def test_redirected_website_does_not_change_email_domain(tmp_path, monkeypatch, 
 
         def resolve(self, host, kind):
             queries.append((str(host).rstrip("."), kind))
+            if str(host).rstrip(".") == "www.example.com" and kind == "A":
+                return [SimpleNamespace(to_text=lambda: "192.0.2.1")]
             raise dns.resolver.NXDOMAIN()
 
     monkeypatch.setattr(dns.resolver, "Resolver", lambda **_: Resolver())
@@ -234,11 +236,17 @@ def test_redirected_website_does_not_change_email_domain(tmp_path, monkeypatch, 
 
     monkeypatch.setattr(httpx, "get", rdap)
     result = domain_email.run(ctx)
+    dns_row = next(r for r in result.checks if r["key"] == "dns")
+    assert next(c for c in dns_row["checks"] if c["name"] == "A/AAAA")["status"] == "PASS"
+    assert not any(f.title == "Website host does not resolve" for f in result.findings)
     assert result.evidence and ctx.target == requested
     assert ctx.site_url == "https://www.example.com/" and ctx.site_host == "www.example.com"
     assert checked == ["example.com"] and registrations == ["https://rdap.org/domain/example.com"]
     assert ("example.com", "MX") in queries and ("example.com", "TXT") in queries
-    assert not any("www.example.com" in host for host, _ in queries)
+    assert ("www.example.com", "A") in queries and ("www.example.com", "AAAA") in queries
+    assert not any(
+        "www.example.com" in host and kind not in {"A", "AAAA"} for host, kind in queries
+    )
 
 
 def test_store_keeps_requested_identity_and_resolved_url(tmp_path, monkeypatch):
@@ -451,7 +459,7 @@ def test_transport_error_on_one_page_does_not_break_downstream_checks(tmp_path, 
                 "status": 200,
                 "complete": True,
                 "headers": {"content-type": "text/html"},
-                "body": '<html><body><h1>Synthetic</h1>'
+                "body": "<html><body><h1>Synthetic</h1>"
                 '<a href="/contact">Contact</a></body></html>',
             },
         },

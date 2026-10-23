@@ -417,8 +417,8 @@ def test_health_summary_renders_statuses_only_when_selected(tmp_path, monkeypatc
     assert statuses["web_tls"] == NOT_ASSESSED and statuses["dnsbl"] == NOT_ASSESSED
     assert "domain_email_health" in json.loads((ctx.run_dir / "results.json").read_text())
     report = (ctx.run_dir / "report.md").read_text()
-    assert "| DNS configuration &amp; health | PASS |" in report
-    assert "| Domain registration &amp; expiry | WARNING |" in report
+    assert "| DNS configuration & health | PASS |" in report
+    assert "| Domain registration & expiry | WARNING |" in report
     assert "| HTTP security headers | NOT ASSESSED |" in report
     assert "do not measure inbox placement" in report
     other = context(tmp_path)
@@ -467,7 +467,7 @@ def test_summary_renders_when_module_ran_even_on_error(tmp_path, monkeypatch, ou
     report = (ctx.run_dir / "report.md").read_text()
     if outcome == "error":
         assert "Email Health summary" in report
-        assert "| DNS configuration &amp; health | NOT ASSESSED |" in report
+        assert "| DNS configuration & health | NOT ASSESSED |" in report
         assert "domain\\_email module error: Module failed (RuntimeError)" in report
     else:
         assert "Email Health summary" not in report

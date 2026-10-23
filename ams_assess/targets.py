@@ -105,6 +105,11 @@ def resolve_target(target: str) -> dict[str, Any]:
             entry: dict[str, Any] = {"url": current, "http_status": status}
             chain.append(entry)
             if status not in {301, 302, 303, 307, 308}:
+                if upgraded and len(chain) == 1 and not 200 <= status < 300:
+                    # Only undo our speculative upgrade, never an actual HTTPS redirect.
+                    outcome["upgrade_limitation"] = f"Preferred HTTPS returned HTTP {status}"
+                    current = requested
+                    continue
                 if 200 <= status < 300:
                     outcome["resolved"] = current
                 else:

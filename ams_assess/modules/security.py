@@ -1,6 +1,8 @@
+import re
 import socket
 import ssl
 from datetime import UTC, datetime
+from http.cookies import CookieError, SimpleCookie
 from urllib.parse import urlsplit
 
 import httpx
@@ -15,6 +17,7 @@ HEADERS = {
     "strict-transport-security": "Enable HSTS after confirming all required hosts support HTTPS.",
     "x-content-type-options": "Set X-Content-Type-Options to nosniff.",
     "referrer-policy": "Choose a privacy-conscious Referrer-Policy.",
+    "permissions-policy": "Limit browser capabilities to those the website actually uses.",
 }
 
 
@@ -43,7 +46,9 @@ def run(ctx: Context) -> ModuleResult:
                     [eid],
                     f"The sampled response did not include {header}.",
                     recommendation,
-                    severity="low" if ctx.local else "medium",
+                    severity="low"
+                    if ctx.local or header in {"referrer-policy", "permissions-policy"}
+                    else "medium",
                     urls=[str(response.url)],
                 )
         if (
@@ -57,6 +62,57 @@ def run(ctx: Context) -> ModuleResult:
                 [eid],
                 "Neither X-Frame-Options nor CSP frame-ancestors was observed.",
                 "Set an appropriate frame-ancestors policy after checking embedding needs.",
+                severity="low" if ctx.local else "medium",
+                urls=[str(response.url)],
+            )
+        # Only specific cookie flag observations are actionable; never retain cookie values.
+        cookie_issues = []
+        for value in response.headers.get_list("set-cookie"):
+            cookie = SimpleCookie()
+            try:
+                cookie.load(value)
+            except CookieError:
+                continue
+            for key, morsel in cookie.items():
+                missing = [
+                    flag
+                    for flag in ("Secure", "HttpOnly")
+                    if not morsel[flag.lower()]
+                    and (flag != "Secure" or response.url.scheme == "https")
+                ]
+                if missing:
+                    cookie_issues.append({"name": key, "missing_flags": missing})
+        if cookie_issues:
+            cookie_eid = result.add_evidence(
+                str(response.url), "Cookie flag observations (values omitted)", cookie_issues
+            )
+            result.finding(
+                "header-review:set-cookie",
+                "Review specific cookie protection flags",
+                "security",
+                [cookie_eid],
+                "; ".join(
+                    f"Cookie {c['name']} lacks {', '.join(c['missing_flags'])}"
+                    for c in cookie_issues
+                ),
+                "Confirm each cookie's purpose. Set Secure on HTTPS cookies and HttpOnly where "
+                "client-side JavaScript does not need access; test before deployment.",
+                severity="low",
+                confidence="needs_verification",
+                urls=[str(response.url)],
+            )
+        server = headers.get("server", "")
+        if re.search(r"\b[A-Za-z][\w.-]*/\d+\.\d+[\w.-]*", server):
+            result.finding(
+                "header-review:server",
+                "Server software version disclosed",
+                "security",
+                [eid],
+                f"Server response header discloses a version: {server}.",
+                "Remove unnecessary version detail in the hosting configuration; "
+                "a version string alone does not establish a vulnerability.",
+                severity="low",
+                urls=[str(response.url)],
             )
     except httpx.HTTPError as exc:
         limitations.append(f"HTTP headers unavailable ({type(exc).__name__})")

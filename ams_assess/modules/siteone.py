@@ -77,6 +77,7 @@ def run(ctx: Context) -> ModuleResult:
         "--output=json",
         "--no-color",
         "--no-cache",
+        "--disable-all-assets",
         f"--max-visited-urls={ctx.max_pages}",
         f"--rows-limit={ctx.max_pages}",
         "--workers=2",
@@ -222,6 +223,10 @@ def run(ctx: Context) -> ModuleResult:
         # evaluates X-Frame-Options together with its CSP frame-ancestors replacement.
         if header in {"feature-policy", "x-xss-protection", "x-frame-options"}:
             continue
+        # Aggregate counts do not identify a cookie flag defect or a disclosed version.
+        # The direct security collector reports those only from concrete response values.
+        if header in {"set-cookie", "server"}:
+            continue
         missing = "not set" in row.get("recommendation", "").lower()
         key = f"header-missing:{header}" if missing else f"header-review:{header}"
         eid = result.add_evidence(ctx.site_url, "SiteOne header analysis (crawl aggregate)", row)
@@ -233,7 +238,9 @@ def run(ctx: Context) -> ModuleResult:
             row.get("recommendation", "Header policy needs review."),
             "Review and test the header policy for the affected responses.",
             confidence="needs_verification",
-            severity="low" if ctx.local or header == "server" else "medium",
+            severity="low"
+            if ctx.local or header in {"referrer-policy", "permissions-policy"}
+            else "medium",
             urls=[ctx.site_url],
         )
     for item in data.get("summary", {}).get("items", []):
@@ -280,7 +287,12 @@ def run(ctx: Context) -> ModuleResult:
     if not ctx.pages:
         result.status, result.reason = "error", "SiteOne returned no successful HTML pages"
     elif len(rows) >= ctx.max_pages:
-        result.reason = f"Crawl URL cap ({ctx.max_pages}) reached; coverage may be incomplete"
+        result.reason = (
+            f"{len(ctx.pages)} successful HTML pages; page crawl budget {ctx.max_pages} URLs "
+            "with static assets excluded. "
+            "Redirects and failed/non-HTML responses can consume slots."
+        )
+        result.reason += " Crawl cap reached; coverage may be incomplete."
     if limitation:
         result.reason = "; ".join(filter(None, [result.reason, limitation]))
     return result

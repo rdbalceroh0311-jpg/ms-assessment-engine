@@ -3,7 +3,7 @@ from typing import Any
 
 from ams_assess import store
 from ams_assess.ai import analyse
-from ams_assess.consolidate import consolidate
+from ams_assess.consolidate import consolidate, consolidate_security_headers
 from ams_assess.models import (
     CATEGORIES,
     DISCOVERY_CATEGORY,
@@ -61,6 +61,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         )
     evidence = [e for result in results for e in result.evidence]
     findings = consolidate([f for result in results for f in result.findings], evidence)
+    findings = consolidate_security_headers(findings, evidence)
     write_json(ctx.run_dir / "evidence.json", [e.model_dump() for e in evidence])
     print("[ai] analysing" if not no_ai else "[ai] disabled", flush=True)
     ai, findings = analyse(ctx, findings, evidence, no_ai)
@@ -109,6 +110,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         "selected_categories": sorted(ctx.categories),
         "assessed_categories": assessed,
         "max_pages": ctx.max_pages,
+        "crawl_assets_excluded": True,
         "pages": ctx.pages,
         "modules": [r.model_dump() for r in results],
         "ai": ai,

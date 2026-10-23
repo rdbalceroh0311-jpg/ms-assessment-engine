@@ -33,10 +33,10 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 </blockquote>
 <h1 id="ai-managed-services">AI Managed Services</h1>
 <h2 id="business-assessment-report">Business assessment report</h2>
-<p><strong>Customer:</strong> Harbour Demo Plumbing<br>
-<strong>Assessment date (UTC):</strong> 2026-10-22<br>
-<strong>Target:</strong> http://127.0.0.1:18765/<br>
-<strong>Scope:</strong> Functionality &amp; accessibility; Copywriting &amp; messaging; CRO &amp; UX/UI; Domain, DNS &amp; email health; Entity &amp; brand authority; GEO / AI search readiness; Local SEO; Website performance; Digital presence &amp; integration readiness; Security observations; SEO findings; Website technical health; Business discovery (customer statements)<br>
+<p><strong>Customer:</strong> Harbour Demo Plumbing<br />
+<strong>Assessment date (UTC):</strong> 2026-10-23<br />
+<strong>Target:</strong> http://127.0.0.1:18765/<br />
+<strong>Scope:</strong> Functionality &amp; accessibility; Copywriting &amp; messaging; CRO &amp; UX/UI; Domain, DNS &amp; email health; Entity &amp; brand authority; GEO / AI search readiness; Local SEO; Website performance; Digital presence &amp; integration readiness; Security observations; SEO findings; Website technical health; Business discovery (customer statements)<br />
 <strong>Stages completed:</strong> public technical assessment; business discovery</p>
 <blockquote>
 <p>Evidence-led observations and a proposed improvement plan. Confirm scope, priorities and estimates with AMS before implementation. This assessment makes no changes to your website.</p>
@@ -44,7 +44,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <h2 id="1-executive-summary-and-business-context">1. Executive summary and business context</h2>
 <p>This report connects the evidence to practical decisions about your business. A finding is an observation or a customer statement; a recommendation is a proposed next step for review.</p>
 <p><strong>Business context — Reported by customer:</strong> Harbour Demo Plumbing. Industry: Trades &amp; home services (incl. painting). Buying model: Service-area (staff travel to customers). Service area: Sydney. Evidence: ev-profile-r1-001.</p>
-<p>The assessment recorded 24 findings supported by collected evidence or customer statements. The recommendations below prioritise the observed or reported issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.</p>
+<p>The assessment recorded 20 findings supported by collected evidence or customer statements. The recommendations below prioritise the observed or reported issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.</p>
 <blockquote>
 <p>No ranking, traffic, lead or revenue guarantees. AI-search readiness is not measured AI visibility. This technical assessment is a limited, point-in-time sample, not a full security, accessibility or operational audit. Potential impacts and likely causes require verification.</p>
 </blockquote>
@@ -56,15 +56,15 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <tr>
 <th>Website / run</th>
 <th>Date (UTC)</th>
-<th>Successful HTML pages / URL cap</th>
+<th>Successful HTML pages / crawl URL budget</th>
 <th>Run outcome</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>http://127.0.0.1:18765/ (r2)</td>
-<td>2026-10-22</td>
-<td>7 / 30</td>
+<td>2026-10-23</td>
+<td>7 / 30 (static assets excluded)</td>
 <td>partial</td>
 </tr>
 </tbody>
@@ -79,69 +79,81 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 </thead>
 <tbody>
 <tr>
-<td>siteone (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>siteone (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Assessed</td>
 <td>Completed within the stated scope</td>
 </tr>
 <tr>
-<td>browser (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>browser (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Assessed</td>
 <td>Completed within the stated scope</td>
 </tr>
 <tr>
-<td>domain_email (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>domain_email (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Not assessed</td>
 <td>Local/private target has no public domain audit</td>
 </tr>
 <tr>
-<td>security (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>security (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Assessed</td>
 <td>TLS not checked: supplied target uses HTTP; Local fixture security headers are not evidence about production hosting</td>
 </tr>
 <tr>
-<td>performance (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>performance (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Not assessed</td>
 <td>PageSpeed/CrUX cannot access localhost</td>
 </tr>
 <tr>
-<td>observatory (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>observatory (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Not assessed</td>
 <td>Observatory cannot scan local targets</td>
 </tr>
 <tr>
-<td>dataforseo (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>dataforseo (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Not assessed</td>
 <td>Missing DataForSEO credentials; disabled</td>
 </tr>
 <tr>
-<td>gsc (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>gsc (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Not assessed</td>
 <td>GSC requires --connect gsc and credentials; missing connection or credentials</td>
 </tr>
 <tr>
-<td>presence (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>presence (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Assessed</td>
 <td>Completed within the stated scope</td>
 </tr>
 <tr>
-<td>site_checks (http://127.0.0.1:18765/)<br>2026-10-22</td>
+<td>site_checks (http://127.0.0.1:18765/)<br />
+2026-10-23</td>
 <td>Assessed</td>
 <td>2 of 15 checks NOT ASSESSED; see status rows for missing evidence and manual verification</td>
 </tr>
 <tr>
-<td>profile (r1)<br>2026-10-22</td>
+<td>profile (r1)<br />
+2026-10-23</td>
 <td>Recorded</td>
 <td>Customer-supplied information or manual observation; not independent technical verification. See evidence index.</td>
 </tr>
 <tr>
-<td>discovery (r3)<br>2026-10-22</td>
+<td>discovery (r3)<br />
+2026-10-23</td>
 <td>Recorded</td>
 <td>Customer-supplied information or manual observation; not independent technical verification. See evidence index.</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>Crawl coverage (http://127.0.0.1:18765/): 7 successful HTML pages within a cap of 30 URLs (including assets).</li>
+<li>Crawl coverage (http://127.0.0.1:18765/): 7 successful HTML pages within a crawl budget of 30 URLs (static assets excluded; redirects and failed/non-HTML responses can consume slots).</li>
 <li>Browser coverage: 12 page/viewport observations across the included runs, with at most six key pages per run at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.</li>
 <li>Observations are a point-in-time sample. Form submission, booking, payment and account journeys were not exercised.</li>
 <li>AI search visibility was <strong>NOT measured</strong>. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.</li>
@@ -183,7 +195,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 </tr>
 <tr>
 <td>Broken URLs (siteone-002)</td>
-<td>Confirmed (technical evidence); siteone (ev-siteone-r2-011)</td>
+<td>Confirmed (technical evidence); siteone (ev-siteone-r2-010)</td>
 <td>Broken links may prevent customers reaching the information they need.</td>
 <td>Review within 0-30 days</td>
 </tr>
@@ -202,8 +214,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
 <p><strong>Affected URLs:</strong> http://127.0.0.1:18765/missing-offer.html</p>
-<p><strong>Source:</strong> siteone (ev-siteone-r2-011).</p>
-<p><strong>Evidence:</strong> ev-siteone-r2-011</p>
+<p><strong>Source:</strong> siteone (ev-siteone-r2-010).</p>
+<p><strong>Evidence:</strong> ev-siteone-r2-010</p>
 <h4 id="siteone-001-review-internal-redirects">siteone-001: Review internal redirects</h4>
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> opportunity</p>
@@ -214,8 +226,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
 <p><strong>Affected URLs:</strong> http://127.0.0.1:18765/old-service; http://127.0.0.1:18765/older-service</p>
-<p><strong>Source:</strong> siteone (ev-siteone-r2-007); siteone (ev-siteone-r2-013).</p>
-<p><strong>Evidence:</strong> ev-siteone-r2-007, ev-siteone-r2-013</p>
+<p><strong>Source:</strong> siteone (ev-siteone-r2-009); siteone (ev-siteone-r2-011).</p>
+<p><strong>Evidence:</strong> ev-siteone-r2-009, ev-siteone-r2-011</p>
 <h3 id="seo-findings">SEO findings</h3>
 <h4 id="siteone-004-missing-meta-description">siteone-004: Missing meta description</h4>
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
@@ -227,8 +239,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
 <p><strong>Affected URLs:</strong> http://127.0.0.1:18765/quote.html</p>
-<p><strong>Source:</strong> siteone (ev-siteone-r2-017).</p>
-<p><strong>Evidence:</strong> ev-siteone-r2-017</p>
+<p><strong>Source:</strong> siteone (ev-siteone-r2-015).</p>
+<p><strong>Evidence:</strong> ev-siteone-r2-015</p>
 <h4 id="siteone-005-missing-h1">siteone-005: Missing H1</h4>
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
 <p><strong>Importance:</strong> medium | <strong>Priority:</strong> P2 | <strong>Urgency:</strong> Plan within 30-90 days | <strong>Type:</strong> problem</p>
@@ -239,8 +251,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
 <p><strong>Affected URLs:</strong> http://127.0.0.1:18765/quote.html</p>
-<p><strong>Source:</strong> siteone (ev-siteone-r2-017).</p>
-<p><strong>Evidence:</strong> ev-siteone-r2-017</p>
+<p><strong>Source:</strong> siteone (ev-siteone-r2-015).</p>
+<p><strong>Evidence:</strong> ev-siteone-r2-015</p>
 <h4 id="site_checks-002-duplicates-headings-internal-links">site_checks-002: Duplicates, headings / internal links</h4>
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
@@ -252,7 +264,7 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
 <p><strong>Source:</strong> site_checks (ev-site_checks-r2-007).</p>
 <p><strong>Evidence:</strong> ev-site_checks-r2-007</p>
-<h4 id="siteone-011-pages-without-a-canonical-link">siteone-011: Pages without a canonical link</h4>
+<h4 id="siteone-010-pages-without-a-canonical-link">siteone-010: Pages without a canonical link</h4>
 <p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
 <p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> opportunity</p>
 <p><strong>Observed / reported:</strong> 4 page(s) without a rel=canonical link</p>
@@ -262,8 +274,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
 <p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
-<p><strong>Source:</strong> siteone (ev-siteone-r2-027).</p>
-<p><strong>Evidence:</strong> ev-siteone-r2-027</p>
+<p><strong>Source:</strong> siteone (ev-siteone-r2-024).</p>
+<p><strong>Evidence:</strong> ev-siteone-r2-024</p>
 <h3 id="geo-ai-search-readiness">GEO / AI search readiness</h3>
 <h4 id="site_checks-001-ai-crawler-rules-by-purpose">site_checks-001: AI crawler rules by purpose</h4>
 <p><strong>Basis:</strong> Inferred (heuristic or AI, needs verification). <strong>Verification status:</strong> needs verification.</p>
@@ -316,84 +328,96 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 </thead>
 <tbody>
 <tr>
-<td>Robots rules / site-wide Disallow (ev-site_checks-r2-002)<br>http://127.0.0.1:18765/</td>
+<td>Robots rules / site-wide Disallow (ev-site_checks-r2-002)<br />
+http://127.0.0.1:18765/</td>
 <td>PASS</td>
 <td>Parsed 4 groups; root and representative public path allowed for *, Googlebot and Bingbot.</td>
 <td>Broad rules can prevent search engines crawling public pages.</td>
 <td>Confirm intended visibility, remove unintended broad Disallow rules, then retest.</td>
 </tr>
 <tr>
-<td>Page noindex / X-Robots-Tag (ev-site_checks-r2-004)<br>http://127.0.0.1:18765/</td>
+<td>Page noindex / X-Robots-Tag (ev-site_checks-r2-004)<br />
+http://127.0.0.1:18765/</td>
 <td>PASS</td>
 <td>No noindex in 7 crawl indexing records. Meta directives inspected where available; individual HTTP-header attribution may be unavailable outside the homepage.</td>
 <td>Unintended noindex on home or key pages prevents those pages appearing in search.</td>
 <td>Confirm intended indexing per URL; inspect response headers on unsampled pages. Remove noindex only on pages intended for search.</td>
 </tr>
 <tr>
-<td>Sitemap URL validity (ev-site_checks-r2-005)<br>http://127.0.0.1:18765/</td>
+<td>Sitemap URL validity (ev-site_checks-r2-005)<br />
+http://127.0.0.1:18765/</td>
 <td>PASS</td>
 <td>Compared 7 sitemap URLs with existing crawl results: 0 with observed issues, 0 uncrawled/unavailable (NOT ASSESSED).</td>
 <td>Sitemaps should list final, successful, indexable URLs; uncrawled URLs are unknown.</td>
 <td>Replace redirects/non-200/noindex URLs; manually validate uncrawled entries. Use absolute HTTP(S) sitemap URLs in production.</td>
 </tr>
 <tr>
-<td>Canonical accessibility / consistency (ev-site_checks-r2-006)<br>http://127.0.0.1:18765/</td>
+<td>Canonical accessibility / consistency (ev-site_checks-r2-006)<br />
+http://127.0.0.1:18765/</td>
 <td>PASS</td>
 <td>3 declarations; 0 need review; 0 targets NOT ASSESSED. http://127.0.0.1:18765/ -&gt; http://127.0.0.1:18765/: HTTP 200 ; http://127.0.0.1:18765/service/a/ -&gt; http://127.0.0.1:18765/service/a/: HTTP 200 ; http://127.0.0.1:18765/service/b/ -&gt; http://127.0.0.1:18765/service/b/: HTTP 200</td>
 <td>Canonical hints should consistently identify accessible, indexable preferred pages.</td>
 <td>Review conflicting targets; use final indexable URLs. Manually verify uncrawled targets.</td>
 </tr>
 <tr>
-<td>Organization / LocalBusiness / BreadcrumbList (ev-site_checks-r2-008)<br>http://127.0.0.1:18765/</td>
+<td>Organization / LocalBusiness / BreadcrumbList (ev-site_checks-r2-008)<br />
+http://127.0.0.1:18765/</td>
 <td>INFO</td>
 <td>Validated 1 supported JSON-LD nodes. No invalid supported properties found. 4 applicable-property suggestions; absence is not a failure.</td>
 <td>Consistent structured data clarifies entities; it does not guarantee rich results.</td>
 <td>Fix invalid JSON-LD and required properties; review applicable recommended properties with Google's Rich Results Test. Organization has no required properties.</td>
 </tr>
 <tr>
-<td>Core Web Vitals (field p75) (ev-site_checks-r2-010)<br>http://127.0.0.1:18765/</td>
+<td>Core Web Vitals (field p75) (ev-site_checks-r2-010)<br />
+http://127.0.0.1:18765/</td>
 <td>NOT ASSESSED</td>
 <td>No usable CrUX/PSI p75 field data. Lighthouse lab scores are not CWV.</td>
 <td>Field LCP, INP and CLS describe real-user experience; origin and URL scopes differ.</td>
 <td>Investigate non-good field metrics and verify all three at p75. Good: LCP &lt;=2500 ms, INP &lt;=200 ms, CLS &lt;=0.1. Poor: LCP &gt;4000 ms, INP &gt;500 ms, CLS &gt;0.25. Missing field data requires manual verification; preserve separate lab findings.</td>
 </tr>
 <tr>
-<td>Booking / CRM / chat tools (ev-site_checks-r2-011)<br>http://127.0.0.1:18765/</td>
+<td>Booking / CRM / chat tools (ev-site_checks-r2-011)<br />
+http://127.0.0.1:18765/</td>
 <td>INFO</td>
 <td>Detected markup signals: Calendly. Script/link/iframe URLs and recognised inline API calls; prose excluded. Iframes outside the normal-UA homepage probe may be unavailable.</td>
 <td>Public integration signals help identify systems to discuss; they do not prove account existence, ownership or working integration.</td>
 <td>Confirm customer-owned systems and test authorised journeys before proposing changes.</td>
 </tr>
 <tr>
-<td>Conversion pathways / forms NOT TESTED (ev-site_checks-r2-012)<br>http://127.0.0.1:18765/</td>
+<td>Conversion pathways / forms NOT TESTED (ev-site_checks-r2-012)<br />
+http://127.0.0.1:18765/</td>
 <td>INFO</td>
 <td>6 rendered pages inspected for forms, booking links, tel/mailto, CTA wording, trust signals and case-study/portfolio/team/about links. Above-the-fold placement NOT ASSESSED where positions are unavailable. Form submissions: NOT TESTED. Trust claims and journey outcomes are unverified.</td>
 <td>Visible enquiry options help plan journey validation; their presence does not prove forms, booking, lead delivery or conversion performance work.</td>
 <td>Review missing paths and CTA prominence manually; arrange an authorised safe journey test with the customer. No submissions were made.</td>
 </tr>
 <tr>
-<td>Analytics / conversion-event code signals (ev-site_checks-r2-013)<br>http://127.0.0.1:18765/</td>
+<td>Analytics / conversion-event code signals (ev-site_checks-r2-013)<br />
+http://127.0.0.1:18765/</td>
 <td>NOT ASSESSED</td>
 <td>Unknown: consent manager/gated scripts prevent confirming execution. Analytics/advertising tags: ga4, gtm, clarity; visible event calls: 2. Events are not proof of measured conversions.</td>
 <td>An event call can indicate measurement intent; consent, delivery and key-event configuration need separate verification.</td>
 <td>Use customer-authorised tag diagnostics and analytics access to verify post-consent events and conversion configuration.</td>
 </tr>
 <tr>
-<td>Suspected CDN / firewall crawler blocking (ev-site_checks-r2-014)<br>http://127.0.0.1:18765/</td>
+<td>Suspected CDN / firewall crawler blocking (ev-site_checks-r2-014)<br />
+http://127.0.0.1:18765/</td>
 <td>PASS</td>
 <td>Normal UA HTTP 200; AI-search UA HTTP 200. No differential HTTP block observed in this pair.</td>
 <td>A differing response may indicate a CDN/firewall policy, rate limit or transient failure; spoofing a UA does not reproduce a verified crawler IP.</td>
 <td>Review CDN/server logs and allow intentional search access after customer approval. Verify with the real crawler; do not bypass challenges.</td>
 </tr>
 <tr>
-<td>llms.txt (informational) (ev-site_checks-r2-015)<br>http://127.0.0.1:18765/</td>
+<td>llms.txt (informational) (ev-site_checks-r2-015)<br />
+http://127.0.0.1:18765/</td>
 <td>INFO</td>
 <td>llms.txt present; HTTP 200. One bounded fetch; HTML fallbacks, redirects, empty or incomplete responses are not confirmed files.</td>
 <td>llms.txt is an optional informational convention, not an indexing requirement or evidence of ranking or AI-search visibility.</td>
 <td>No correction required for absence. Review accuracy if choosing to publish this file.</td>
 </tr>
 <tr>
-<td>Answer readiness (heuristic) (ev-site_checks-r2-016)<br>http://127.0.0.1:18765/</td>
+<td>Answer readiness (heuristic) (ev-site_checks-r2-016)<br />
+http://127.0.0.1:18765/</td>
 <td>INFO</td>
 <td>6 pages checked for FAQPage/QAPage, question headings, FAQ sections, and service/location/contact statements. Signals are heuristic; clarity, correctness and AI-search visibility are not established.</td>
 <td>Explicit answers and business context can make content easier to interpret.</td>
@@ -582,14 +606,14 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <tr>
 <td>robots.txt</td>
 <td>Detected</td>
-<td>Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 5 ms.</td>
-<td>ev-siteone-r2-026</td>
+<td>Loaded robots.txt for domain '127.0.0.1': status code 200, size 296 B and took 2 ms.</td>
+<td>ev-siteone-r2-023</td>
 </tr>
 <tr>
 <td>Canonical links</td>
 <td>Incomplete</td>
 <td>4 page(s) without a rel=canonical link</td>
-<td>ev-siteone-r2-027</td>
+<td>ev-siteone-r2-024</td>
 </tr>
 <tr>
 <td>XML sitemap</td>
@@ -983,77 +1007,30 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <h2 id="6-domain-dns-email-and-relevant-security-observations">6. Domain, DNS, email and relevant security observations</h2>
 <p>These checks concern the technical services behind the website and email. DNS is the domain's public address book; email authentication helps receiving systems recognise authorised senders. These observations do not guarantee security or email delivery.</p>
 <h3 id="security-observations">Security observations</h3>
-<h4 id="security-004-no-explicit-framing-protection-observed">security-004: No explicit framing protection observed</h4>
-<p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
-<p><strong>Importance:</strong> medium | <strong>Priority:</strong> P2 | <strong>Urgency:</strong> Plan within 30-90 days | <strong>Type:</strong> problem</p>
-<p><strong>Observed / reported:</strong> Neither X-Frame-Options nor CSP frame-ancestors was observed.</p>
+<h4 id="security-005-recommended-security-headers-missing-or-need-review">security-005: Recommended security headers missing or need review</h4>
+<p><strong>Basis:</strong> Inferred (heuristic or AI, needs verification). <strong>Verification status:</strong> needs verification.</p>
+<p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
+<p><strong>Observed / reported:</strong> Framing protection (importance: low): Neither X-Frame-Options nor CSP frame-ancestors was observed. Evidence: ev-security-r2-001. content-security-policy (importance: low): Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy. Evidence: ev-security-r2-001, ev-siteone-r2-019. x-content-type-options (importance: low): X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options. Evidence: ev-security-r2-001, ev-siteone-r2-020. referrer-policy (importance: low): Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy. Evidence: ev-security-r2-001, ev-siteone-r2-021. permissions-policy (importance: low): Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security. The sampled response did not include permissions-policy. Evidence: ev-security-r2-001, ev-siteone-r2-022.</p>
 <p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Set an appropriate frame-ancestors policy after checking embedding needs.</p>
+<p><strong>Recommended next action:</strong> Have the hosting team review the listed policies together, prioritising the higher importance items. Test content loading, embedding and HTTPS compatibility before deployment, then recheck the affected HTML responses and Observatory assessment.</p>
 <p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
 <p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
 <p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
+<p><strong>Source:</strong> security (ev-security-r2-001); siteone (ev-siteone-r2-019); siteone (ev-siteone-r2-020); siteone (ev-siteone-r2-021); siteone (ev-siteone-r2-022).</p>
+<p><strong>Evidence:</strong> ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022</p>
+<h4 id="security-006-server-software-version-disclosed">security-006: Server software version disclosed</h4>
+<p><strong>Basis:</strong> Confirmed (technical evidence). <strong>Verification status:</strong> confirmed.</p>
+<p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
+<p><strong>Observed / reported:</strong> Server response header discloses a version: SimpleHTTP/0.6 Python/3.12.13.</p>
+<p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
+<p><strong>Recommended next action:</strong> Remove unnecessary version detail in the hosting configuration; a version string alone does not establish a vulnerability.</p>
+<p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
+<p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
+<p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
+<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
 <p><strong>Source:</strong> security (ev-security-r2-001).</p>
 <p><strong>Evidence:</strong> ev-security-r2-001</p>
-<h4 id="siteone-006-review-content-security-policy-header">siteone-006: Review content-security-policy header</h4>
-<p><strong>Basis:</strong> Inferred (heuristic or AI, needs verification). <strong>Verification status:</strong> needs verification.</p>
-<p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
-<p><strong>Observed / reported:</strong> Content-Security-Policy header is not set. It restricts resources the page can load and prevents XSS attacks. The sampled response did not include content-security-policy.</p>
-<p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
-<p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
-<p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
-<p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
-<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
-<p><strong>Source:</strong> security (ev-security-r2-001); siteone (ev-siteone-r2-021).</p>
-<p><strong>Evidence:</strong> ev-security-r2-001, ev-siteone-r2-021</p>
-<h4 id="siteone-007-review-server-header">siteone-007: Review server header</h4>
-<p><strong>Basis:</strong> Inferred (heuristic or AI, needs verification). <strong>Verification status:</strong> needs verification.</p>
-<p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
-<p><strong>Observed / reported:</strong> Server header is set to 'SimpleHTTP/0.6 Python/3.12.13'. It is better not to reveal the technologies used and especially their versions.</p>
-<p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
-<p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
-<p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
-<p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
-<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
-<p><strong>Source:</strong> siteone (ev-siteone-r2-022).</p>
-<p><strong>Evidence:</strong> ev-siteone-r2-022</p>
-<h4 id="siteone-008-review-x-content-type-options-header">siteone-008: Review x-content-type-options header</h4>
-<p><strong>Basis:</strong> Inferred (heuristic or AI, needs verification). <strong>Verification status:</strong> needs verification.</p>
-<p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
-<p><strong>Observed / reported:</strong> X-Content-Type-Options header is not set. It stops MIME type sniffing and mitigates content type attacks. The sampled response did not include x-content-type-options.</p>
-<p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
-<p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
-<p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
-<p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
-<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
-<p><strong>Source:</strong> security (ev-security-r2-001); siteone (ev-siteone-r2-023).</p>
-<p><strong>Evidence:</strong> ev-security-r2-001, ev-siteone-r2-023</p>
-<h4 id="siteone-009-review-referrer-policy-header">siteone-009: Review referrer-policy header</h4>
-<p><strong>Basis:</strong> Inferred (heuristic or AI, needs verification). <strong>Verification status:</strong> needs verification.</p>
-<p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
-<p><strong>Observed / reported:</strong> Referrer-Policy header is not set. It controls referrer header sharing and enhances privacy and security. The sampled response did not include referrer-policy.</p>
-<p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
-<p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
-<p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
-<p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
-<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
-<p><strong>Source:</strong> security (ev-security-r2-001); siteone (ev-siteone-r2-024).</p>
-<p><strong>Evidence:</strong> ev-security-r2-001, ev-siteone-r2-024</p>
-<h4 id="siteone-010-review-permissions-policy-header">siteone-010: Review permissions-policy header</h4>
-<p><strong>Basis:</strong> Inferred (heuristic or AI, needs verification). <strong>Verification status:</strong> needs verification.</p>
-<p><strong>Importance:</strong> low | <strong>Priority:</strong> P3 | <strong>Urgency:</strong> Consider after 90 days | <strong>Type:</strong> problem</p>
-<p><strong>Observed / reported:</strong> Permissions-Policy header is not set. It allows enabling/disabling browser APIs and features for security.</p>
-<p><strong>Potential business impact (interpretation, not measured):</strong> May affect reliability or protection of business systems; impact requires verification.</p>
-<p><strong>Recommended next action:</strong> Review and test the header policy for the affected responses.</p>
-<p><strong>AMS service category:</strong> Managed IT &amp; Technology</p>
-<p><strong>Dependencies:</strong> Customer approval of scope and an accountable system owner before changes.</p>
-<p><strong>Information still required:</strong> Confirm the current setup, existing integrations, access and business priority.</p>
-<p><strong>Affected URLs:</strong> http://127.0.0.1:18765/</p>
-<p><strong>Source:</strong> siteone (ev-siteone-r2-025).</p>
-<p><strong>Evidence:</strong> ev-siteone-r2-025</p>
 <h2 id="8-operational-process-and-automation-findings">8. Operational-process and automation findings</h2>
 <p>Business discovery: customer-provided information</p>
 <blockquote>
@@ -1159,16 +1136,15 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <li><strong>P1 - Elements must meet minimum color contrast ratio thresholds (browser-001):</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.</li>
 <li><strong>P1 - Images must have alternative text (browser-002):</strong> Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology. Evidence: ev-browser-r2-003, ev-browser-r2-009.</li>
 <li><strong>P1 - Missed calls and slow enquiry replies (discovery-missed-calls-and-slow-enquiry-replies):</strong> Map the enquiry journey, then trial call capture with a missed-call text-back and a shared enquiry queue; keep pricing replies for human approval. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017.</li>
-<li><strong>P1 - Broken URLs (siteone-002):</strong> Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-011.</li>
+<li><strong>P1 - Broken URLs (siteone-002):</strong> Repair internal links and restore or redirect unavailable pages. Evidence: ev-siteone-r2-010.</li>
 </ul>
 <h3 id="30-90-days">30-90 days</h3>
 <ul>
 <li><strong>P2 - Job, scheduling and invoicing data live in disconnected tools (discovery-job-scheduling-and-invoicing-data-live-in-disconne):</strong> Assess a job-management system that integrates with Xero, within the stated budget, before considering any automation on top. Prefer keeping and integrating existing systems before considering replacement. Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.</li>
 <li><strong>P2 - Job spreadsheet has no backup (discovery-job-spreadsheet-has-no-backup):</strong> Confirm the current setup on site, then put managed backup in place for business data. Evidence: ev-discovery-r3-014.</li>
 <li><strong>P2 - Business name, address or phone differs between structured data and the page (presence-002):</strong> Use one canonical name, address and phone number in structured data, the footer, contact page and external listings. Evidence: ev-presence-r2-010.</li>
-<li><strong>P2 - No explicit framing protection observed (security-004):</strong> Set an appropriate frame-ancestors policy after checking embedding needs. Evidence: ev-security-r2-001.</li>
-<li><strong>P2 - Missing meta description (siteone-004):</strong> Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-017.</li>
-<li><strong>P2 - Missing H1 (siteone-005):</strong> Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-017.</li>
+<li><strong>P2 - Missing meta description (siteone-004):</strong> Add a descriptive, page-specific meta description. Evidence: ev-siteone-r2-015.</li>
+<li><strong>P2 - Missing H1 (siteone-005):</strong> Add a descriptive, page-specific H1. Evidence: ev-siteone-r2-015.</li>
 </ul>
 <h3 id="90-days">90+ days</h3>
 <ul>
@@ -1178,14 +1154,11 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <li><strong>P3 - Near-duplicate location pages (site_checks-003):</strong> Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.</li>
 <li><strong>P3 - Priority platforms still need presence verification (presence-001):</strong> Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Evidence: ev-presence-r2-014, ev-presence-r2-013.</li>
 <li><strong>P3 - Analytics or tracking tags could not be confirmed (presence-003):</strong> Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.</li>
-<li><strong>P3 - Review content-security-policy header (siteone-006):</strong> Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-021.</li>
-<li><strong>P3 - Review server header (siteone-007):</strong> Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-022.</li>
-<li><strong>P3 - Review x-content-type-options header (siteone-008):</strong> Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-023.</li>
-<li><strong>P3 - Review referrer-policy header (siteone-009):</strong> Review and test the header policy for the affected responses. Evidence: ev-security-r2-001, ev-siteone-r2-024.</li>
-<li><strong>P3 - Review permissions-policy header (siteone-010):</strong> Review and test the header policy for the affected responses. Evidence: ev-siteone-r2-025.</li>
+<li><strong>P3 - Recommended security headers missing or need review (security-005):</strong> Have the hosting team review the listed policies together, prioritising the higher importance items. Test content loading, embedding and HTTPS compatibility before deployment, then recheck the affected HTML responses and Observatory assessment. Evidence: ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.</li>
+<li><strong>P3 - Server software version disclosed (security-006):</strong> Remove unnecessary version detail in the hosting configuration; a version string alone does not establish a vulnerability. Evidence: ev-security-r2-001.</li>
 <li><strong>P3 - Duplicates, headings / internal links (site_checks-002):</strong> Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.</li>
-<li><strong>P3 - Pages without a canonical link (siteone-011):</strong> Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-027.</li>
-<li><strong>P3 - Review internal redirects (siteone-001):</strong> Link directly to the final canonical URL. Evidence: ev-siteone-r2-007, ev-siteone-r2-013.</li>
+<li><strong>P3 - Pages without a canonical link (siteone-010):</strong> Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-024.</li>
+<li><strong>P3 - Review internal redirects (siteone-001):</strong> Link directly to the final canonical URL. Evidence: ev-siteone-r2-009, ev-siteone-r2-011.</li>
 </ul>
 <h2 id="10-items-requiring-customer-verification-access-or-decisions">10. Items requiring customer verification, access or decisions</h2>
 <p>Resolve these uncertainties before approving changes. Confirm business priorities and the existing systems to retain; access should be named, limited and revocable.</p>
@@ -1203,55 +1176,64 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 </thead>
 <tbody>
 <tr>
-<td>PageSpeed Insights<br>http://127.0.0.1:18765/</td>
+<td>PageSpeed Insights<br />
+http://127.0.0.1:18765/</td>
 <td>Not assessed</td>
 <td>PageSpeed/CrUX cannot access localhost</td>
 <td>-</td>
 </tr>
 <tr>
-<td>CrUX<br>http://127.0.0.1:18765/</td>
+<td>CrUX<br />
+http://127.0.0.1:18765/</td>
 <td>Not assessed</td>
 <td>PageSpeed/CrUX cannot access localhost</td>
 <td>-</td>
 </tr>
 <tr>
-<td>DataForSEO<br>http://127.0.0.1:18765/</td>
+<td>DataForSEO<br />
+http://127.0.0.1:18765/</td>
 <td>Not connected</td>
 <td>Missing DataForSEO credentials; disabled</td>
 <td>-</td>
 </tr>
 <tr>
-<td>Google Search Console<br>http://127.0.0.1:18765/</td>
+<td>Google Search Console<br />
+http://127.0.0.1:18765/</td>
 <td>Not connected</td>
 <td>GSC requires --connect gsc and credentials; missing connection or credentials. The generative-AI performance report is available in the Search Console interface. As of 2026-10-23, the documented API has no separate generative-AI report endpoint or filter; use a customer-provided UI export for manual review. Aggregate Web results cannot establish AI visibility. Sources: https://developers.google.com/webmaster-tools/v1/searchanalytics/query and https://support.google.com/webmasters/answer/16984139</td>
 <td>-</td>
 </tr>
 <tr>
-<td>Google Analytics 4<br>http://127.0.0.1:18765/</td>
+<td>Google Analytics 4<br />
+http://127.0.0.1:18765/</td>
 <td>Unsupported</td>
 <td>Traffic sources, key events/conversions and engagement. No connector implemented; manual review only.</td>
 <td>ev-presence-r2-003</td>
 </tr>
 <tr>
-<td>Google Business Profile<br>http://127.0.0.1:18765/</td>
+<td>Google Business Profile<br />
+http://127.0.0.1:18765/</td>
 <td>Unsupported</td>
 <td>Profile completeness, reviews, calls, direction requests and Maps/Search views. No connector implemented; manual review only.</td>
 <td>ev-presence-r2-006</td>
 </tr>
 <tr>
-<td>Bing Webmaster Tools<br>http://127.0.0.1:18765/</td>
+<td>Bing Webmaster Tools<br />
+http://127.0.0.1:18765/</td>
 <td>Unsupported</td>
 <td>Bing search performance, crawl errors and index status. No connector implemented; manual review only.</td>
 <td>ev-presence-r2-001</td>
 </tr>
 <tr>
-<td>WordPress / WP-CLI (+ Site Health)<br>http://127.0.0.1:18765/</td>
+<td>WordPress / WP-CLI (+ Site Health)<br />
+http://127.0.0.1:18765/</td>
 <td>Unsupported</td>
 <td>Core, plugin and theme versions, pending updates and Site Health status. No connector implemented; manual review only.</td>
 <td>ev-presence-r2-001</td>
 </tr>
 <tr>
-<td>Microsoft Clarity<br>http://127.0.0.1:18765/</td>
+<td>Microsoft Clarity<br />
+http://127.0.0.1:18765/</td>
 <td>Unsupported</td>
 <td>Heatmaps, session recordings and rage/dead-click signals. No connector implemented; manual review only.</td>
 <td>ev-presence-r2-005</td>
@@ -1306,12 +1288,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <li>site_checks-003: Near-duplicate location pages. Evidence: ev-site_checks-r2-009.</li>
 <li>presence-001: Priority platforms still need presence verification. Evidence: ev-presence-r2-014, ev-presence-r2-013.</li>
 <li>presence-003: Analytics or tracking tags could not be confirmed. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.</li>
-<li>siteone-006: Review content-security-policy header. Evidence: ev-security-r2-001, ev-siteone-r2-021.</li>
-<li>siteone-007: Review server header. Evidence: ev-siteone-r2-022.</li>
-<li>siteone-008: Review x-content-type-options header. Evidence: ev-security-r2-001, ev-siteone-r2-023.</li>
-<li>siteone-009: Review referrer-policy header. Evidence: ev-security-r2-001, ev-siteone-r2-024.</li>
 <li>
-<p>siteone-010: Review permissions-policy header. Evidence: ev-siteone-r2-025.</p>
+<p>security-005: Recommended security headers missing or need review. Evidence: ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.</p>
 </li>
 <li>
 <p><strong>Not assessed:</strong> domain_email (http://127.0.0.1:18765/). Local/private target has no public domain audit. Confirm access or arrange a manual check if this is important to the customer.</p>
@@ -1355,109 +1333,109 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <td>ev-siteone-r2-003</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/about.html</td>
+<td>http://127.0.0.1:18765/service/a/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-004</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/quote.html</td>
+<td>http://127.0.0.1:18765/about.html</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-005</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/contact.html</td>
+<td>http://127.0.0.1:18765/services.html</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-006</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/style.css</td>
+<td>http://127.0.0.1:18765/contact.html</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-007</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/old-service</td>
+<td>http://127.0.0.1:18765/service/b/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-008</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/service/a/</td>
+<td>http://127.0.0.1:18765/quote.html</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-009</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/service/b/</td>
+<td>http://127.0.0.1:18765/old-service</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-010</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/services.html</td>
+<td>http://127.0.0.1:18765/missing-offer.html</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-011</td>
 <td>siteone</td>
 <td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/missing-offer.html</td>
-</tr>
-<tr>
-<td>ev-siteone-r2-012</td>
-<td>siteone</td>
-<td>SiteOne HTTP response</td>
-<td>http://127.0.0.1:18765/work.svg</td>
-</tr>
-<tr>
-<td>ev-siteone-r2-013</td>
-<td>siteone</td>
-<td>SiteOne HTTP response</td>
 <td>http://127.0.0.1:18765/older-service</td>
 </tr>
 <tr>
-<td>ev-siteone-r2-014</td>
+<td>ev-siteone-r2-012</td>
 <td>siteone</td>
 <td>SiteOne SEO metadata</td>
 <td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
-<td>ev-siteone-r2-015</td>
+<td>ev-siteone-r2-013</td>
 <td>siteone</td>
 <td>SiteOne SEO metadata</td>
 <td>http://127.0.0.1:18765/about.html</td>
 </tr>
 <tr>
-<td>ev-siteone-r2-016</td>
+<td>ev-siteone-r2-014</td>
 <td>siteone</td>
 <td>SiteOne SEO metadata</td>
 <td>http://127.0.0.1:18765/contact.html</td>
 </tr>
 <tr>
-<td>ev-siteone-r2-017</td>
+<td>ev-siteone-r2-015</td>
 <td>siteone</td>
 <td>SiteOne SEO metadata</td>
 <td>http://127.0.0.1:18765/quote.html</td>
 </tr>
 <tr>
-<td>ev-siteone-r2-018</td>
+<td>ev-siteone-r2-016</td>
 <td>siteone</td>
 <td>SiteOne SEO metadata</td>
 <td>http://127.0.0.1:18765/service/a/</td>
 </tr>
 <tr>
-<td>ev-siteone-r2-019</td>
+<td>ev-siteone-r2-017</td>
 <td>siteone</td>
 <td>SiteOne SEO metadata</td>
 <td>http://127.0.0.1:18765/service/b/</td>
 </tr>
 <tr>
-<td>ev-siteone-r2-020</td>
+<td>ev-siteone-r2-018</td>
 <td>siteone</td>
 <td>SiteOne SEO metadata</td>
 <td>http://127.0.0.1:18765/services.html</td>
+</tr>
+<tr>
+<td>ev-siteone-r2-019</td>
+<td>siteone</td>
+<td>SiteOne header analysis (crawl aggregate)</td>
+<td>http://127.0.0.1:18765/</td>
+</tr>
+<tr>
+<td>ev-siteone-r2-020</td>
+<td>siteone</td>
+<td>SiteOne header analysis (crawl aggregate)</td>
+<td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-021</td>
@@ -1474,65 +1452,47 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 <tr>
 <td>ev-siteone-r2-023</td>
 <td>siteone</td>
-<td>SiteOne header analysis (crawl aggregate)</td>
+<td>SiteOne robots.txt load</td>
 <td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-024</td>
 <td>siteone</td>
-<td>SiteOne header analysis (crawl aggregate)</td>
+<td>SiteOne canonical link summary</td>
 <td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-025</td>
 <td>siteone</td>
-<td>SiteOne header analysis (crawl aggregate)</td>
+<td>SiteOne seo-headings table</td>
 <td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-026</td>
 <td>siteone</td>
-<td>SiteOne robots.txt load</td>
+<td>SiteOne redirects table</td>
 <td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-027</td>
 <td>siteone</td>
-<td>SiteOne canonical link summary</td>
+<td>SiteOne 404 table</td>
 <td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-028</td>
 <td>siteone</td>
-<td>SiteOne seo-headings table</td>
+<td>SiteOne headers table</td>
 <td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
 <td>ev-siteone-r2-029</td>
 <td>siteone</td>
-<td>SiteOne redirects table</td>
-<td>http://127.0.0.1:18765/</td>
-</tr>
-<tr>
-<td>ev-siteone-r2-030</td>
-<td>siteone</td>
-<td>SiteOne 404 table</td>
-<td>http://127.0.0.1:18765/</td>
-</tr>
-<tr>
-<td>ev-siteone-r2-031</td>
-<td>siteone</td>
-<td>SiteOne headers table</td>
-<td>http://127.0.0.1:18765/</td>
-</tr>
-<tr>
-<td>ev-siteone-r2-032</td>
-<td>siteone</td>
 <td>SiteOne headers-values table</td>
 <td>http://127.0.0.1:18765/</td>
 </tr>
 <tr>
-<td>ev-siteone-r2-033</td>
+<td>ev-siteone-r2-030</td>
 <td>siteone</td>
 <td>SiteOne external-urls table</td>
 <td>http://127.0.0.1:18765/</td>
