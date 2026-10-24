@@ -563,17 +563,29 @@ Use the existing customer slug if it differs. No 2EC customer ID/domain is guess
 `list-resources` resolves [`my_customer`](https://developers.google.com/workspace/admin/directory/v1/guides/manage-customers)
 to the account's immutable customer ID and primary domain, verifies that domain in its domain list,
 and returns one `<customer-id>/<primary-domain>` selector. It does not collect users or bind anything.
+The `my_customer` GET is allowed only during this explicit unbound discovery operation; test/collect
+allow only concrete customer IDs. Discovery alone does not authorise customer collection.
 Only concrete IDs can be bound; storing `my_customer` would let a credential change silently change
 the tenant. Primary domains are normalised for case, IDNA and a trailing dot. Test/collect verify
 both the customer response and verified primary-domain membership; an ID/domain mismatch or failed
-domain read refuses further collection. Secondary domains are included as domain evidence but are
-not alternative binding selectors. Existing framework isolation rejects sharing that resource
+domain read refuses further collection. Before returning `connected`, they also require a verified
+Workspace domain (primary or secondary) to match a registrable domain from the **saved AMS customer
+profile websites**. Matching normalises IDNA, case, trailing dots, `www` and subdomains using the
+bundled public suffix list, without network lookups. Public suffixes such as `co.uk` and private
+suffixes such as `github.io` do not make unrelated customers match. No saved profile domain or no
+verified match returns a fixed `permission_required` message before inventory collection. Prior run
+targets and fallback websites never substitute for the saved profile. The domain evidence records
+the matched domain and profile evidence reference. Secondary domains are not alternative binding
+selectors. Existing framework isolation rejects sharing that resource
 between customer stores unless `--force --reason 'approved non-secret reason'` records the exception.
 
 Collection records verified/unverified/unknown domain flags; user counts by active, suspended,
 archived or unknown status (archived takes precedence over suspended); super/delegated admin counts;
 separate enrolled/not-enrolled/unknown and enforced/not-enforced/unknown counts; and a customer-scoped
-hashed list of admins explicitly not enrolled. Super/delegated counts are the individual Directory
+hashed list of **active** admins explicitly not enrolled. The overall 2SV inventory includes all
+visible user statuses; a separate `active_enforcement` aggregate drives the enforcement finding.
+Active means both suspended and archived are explicitly false; unknown status never counts as active.
+Super/delegated counts are the individual Directory
 flags; `any` is their union. Names, email addresses, phone numbers, addresses, group memberships and
 role descriptions are neither requested nor retained. Raw user/group/assignment IDs are requested
 transiently for duplicate detection and hashing but never persisted. Role IDs are non-personal identifiers;
@@ -602,6 +614,8 @@ not zero. If the default end date is too recent, choose an older explicit period
 
 Users, groups, assignments and usage pagination are limited to five pages and 500 returned rows per
 endpoint; Directory page requests ask for 100 rows. Non-paginated domains retain at most 500 rows.
+Role-assignment `maxResults` is additionally capped at 200 even if the context requests larger pages;
+see the [roleAssignments.list parameters](https://developers.google.com/workspace/admin/directory/reference/rest/v1/roleAssignments/list).
 Workspace declares a 90-second collection budget and 66-request cap: two binding reads plus four
 five-page lists, with up to three attempts per read. Caller budgets can only reduce these limits;
 the UI caps collection at 40 seconds. The shared 2 MB response and 10-second I/O caps also apply.
@@ -612,8 +626,11 @@ and expiry/revocation status.
 Endpoint evidence records customer/domain binding, collection time, selected period, actual report
 date, status and coverage. AI receives only framework coverage aggregates, never admin identifiers.
 
-Confirmed findings cover admins explicitly not enrolled, users explicitly not enforced, and
-suspended accounts still carrying admin flags. Partial positive observations are lower bounds;
+Confirmed 2SV findings cover active admins explicitly not enrolled and active users explicitly not
+enforced, excluding suspended and archived users. Suspended accounts still carrying admin flags
+remain a separate finding. Report wording explicitly limits results to the users visible to the
+authorised admin: a delegated admin restricted to some organisational units sees a subset.
+Partial positive observations are lower bounds;
 empty, inaccessible, incomplete or missing-flag results cannot establish a passing security recheck.
 Only a complete nonempty passing Directory recheck of the same returned user population resolves
 those findings through the existing lifecycle. One customer-scoped population digest prevents a

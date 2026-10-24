@@ -9,7 +9,9 @@ import hashlib
 import json
 import re
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
+from urllib.parse import urlsplit
 
 from ams_assess.connectors.auth import google_authenticate, google_authorize
 from ams_assess.connectors.core import (
@@ -22,6 +24,7 @@ from ams_assess.connectors.core import (
 )
 from ams_assess.lifecycle import observe
 from ams_assess.models import ModuleResult
+from ams_assess.targets import registrable
 
 DIRECTORY = "https://admin.googleapis.com/admin/directory/v1/"
 REPORTS = "https://admin.googleapis.com/admin/reports/v1/usage/dates/"
@@ -59,6 +62,12 @@ PERMISSIONS = {
     "role_assignments": "role-assignment read access; ask the customer's super administrator",
     "usage_2sv": "Reports administrator privilege",
 }
+PROFILE_DOMAIN_REQUIRED = (
+    "Save an approved customer profile website with a registrable domain before testing Workspace"
+)
+PROFILE_DOMAIN_MISMATCH = (
+    "Workspace verified domains do not match the saved customer profile; collection refused"
+)
 
 
 def domain_name(value: str) -> str:
@@ -82,6 +91,24 @@ def normalize_resource(value: str) -> str:
     if len(parts) != 2 or not re.fullmatch(CUSTOMER_ID, parts[0]):
         raise ValueError("Use <customer-id>/<primary-domain> from workspace list-resources")
     return parts[0] + "/" + domain_name(parts[1])
+
+
+def profile_domains(ctx: ConnectorContext) -> set[str]:
+    # Only the saved profile is authority; ctx.websites may contain past run targets.
+    domains = set()
+    for site in ctx.profile.get("websites") or ():
+        try:
+            parts = urlsplit(site)
+            if parts.scheme not in {"http", "https"} or parts.username or parts.password:
+                continue
+            domain = registrable(domain_name(parts.hostname or ""))
+            if domain:
+                domains.add(domain)
+        except (ValueError, TypeError, UnicodeError):
+            continue
+    if not domains:
+        raise ConnectorError("permission_required", PROFILE_DOMAIN_REQUIRED)
+    return domains
 
 
 def read(ctx: ConnectorContext, key: str, url: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -123,14 +150,14 @@ def customer(ctx: ConnectorContext, identifier: str) -> Endpoint:
     return ctx.capture("customer", url, fetch)
 
 
-def domains(ctx: ConnectorContext, identity: Endpoint) -> Endpoint:
+def domains(ctx: ConnectorContext, identity: Endpoint, *, discovery: bool = False) -> Endpoint:
     identifier, primary = identity.data["customer_id"], identity.data["primary_domain"]
     url = DIRECTORY + "customer/" + identifier + "/domains"
 
     def fetch(result: Endpoint) -> None:
         body = read(ctx, "domains", url, {"fields": "domains(domainName,verified,isPrimary)"})
         rows = object_list(body, "domains")
-        projected = [
+        projected: list[dict[str, Any]] = [
             {
                 "domain": domain_name(row["domainName"]),
                 "verified": flag(row, "verified"),
@@ -147,12 +174,26 @@ def domains(ctx: ConnectorContext, identity: Endpoint) -> Endpoint:
             raise ConnectorError(
                 "permission_required", "Bound primary domain must be verified by its owner"
             )
+        matched = []
+        if not discovery:
+            verified = {registrable(row["domain"]) for row in projected if row["verified"] is True}
+            matched = sorted(profile_domains(ctx).intersection(verified))
+            if not matched:
+                raise ConnectorError("permission_required", PROFILE_DOMAIN_MISMATCH)
         cap = ctx.max_pages * ctx.page_size
         result.data = {"domains": projected[:cap], "snapshot": "collection time"}
+        if not discovery:
+            result.data.update(
+                matched_customer_domains=matched,
+                profile_evidence_id=ctx.profile_evidence_id,
+            )
         result.rows = min(len(projected), cap)
         result.truncated = len(projected) > cap
         result.data["permission_evidence"] = (
-            "Authenticated customer ID and verified primary domain match"
+            "Authenticated customer ID and verified primary domain match binding; "
+            "a verified Workspace domain matches the saved customer profile"
+            if not discovery
+            else "Authenticated customer ID and verified primary domain match"
         )
 
     result = ctx.capture("domains", url, fetch)
@@ -164,25 +205,41 @@ def domains(ctx: ConnectorContext, identity: Endpoint) -> Endpoint:
 
 
 def list_resources(ctx: ConnectorContext) -> Endpoint:
-    identity = customer(ctx, "my_customer")
-    if not identity.complete:
-        return identity
-    result = domains(ctx, identity)
-    if result.status == "connected":
-        result.data = {
-            "rows": [
-                {
-                    "id": identity.data["customer_id"] + "/" + identity.data["primary_domain"],
-                    "label": identity.data["primary_domain"],
-                }
-            ]
-        }
-        result.rows = 1
-    return result
+    if ctx.resource or ctx.customer or ctx.endpoints:
+        raise ConnectorError("not_configured", "Resource discovery requires an unbound context")
+    # Scope the alias to this discovery client's lifetime, preserving the shared budget.
+    # Normal test/collect clients cannot request my_customer, even directly.
+    bound_spec = ctx.http.connector
+    ctx.http.connector = replace(
+        bound_spec,
+        read_allowlist=(
+            ReadOperation("GET", re.escape(DIRECTORY + "customers/my_customer")),
+            ReadOperation("GET", re.escape(DIRECTORY) + rf"customer/{CUSTOMER_ID}/domains"),
+        ),
+    )
+    try:
+        identity = customer(ctx, "my_customer")
+        if not identity.complete:
+            return identity
+        result = domains(ctx, identity, discovery=True)
+        if result.status == "connected":
+            result.data = {
+                "rows": [
+                    {
+                        "id": identity.data["customer_id"] + "/" + identity.data["primary_domain"],
+                        "label": identity.data["primary_domain"],
+                    }
+                ]
+            }
+            result.rows = 1
+        return result
+    finally:
+        ctx.http.connector = bound_spec
 
 
 def test(ctx: ConnectorContext) -> Endpoint:
     ctx.resource = normalize_resource(ctx.resource)
+    profile_domains(ctx)
     try:
         ctx.period = Period.make(
             days=(ctx.period.end - ctx.period.start).days + 1,
@@ -246,6 +303,8 @@ def user_counts(ctx: ConnectorContext) -> Endpoint:
             "admins": dict.fromkeys(("super", "delegated", "any", "unknown"), 0),
             "enrolment": dict.fromkeys(("yes", "no", "unknown"), 0),
             "enforcement": dict.fromkeys(("yes", "no", "unknown"), 0),
+            "active_enforcement": dict.fromkeys(("yes", "no", "unknown"), 0),
+            "admin_enrolment_basis": "active users only; suspended and archived excluded",
             "admins_without_enrolment": [],
             "suspended_admins": 0,
             "admin_enrolment_unknown": 0,
@@ -295,9 +354,15 @@ def user_counts(ctx: ConnectorContext) -> Endpoint:
             data["admins"]["unknown"] += super_admin is None or delegated is None
             for label, value in (("enrolment", enrolled), ("enforcement", enforced)):
                 data[label]["unknown" if value is None else "yes" if value else "no"] += 1
+            if status == "active":
+                data["active_enforcement"][
+                    "unknown" if enforced is None else "yes" if enforced else "no"
+                ] += 1
             data["suspended_admins"] += admin is True and suspended is True
-            data["admin_enrolment_unknown"] += admin is True and enrolled is None
-            if admin and enrolled is False:
+            data["admin_enrolment_unknown"] += (
+                status == "active" and admin is True and enrolled is None
+            )
+            if status == "active" and admin and enrolled is False:
                 digest = hashlib.sha256(
                     (ctx.customer + ":" + ctx.resource + ":" + identifier).encode()
                 )
@@ -419,7 +484,7 @@ def role_counts(ctx: ConnectorContext) -> Endpoint:
             "role_assignments",
             url,
             {
-                "maxResults": ctx.page_size,
+                "maxResults": min(ctx.page_size, 200),
                 "fields": "nextPageToken,items(roleAssignmentId,roleId,scopeType,assigneeType)",
             },
             "items",
@@ -483,7 +548,10 @@ def usage_counts(ctx: ConnectorContext) -> Endpoint:
 
 
 def collect(ctx: ConnectorContext) -> None:
-    if not any(e.key == "domains" and e.status == "connected" for e in ctx.endpoints):
+    if not any(
+        e.key == "domains" and e.status == "connected" and e.data.get("matched_customer_domains")
+        for e in ctx.endpoints
+    ):
         raise ConnectorError(
             "not_configured", "Verify the customer and primary domain before collection"
         )
@@ -503,16 +571,16 @@ def analyse(ctx: ConnectorContext, result: ModuleResult) -> None:
         (
             "admins-without-2sv",
             len(data["admins_without_enrolment"]),
-            "Workspace administrators without 2SV enrolment",
-            "admin accounts explicitly not enrolled",
+            "Active Workspace administrators without 2SV enrolment",
+            "active admin accounts explicitly not enrolled",
             "Enrol administrators in 2SV and verify recovery methods with the customer.",
             "high",
         ),
         (
             "2sv-not-enforced",
-            data["enforcement"]["no"],
-            "Workspace users without 2SV enforcement",
-            "user accounts with enforcement explicitly false",
+            data["active_enforcement"]["no"],
+            "Active Workspace users without 2SV enforcement",
+            "active user accounts with enforcement explicitly false",
             "Review rollout exceptions and enforce 2SV through the customer's approved "
             "change process.",
             "medium",
@@ -550,6 +618,8 @@ def analyse(ctx: ConnectorContext, result: ModuleResult) -> None:
                 "security",
                 [users.evidence_id],
                 f"At least {count} {description} in the returned Directory snapshot. "
+                "Results cover only users visible to the authorised admin; a delegated admin "
+                "restricted to some organisational units sees a subset. "
                 "Enrolment, enforcement and Reports protection are separate measures. "
                 "This is not a claim about successful sign-ins or the security of unseen accounts.",
                 recommendation,
@@ -580,7 +650,7 @@ CONNECTOR = Connector(
     resource_type="workspace_customer_primary_domain",
     categories=frozenset({"security", "domain_email"}),
     read_allowlist=(
-        ReadOperation("GET", re.escape(DIRECTORY) + rf"customers/(?:{CUSTOMER_ID}|my_customer)"),
+        ReadOperation("GET", re.escape(DIRECTORY) + rf"customers/{CUSTOMER_ID}"),
         ReadOperation(
             "GET", re.escape(DIRECTORY) + rf"customer/{CUSTOMER_ID}/(?:domains|roleassignments)"
         ),

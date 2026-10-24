@@ -53,7 +53,7 @@ class Provider:
         self.calls = []
         self.override = lambda request: None
         self.users = [
-            user("10001", isAdmin=True, isEnrolledIn2Sv=False),
+            user("10001", isAdmin=True, isEnrolledIn2Sv=False, isEnforcedIn2Sv=False),
             user("10002", isDelegatedAdmin=True, suspended=True, isEnforcedIn2Sv=False),
             user("10003", archived=True, isEnrolledIn2Sv=False, isEnforcedIn2Sv=False),
             user("10004"),
@@ -232,7 +232,8 @@ def test_success_distinguishes_enrolment_enforcement_and_reported_protection(env
     assert users["statuses"] == {"active": 2, "suspended": 1, "archived": 1, "unknown": 0}
     assert users["admins"] == {"super": 1, "delegated": 1, "any": 2, "unknown": 0}
     assert users["enrolment"] == {"yes": 2, "no": 2, "unknown": 0}
-    assert users["enforcement"] == {"yes": 2, "no": 2, "unknown": 0}
+    assert users["enforcement"] == {"yes": 1, "no": 3, "unknown": 0}
+    assert users["active_enforcement"] == {"yes": 1, "no": 1, "unknown": 0}
     assert users["admins_without_enrolment"][0]["role"] == "super admin"
     assert users["admins_without_enrolment"][0]["id"].startswith("admin-")
     assert users["suspended_admins"] == 1
@@ -265,6 +266,162 @@ def test_listing_resolves_my_customer_without_binding_or_assessment(env):
     assert env.provider.calls[0].url.path.endswith("/customers/my_customer")
     assert current(env) == before
     assert workspace.normalize_resource(CID + "/EXAMPLE.TEST.") == RESOURCE
+
+
+@pytest.mark.parametrize("do_collect", [False, True])
+@pytest.mark.parametrize(
+    "website", [None, "", "https://other-business.test", "https://example.test.evil.test"]
+)
+def test_saved_profile_domain_required_before_connection_or_inventory(env, do_collect, website):
+    if website is None:
+        snapshot = current(env)
+        snapshot.pop("profile", None)
+        store.save(env.root, "synthetic", snapshot)
+    else:
+        store.set_profile(env.root, "synthetic", {"websites": [website] if website else []})
+    bind(env)
+    state = service.execute(
+        env.root,
+        "synthetic",
+        "workspace",
+        collect=do_collect,
+        fallback_websites=["https://example.test"],
+    )
+    message = workspace.PROFILE_DOMAIN_MISMATCH if website else workspace.PROFILE_DOMAIN_REQUIRED
+    assert state["status"] == "permission_required"
+    assert message in state["detail"]
+    assert "last_successful_test" not in state and "last_collection" not in state
+    assert all(e["status"] == "permission_required" for e in state["coverage"])
+    assert len(env.provider.calls) == (2 if website else 0)
+    assert not current(env)["findings"]
+    assert not any(e["endpoint"] == "users" for e in state["coverage"])
+    if website:
+        assert website not in state["detail"] and website.split("//")[1] not in state["detail"]
+
+
+@pytest.mark.parametrize(
+    "website,secondary,verified,expected",
+    [
+        ("https://WWW.Example.test./path", "secondary.test", False, "connected"),
+        ("https://portal.example.test", "secondary.test", False, "connected"),
+        ("https://shop.company.co.uk", "mail.company.co.uk", True, "connected"),
+        ("https://shop.other.co.uk", "mail.company.co.uk", True, "permission_required"),
+        ("https://first.github.io", "second.github.io", True, "permission_required"),
+        ("https://www.xn--bcher-kva.de", "bücher.de", True, "connected"),
+        ("https://secondary.test", "secondary.test", False, "permission_required"),
+    ],
+)
+def test_profile_matches_verified_registrable_domains_only(
+    env, website, secondary, verified, expected
+):
+    store.set_profile(env.root, "synthetic", {"websites": [website]})
+
+    def domains(request):
+        if request.url.path.endswith("/domains"):
+            return httpx.Response(
+                200,
+                json={
+                    "domains": [
+                        {"domainName": DOMAIN, "isPrimary": True, "verified": True},
+                        {"domainName": secondary, "isPrimary": False, "verified": verified},
+                    ]
+                },
+            )
+
+    env.provider.override = domains
+    bind(env)
+    assert collect(env)["status"] == expected
+    if expected == "connected":
+        domains_data = payload(env, "domains")["data"]
+        assert domains_data["matched_customer_domains"]
+        assert domains_data["profile_evidence_id"] == current(env)["profile"]["evidence_id"]
+        assert len(current(env)["findings"]) == 3
+    else:
+        assert len(env.provider.calls) == 2 and not current(env)["findings"]
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_my_customer_allowlist_is_scoped_to_discovery_and_restored(env, failed):
+    client = ReadClient(
+        workspace.CONNECTOR,
+        AuthMaterial(headers={"Authorization": "Bearer " + ACCESS}),
+        transport=httpx.MockTransport(env.provider),
+    )
+    alias = workspace.DIRECTORY + "customers/my_customer"
+
+    def check_allowlist(request):
+        operations = client.connector.read_allowlist
+        assert any(op.allows("GET", alias) for op in operations)
+        assert not any(op.allows("GET", workspace.DIRECTORY + "users") for op in operations)
+        return httpx.Response(403, json={}) if failed else None
+
+    env.provider.override = check_allowlist
+    try:
+        ctx = ConnectorContext(client, "", Period.make())
+        assert workspace.list_resources(ctx).status == (
+            "permission_required" if failed else "connected"
+        )
+        assert client.connector is workspace.CONNECTOR
+        with pytest.raises(ConnectorError, match="allowlist"):
+            client.request("GET", alias)
+        with pytest.raises(ConnectorError, match="Verify"):
+            workspace.collect(ctx)
+        with pytest.raises(ConnectorError, match="unbound"):
+            workspace.list_resources(ConnectorContext(client, RESOURCE, Period.make()))
+        assert len(env.provider.calls) == (1 if failed else 2)
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize("page_size", [100, 201, 500])
+def test_role_assignment_page_size_never_exceeds_200(env, page_size):
+    client = ReadClient(
+        workspace.CONNECTOR,
+        AuthMaterial(headers={"Authorization": "Bearer " + ACCESS}),
+        transport=httpx.MockTransport(env.provider),
+    )
+    try:
+        ctx = ConnectorContext(client, RESOURCE, Period.make(), page_size=page_size)
+        assert workspace.role_counts(ctx).status == "connected"
+        assert env.provider.calls[-1].url.params["maxResults"] == str(min(page_size, 200))
+    finally:
+        client.close()
+
+
+def test_2sv_findings_count_only_active_users_and_describe_visible_subset(env):
+    env.provider.users = [
+        user("10001", isAdmin=True, suspended=True, isEnrolledIn2Sv=False, isEnforcedIn2Sv=False),
+        user(
+            "10002",
+            isDelegatedAdmin=True,
+            archived=True,
+            isEnrolledIn2Sv=False,
+            isEnforcedIn2Sv=False,
+        ),
+        user("10003", isAdmin=True, suspended=None, isEnrolledIn2Sv=False, isEnforcedIn2Sv=False),
+        user("10004"),
+    ]
+    bind(env)
+    assert collect(env)["status"] == "connected_partial"
+    data = payload(env, "users")["data"]
+    assert data["admins_without_enrolment"] == []
+    assert data["active_enforcement"] == {"yes": 1, "no": 0, "unknown": 0}
+    assert data["enforcement"]["no"] == 3  # Whole-visible-population inventory remains distinct.
+    assert {f["check_key"] for f in current(env)["findings"]} == {"workspace:suspended-admins"}
+    env.provider.users[-1] = user(
+        "10004", isAdmin=True, isEnrolledIn2Sv=False, isEnforcedIn2Sv=False
+    )
+    collect(env)
+    data = payload(env, "users")["data"]
+    assert len(data["admins_without_enrolment"]) == 1 and data["active_enforcement"]["no"] == 1
+    findings = current(env)["findings"]
+    assert len(findings) == 3
+    assert all("users visible to the authorised admin" in f["detail"] for f in findings)
+    render_customer(env.root, "synthetic", {"md"})
+    report = (env.root / "synthetic/report.md").read_text()
+    assert "Active Workspace users without 2SV enforcement" in report
+    assert "Active Workspace administrators without 2SV enrolment" in report
+    assert "restricted to some organisational units sees a subset" in report
 
 
 @pytest.mark.parametrize(
@@ -705,6 +862,7 @@ def test_retry_recovers_then_preserves_independent_endpoints_on_outage(env, fail
         for path in ("users", "groups", "customers/" + CID, "customer/" + CID + "/roleassignments")
     ]
     + [
+        ("GET", workspace.DIRECTORY + "customers/my_customer"),
         ("GET", workspace.DIRECTORY + "users/10001"),
         ("GET", workspace.DIRECTORY + "users/10001/tokens"),
         ("POST", workspace.DIRECTORY + "users/10001/twoStepVerification/turnOff"),
