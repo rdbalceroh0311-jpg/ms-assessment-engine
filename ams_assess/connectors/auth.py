@@ -23,7 +23,7 @@ REF = re.compile(r"[a-z][a-z0-9-]{0,47}")
 
 
 def config_dir() -> Path:
-    return Path.home() / ".config/ams-assess"
+    return Path(os.environ.get("AMS_CONFIG_DIR", Path.home() / ".config/ams-assess"))
 
 
 def reference_name(value: str) -> str:

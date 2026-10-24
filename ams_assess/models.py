@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ipaddress
-import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -12,6 +11,8 @@ from typing import Any, Literal, cast
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, Field, model_validator
+
+from ams_assess.data_boundary import configured_secrets, json_text, private_dir, private_write
 
 # Report order: website and technical findings, then local SEO and digital presence.
 CATEGORIES = {
@@ -276,9 +277,7 @@ class ModuleResult(BaseModel):
 
 
 def write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, ensure_ascii=False, default=str) + "\n")
-    path.chmod(0o600)
+    private_write(path, json_text(value))
 
 
 def normalize_target(value: str) -> str:
@@ -325,7 +324,9 @@ def create_run_dir(root: Path, customer: str) -> Path:
     customer_dir = customer_path(root, customer)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
     result = customer_dir / stamp
-    result.mkdir(parents=True, mode=0o700)
+    private_dir(customer_dir)
+    customer_dir.chmod(0o700)
+    result.mkdir(mode=0o700)
     (result / "raw").mkdir(mode=0o700)
     (result / "screenshots").mkdir(mode=0o700)
     return result
@@ -387,6 +388,8 @@ class Context:
         return is_local(self.host)
 
     def raw(self, module: str, data: Any) -> str:
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{0,79}", module):
+            raise ValueError("Invalid raw artefact name")
         rel = f"raw/{module}.json"
-        write_json(self.run_dir / rel, data)
+        private_write(self.run_dir / rel, json_text(data, configured_secrets(self.config)))
         return rel

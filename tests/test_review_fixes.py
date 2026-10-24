@@ -185,7 +185,7 @@ def test_siteone_launch_error_does_not_claim_assets_excluded(tmp_path, monkeypat
     def cannot_start(*args, **kwargs):
         raise OSError("Synthetic process launch failed")
 
-    monkeypatch.setattr(siteone.subprocess, "run", cannot_start)
+    monkeypatch.setattr(siteone.subproc, "run", cannot_start)
     result = siteone.run(ctx)
     assert result.status == "error" and not result.collection_started
 

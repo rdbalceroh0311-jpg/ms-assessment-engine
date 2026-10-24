@@ -4,6 +4,9 @@ import subprocess
 from typing import Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
+from ams_assess import subproc
+from ams_assess.data_boundary import configured_secrets, private_write
+from ams_assess.data_boundary import text as clean_text
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
 from ams_assess.targets import NORMAL_UA, REQUEST_SECONDS, crawl_hosts, resolve_target
@@ -133,13 +136,13 @@ def run(ctx: Context) -> ModuleResult:
         # SiteOne URL-list seeds bypass its robots check, including the first URL.
         # Retain the start URL as the crawl base only when robots allows it too.
         listing = ctx.run_dir / "tmp/siteone-seeds.txt"
-        listing.parent.mkdir(parents=True, exist_ok=True)
         start = [ctx.site_url] if ctx.inventory.get("target_allowed", True) else []
-        listing.write_text("\n".join([*start, *seeds]) + "\n")
+        private_write(listing, "\n".join([*start, *seeds]) + "\n")
         command.append(f"--url-list={listing}")
     try:
-        process = subprocess.run(
+        process = subproc.run(
             command,
+            kind="siteone",
             cwd=ctx.run_dir,
             capture_output=True,
             text=True,
@@ -152,9 +155,10 @@ def run(ctx: Context) -> ModuleResult:
         result.reason = f"SiteOne could not crawl {ctx.site_url}: {type(exc).__name__}"
         result.add_evidence(ctx.site_url, "SiteOne process failure", {"reason": result.reason})
         return result
-    (ctx.run_dir / "raw/siteone.stderr.txt").write_text(process.stderr)
+    secrets = configured_secrets(ctx.config)
+    private_write(ctx.run_dir / "raw/siteone.stderr.txt", clean_text(process.stderr, secrets))
     result.raw_paths += ["raw/siteone.json", "raw/siteone.stderr.txt"]
-    (ctx.run_dir / "raw/siteone.json").write_text(process.stdout)
+    private_write(ctx.run_dir / "raw/siteone.json", clean_text(process.stdout, secrets))
     try:
         data = json.loads(process.stdout)
     except ValueError:
