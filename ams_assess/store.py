@@ -166,6 +166,11 @@ def unique_findings(store: dict[str, Any]) -> None:
 
 def deduplicate_technical(findings: list[Finding]) -> list[Finding]:
     """Migration/predecessor aliases share one identity; preserve their original observations."""
+
+    def observed_at(value: str) -> datetime:
+        date = datetime.fromisoformat(value)
+        return date.replace(tzinfo=date.tzinfo or UTC)
+
     merged: dict[tuple[str, str, str], Finding] = {}
     for finding in findings:
         identity = technical_key(finding)
@@ -178,6 +183,19 @@ def deduplicate_technical(findings: list[Finding]) -> list[Finding]:
         current.urls = list(dict.fromkeys(current.urls + finding.urls))
         current.severity = min((current.severity, finding.severity), key=SEVERITIES.__getitem__)
         current.priority = min(current.priority, finding.priority)
+        first_dates = [
+            date
+            for date in (current.first_observed, finding.first_observed)
+            if date not in {"", "unknown"}
+        ]
+        if first_dates:
+            current.first_observed = min(first_dates, key=observed_at)
+        if finding.last_observed not in {"", "unknown"} and (
+            current.last_observed in {"", "unknown"}
+            or observed_at(finding.last_observed) > observed_at(current.last_observed)
+        ):
+            current.last_observed = finding.last_observed
+            current.last_run_id = finding.last_run_id
         current.events.extend(event for event in finding.events if event not in current.events)
         current.events.append(
             {
@@ -193,7 +211,7 @@ def deduplicate_technical(findings: list[Finding]) -> list[Finding]:
 def header_predecessors(store: dict[str, Any], findings: list[Finding]) -> list[Finding]:
     result = []
     for finding in findings:
-        if finding.check_key.startswith("header-missing:"):
+        if finding.check_key.startswith("header-missing:") or finding.check_key == "framing-policy":
             original = finding.model_copy(deep=True)
             finding.check_key = "security-headers"
             finding = scoped([finding], "", store["customer_id"])[0]
@@ -244,7 +262,10 @@ def migrate(store: dict[str, Any]) -> None:
                     "evidence_ids": part.evidence_ids,
                 }
             ]
-            if finding.check_key.startswith("header-missing:"):
+            if (
+                finding.check_key.startswith("header-missing:")
+                or finding.check_key == "framing-policy"
+            ):
                 # Retire the original record ID when its aggregate successor is created.
                 part.id = finding.id
             technical.append(part)
@@ -881,9 +902,10 @@ def report_data(
     selected = sorted({c for r in runs for c in r["selected_categories"]})
     ai_runs = [r for r in live if r["ai"].get("status") == "ok"]
     ai: dict[str, Any] = dict(ai_runs[-1]["ai"]) if ai_runs else dict(NO_AI)
+    section_runs = {key: run for run in ai_runs for key in run["ai"].get("sections", {})}
     if ai_runs:
         # Narrative sections accumulate across runs; the newest run wins per category.
-        ai["sections"] = {k: v for r in ai_runs for k, v in r["ai"].get("sections", {}).items()}
+        ai["sections"] = {key: run["ai"]["sections"][key] for key, run in section_runs.items()}
     elif live:
         ai = dict(live[-1]["ai"])
     # Results stay attributed to the website and run that produced them.
@@ -1026,6 +1048,17 @@ def report_data(
         for key, text in ai.get("sections", {}).items()
         if (retained := retain_supported(text))
     }
+    if ai_runs:
+
+        def dated_narrative(text: str, run: dict[str, Any]) -> str:
+            if not text:
+                return ""
+            return f"As observed in run {run['run_id']} on {run['created_at'][:10]}. {text}"
+
+        ai["executive_summary"] = dated_narrative(ai["executive_summary"], ai_runs[-1])
+        ai["sections"] = {
+            key: dated_narrative(text, section_runs[key]) for key, text in ai["sections"].items()
+        }
     ai["recommendations"] = [i for i in ai.get("recommendations", []) if i in actionable]
     ai["roadmap"] = {
         p: [i for i in ids if i in actionable] for p, ids in ai.get("roadmap", {}).items()

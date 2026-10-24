@@ -16,13 +16,15 @@ QUANTITY = re.compile(
     r"(?P<period>\s+(?:per|a|each)\s+(?:day|week|month|year)|\s*/\s*(?:day|week|month|year))?",
     re.I,
 )
-# Evaluate the figure's sentence, including framing after the quantity. A matching
+# Evaluate the whole field, including sentences referring back to the quantity. A matching
 # historic number never supports a forecast, intervention effect or conditional gain.
 PROMISSORY = re.compile(
     r"\b(?:will|could|would|can|should|may|might|shall)\s+\w+"
     r"|\b\w+['’](?:ll|d)\s+\w+|\b(?:won['’]t|can['’]t|cannot)\s+\w+"
     r"|\b(?:by|after|through|from)\s+(?:\w+ly\s+)*\w+ing\b"
     r"|\b(?:leads?|leading|results?|resulting|translates?|translating)\s+(?:to|in|into)\b"
+    r"|\b(?:expected|recoverable)\s+(?:after|with|once|when|from|through)\b"
+    r"|\bexpect\b.*\b(?:once|after|when|with)\b"
     r"|\b(?:because|therefore|so that|as a result|in order to|if)\b",
     re.I,
 )
@@ -106,9 +108,10 @@ def records(evidence: Evidence) -> list[tuple[Figure, str]]:
 
 
 def supported(text: str, cited: list[Evidence]) -> bool:
+    has_figure = bool(QUANTITY.search(text))
     for sentence in sentences(text):
         matches = list(QUANTITY.finditer(sentence))
-        if matches and (PROMISSORY.search(sentence) or GAIN.search(sentence)):
+        if has_figure and (PROMISSORY.search(sentence) or GAIN.search(sentence)):
             return False
         for match in matches:
             if not any(figure(match) == value for e in cited for value, _ in records(e)):
@@ -116,12 +119,25 @@ def supported(text: str, cited: list[Evidence]) -> bool:
     return True
 
 
+def without_followup_promises(text: str) -> str:
+    """Drop separate promises; leave figure-bearing claims for evidence validation to reject."""
+    if not QUANTITY.search(text):
+        return text
+    parts = sentences(text)
+    retained = [
+        sentence
+        for sentence in parts
+        if QUANTITY.search(sentence) or not (PROMISSORY.search(sentence) or GAIN.search(sentence))
+    ]
+    return " ".join(retained) if len(retained) != len(parts) else text
+
+
 def render(text: str, cited: list[Evidence]) -> str:
     """Replace only figure-bearing sentences, retaining other validated prose."""
     if not QUANTITY.search(text):
         return text
     output = []
-    for sentence in sentences(text):
+    for sentence in sentences(without_followup_promises(text)):
         rows = []
         for match in QUANTITY.finditer(sentence):
             for evidence in cited:

@@ -96,6 +96,9 @@ def test_customer_figure_preserves_period_qualifiers_and_context():
         "You get approximately 20 enquiries per week by fixing the forms",
         "Forms drive approximately 20 enquiries per week",
         "Approximately 20 enquiries per week will follow the changes",
+        "Approximately 20 enquiries per week are expected after the redesign",
+        "Approximately 20 enquiries per week are recoverable with better forms",
+        "Expect approximately 20 enquiries per week once the forms are fixed",
     ],
 )
 def test_invented_upgraded_or_promised_customer_figures_are_rejected(claim):
@@ -297,6 +300,78 @@ def test_figure_rendering_preserves_other_valid_sentences_and_their_citations():
         and before in validated["executive_summary"]
         and after in validated["executive_summary"]
     )
+
+
+@pytest.mark.parametrize("provenance", ["customer_statement", "technical_evidence"])
+@pytest.mark.parametrize(
+    "promise",
+    [
+        "The redesign will double that.",
+        "That is expected after the redesign.",
+        "That is recoverable with better forms.",
+        "Expect that once the forms are fixed.",
+    ],
+)
+def test_figure_fields_drop_separate_promise_sentences_and_keep_supported_prose(
+    provenance, promise
+):
+    evidence = customer_evidence()
+    if provenance == "technical_evidence":
+        evidence = evidence.model_copy(
+            update={
+                "source": "metrics",
+                "provenance": provenance,
+                "data": {
+                    "measurements": [
+                        {
+                            "value": 20,
+                            "unit": "enquiries",
+                            "period": "week",
+                            "qualifier": "approximately",
+                        }
+                    ]
+                },
+            }
+        )
+    observed = f"Approximately 20 enquiries per week. ({evidence.id})"
+    other = f"The team reports that forms need review. ({evidence.id})"
+    # Check both sides of the figure, including a promise without its own quantity.
+    text = f"{promise} {observed} {promise} {other}"
+    assert ai.unsupported_claim(text, [evidence])
+    rendered = figures.render(text, [evidence])
+    assert promise not in rendered and other in rendered
+    assert "approximately 20 enquiries per week" in rendered
+    fields = ("title", "detail", "recommendation", "likely_cause", "business_impact")
+    finding = Finding(
+        id="enquiry-review",
+        category="cro_ux",
+        evidence_ids=[evidence.id],
+        title=text,
+        detail=text,
+        recommendation=text,
+        likely_cause=text,
+        business_impact=text,
+    )
+    validated, findings, _ = ai.validate_analysis(
+        {
+            "executive_summary": text,
+            "sections": {"cro_ux": text},
+            "findings": [finding.model_dump()],
+        },
+        [evidence],
+        {"cro_ux"},
+        [],
+    )
+    assert len(findings) == 1
+    for output in [
+        validated["executive_summary"],
+        validated["sections"]["cro_ux"],
+        *(getattr(findings[0], field) for field in fields),
+    ]:
+        assert promise not in output and other in output
+        assert "approximately 20 enquiries per week" in output
+        if provenance == "customer_statement":
+            assert "not independently verified" in output
 
 
 def test_siteone_diagnostics_preserve_prose_question_marks(tmp_path):
