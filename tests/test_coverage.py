@@ -329,3 +329,67 @@ def test_known_url_accounting_never_drops_successful_crawls_at_a_larger_budget(t
     result = coverage.collect(ctx)
     assert result["known_urls"] == len(result["crawled"]) == 5001
     assert result["limits"]["known_urls"] == 6000
+
+
+def test_browser_load_failures_and_redirects_remain_untested_with_reasons(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from ams_assess import runner
+
+    if not (REPO / "tools/axe.min.js").is_file():
+        pytest.skip("axe missing; run scripts/setup.sh")
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass
+
+        def do_GET(self):
+            status = {"/missing": 404, "/blocked": 403, "/redirect": 302}.get(self.path, 200)
+            self.send_response(status)
+            if status == 302:
+                self.send_header("Location", "/destination?token=synthetic-secret")
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"<html><body>Fixture response</body></html>")
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        ctx = context(tmp_path, target=f"http://127.0.0.1:{server.server_port}/", browser_pages=3)
+        ctx.pages = [ctx.target + path for path in ("missing", "blocked", "redirect")]
+        result = browser.run(ctx)
+        assert result.status == "error" and "Some page checks failed" in result.reason
+        assert len(result.outcomes) == 6  # Three attempted URLs at two viewport sizes.
+        assert all(
+            o.status == "unavailable" and not o.coverage and o.evidence_ids for o in result.outcomes
+        )
+        assert "synthetic-secret" not in result.model_dump_json()
+        ctx.results = [result]
+        accounting = coverage.collect(ctx)
+        assert not accounting["browser_tested"]
+        assert set(accounting["untested"]) == set(ctx.pages)
+        assert (
+            len(accounting["failed"])
+            == len(accounting["blocked"])
+            == len(accounting["redirected"])
+            == 2
+        )
+        assert any("Some page checks failed" in reason for reason in accounting["stop_reasons"])
+        ctx.categories = {"accessibility"}
+        monkeypatch.setattr(
+            runner,
+            "REGISTRY",
+            {
+                "browser": SimpleNamespace(categories={"accessibility"}, run=lambda ctx: result),
+            },
+        )
+        runner.run(ctx, no_ai=True, formats={"md"})
+        report = (ctx.run_dir / "report.md").read_text()
+        assert "0 page/viewport observations" in report
+        assert "No successful rendered page observations were collected" in report
+        assert "Form structure was inspected" not in report
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()

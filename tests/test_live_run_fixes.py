@@ -130,6 +130,14 @@ def test_resolution_prefers_https_and_detects_loops(monkeypatch):
     assert len(calls) == 2
 
 
+def test_redirect_fixture_skips_with_setup_reason_when_siteone_is_missing(tmp_path, monkeypatch):
+    binary = REPO / "tools/siteone/siteone-crawler/siteone-crawler"
+    original = Path.is_file
+    monkeypatch.setattr(Path, "is_file", lambda path: False if path == binary else original(path))
+    with pytest.raises(pytest.skip.Exception, match="SiteOne missing; run scripts/setup.sh"):
+        test_redirect_host_change_crawls_both_hosts_and_feeds_downstream(tmp_path, monkeypatch)
+
+
 def test_redirect_host_change_crawls_both_hosts_and_feeds_downstream(tmp_path, monkeypatch):
     if not (
         Path(__file__).resolve().parents[1] / "tools/siteone/siteone-crawler/siteone-crawler"

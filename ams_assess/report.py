@@ -419,7 +419,10 @@ def render_markdown(
         + (["Business discovery (customer statements)"] if discovery else []),
         discovery=discovery,
         collected_sources={e.source for e in evidence},
-        browser_observations=sum(e.source == "browser" for e in evidence),
+        browser_observations=sum(
+            e.source == "browser" and isinstance(e.data, dict) and bool(e.data.get("page"))
+            for e in evidence
+        ),
         show_verification=bool(
             connections
             or discovery

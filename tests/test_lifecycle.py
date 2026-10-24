@@ -309,8 +309,9 @@ def test_outcomes_keep_requested_dns_host_and_performance_device(tmp_path):
         {"strategy": "mobile", "score": 0.98},
     )
     outcomes.record(ctx, perf)
-    assert perf.outcomes[0].check_id == "lighthouse-mobile" and perf.outcomes[0].status == "pass"
-    assert perf.outcomes[0].site == "www.example.test"
+    assert perf.outcomes[0].check_id == "lighthouse-mobile:https://example.test/"
+    assert perf.outcomes[0].status == "pass"
+    assert perf.outcomes[0].site == "example.test"
 
 
 def test_site_check_pass_without_same_rendered_sample_does_not_resolve(tmp_path):
@@ -421,3 +422,223 @@ def test_failed_collector_records_explicit_unrun_checks(tmp_path):
     assert title.status == "failed-to-run" and title.coverage == []
     technical = next(o for o in result.outcomes if o.check_id == "broken-links")
     assert technical.status == "out-of-scope" and not technical.coverage
+
+
+@pytest.mark.parametrize("first_host", ["example.test", "www.example.test"])
+def test_www_apex_flip_preserves_page_identity_resolution_and_recurrence(tmp_path, first_host):
+    first = f"https://{first_host}/"
+    second = (
+        "https://example.test/" if first_host.startswith("www.") else "https://www.example.test/"
+    )
+    before = merge(tmp_path, target=first)
+    passing = observe("siteone", "missing-title", "seo", second + "a", "pass", ["ev-siteone-001"])
+    after = merge(tmp_path, run=2, target=second, failures=(), outcomes=[passing])
+    assert len(after["findings"]) == 1
+    assert after["findings"][0]["lifecycle_status"] == "resolved"
+    again = merge(tmp_path, run=3, target=second)
+    assert len(again["findings"]) == 1
+    assert again["findings"][0]["id"] == before["findings"][0]["id"]
+    assert again["findings"][0]["events"][-1]["status"] == "reopened"
+    # Other subdomains remain separate websites, even under the same registrable domain.
+    other = merge(tmp_path, run=4, target="https://shop.example.test/")
+    assert len(other["findings"]) == 2
+
+
+@pytest.mark.parametrize("schema", [2, 3])
+@pytest.mark.parametrize("strategy", ["mobile", "desktop"])
+def test_legacy_lighthouse_homepage_resolves_with_per_page_check_and_preserves_history(
+    tmp_path, monkeypatch, schema, strategy
+):
+    from ams_assess import runner
+    from ams_assess.models import Context, create_run_dir
+    from ams_assess.modules import performance
+
+    # Seed a genuine pre-per-page record with a www address and a historical evidence ID.
+    saved = store.new_store("synthetic", "Synthetic")
+    saved["schema_version"] = schema
+    url = "https://www.example.com/"
+    eid = "ev-performance-r1-001"
+    legacy = Finding(
+        id="legacy-lab",
+        title="Improve lab performance",
+        detail="Synthetic low score",
+        recommendation="Retest rendering",
+        category="performance",
+        check_key=f"lighthouse-{strategy}",
+        evidence_ids=[eid],
+        urls=[url],
+        site="www.example.com",
+        component=url,
+        coverage=[url],
+        events=[{"status": "observed", "run_id": "r1"}],
+    )
+    saved["findings"] = [legacy.model_dump()]
+    saved["runs"] = [
+        {
+            "run_id": "r1",
+            "run_dir": "legacy",
+            "kind": "assessment",
+            "status": "complete",
+            "target": url,
+            "created_at": "2026-10-01",
+        }
+    ]
+    saved["evidence"] = [
+        Evidence(
+            id=eid,
+            source="performance",
+            url=url,
+            description="PageSpeed legacy lab",
+            data={"strategy": strategy, "score": 0.5},
+        ).model_dump()
+    ]
+    store.save(tmp_path, "synthetic", saved)
+    original = store.store_file(tmp_path, "synthetic").read_bytes()
+    migrated = store.load(tmp_path, "synthetic")
+    assert migrated is not None
+    old_id = migrated["findings"][0]["id"]
+    old_events = migrated["findings"][0]["events"]
+    if schema == 2:
+        assert (
+            next((tmp_path / "synthetic").glob("assessment.json.backup-*")).read_bytes() == original
+        )
+    else:
+        assert old_id == "legacy-lab"
+
+    monkeypatch.setattr(runner, "REGISTRY", {"performance": performance})
+    monkeypatch.setattr(
+        performance,
+        "query_crux",
+        lambda scope, url, key: {
+            "scope": scope,
+            "url": url,
+            "outcome": "not_configured",
+            "detail": "No API configured",
+        },
+    )
+    score = 0.98
+    monkeypatch.setattr(
+        performance,
+        "measure_lab",
+        lambda url, device, key: {
+            "url": url,
+            "strategy": device,
+            "outcome": "data",
+            "kind": "LAB",
+            "score": score,
+            "metrics": {},
+            "conditions": {
+                "url_tested": url,
+                "final_url": url,
+                "requested_at_utc": "2026-10-24",
+                "fetch_time": None,
+                "lighthouse_version": None,
+                "form_factor": device,
+                "throttling_method": None,
+                "throttling": None,
+            },
+            "detail": "Synthetic lab observation",
+        },
+    )
+    for expected in ("resolved", "current"):
+        ctx = Context(
+            "synthetic",
+            "Synthetic",
+            "https://example.com/",
+            {"performance"},
+            set(),
+            {"AMS_PERFORMANCE_KEY_PAGES": "0"},
+            create_run_dir(tmp_path, "synthetic"),
+            tmp_path,
+            store_root=tmp_path,
+        )
+        result = runner.run(ctx, no_ai=True, formats={"md"})
+        assert result.get("store_status") != "failed"
+        assert result["status"] != "incomplete"
+        updated = store.load(tmp_path, "synthetic")
+        assert updated is not None
+        finding = next(f for f in updated["findings"] if f["id"] == old_id)
+        assert finding["lifecycle_status"] == expected
+        assert finding["events"][: len(old_events)] == old_events
+        assert eid in finding["evidence_ids"]
+        assert len([f for f in updated["findings"] if strategy in f["check_key"]]) == 1
+        if expected == "resolved":
+            assert finding["resolution"]["evidence_ids"]
+        else:
+            assert finding["events"][-1]["status"] == "reopened"
+        # The original CrUX provider statuses are retained, not converted to a vitals verdict.
+        crux = [o for o in result["outcomes"] if o["check_id"].startswith("crux-availability:")]
+        assert crux and all(o["status"] == "unavailable" for o in crux)
+        assert any(e["data"].get("outcome") == "not_configured" for e in updated["evidence"])
+        score = 0.5
+
+
+@pytest.mark.parametrize("case", ["other-page", "other-device", "other-site", "unavailable"])
+def test_legacy_lighthouse_requires_equivalent_passing_homepage(case):
+    from ams_assess.lifecycle import transition
+
+    url = "https://www.example.com/"
+    old = Finding(
+        id="old-lab",
+        title="Old lab failure",
+        detail="Synthetic low score",
+        recommendation="Retest rendering",
+        category="performance",
+        check_key="lighthouse-mobile",
+        site="www.example.com",
+        component=url,
+        coverage=[url],
+        evidence_ids=["ev-performance-001"],
+    )
+    page = "https://example.com/"
+    if case == "other-page":
+        page += "contact"
+    elif case == "other-site":
+        page = "https://shop.example.com/"
+    strategy = "desktop" if case == "other-device" else "mobile"
+    row = observe(
+        "performance",
+        f"lighthouse-{strategy}:{page}",
+        "performance",
+        page,
+        "unavailable" if case == "unavailable" else "pass",
+        ["ev-performance-002"],
+    )
+    evidence = [
+        Evidence(
+            id="ev-performance-002", source="performance", url=page, description="Retest", data={}
+        )
+    ]
+    result = transition([old], [], [row], evidence, "r2", "2026-10-24")
+    assert result[0].lifecycle_status == "not_rechecked" and result[0].resolution is None
+
+
+@pytest.mark.parametrize("final_path,expected", [("/", "pass"), ("/contact", "unavailable")])
+def test_lighthouse_redirect_pass_requires_equivalent_page(final_path, expected, tmp_path):
+    from ams_assess import outcomes
+    from ams_assess.models import Context, ModuleResult
+
+    ctx = Context(
+        "synthetic",
+        "Synthetic",
+        "https://example.com/",
+        {"performance"},
+        set(),
+        {},
+        tmp_path,
+        tmp_path,
+    )
+    result = ModuleResult(name="performance")
+    result.add_evidence(
+        ctx.target,
+        "PageSpeed mobile LAB: data",
+        {
+            "strategy": "mobile",
+            "score": 0.98,
+            "outcome": "data",
+            "conditions": {"final_url": "https://www.example.com" + final_path},
+        },
+    )
+    outcomes.record(ctx, result)
+    assert result.outcomes[0].status == expected
+    assert bool(result.outcomes[0].coverage) == (expected == "pass")

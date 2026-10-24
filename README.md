@@ -154,6 +154,11 @@ reopens the identity and preserves its events and observations. Current severity
 observation. Resolved and superseded findings are excluded from recommendations and the roadmap;
 conflicts remain **needs review**. Discovery supersession and conflict rules below are unchanged.
 
+Page identities normalise the www/apex alias while preserving other subdomains and page/test scope;
+evidence keeps the URL actually observed. Legacy `lighthouse-mobile` / `lighthouse-desktop` keys
+are predecessors only of the equivalent homepage per-page checks, retaining identity and history
+through resolution and recurrence.
+
 Schema 1/2 stores migrate under the existing customer lock. Before conversion, the exact original
 `assessment.json` bytes are fsynced to `assessment.json.backup-<UTC timestamp>` beside the store,
 mode 0600. Migration is then saved atomically. Legacy findings have no inferred pass: they start as

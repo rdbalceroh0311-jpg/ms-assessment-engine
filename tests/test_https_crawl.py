@@ -428,7 +428,7 @@ def test_website_measurements_use_resolved_host(tmp_path, monkeypatch):
         for evidence in result.evidence:
             if "performance" in evidence.data:
                 assert evidence.url == ctx.target  # summary retains the requested site identity
-            elif evidence.data.get("scope") == "origin":
+            elif isinstance(evidence.data, dict) and evidence.data.get("scope") == "origin":
                 assert evidence.url == "https://www.example.com"
             else:
                 assert evidence.url == ctx.site_url

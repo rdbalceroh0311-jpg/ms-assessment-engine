@@ -248,6 +248,15 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
         if e.source == "siteone" and e.description == "SiteOne SEO metadata":
             if str(e.data.get("deniedByRobotsTxt", "")).lower() == "true":
                 blocked.append({"url": e.url, "reason": "robots.txt"})
+        if e.source == "browser" and e.description == "Browser page load unavailable":
+            if url := add(e.url, "browser sample"):
+                row = {"url": url, **e.data}
+                if e.data.get("redirected"):
+                    redirected.append(row)
+                elif e.data.get("status") in {401, 403, 429}:
+                    blocked.append(row)
+                else:
+                    failed.append(row)
         if e.source == "browser" and isinstance(e.data, dict) and e.data.get("page"):
             browser.add(e.url)
             add(e.url, "browser sample")
@@ -339,6 +348,9 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
     )
     if crawl and not crawl.collection_started:
         crawl_stop = "SiteOne did not run: " + crawl.reason
+    for module in ctx.results:
+        if module.name == "browser" and module.reason:
+            stops.append("Browser: " + module.reason)
     return {
         "discovered": [
             {"url": url, "sources": sorted(sources)} for url, sources in sorted(discovered.items())

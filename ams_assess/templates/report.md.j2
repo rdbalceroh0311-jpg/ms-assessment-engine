@@ -323,7 +323,7 @@ WordPress inventory: {{ coverage.wordpress.status | text }} — {{ coverage.word
 - Crawl coverage{% if data.get('pages_target') %} ({{ data.pages_target | text }}){% endif %}: {{ data.pages | length }} successful HTML pages within a crawl budget of {{ data.max_pages }} URLs ({{ 'static assets excluded; redirects and failed/non-HTML responses can consume slots' if data.get('crawl_assets_excluded') else 'including assets' }}).
 {% endif %}
 {% if 'browser' in collected_sources %}
-- Browser coverage: {{ browser_observations }} page/viewport observations across the included runs, with {{ 'the configured page limit' if data.get('website_coverage') or data.get('website_coverage_runs') else 'at most six key pages' }} per run at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.
+- Browser coverage: {{ browser_observations }} page/viewport observations across the included runs, with {{ 'the configured page limit' if data.get('website_coverage') or data.get('website_coverage_runs') else 'at most six key pages' }} per run at desktop and mobile sizes. {{ 'Form structure was inspected.' if browser_observations else 'No successful rendered page observations were collected.' }} Automated accessibility checks are not a full accessibility audit.
 {% endif %}
 - Observations are a point-in-time sample. Form submission, booking, payment and account journeys were not exercised.
 - AI search visibility was **NOT measured**. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.

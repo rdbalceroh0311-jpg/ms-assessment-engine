@@ -482,10 +482,11 @@ def _merge_run(
         outcome.site = f.site
         outcomes.append(outcome)
         represented.add(technical_key(f))
+    incoming_ids = {technical_key(f): f.id for f in incoming_technical}
     findings = others + transition(
         technical, incoming_technical, outcomes, all_evidence, run_id, data["created_at"]
     )
-    id_map.update({f.id: f.id for f in incoming_technical})
+    id_map.update({incoming_ids[technical_key(f)]: f.id for f in incoming_technical})
     ai = remap(data["ai"], mapping)
     ai["recommendations"] = [id_map.get(i, i) for i in ai.get("recommendations", [])]
     ai["roadmap"] = {p: [id_map.get(i, i) for i in ids] for p, ids in ai.get("roadmap", {}).items()}

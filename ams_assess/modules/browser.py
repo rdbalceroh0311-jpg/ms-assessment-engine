@@ -6,6 +6,7 @@ from playwright.sync_api import sync_playwright
 
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
+from ams_assess.modules.siteone import diagnostic
 
 name = "browser"
 categories = {"accessibility", "geo", "local_seo", "entity", "cro_ux", "copywriting", "presence"}
@@ -130,6 +131,18 @@ def run(ctx: Context) -> ModuleResult:
                             response = page.goto(url, wait_until="load", timeout=25000)
                         if response is None or not 200 <= response.status < 300 or page.url != url:
                             # Error/redirect destinations are not an equivalent test of this URL.
+                            detail = "Page failed or redirected; no equivalent test"
+                            eid = result.add_evidence(
+                                url,
+                                "Browser page load unavailable",
+                                {
+                                    "status": response.status if response else None,
+                                    "final_url": diagnostic(page.url, ctx),
+                                    "redirected": page.url != url,
+                                    "viewport": viewport,
+                                },
+                            )
+                            errors.append(f"{viewport} {diagnostic(url, ctx)}: {detail}")
                             result.outcomes.append(
                                 observe(
                                     name,
@@ -137,8 +150,8 @@ def run(ctx: Context) -> ModuleResult:
                                     "technical",
                                     url + "::" + viewport,
                                     "unavailable",
-                                    [],
-                                    reason="Page failed or redirected; no equivalent test",
+                                    [eid],
+                                    reason=detail,
                                 )
                             )
                             continue
@@ -255,7 +268,24 @@ def run(ctx: Context) -> ModuleResult:
                                 component=component,
                             )
                     except Exception as exc:
-                        errors.append(f"{viewport} {url}: {type(exc).__name__}")
+                        detail = type(exc).__name__
+                        errors.append(f"{viewport} {diagnostic(url, ctx)}: {detail}")
+                        eid = result.add_evidence(
+                            url,
+                            "Browser page load unavailable",
+                            {"viewport": viewport, "error": detail},
+                        )
+                        result.outcomes.append(
+                            observe(
+                                name,
+                                "page-load",
+                                "technical",
+                                url + "::" + viewport,
+                                "failed-to-run",
+                                [eid],
+                                reason=detail,
+                            )
+                        )
                     finally:
                         page.close()
                 session.close()

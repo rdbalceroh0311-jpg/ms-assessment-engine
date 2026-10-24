@@ -1,6 +1,7 @@
 """Explicit check observations and conservative, evidence-backed finding transitions."""
 
 import hashlib
+import re
 from urllib.parse import urldefrag, urlsplit
 
 from ams_assess.models import CheckOutcome, Evidence, Finding
@@ -8,25 +9,63 @@ from ams_assess.models import CheckOutcome, Evidence, Finding
 
 def site_key(url: str) -> str:
     parts = urlsplit(url)
-    return (parts.hostname or "").lower() + (f":{parts.port}" if parts.port else "")
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    port = parts.port
+    return host + (
+        f":{port}" if port and (parts.scheme, port) not in {("https", 443), ("http", 80)} else ""
+    )
+
+
+def identity_component(value: str) -> str:
+    """Normalise the website alias in page, viewport and evidence-coverage tokens.
+
+    Other subdomains, ports, paths, queries and test qualifiers remain distinct.
+    Evidence URLs themselves retain the address that was actually requested.
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        url = match.group(0)
+        parts = urlsplit(url)
+        host = site_key(url)
+        if ":" in (parts.hostname or ""):
+            host = f"[{parts.hostname}]" + (f":{parts.port}" if parts.port else "")
+        return f"{parts.scheme}://{host}"
+
+    return re.sub(r"https?://(?:\[[0-9a-fA-F:]+\]|[\w.-]+)(?::\d+)?", replace, value)
+
+
+def check_key(check: str, component: str) -> str:
+    check = identity_component(check)
+    # Before per-page PSI, the lab finding described the homepage. Never alias a
+    # legacy check for a different path, device or website to that homepage.
+    if check in {"lighthouse-mobile", "lighthouse-desktop"}:
+        parts = urlsplit(component)
+        if parts.scheme in {"http", "https"} and parts.path in {"", "/"} and not parts.query:
+            return f"{check}:{identity_component(component).rstrip('/')}/"
+    return check
 
 
 def key(finding: Finding) -> tuple[str, str, str]:
-    return finding.site, finding.check_key or finding.id, finding.component
+    return (
+        finding.site.lower().removeprefix("www."),
+        check_key(finding.check_key or finding.id, finding.component),
+        identity_component(finding.component),
+    )
 
 
 def scoped(findings: list[Finding], target: str, customer: str) -> list[Finding]:
-    """Split page findings BEFORE consolidation; never merge host aliases implicitly."""
+    """Split page findings BEFORE consolidation, with a stable www/apex identity."""
     result = []
     for finding in findings:
         if finding.category == "discovery" or finding.provenance != "technical_evidence":
             result.append(finding)
             continue
-        check_id = finding.check_key or f"{finding.category}:{finding.id}"
         components = [finding.component] if finding.component else finding.urls or [target]
         for component in dict.fromkeys(components):
             component = urldefrag(component)[0] if not finding.component else component
-            site = finding.site or site_key(component) or site_key(target)
+            component = identity_component(component)
+            check_id = check_key(finding.check_key or f"{finding.category}:{finding.id}", component)
+            site = (finding.site or site_key(component) or site_key(target)).removeprefix("www.")
             digest = hashlib.sha256(
                 repr((customer, site, check_id, component)).encode()
             ).hexdigest()[:24]
@@ -37,8 +76,10 @@ def scoped(findings: list[Finding], target: str, customer: str) -> list[Finding]
                         "check_key": check_id,
                         "site": site,
                         "component": component,
-                        "coverage": finding.coverage or [component],
-                        "urls": [component] if component in finding.urls else finding.urls,
+                        "coverage": [identity_component(c) for c in finding.coverage]
+                        or [component],
+                        "urls": [u for u in finding.urls if identity_component(u) == component]
+                        or finding.urls,
                     },
                     deep=True,
                 )
@@ -60,15 +101,15 @@ def observe(
     return CheckOutcome.model_validate(
         {
             "module": module,
-            "check_id": check,
+            "check_id": check_key(check, component),
             "category": category,
             "site": site_key(component),
-            "component": component,
+            "component": identity_component(component),
             "status": status,
             "evidence_ids": evidence_ids,
-            "coverage": coverage
+            "coverage": [identity_component(c) for c in coverage]
             if coverage is not None
-            else ([component] if status in {"pass", "fail"} else []),
+            else ([identity_component(component)] if status in {"pass", "fail"} else []),
             "reason": reason,
         }
     )
@@ -88,8 +129,12 @@ def transition(
     for outcome in outcomes:
         if not set(outcome.evidence_ids) <= known.keys():
             raise ValueError("Check outcome references missing evidence")
-        rows.setdefault((outcome.site, outcome.check_id, outcome.component), [])
-        rows[(outcome.site, outcome.check_id, outcome.component)].append(outcome)
+        identity = (
+            outcome.site.lower().removeprefix("www."),
+            check_key(outcome.check_id, outcome.component),
+            identity_component(outcome.component),
+        )
+        rows.setdefault(identity, []).append(outcome)
     fresh = {key(f): f for f in incoming}
     failing_keys = set(fresh)
     result = []
@@ -97,6 +142,7 @@ def transition(
         current = fresh.pop(key(old), None)
         observations = rows.get(key(old), [])
         if current is not None:
+            current.id = old.id
             current.first_observed = old.first_observed or old.last_observed or date
             current.last_observed = date
             current.last_run_id = run_id
@@ -122,7 +168,8 @@ def transition(
             for o in observations
             if o.status == "pass"
             and o.evidence_ids
-            and set(old.coverage) <= set(o.coverage)
+            and {identity_component(c) for c in old.coverage}
+            <= {identity_component(c) for c in o.coverage}
             and all(known[i].provenance == "technical_evidence" for i in o.evidence_ids)
         ]
         failures = [o for o in observations if o.status == "fail"]
