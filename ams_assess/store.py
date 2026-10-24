@@ -25,7 +25,15 @@ from ams_assess.consolidate import consolidate
 from ams_assess.discovery import DISCOVERY_SECTIONS, Notes, slug
 from ams_assess.figures import sentences
 from ams_assess.lifecycle import key as technical_key
-from ams_assess.lifecycle import observe, page_axe_outcomes, scoped, site_key, transition
+from ams_assess.lifecycle import (
+    observe,
+    outcome_key,
+    page_axe_outcomes,
+    scoped,
+    site_identity,
+    site_key,
+    transition,
+)
 from ams_assess.models import (
     DISCOVERY_CATEGORY,
     SEVERITIES,
@@ -54,7 +62,7 @@ EVIDENCE_ID = re.compile(r"ev-[a-z][a-z0-9_]*-\d+")
 LOCAL_ID = re.compile(r"^ev-([a-z][a-z0-9_]*)-(\d+)$")
 RUN_EVIDENCE = re.compile(r"^ev-[a-z][a-z0-9_]*-(r\d+)-\d+$")
 # Version of the stored-evidence analysis already applied (analyse_stored_connected).
-CONNECTED_ANALYSIS = 1
+CONNECTED_ANALYSIS = 2
 NO_AI = {"status": "skipped", "provider": None, "reason": "Discovery notes are not AI-interpreted"}
 
 
@@ -135,6 +143,26 @@ def new_store(customer: str, customer_name: str) -> dict[str, Any]:
     }
 
 
+def connector_bindings(root: Path, customer: str) -> dict[str, Any]:
+    """Read binding identities without migrating or analysing another customer's findings."""
+    path = store_file(root, customer)
+    with locked(root, customer, create=False):
+        current = json.loads(path.read_bytes())
+        if (
+            not isinstance(current, dict)
+            or current.get("customer_id") != customer
+            or current.get("schema_version") not in {1, 2, 3}
+        ):
+            raise ValueError("Unsupported or mismatched customer store")
+        bindings = current.get("connectors", {})
+        if not isinstance(bindings, dict) or any(
+            not isinstance(binding, dict) or not isinstance(binding.get("resource_id", ""), str)
+            for binding in bindings.values()
+        ):
+            raise ValueError("Invalid connector bindings")
+        return bindings
+
+
 def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str, Any] | None:
     """Read only this customer's store; None when it does not exist yet."""
     path = store_file(root, customer)
@@ -189,9 +217,9 @@ def repair_axe_reviews(store: dict[str, Any]) -> None:
         finding = Finding.model_validate(raw)
         for run in reversed(store.get("runs", [])):
             rows = [
-                CheckOutcome.model_validate(o)
+                outcome
                 for o in run.get("outcomes", [])
-                if (o["site"], o["check_id"], o["component"]) == technical_key(finding)
+                if outcome_key(outcome := CheckOutcome.model_validate(o)) == technical_key(finding)
             ]
             if not rows:
                 continue
@@ -258,7 +286,7 @@ def supersede_unscoped(store: dict[str, Any], findings: list[Finding]) -> list[F
             f
             for f in findings
             if f.site
-            and f.site in sites
+            and site_identity(f.site) in sites
             and f.category == legacy.category
             and (f.check_key or f.id) == (legacy.check_key or legacy.id)
             and f.lifecycle_status != "needs_review"
@@ -313,7 +341,7 @@ def analyse_stored_connected(store: dict[str, Any], findings: list[Finding]) -> 
         site_url = run.get("resolved_url") or run["target"]
         derived, _ = gsc.connected_findings(own, site_url)
         derived = scoped(consolidate(derived, evidence), site_url, store["customer_id"])
-        known = {technical_key(f) for f in result}
+        known = {technical_key(f): f for f in result}
         added = []
         for finding in derived:
             if technical_key(finding) in known:
@@ -331,14 +359,16 @@ def analyse_stored_connected(store: dict[str, Any], findings: list[Finding]) -> 
             ]
             added.append(finding)
         connected = {e.id for e in own if e.source == gsc.name}
-        successors = {f.check_key: f for f in derived}
+        # A previous backfill may already have the deterministic finding under an old ID.
+        # Retire the alias against that retained record, never a newly computed phantom ID.
+        successors = {f.check_key: known.get(technical_key(f), f) for f in derived}
         aliases = {"site-index-sample-page-exposed": "gsc:placeholder-impressions"}
         replaced = [
             f
             for f in result
             if connected & set(f.evidence_ids)
             and aliases.get(f.check_key) in successors
-            and (not f.site or f.site == site_key(site_url))
+            and (not f.site or site_identity(f.site) == site_key(site_url))
         ]
         for finding in replaced:
             successor = successors[aliases[finding.check_key]]
@@ -741,7 +771,7 @@ def _merge_run(
     )
     store["finding_history"] = other_store["finding_history"]
     outcomes = [CheckOutcome.model_validate(remap(o, mapping)) for o in data.get("outcomes", [])]
-    represented = {(o.site, o.check_id, o.component) for o in outcomes}
+    represented = {outcome_key(o) for o in outcomes}
     module_states = {m["name"]: m["status"] for m in data["modules"]}
     for f in technical + incoming_technical:
         if technical_key(f) in represented:
@@ -750,7 +780,7 @@ def _merge_run(
         sources = {by_evidence[i].source for i in f.evidence_ids}
         status = "fail" if fresh else "skipped"
         if not fresh:
-            if f.site not in {
+            if site_identity(f.site) not in {
                 site_key(data["target"]),
                 site_key(data.get("resolved_url", data["target"])),
             }:
@@ -1229,7 +1259,7 @@ def repair_presence_nap(data: dict[str, Any]) -> None:
             if (
                 platform == finding.get("check_key")
                 or finding.get("last_run_id") != summary.get("run_id")
-                or finding.get("site") != site_key(summary.get("target", ""))
+                or site_identity(finding.get("site") or "") != site_key(summary.get("target", ""))
             ):
                 continue
             differs = [

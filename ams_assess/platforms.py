@@ -433,7 +433,7 @@ def classify(url: str) -> str | None:
         return None
     if parts.scheme not in {"http", "https"}:
         return None
-    host = (hostname or "").removeprefix("www.")
+    host = (hostname or "").removesuffix(".").removeprefix("www.")
     route = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
     if GENERIC_PAGE.match(parts.path or "/"):
         return None
@@ -453,7 +453,7 @@ def identifies(url: str) -> bool:
     if not pattern:
         return True
     parts = urlsplit(str(url).strip())
-    host = (parts.hostname or "").removeprefix("www.")
+    host = (parts.hostname or "").removesuffix(".").removeprefix("www.")
     route = f"{host}{parts.path or '/'}" + (f"?{parts.query}" if parts.query else "")
     return bool(re.search(pattern, route))
 

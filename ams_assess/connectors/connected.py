@@ -15,7 +15,7 @@ def site_scope(value: Any) -> tuple[str, str, int | None, str] | None:
     if not isinstance(value, str):
         return None
     if value.startswith("sc-domain:"):
-        host = value.removeprefix("sc-domain:").lower()
+        host = value.removeprefix("sc-domain:").lower().removesuffix(".")
         return ("domain", host, None, "/") if re.fullmatch(r"[a-z0-9.-]+\.[a-z]+", host) else None
     try:
         parts = urlsplit(value)
@@ -30,7 +30,7 @@ def site_scope(value: Any) -> tuple[str, str, int | None, str] | None:
             return None
         return (
             parts.scheme,
-            parts.hostname,
+            parts.hostname.removesuffix("."),
             parts.port or (443 if parts.scheme == "https" else 80),
             parts.path or "/",
         )

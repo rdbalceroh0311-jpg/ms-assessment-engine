@@ -426,7 +426,13 @@ def folded(value: str) -> str:
 def website(value: str) -> str:
     parts = urlsplit(safe_url(value))
     return urlunsplit(
-        ("", (parts.hostname or "").removeprefix("www."), parts.path.rstrip("/"), "", "")
+        (
+            "",
+            (parts.hostname or "").removesuffix(".").removeprefix("www."),
+            parts.path.rstrip("/"),
+            "",
+            "",
+        )
     )
 
 

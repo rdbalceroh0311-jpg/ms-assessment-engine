@@ -800,7 +800,8 @@ def test_crawl_sitemap_and_blocked_findings_and_public_references(env):
     assert links["evidence_ids"] == [public.id]
 
 
-def test_public_finding_reference_renders_in_section_seven_without_duplicate(env):
+@pytest.mark.parametrize("stored_site", ["example.test", "example.test."])
+def test_public_finding_reference_renders_in_section_seven_without_duplicate(env, stored_site):
     bind(env)
     public = Evidence(
         id="ev-site_checks-r1-001",
@@ -816,7 +817,7 @@ def test_public_finding_reference_renders_in_section_seven_without_duplicate(env
         category="seo",
         detail="Public robots block",
         recommendation="Check intent",
-        site="example.test",
+        site=stored_site,
         component=SITE,
         evidence_ids=[public.id],
     )

@@ -1,4 +1,4 @@
-from ams_assess.lifecycle import site_key
+from ams_assess.lifecycle import identity_component, site_identity, site_key
 from ams_assess.models import SEVERITIES, Evidence, Finding, worst_provenance
 
 
@@ -10,13 +10,17 @@ def consolidate_security_headers(
     Run only before AI interpretation/storage; module findings remain available to health
     checks, and historical store records are not merged across websites or rewritten.
     """
-    scopes = {(f.site, f.component) for f in findings}
+
+    def scope(finding: Finding) -> tuple[str, str]:
+        return site_identity(finding.site), identity_component(finding.component)
+
+    scopes = {scope(f) for f in findings}
     if len(scopes) > 1:
         return [
             f
             for site, component in sorted(scopes)
             for f in consolidate_security_headers(
-                [f for f in findings if (f.site, f.component) == (site, component)], evidence
+                [f for f in findings if scope(f) == (site, component)], evidence
             )
         ]
     headers = [
@@ -59,7 +63,7 @@ def consolidate_security_headers(
             e.source == "observatory"
             and isinstance(e.data, dict)
             and e.data.get("grade")
-            and (not first.site or site_key(e.url) == first.site)
+            and (not first.site or site_key(e.url) == site_identity(first.site))
         ):
             if e.id not in first.evidence_ids:
                 first.evidence_ids.append(e.id)
@@ -78,7 +82,12 @@ def consolidate(findings: list[Finding], evidence: list[Evidence]) -> list[Findi
     for finding in findings:
         if not finding.evidence_ids or not set(finding.evidence_ids) <= provenance.keys():
             raise ValueError(f"Finding {finding.id} has missing evidence")
-        key = (finding.site, finding.component, finding.category, finding.check_key or finding.id)
+        key = (
+            site_identity(finding.site),
+            identity_component(finding.component),
+            finding.category,
+            identity_component(finding.check_key or finding.id),
+        )
         if key not in merged:
             merged[key] = finding.model_copy(deep=True)
             continue

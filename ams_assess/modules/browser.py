@@ -5,7 +5,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 from ams_assess.lifecycle import observe
-from ams_assess.models import Context, ModuleResult
+from ams_assess.models import Context, ModuleResult, site_authority
 from ams_assess.modules.siteone import diagnostic
 
 name = "browser"
@@ -233,7 +233,8 @@ def run(ctx: Context) -> ModuleResult:
                         target = urlsplit(canonical)
                         mismatch = bool(
                             canonical
-                            and (target.scheme, target.netloc) != (actual.scheme, actual.netloc)
+                            and (target.scheme, site_authority(canonical))
+                            != (actual.scheme, site_authority(record["url"]))
                         )
                         for check, category, failed in [
                             ("canonical-mismatch", "seo", mismatch),
@@ -249,10 +250,7 @@ def run(ctx: Context) -> ModuleResult:
                                     [eid],
                                 )
                             )
-                        if canonical and (target.scheme, target.netloc) != (
-                            actual.scheme,
-                            actual.netloc,
-                        ):
+                        if mismatch:
                             result.finding(
                                 "canonical-mismatch",
                                 "Canonical URL points to a different host or protocol",

@@ -296,7 +296,13 @@ def normalize_target(value: str) -> str:
     return urlunsplit((parts.scheme, netloc, parts.path or "/", "", ""))
 
 
+def site_authority(url: str) -> str:
+    """Compare URL authorities with one DNS root dot removed; retain ports and www scope."""
+    return re.sub(r"\.(?=:\d+$|$)", "", urlsplit(url).netloc.lower())
+
+
 def is_local(host: str) -> bool:
+    host = host.lower().removesuffix(".")
     if host == "localhost" or host.endswith((".localhost", ".local", ".test")):
         return True
     try:

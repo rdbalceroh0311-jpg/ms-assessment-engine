@@ -9,7 +9,7 @@ from urllib.parse import urldefrag, urljoin, urlsplit
 import httpx
 
 from ams_assess.lifecycle import observe
-from ams_assess.models import Context, ModuleResult
+from ams_assess.models import Context, ModuleResult, site_authority
 from ams_assess.modules import presence, siteone
 from ams_assess.modules.site_rules import (
     CRAWLERS,
@@ -516,7 +516,7 @@ class Checks:
             issues = []
             if not target:
                 issues.append("invalid canonical URL")
-            elif urlsplit(target).netloc != urlsplit(url).netloc:
+            elif site_authority(target) != site_authority(url):
                 issues.append("different host; confirm intended canonical")
             target_status = siteone.status_code(response.get("status")) if response else 0
             unavailable = target_status <= 0 or target_status == 429 or target_status >= 500

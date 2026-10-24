@@ -486,7 +486,7 @@ ACCOUNT_LINKS = {
 
 def account_link(tool: str, url: str) -> bool:
     parts = urlsplit(url)
-    host = (parts.hostname or "").lower()
+    host = (parts.hostname or "").lower().removesuffix(".")
     if host.split(".")[0] in {"www", "blog", "docs", "help", "support"} and tool not in {
         "Calendly",
         "Square Appointments",
@@ -556,7 +556,7 @@ def tool_signals(page: dict[str, Any], base: str) -> list[dict[str, str]]:
             for label, signatures in TOOLS.items():
                 for sig in signatures:
                     host, _, path = sig.partition("/")
-                    actual = (parts.hostname or "").lower()
+                    actual = (parts.hostname or "").lower().removesuffix(".")
                     if (actual == host or actual.endswith("." + host)) and (
                         not path
                         or parts.path == "/" + path

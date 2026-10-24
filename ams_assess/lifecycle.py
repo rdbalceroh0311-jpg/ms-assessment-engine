@@ -9,7 +9,7 @@ from ams_assess.models import CheckOutcome, Evidence, Finding
 
 def site_key(url: str) -> str:
     parts = urlsplit(url)
-    host = (parts.hostname or "").lower().removeprefix("www.")
+    host = (parts.hostname or "").lower().removesuffix(".").removeprefix("www.")
     port = parts.port
     return host + (
         f":{port}" if port and (parts.scheme, port) not in {("https", 443), ("http", 80)} else ""
@@ -45,11 +45,25 @@ def check_key(check: str, component: str) -> str:
     return check
 
 
+def site_identity(value: str) -> str:
+    """Compare persisted host[:port] keys, including keys saved before DNS-dot normalization."""
+    return re.sub(r"\.(?=:\d+$|$)", "", value.lower()).removeprefix("www.")
+
+
 def key(finding: Finding) -> tuple[str, str, str]:
     return (
-        finding.site.lower().removeprefix("www."),
+        site_identity(finding.site),
         check_key(finding.check_key or finding.id, finding.component),
         identity_component(finding.component),
+    )
+
+
+def outcome_key(outcome: CheckOutcome) -> tuple[str, str, str]:
+    """Use the same identity for saved outcomes and findings without rewriting either."""
+    return (
+        site_identity(outcome.site),
+        check_key(outcome.check_id, outcome.component),
+        identity_component(outcome.component),
     )
 
 
@@ -66,7 +80,7 @@ def scoped(findings: list[Finding], target: str, customer: str) -> list[Finding]
         ]
         for component in dict.fromkeys(components):
             check_id = check_key(finding.check_key or f"{finding.category}:{finding.id}", component)
-            site = (finding.site or site_key(component) or site_key(target)).removeprefix("www.")
+            site = site_identity(finding.site or site_key(component) or site_key(target))
             digest = hashlib.sha256(
                 repr((customer, site, check_id, component)).encode()
             ).hexdigest()[:24]
@@ -152,11 +166,7 @@ def transition(
     for outcome in page_axe_outcomes(outcomes):
         if not set(outcome.evidence_ids) <= known.keys():
             raise ValueError("Check outcome references missing evidence")
-        identity = (
-            outcome.site.lower().removeprefix("www."),
-            check_key(outcome.check_id, outcome.component),
-            identity_component(outcome.component),
-        )
+        identity = outcome_key(outcome)
         rows.setdefault(identity, []).append(outcome)
     fresh = {key(f): f for f in incoming}
     failing_keys = set(fresh)
@@ -261,7 +271,7 @@ def page_axe_outcomes(outcomes: list[CheckOutcome]) -> list[CheckOutcome]:
     """
 
     def audit_key(o):
-        return (o.site, o.check_id, o.component, frozenset(o.evidence_ids))
+        return (*outcome_key(o), frozenset(o.evidence_ids))
 
     nonpasses = {
         audit_key(o)

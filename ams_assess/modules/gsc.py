@@ -18,6 +18,7 @@ from ams_assess.models import (
     Evidence,
     Finding,
     ModuleResult,
+    site_authority,
 )
 
 name = "gsc"
@@ -119,7 +120,10 @@ def connected_findings(
     variants, variant_urls = [], []
     for url in own:
         parts = urlsplit(url)
-        if (parts.scheme, parts.hostname) == (preferred.scheme, preferred.hostname):
+        if (parts.scheme, (parts.hostname or "").removesuffix(".")) == (
+            preferred.scheme,
+            (preferred.hostname or "").removesuffix("."),
+        ):
             continue
         canonical = urlunsplit(
             (preferred.scheme, preferred.netloc, parts.path or "/", parts.query, "")
@@ -245,12 +249,15 @@ def verify_token(path: Path) -> list[dict[str, str]]:
 
 
 def matches_target(prop: str, target: str) -> bool:
-    host = urlsplit(target).hostname or ""
+    host = (urlsplit(target).hostname or "").removesuffix(".")
     if prop.startswith("sc-domain:"):
-        domain = prop.removeprefix("sc-domain:")
+        domain = prop.removeprefix("sc-domain:").lower().removesuffix(".")
         return host == domain or host.endswith("." + domain)
     p, t = urlsplit(prop), urlsplit(target)
-    return (p.scheme, p.netloc) == (t.scheme, t.netloc) and t.path.startswith(p.path)
+    return (p.scheme, site_authority(prop)) == (
+        t.scheme,
+        site_authority(target),
+    ) and t.path.startswith(p.path)
 
 
 def run(ctx: Context) -> ModuleResult:

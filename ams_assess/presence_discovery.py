@@ -114,7 +114,7 @@ def host_of(url: str) -> str:
         host = urlsplit(url if "://" in url else f"https://{url}").hostname or ""
     except ValueError:
         return ""
-    return host.removeprefix("www.").removeprefix("m.")
+    return host.removesuffix(".").removeprefix("www.").removeprefix("m.")
 
 
 def url_key(url: str) -> str:
@@ -127,7 +127,7 @@ def url_key(url: str) -> str:
         parts = urlsplit(url.strip())
     except ValueError:
         return url
-    host = (parts.hostname or "").removeprefix("www.").removeprefix("m.")
+    host = (parts.hostname or "").removesuffix(".").removeprefix("www.").removeprefix("m.")
     ids = sorted(
         f"{k}={v}"
         for k, v in parse_qsl(parts.query)
