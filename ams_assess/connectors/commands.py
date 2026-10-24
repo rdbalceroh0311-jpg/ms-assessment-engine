@@ -34,7 +34,7 @@ def dispatch(args: argparse.Namespace, root: Path) -> int:
         current = store.load(root, args.customer) or {}
         print(
             "Connector\tSelected resource\tAccess status\tConnection status\t"
-            "Last successful collection\tCoverage\tNext action"
+            "Last successful collection\tCoverage\tNext action\tRead details"
         )
         for row in service.rows(current):
             print(
@@ -48,6 +48,7 @@ def dispatch(args: argparse.Namespace, root: Path) -> int:
                         "last_successful_collection",
                         "coverage_text",
                         "next_action",
+                        "detail",
                     )
                 )
             )

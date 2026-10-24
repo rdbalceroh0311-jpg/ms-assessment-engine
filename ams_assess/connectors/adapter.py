@@ -24,9 +24,13 @@ class ConnectorModule:
         )
         public = [e for r in ctx.results for e in r.evidence]
         findings = [f.model_dump() for r in ctx.results for f in r.findings]
-        current.setdefault("profile", {"fields": {"websites": [ctx.target]}})
         result, state = prepare(
-            current, self.name, collect=True, public_evidence=public, public_findings=findings
+            current,
+            self.name,
+            collect=True,
+            public_evidence=public,
+            public_findings=findings,
+            fallback_websites=[ctx.target],
         )
         ctx.connector_results[self.name] = state
         return result
