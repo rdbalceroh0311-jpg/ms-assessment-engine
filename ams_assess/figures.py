@@ -34,6 +34,22 @@ GAIN = re.compile(
     r"driv(?:e|es|ing)|bring(?:s|ing)?)\b|^\s*get\b",
     re.I,
 )
+FORECAST = re.compile(
+    r"\b(?:doubl(?:e[sd]?|ing)|recover(?:s|ed|ing|able)?|grow(?:s|ing|n)?|grew|expect(?:s|ed|ing)?)\b",
+    re.I,
+)
+FIGURE_REFERENCE = re.compile(
+    r"\b(?:that|this|these|those|it|them|the\s+(?:number|figure|count|total|volume))\b", re.I
+)
+
+
+def followup_promise(sentence: str) -> bool:
+    """A modal/causal instruction alone is not a promised effect on the recorded figure."""
+    return bool(
+        GAIN.search(sentence)
+        or FORECAST.search(sentence)
+        or (PROMISSORY.search(sentence) and FIGURE_REFERENCE.search(sentence))
+    )
 
 
 def sentences(text: str) -> list[str]:
@@ -111,7 +127,9 @@ def supported(text: str, cited: list[Evidence]) -> bool:
     has_figure = bool(QUANTITY.search(text))
     for sentence in sentences(text):
         matches = list(QUANTITY.finditer(sentence))
-        if has_figure and (PROMISSORY.search(sentence) or GAIN.search(sentence)):
+        if (matches and (PROMISSORY.search(sentence) or GAIN.search(sentence))) or (
+            has_figure and not matches and followup_promise(sentence)
+        ):
             return False
         for match in matches:
             if not any(figure(match) == value for e in cited for value, _ in records(e)):
@@ -127,7 +145,7 @@ def without_followup_promises(text: str) -> str:
     retained = [
         sentence
         for sentence in parts
-        if QUANTITY.search(sentence) or not (PROMISSORY.search(sentence) or GAIN.search(sentence))
+        if QUANTITY.search(sentence) or not followup_promise(sentence)
     ]
     return " ".join(retained) if len(retained) != len(parts) else text
 

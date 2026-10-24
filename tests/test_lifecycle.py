@@ -846,7 +846,8 @@ def test_deduplicate_technical_preserves_observation_date_bounds(reverse):
     assert merged[0].last_run_id == "r2"
 
 
-def test_restored_ai_narratives_identify_their_generating_run_and_date(tmp_path):
+@pytest.mark.parametrize("missing_date", [False, True])
+def test_restored_ai_narratives_identify_their_generating_run_and_date(tmp_path, missing_date):
     merge(tmp_path)
     merge(tmp_path, run=2, failures=("b",), category="security")
     saved = merge(tmp_path, run=3, failures=(), outcomes=[])
@@ -864,17 +865,20 @@ def test_restored_ai_narratives_identify_their_generating_run_and_date(tmp_path)
         "executive_summary": summary,
         "sections": {"security": security},
     }
+    if missing_date:
+        saved["runs"][1].pop("created_at")
+    run2_date = "(date not recorded)" if missing_date else "on 2026-10-02"
     original = json.dumps(saved)
     for _ in range(2):
         data, evidence, _ = store.report_data(saved)
         narratives = [
-            (data["ai"]["executive_summary"], summary, "r2", "2026-10-02"),
-            (data["ai"]["sections"]["seo"], seo, "r1", "2026-10-01"),
-            (data["ai"]["sections"]["security"], security, "r2", "2026-10-02"),
+            (data["ai"]["executive_summary"], summary, "r2", run2_date),
+            (data["ai"]["sections"]["seo"], seo, "r1", "on 2026-10-01"),
+            (data["ai"]["sections"]["security"], security, "r2", run2_date),
         ]
         report = render_markdown(data, evidence)
         for text, body, run, date in narratives:
-            assert text.startswith(f"As observed in run {run} on {date}.")
+            assert text.startswith(f"As observed in run {run} {date}.")
             assert text.count("As observed in run") == 1 and body in text
             assert text in report
         assert json.dumps(saved) == original

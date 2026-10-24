@@ -917,7 +917,7 @@ def report_data(
             latest_modules[(run["target"], module["name"])] = {
                 **module,
                 "target": run["target"],
-                "created_at": run["created_at"],
+                "created_at": run.get("created_at") or "",
                 "run_id": run["run_id"],
             }
     limitations = [
@@ -957,7 +957,7 @@ def report_data(
                 "target": r["target"],
                 "resolved_url": r.get("resolved_url", r["target"]),
                 "run_id": r["run_id"],
-                "created_at": r["created_at"],
+                "created_at": r.get("created_at") or "",
                 "pages": len(r["pages"]),
                 "max_pages": r["max_pages"],
                 "crawl_assets_excluded": r.get("crawl_assets_excluded", False),
@@ -1053,7 +1053,9 @@ def report_data(
         def dated_narrative(text: str, run: dict[str, Any]) -> str:
             if not text:
                 return ""
-            return f"As observed in run {run['run_id']} on {run['created_at'][:10]}. {text}"
+            date = run.get("created_at")
+            when = f"on {str(date)[:10]}" if date else "(date not recorded)"
+            return f"As observed in run {run['run_id']} {when}. {text}"
 
         ai["executive_summary"] = dated_narrative(ai["executive_summary"], ai_runs[-1])
         ai["sections"] = {

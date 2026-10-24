@@ -356,8 +356,9 @@ def validate_analysis(
     summary = str(data.get("executive_summary", ""))
     sections = {k: str(v) for k, v in data.get("sections", {}).items() if k in categories}
     for key, value in [("summary", summary), *sections.items()]:
-        value = figures.without_followup_promises(value)
         refs = set(CITATIONS.findall(value))
+        if refs and refs <= known:
+            value = figures.without_followup_promises(value)
         reason = ""
         if not refs or not refs <= known:
             reason = "uncited or invalid"
