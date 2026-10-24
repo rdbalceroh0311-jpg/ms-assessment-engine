@@ -6,9 +6,11 @@ import re
 from pathlib import Path
 
 from dotenv import dotenv_values
-from google_auth_oauthlib.flow import InstalledAppFlow
 
 from ams_assess import register, store
+from ams_assess.connectors import REGISTRY as CONNECTORS
+from ams_assess.connectors.auth import google_desktop_flow
+from ams_assess.connectors.commands import add_parsers, safe_dispatch
 from ams_assess.discovery import load_notes
 from ams_assess.models import CATEGORIES, Context, create_run_dir, normalize_target
 from ams_assess.modules import FUTURE, REGISTRY, gsc, performance
@@ -90,15 +92,7 @@ def gsc_auth(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 or "web" in client_data
             ):
                 parser.error("GSC client secrets must be a Google Desktop OAuth JSON (installed)")
-            auth = InstalledAppFlow.from_client_secrets_file(str(client), scopes=[gsc.SCOPE])
-            creds = auth.run_local_server(
-                port=0,
-                open_browser=True,
-                access_type="offline",
-                prompt="consent",
-                # The default URL message includes the client ID; keep it out of output.
-                authorization_prompt_message="",
-            )
+            creds = google_desktop_flow(client, (gsc.SCOPE,))
             if not creds.refresh_token:
                 parser.error("GSC authorization returned no refresh token; consent is required")
             gsc.save_token(token, creds)
@@ -147,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="ams-assess", description="AMS evidence-backed assessment"
     )
     commands = parser.add_subparsers(dest="command", required=True)
+    add_parsers(commands)
     commands.add_parser("modules", help="List available, connected and future capabilities")
     interface = commands.add_parser("ui", help="Local customer review interface (Ctrl-C to stop)")
     interface.add_argument("--port", type=int, default=8765)
@@ -200,7 +195,9 @@ def main(argv: list[str] | None = None) -> int:
     assess.add_argument("--customer-name")
     assess.add_argument("--target", required=True)
     assess.add_argument("--categories", default=",".join(CATEGORIES))
-    assess.add_argument("--connect", action="append", choices=["gsc"], default=[])
+    assess.add_argument(
+        "--connect", action="append", choices=sorted({"gsc", *CONNECTORS}), default=[]
+    )
     assess.add_argument("--max-pages", type=int, default=100)
     assess.add_argument(
         "--browser-pages",
@@ -283,6 +280,8 @@ def main(argv: list[str] | None = None) -> int:
         "reports/<revision>/ directory, or recorded as unknown)",
     )
     args = parser.parse_args(argv)
+    if args.command in {"connect", "connectors"}:
+        return safe_dispatch(args, data_root(), parser)
     if args.command == "ui":
         from ams_assess.ui import serve
 

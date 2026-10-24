@@ -70,6 +70,14 @@ def matches_target(prop: str, target: str) -> bool:
 
 
 def run(ctx: Context) -> ModuleResult:
+    if ctx.store_root and "gsc" in ctx.connections:
+        from ams_assess import store
+        from ams_assess.connectors.adapter import ConnectorModule
+        from ams_assess.connectors.gsc import CONNECTOR
+
+        current = store.load(ctx.store_root, ctx.customer_id) or {}
+        if current.get("connectors", {}).get("gsc", {}).get("resource_id"):
+            return ConnectorModule(CONNECTOR).run(ctx)
     state: ConnectionStatus = "Not connected"
     try:
         result = collect(ctx)

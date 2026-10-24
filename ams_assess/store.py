@@ -48,8 +48,8 @@ STORE_FILE = "assessment.json"
 LOCK_FILE = ".assessment.lock"
 LOCK_TIMEOUT = 30.0
 STAGES = ("public", "connected", "discovery")
-EVIDENCE_ID = re.compile(r"ev-[a-z_]+-\d+")
-LOCAL_ID = re.compile(r"^ev-([a-z_]+)-(\d+)$")
+EVIDENCE_ID = re.compile(r"ev-[a-z][a-z0-9_]*-\d+")
+LOCAL_ID = re.compile(r"^ev-([a-z][a-z0-9_]*)-(\d+)$")
 NO_AI = {"status": "skipped", "provider": None, "reason": "Discovery notes are not AI-interpreted"}
 
 
@@ -538,10 +538,21 @@ def merge_run(
     evidence: list[Evidence],
     run_name: str,
     stages: list[str],
+    *,
+    lifecycle_sources: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Merge one finished assessment run (its results.json dict + evidence) into the store."""
     with locked(root, customer):
-        return _merge_run(root, customer, customer_name, data, evidence, run_name, stages)
+        return _merge_run(
+            root,
+            customer,
+            customer_name,
+            data,
+            evidence,
+            run_name,
+            stages,
+            lifecycle_sources=lifecycle_sources,
+        )
 
 
 def _merge_run(
@@ -552,6 +563,8 @@ def _merge_run(
     evidence: list[Evidence],
     run_name: str,
     stages: list[str],
+    *,
+    lifecycle_sources: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     store, run_id = _begin(root, customer, customer_name)
     if any(r["run_dir"] == run_name for r in store["runs"]):
@@ -568,6 +581,19 @@ def _merge_run(
         customer,
     )
     previous = [Finding.model_validate(f) for f in store["findings"]]
+    by_evidence = {e.id: e for e in all_evidence}
+    preserved = []
+    if lifecycle_sources is not None:
+        # A standalone connector operation rechecks only its own findings. Cross-source
+        # comparisons retain ownership through their connector-prefixed check identity.
+        def owns(finding: Finding) -> bool:
+            sources = {by_evidence[eid].source for eid in finding.evidence_ids}
+            return finding.check_key.partition(":")[0] in lifecycle_sources or (
+                bool(sources) and sources <= lifecycle_sources
+            )
+
+        preserved = [f for f in previous if not owns(f)]
+        previous = [f for f in previous if owns(f)]
     technical = header_predecessors(store, [f for f in previous if f.site or f.component])
     incoming_technical = header_predecessors(store, [f for f in incoming if f.site or f.component])
     other_store = {
@@ -581,7 +607,6 @@ def _merge_run(
     outcomes = [CheckOutcome.model_validate(remap(o, mapping)) for o in data.get("outcomes", [])]
     represented = {(o.site, o.check_id, o.component) for o in outcomes}
     module_states = {m["name"]: m["status"] for m in data["modules"]}
-    by_evidence = {e.id: e for e in all_evidence}
     for f in technical + incoming_technical:
         if technical_key(f) in represented:
             continue
@@ -614,8 +639,12 @@ def _merge_run(
         outcomes.append(outcome)
         represented.add(technical_key(f))
     incoming_ids = {technical_key(f): f.id for f in incoming_technical}
-    findings = others + transition(
-        technical, incoming_technical, outcomes, all_evidence, run_id, data["created_at"]
+    findings = (
+        preserved
+        + others
+        + transition(
+            technical, incoming_technical, outcomes, all_evidence, run_id, data["created_at"]
+        )
     )
     id_map.update({incoming_ids[technical_key(f)]: f.id for f in incoming_technical})
     ai = remap(data["ai"], mapping)
@@ -661,6 +690,9 @@ def _merge_run(
             run[key] = remap(data[key], mapping)
     store["runs"].append(run)
     _finish(store, findings, all_evidence, stages if data["status"] != "incomplete" else [])
+    from ams_assess.connectors.service import merge_states
+
+    merge_states(store, data.get("connector_results", {}), mapping)
     register.refresh(store)
     save(root, customer, store)
     return store
@@ -1022,7 +1054,7 @@ def remove_register(
         if len(matches) != 1:
             raise ValueError("No unique entry at that exact platform/site/location scope")
         entry = matches[0]
-        default_integration = "supported" if platform == "gsc" else "unsupported"
+        default_integration = register.default_integration(platform)
         if (
             entry["integration"] != default_integration
             or not entry["human_fields"]
@@ -1098,7 +1130,10 @@ def report_data(
         "connected": "connected evidence",
         "discovery": "business discovery",
     }
+    from ams_assess.connectors.service import rows as connector_rows
+
     data: dict[str, Any] = {
+        "connector_rows": connector_rows(store, include_unconfigured=False),
         "customer_name": store["customer_name"],
         "profile": store.get("profile"),
         "systems_register": store.get("systems_register", {}).get("entries", []),

@@ -167,7 +167,7 @@ def claims_verification(text: str) -> bool:
 PHASES = ["0-30 days", "30-90 days", "90+ days"]
 NUMBER = r"[-+]?(?:\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)"
 NUMBERS = re.compile(rf"(?<![\w.-]){NUMBER}(?:%|\b)")
-CITATIONS = re.compile(r"ev-[a-z_]+(?:-r\d+)?-\d+")
+CITATIONS = re.compile(r"ev-[a-z][a-z0-9_]*(?:-r\d+)?-\d+")
 TIME_QUANTITY = re.compile(rf"(?<![\w.-])({NUMBER})\s*(milliseconds?|ms|seconds?|secs?|s)\b", re.I)
 SCORE_QUANTITY = re.compile(rf"(?<![\w.-])({NUMBER})\s*(?:/|out of)\s*100\b", re.I)
 MONEY = re.compile(r"[$£€]|\b(?:USD|AUD|GBP|EUR|dollars?|pounds?|euros?)\b", re.I)
@@ -411,6 +411,8 @@ def compact_evidence(evidence: list[Evidence]) -> list[dict[str, Any]]:
     compact = []
     for item in evidence:
         value = item.data
+        if isinstance(value, dict) and value.get("connector"):
+            value = value.get("ai_aggregate", {})
         if item.source == "browser":
             value = {k: v for k, v in value.items() if k not in {"axe", "requests"}}
             # Raw tag/link signals are summarised by presence evidence; keep page text in budget.

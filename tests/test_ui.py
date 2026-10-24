@@ -109,7 +109,7 @@ def test_manual_update_persists_after_restart_and_uses_store_history(customer):
     saved = store.register_store(customer, "synthetic")["systems_register"]
     entry = next(e for e in saved["entries"] if e["platform"] == "ga4")
     assert entry["ams_access"] == "granted"
-    assert entry["integration"] == "unsupported"
+    assert entry["integration"] == "not_configured"
     assert entry["ownership"] == "customer_confirmed"
     assert entry["operational_verification"]["tested"] == "Reviewed delegated user list"
     assert saved["history"][-1]["who"] == "Reviewer"
@@ -288,4 +288,4 @@ def test_native_browser_form_passes_origin_checks_and_saves(customer):
     current = store.register_store(customer, "synthetic")
     entry = next(e for e in current["systems_register"]["entries"] if e["platform"] == "ga4")
     assert entry["ams_access"] == "granted"
-    assert entry["integration"] == "unsupported"
+    assert entry["integration"] == "not_configured"
