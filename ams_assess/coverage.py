@@ -262,6 +262,67 @@ def wp_inventory(
     }
 
 
+def wp_cli_inventory(ctx: Context) -> dict[str, Any] | None:
+    """Current-run bound evidence adds known URLs only, including successful partial pages."""
+    state = ctx.connector_results.get("wp_cli", {})
+    if state.get("operation") != "collect" or state.get("status") not in {
+        "connected", "connected_partial"
+    }:
+        return None
+    urls: set[str] = set()
+    refs: list[str] = []
+    counts: dict[str, Any] = {}
+    reasons: list[str] = []
+    operations: set[str] = set()
+    for module in ctx.results:
+        if module.name != "wp_cli":
+            continue
+        for evidence in module.evidence:
+            item = evidence.data
+            if (
+                evidence.source != "wp_cli" or evidence.id not in state.get("evidence_ids", [])
+                or not isinstance(item, dict) or item.get("connector") != "wp_cli"
+                or item.get("resource_id") != state.get("resource_id")
+                or item.get("operation") not in {"posts_post", "posts_page"}
+            ):
+                continue
+            data = item.get("data", {})
+            kind = item["operation"].removeprefix("posts_")
+            if (data.get("inventory_source") != "wp_cli" or data.get("post_type") != kind
+                    or data.get("post_status") != "publish"):
+                continue
+            operations.add(kind)
+            refs.append(evidence.id)
+            counts[kind] = {"publish": data.get("count", 0),
+                            "lower_bound": data.get("count_is_lower_bound", True)}
+            if (item.get("status") != "connected" or item.get("coverage", {}).get("truncated")
+                    or data.get("count_is_lower_bound") or data.get("rejected_urls")):
+                reasons.append("WP-CLI published inventory is partial; retained successful pages")
+            for value in data.get("urls", [])[:MAX_URLS]:
+                # Absolute same-origin links only; never turn an invalid relative value into home.
+                if not isinstance(value, str) or not value.startswith(("https://", "http://")):
+                    reasons.append("WP-CLI unsafe or outside-site inventory URL excluded")
+                    continue
+                url = public_url(value, ctx.site_url)
+                if not url:
+                    reasons.append("WP-CLI unsafe or outside-site inventory URL excluded")
+                elif len(urls) < MAX_URLS:
+                    urls.add(url)
+                else:
+                    reasons.append("WP-CLI known URL limit reached")
+            if len(data.get("urls", [])) > MAX_URLS:
+                reasons.append("WP-CLI known URL limit reached")
+    if operations != {"post", "page"}:
+        reasons.append("WP-CLI published post/page inventory incomplete or unavailable")
+    return {
+        "source": "wp_cli", "status": "partial" if reasons else "sampled",
+        "urls": sorted(urls), "evidence_ids": refs, "counts": counts,
+        "stop_reasons": list(dict.fromkeys(reasons)),
+        "scope": "Published post/page snapshot only; custom/private types excluded. "
+                 "Known URLs are not crawled or browser-tested pages.",
+    }
+
+
 def walk_sitemaps(
     ctx: Context, sitemap: dict[str, Any], transport: httpx.BaseTransport | None = None
 ) -> dict[str, Any]:
@@ -521,6 +582,12 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
         for url in load_export(ctx.wp_inventory):
             add(url, "authorised WordPress export")
         inventory["authorised_export"] = True
+    connected_inventory = wp_cli_inventory(ctx)
+    if connected_inventory:
+        for url in connected_inventory["urls"]:
+            add(url, "wp_cli")
+        inventory["wp_cli"] = connected_inventory
+        stops.extend(connected_inventory["stop_reasons"])
     crawl_stop = (
         (crawl.reason or "Crawl finished within configured bounds; completeness unknown")
         if crawl
