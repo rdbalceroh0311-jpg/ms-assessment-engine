@@ -214,12 +214,12 @@ def test_browser_canonical_check_handles_dns_root_dot(tmp_path, monkeypatch, can
         if script == browser.EXTRACT
         else {"testEngine": {"version": "synthetic"}, "violations": [], "incomplete": []}
     )
-    session = SimpleNamespace(route=noop, new_page=lambda: page, close=noop)
+    session = SimpleNamespace(route=noop, route_web_socket=noop, new_page=lambda: page, close=noop)
     engine = SimpleNamespace(new_context=lambda **kw: session, close=noop)
     monkeypatch.setattr(
         browser,
         "sync_playwright",
-        lambda: nullcontext(SimpleNamespace(chromium=SimpleNamespace(launch=lambda: engine))),
+        lambda: nullcontext(SimpleNamespace(chromium=SimpleNamespace(launch=lambda **kw: engine))),
     )
     result = browser.run(ctx)
     assert result.status == "ok" and not result.reason

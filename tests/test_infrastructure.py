@@ -55,7 +55,7 @@ def mock_domain(monkeypatch, ns=None, mx=None, headers=None, rdap_body=None):
             },
         )
 
-    monkeypatch.setattr(httpx, "get", get)
+    monkeypatch.setattr(domain_email, "public_get", get)
     security = ModuleResult(name="security")
     security.add_evidence(
         "https://example.com/",
@@ -157,7 +157,9 @@ def test_unknown_infrastructure_does_not_invent_provider_or_owner(tmp_path, monk
     mock_domain(monkeypatch, ns=["ns.custom.example."], mx=["10 mail.custom.example."])
     monkeypatch.setattr(domain_email, "cname_chain", lambda *a: {"chain": [], "status": "absent"})
     monkeypatch.setattr(
-        httpx, "get", lambda *a, **k: (_ for _ in ()).throw(httpx.ConnectError("secret"))
+        domain_email,
+        "public_get",
+        lambda *a, **k: (_ for _ in ()).throw(httpx.ConnectError("secret")),
     )
     infra = block(domain_email.run(context(tmp_path)))
     assert infra["registrar"]["value"] == []
@@ -270,8 +272,8 @@ def test_website_provider_report_shows_cdn_signals_and_platform_roles(
 def test_unavailable_registrar_is_not_an_observation_in_report(tmp_path, monkeypatch):
     mock_domain(monkeypatch)
     monkeypatch.setattr(
-        httpx,
-        "get",
+        domain_email,
+        "public_get",
         lambda *a, **kw: httpx.Response(
             503, request=httpx.Request("GET", "https://rdap.org/domain/example.com")
         ),

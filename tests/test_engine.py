@@ -28,6 +28,8 @@ from ams_assess.models import (
 from ams_assess.modules import dataforseo, gsc, performance
 from ams_assess.report import render
 
+pytestmark = pytest.mark.usefixtures("allow_local_fixture")
+
 
 def sample_finding(**changes):
     return Finding.model_validate(

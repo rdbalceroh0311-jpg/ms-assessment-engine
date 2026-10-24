@@ -10,6 +10,7 @@ import httpx
 from publicsuffixlist import PublicSuffixList
 
 from ams_assess.models import is_local, normalize_target
+from ams_assess.network import UnsafeURL, public_client, validate_public_url
 
 MAX_REDIRECTS = 5
 RESOLUTION_SECONDS = 20
@@ -57,6 +58,16 @@ def crawl_hosts(requested: str, resolved: str) -> set[str]:
 
 def resolve_target(target: str) -> dict[str, Any]:
     """GET headers only, at most five redirects, without following an out-of-site Location."""
+    try:
+        validate_public_url(target if "://" in target else f"https://{target}")
+    except UnsafeURL:
+        return {
+            "requested": target,
+            "resolved": None,
+            "chain": [],
+            "unsafe": True,
+            "error": "Unsafe target destination",
+        }
     requested = normalize_target(target)
     current = requested
     parts = urlsplit(requested)
@@ -75,7 +86,7 @@ def resolve_target(target: str) -> dict[str, Any]:
     visited: set[str] = set()
     deadline = time.monotonic() + RESOLUTION_SECONDS
     redirects = 0
-    with httpx.Client(follow_redirects=False) as client:
+    with public_client(follow_redirects=False) as client:
         while True:
             outcome["last_safe_url"] = current
             if current in visited:
@@ -99,6 +110,8 @@ def resolve_target(target: str) -> dict[str, Any]:
                     location = response.headers.get("location")
             except httpx.HTTPError as exc:
                 chain.append({"url": current, "error": type(exc).__name__})
+                if isinstance(exc, UnsafeURL):
+                    outcome["unsafe"] = True
                 if upgraded and len(chain) == 1 and isinstance(exc, httpx.ConnectError):
                     current = requested
                     continue
@@ -121,8 +134,10 @@ def resolve_target(target: str) -> dict[str, Any]:
                 outcome["error"] = "Target redirect has no Location"
                 break
             try:
-                following = normalize_target(urldefrag(urljoin(current, location))[0])
-            except ValueError:
+                candidate = urldefrag(urljoin(current, location))[0]
+                validate_public_url(candidate)
+                following = normalize_target(candidate)
+            except (ValueError, UnsafeURL):
                 # Do not retain a Location containing credentials or query secrets.
                 outcome["error"] = "Target redirect has an unsupported or unsafe Location"
                 outcome["unsafe"] = True

@@ -9,7 +9,9 @@ from urllib.parse import urlsplit
 import httpx
 
 from ams_assess import store
+from ams_assess.egress import api_request
 from ams_assess.models import Connection, Context, ModuleResult, normalize_target
+from ams_assess.network import validate_public_url
 
 name = "performance"
 categories = {"performance"}
@@ -102,7 +104,8 @@ def query_crux(scope: str, url: str, key: str) -> dict[str, Any]:
     if not key:
         return outcome
     try:
-        response = httpx.post(
+        validate_public_url(url)
+        response = api_request("crux", "POST",
             "https://chromeuxreport.googleapis.com/v1/records:queryRecord",
             params={"key": key},
             json={scope: url},
@@ -179,7 +182,8 @@ def measure_lab(url: str, strategy: str, key: str) -> dict[str, Any]:
     if key:
         params["key"] = key
     try:
-        response = httpx.get(
+        validate_public_url(url)
+        response = api_request("pagespeed", "GET",
             "https://www.googleapis.com/pagespeedonline/v5/runPagespeed", params=params, timeout=90
         )
         status = measured["http_status"] = response.status_code

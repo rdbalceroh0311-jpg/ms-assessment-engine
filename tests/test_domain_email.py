@@ -156,8 +156,8 @@ def test_null_mx_domain_is_not_an_email_failure(tmp_path, monkeypatch):
         lambda *a, **k: SimpleNamespace(stdout=json.dumps(checkdmarc)),
     )
     monkeypatch.setattr(
-        httpx,
-        "get",
+        domain_email,
+        "public_get",
         lambda url, **k: httpx.Response(
             200, request=httpx.Request("GET", url), json={"events": events}
         ),
@@ -194,7 +194,7 @@ def test_rdap_expiry_thresholds(date, expected):
 
 def mx_address(monkeypatch):
     monkeypatch.setattr(
-        domain_email, "_lookup", lambda resolver, host, kind: ("ok", ["192.0.2.25"])
+        domain_email, "_lookup", lambda resolver, host, kind: ("ok", ["93.184.216.34"])
     )
 
 
@@ -293,7 +293,7 @@ def test_starttls_verifies_certificate_against_mx_hostname(monkeypatch):
     context = SimpleNamespace(wrap_socket=wrap_socket)
     monkeypatch.setattr(domain_email.ssl, "create_default_context", lambda: context)
     info = domain_email.smtp_tls("mx.example.com")
-    assert wrapped == {"connect": ("192.0.2.25", 25), "server_hostname": "mx.example.com"}
+    assert wrapped == {"connect": ("93.184.216.34", 25), "server_hostname": "mx.example.com"}
     assert info["banner"] == "mx.example.com ESMTP" and info["starttls"] is True
     assert info["certificate"]["verified"] is True and "error" not in info
     assert plain.commands() == ["EHLO", "STARTTLS"]
@@ -378,7 +378,9 @@ def test_mx_resolution_counts_only_hosts_that_resolved(tmp_path, monkeypatch):
         domain_email.subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(ValueError())
     )
     monkeypatch.setattr(
-        httpx, "get", lambda url, **k: (_ for _ in ()).throw(httpx.ConnectError("offline"))
+        domain_email,
+        "public_get",
+        lambda url, **k: (_ for _ in ()).throw(httpx.ConnectError("offline")),
     )
     result = domain_email.run(context(tmp_path))
     mail = {

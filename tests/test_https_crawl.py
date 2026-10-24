@@ -13,7 +13,7 @@ import dns.resolver
 import httpx
 import pytest
 
-from ams_assess import ai, runner, store, targets
+from ams_assess import ai, network, runner, store, targets
 from ams_assess.models import Context, Evidence, ModuleResult, create_run_dir
 from ams_assess.modules import dataforseo, domain_email, site_checks, siteone
 
@@ -116,7 +116,9 @@ def test_preflight_failure_crawls_last_safe_url(tmp_path, monkeypatch, failure):
         return httpx.Response(503 if failure == "deadline" else int(failure))
 
     monkeypatch.setattr(
-        httpx, "Client", lambda **kw: client(transport=httpx.MockTransport(handler), **kw)
+        httpx,
+        "Client",
+        lambda transport=None, **kw: client(transport=httpx.MockTransport(handler), **kw),
     )
     if failure == "deadline":
         ticks = iter([0, 0, targets.RESOLUTION_SECONDS + 1])
@@ -142,7 +144,7 @@ def test_unsafe_redirect_aborts_before_siteone(tmp_path, monkeypatch, location):
     monkeypatch.setattr(
         httpx,
         "Client",
-        lambda **kw: client(
+        lambda transport=None, **kw: client(
             transport=httpx.MockTransport(
                 lambda _: httpx.Response(301, headers={"location": location})
             ),
@@ -172,7 +174,7 @@ def test_siteone_failure_preserves_status_error_and_evidence(tmp_path, monkeypat
     assert error in (ctx.run_dir / "report.md").read_text()
 
 
-def test_real_siteone_send_error_is_not_a_parser_exception(tmp_path):
+def test_real_siteone_send_error_is_not_a_parser_exception(tmp_path, monkeypatch):
     binary = REPO / "tools/siteone/siteone-crawler/siteone-crawler"
     if not binary.is_file():
         pytest.skip("SiteOne missing; run scripts/setup.sh")
@@ -187,6 +189,7 @@ def test_real_siteone_send_error_is_not_a_parser_exception(tmp_path):
         thread.start()
         try:
             ctx = context(tmp_path, target=f"http://127.0.0.1:{server.server_address[1]}/")
+            monkeypatch.setattr(network, "_fixture_origins", frozenset({ctx.target.rstrip("/")}))
             result = siteone.run(ctx)
         finally:
             server.shutdown()
@@ -235,7 +238,7 @@ def test_redirected_website_does_not_change_email_domain(tmp_path, monkeypatch, 
         registrations.append(url)
         return httpx.Response(200, json={}, request=httpx.Request("GET", url))
 
-    monkeypatch.setattr(httpx, "get", rdap)
+    monkeypatch.setattr(domain_email, "public_get", rdap)
     result = domain_email.run(ctx)
     dns_row = next(r for r in result.checks if r["key"] == "dns")
     assert next(c for c in dns_row["checks"] if c["name"] == "A/AAAA")["status"] == "PASS"
@@ -417,11 +420,13 @@ def test_website_measurements_use_resolved_host(tmp_path, monkeypatch):
 
     def socket(address, **kwargs):
         calls.append(("tls", address))
-        assert address == ("www.example.com", 443)
+        assert address == ("93.184.216.34", 443)
         raise OSError("mock TLS unavailable")
 
     monkeypatch.setattr(httpx, "get", get)
     monkeypatch.setattr(httpx, "post", post)
+    monkeypatch.setattr(security, "public_get", get)
+    monkeypatch.setattr(observatory, "public_post", post)
     monkeypatch.setattr(security.socket, "create_connection", socket)
     results = [performance.run(ctx), security.run(ctx), observatory.run(ctx)]
     assert all(r.status == "ok" for r in results)

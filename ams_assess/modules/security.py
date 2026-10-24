@@ -9,6 +9,7 @@ import httpx
 
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
+from ams_assess.network import public_get, validate_public_url
 
 name = "security"
 categories = {"security"}
@@ -25,7 +26,7 @@ HEADERS = {
 def run(ctx: Context) -> ModuleResult:
     result, raw, limitations = ModuleResult(name=name), {}, []
     try:
-        response = httpx.get(ctx.site_url, timeout=15, follow_redirects=True)
+        response = public_get(ctx.site_url, timeout=15, follow_redirects=True)
         # Cookies and auth headers never belong in report evidence.
         headers = {
             k: v for k, v in response.headers.items() if k not in {"set-cookie", "www-authenticate"}
@@ -151,7 +152,10 @@ def run(ctx: Context) -> ModuleResult:
     parts = urlsplit(ctx.site_url)
     if parts.scheme == "https":
         try:
-            with socket.create_connection((ctx.site_host, parts.port or 443), timeout=8) as sock:
+            checked = validate_public_url(ctx.site_url)
+            with socket.create_connection(
+                (checked.addresses[0], parts.port or 443), timeout=8
+            ) as sock:
                 with ssl.create_default_context().wrap_socket(
                     sock, server_hostname=ctx.site_host
                 ) as tls:
@@ -179,7 +183,7 @@ def run(ctx: Context) -> ModuleResult:
                             "Confirm automated renewal and expiry alerts.",
                             severity="high",
                         )
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, httpx.HTTPError) as exc:
             raw["tls"] = {"error": type(exc).__name__, "hostname_match": None}
             eid = result.add_evidence(
                 ctx.site_url, "TLS verification could not complete", raw["tls"]

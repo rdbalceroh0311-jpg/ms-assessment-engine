@@ -16,6 +16,9 @@ from ams_assess.models import Context, Evidence, ModuleResult, create_run_dir
 from ams_assess.modules import browser, dataforseo, presence, site_checks, siteone
 from ams_assess.report import connection_rows, discovery_rows, mdtext, render_markdown
 
+pytestmark = pytest.mark.usefixtures("allow_local_fixture")
+
+
 REPO = Path(__file__).resolve().parents[1]
 CREDENTIALS = {"DATAFORSEO_LOGIN": "operator@example.invalid", "DATAFORSEO_PASSWORD": "secret-xyz"}
 
@@ -45,7 +48,9 @@ def context(tmp_path, **changes):
 def mock_resolution(monkeypatch, handler):
     client = httpx.Client
     monkeypatch.setattr(
-        httpx, "Client", lambda **kw: client(transport=httpx.MockTransport(handler), **kw)
+        httpx,
+        "Client",
+        lambda transport=None, **kw: client(transport=httpx.MockTransport(handler), **kw),
     )
 
 

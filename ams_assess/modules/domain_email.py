@@ -17,6 +17,7 @@ import dns.resolver
 import httpx
 
 from ams_assess.models import Context, ModuleResult
+from ams_assess.network import public_address, public_get
 from ams_assess.targets import registrable
 
 name = "domain_email"
@@ -363,6 +364,10 @@ class _SMTP(smtplib.SMTP):
         return left
 
     def _get_socket(self, host, port, timeout):
+        # DNS mail records are untrusted destinations too. The SMTP implementation
+        # already connects to a numeric address; preserve that pin after validation.
+        if not public_address(self.address):
+            raise OSError("Non-public mail endpoint refused")
         return socket.create_connection((self.address, port), self._remaining())
 
     def connect(self, host="localhost", port=0, source_address=None):
@@ -802,7 +807,7 @@ def run(ctx: Context) -> ModuleResult:
         limitations.append("checkdmarc failed or exceeded its 60-second budget")
     rdap, rdap_eid = None, ""
     try:
-        response = httpx.get(f"https://rdap.org/domain/{zone}", timeout=15, follow_redirects=True)
+        response = public_get(f"https://rdap.org/domain/{zone}", timeout=15, follow_redirects=True)
         response.raise_for_status()
         rdap = response.json()
         raw["rdap"] = rdap

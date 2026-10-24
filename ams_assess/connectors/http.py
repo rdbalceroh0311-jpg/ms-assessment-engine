@@ -13,6 +13,7 @@ from ams_assess.connectors.errors import (
     error_body,
 )
 from ams_assess.connectors.privacy import private_logs, redact
+from ams_assess.egress import validate_api_url
 
 
 class ReadClient:
@@ -73,6 +74,12 @@ class ReadClient:
 
     @private_logs()
     def request(self, method: str, url: str, **kwargs) -> dict[str, Any]:
+        try:
+            validate_api_url(self.connector.key, url)
+        except ValueError:
+            raise ConnectorError(
+                "failed", "Read allowlist refused credential destination"
+            ) from None
         # Queries are supplied separately so a pattern can never accidentally allow a suffix.
         if not any(op.allows(method, url) for op in self.connector.read_allowlist):
             raise ConnectorError("failed", "Read allowlist refused this method or endpoint")

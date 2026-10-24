@@ -18,7 +18,8 @@ def running(root):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            with httpx.Client(base_url=server.origin, trust_env=False) as client:
+            with httpx.Client(base_url=server.origin, trust_env=False,
+                              headers={"Authorization": "Bearer " + server.token}) as client:
                 yield server, client
         finally:
             server.shutdown()
@@ -55,15 +56,17 @@ def test_loopback_and_all_request_authentication(customer):
             LocalServer(customer, 0, host=host)
     with running(customer) as (server, client):
         assert server.server_address[0] == "127.0.0.1"
+        client.headers.pop("Authorization")
         for method in ("GET", "POST", "HEAD", "PUT", "OPTIONS"):
             assert client.request(method, "/").status_code == 403
         assert client.get("/?token=wrong").status_code == 403
+        client.headers["Authorization"] = "Bearer " + server.token
         assert client.get(server.url(), headers={"Host": "evil.test"}).status_code == 403
         response = client.get(server.url(customer="synthetic"))
         assert response.status_code == 200
         assert "&lt;script&gt;" in response.text
         assert '<script>alert("profile")</script>' not in response.text
-        assert response.headers["Referrer-Policy"] == "same-origin"
+        assert response.headers["Referrer-Policy"] == "no-referrer"
         assert "default-src 'none'" in response.headers["Content-Security-Policy"]
 
 
@@ -272,7 +275,7 @@ def test_native_browser_form_passes_origin_checks_and_saves(customer):
             browser = playwright.chromium.launch()
             try:
                 page = browser.new_page()
-                page.goto(server.origin + server.url(customer="synthetic"))
+                page.goto(server.bootstrap_url() + "&customer=synthetic")
                 form = page.locator("form").filter(
                     has=page.locator('input[name="platform"][value="ga4"]')
                 )

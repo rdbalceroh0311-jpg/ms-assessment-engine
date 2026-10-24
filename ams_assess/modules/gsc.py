@@ -6,9 +6,10 @@ from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
-from google.auth.transport.requests import Request
 from google.oauth2 import credentials, service_account
 
+from ams_assess.connectors.auth import BoundedRequest
+from ams_assess.egress import api_client
 from ams_assess.lifecycle import observe, site_key
 from ams_assess.models import (
     CheckOutcome,
@@ -242,9 +243,9 @@ def list_sites(client: httpx.Client) -> list[dict[str, str]]:
 def verify_token(path: Path) -> list[dict[str, str]]:
     auth = credentials.Credentials.from_authorized_user_file(str(path), scopes=[SCOPE])
     if not auth.valid:
-        auth.refresh(Request())
+        auth.refresh(BoundedRequest())
         save_token(path, auth)
-    with httpx.Client(headers={"Authorization": f"Bearer {auth.token}"}, timeout=30) as client:
+    with api_client("gsc", headers={"Authorization": f"Bearer {auth.token}"}, timeout=30) as client:
         return list_sites(client)
 
 
@@ -326,8 +327,8 @@ def collect(ctx: Context) -> ModuleResult:
             str(Path(token or "").expanduser()), scopes=[SCOPE]
         )
     if not auth.valid:
-        auth.refresh(Request())
-    with httpx.Client(headers={"Authorization": f"Bearer {auth.token}"}, timeout=30) as client:
+        auth.refresh(BoundedRequest())
+    with api_client("gsc", headers={"Authorization": f"Bearer {auth.token}"}, timeout=30) as client:
         sites = list_sites(client)
         desired = ctx.config.get("AMS_GSC_PROPERTY")
         if any(

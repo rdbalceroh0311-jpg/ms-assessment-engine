@@ -5,8 +5,10 @@ import mimetypes
 import os
 import secrets
 import stat
+import webbrowser
 from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
@@ -50,7 +52,7 @@ def open_output(directory: Path, relative: str) -> Generator[int, None, None]:
             stack.callback(os.close, parent)
         fd = os.open(path.parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
         stack.callback(os.close, fd)
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
+        if not stat.S_ISREG(os.fstat(fd).st_mode) or os.fstat(fd).st_nlink > 1:
             raise ValueError("Output must be a regular file")
         yield fd
 
@@ -168,7 +170,10 @@ class LocalServer(ThreadingHTTPServer):
         self.origin = f"http://127.0.0.1:{self.server_port}"
 
     def url(self, route="/", **params):
-        return route + "?" + urlencode({"token": self.token, **params})
+        return route + ("?" + urlencode(params) if params else "")
+
+    def bootstrap_url(self):
+        return self.origin + "/?" + urlencode({"token": self.token})
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -180,7 +185,17 @@ class Handler(BaseHTTPRequestHandler):
         if not super().parse_request():
             return False
         try:
-            _, params = self.parameters()
+            path, params = self.parameters()
+            if (
+                self.command == "GET"
+                and path == "/"
+                and "token" in params
+                and self.valid_host()
+                and hmac.compare_digest(params["token"].encode(), self.app.token.encode())
+            ):
+                params.pop("token")
+                self.reply(303, location=self.app.url(**params), session=True)
+                return False
             if self.authenticated(params):
                 return True
         except ValueError:
@@ -189,28 +204,36 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def log_message(self, format, *args):
-        # Request URLs contain the per-start token. Never log URLs or request bodies.
+        # Bootstrap credentials and request bodies must never enter access/error logs.
         pass
 
-    def reply(self, status, body=b"", content_type="text/plain; charset=utf-8", location=""):
+    def send_error(self, code, message=None, explain=None):
+        self.reply(code, b"Request refused")
+
+    def reply(
+        self, status, body=b"", content_type="text/plain; charset=utf-8", location="", session=False
+    ):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        # no-referrer makes Chromium send Origin: null on native form POSTs. same-origin
-        # keeps their Origin check usable while suppressing token leakage to external links.
-        self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         # Saved HTML is untrusted too; disallow scripts, remote resources and embedded forms.
         self.send_header(
             "Content-Security-Policy",
             "default-src 'none'; style-src 'unsafe-inline'; "
-            "img-src 'self' data:; form-action 'self'; base-uri 'none'; "
-            "frame-ancestors 'none'" + ("; sandbox" if self.path.startswith("/file?") else ""),
+            "img-src 'none'; form-action 'self'; base-uri 'none'; "
+            "frame-ancestors 'none'"
+            + ("; sandbox" if getattr(self, "path", "").startswith("/file?") else ""),
         )
         if location:
             self.send_header("Location", location)
+        if session:
+            self.send_header(
+                "Set-Cookie", f"ams_session={self.app.token}; HttpOnly; SameSite=Strict; Path=/"
+            )
         self.end_headers()
         self.wfile.write(body)
 
@@ -221,11 +244,47 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError
         return parts.path, {k: v[0] for k, v in params.items()}
 
+    def valid_host(self):
+        return len(self.headers.get_all("Host", [])) == 1 and self.headers.get("Host") in {
+            f"127.0.0.1:{self.app.server_port}",
+            f"localhost:{self.app.server_port}",
+        }
+
+    def session_token(self):
+        cookie = SimpleCookie()
+        try:
+            cookie.load(self.headers.get("Cookie", ""))
+        except CookieError:
+            return ""
+        return cookie["ams_session"].value if "ams_session" in cookie else ""
+
     def authenticated(self, params):
+        if not self.valid_host() or "token" in params:
+            return False
+        supplied = self.headers.get("Authorization", "").removeprefix("Bearer ")
+        return any(
+            hmac.compare_digest(value.encode(), self.app.token.encode())
+            for value in (supplied, self.session_token())
+        )
+
+    def same_origin_write(self):
+        origin = "http://" + self.headers["Host"]
+        origins = self.headers.get_all("Origin", [])
+        referers = self.headers.get_all("Referer", [])
+        if len(referers) > 1 or (
+            referers
+            and (urlsplit(referers[0]).scheme + "://" + urlsplit(referers[0]).netloc != origin)
+        ):
+            return False
+        if origins == [origin]:
+            return True
+        # Chromium sends an opaque Origin under no-referrer for native form POSTs.
+        # Require browser-controlled same-origin Fetch Metadata plus the session cookie;
+        # neither cross-origin pages nor sandboxed/opaque initiators satisfy this.
         return (
-            len(self.headers.get_all("Host", [])) == 1
-            and self.headers.get("Host") == self.app.origin.removeprefix("http://")
-            and hmac.compare_digest(params.get("token", "").encode(), self.app.token.encode())
+            origins == ["null"]
+            and self.headers.get("Sec-Fetch-Site") == "same-origin"
+            and hmac.compare_digest(self.session_token().encode(), self.app.token.encode())
         )
 
     def do_GET(self):
@@ -279,7 +338,6 @@ class Handler(BaseHTTPRequestHandler):
                 groups=finding_groups(current) if current else {},
                 files=files,
                 url=self.app.url,
-                token=self.app.token,
                 csrf=self.app.csrf,
                 choices=register.CHOICES,
                 platforms=register.PLATFORMS,
@@ -296,7 +354,7 @@ class Handler(BaseHTTPRequestHandler):
             if (
                 not self.authenticated(params)
                 or path not in {"/update", "/connect"}
-                or self.headers.get_all("Origin", []) != [self.app.origin]
+                or not self.same_origin_write()
             ):
                 self.reply(403, b"Forbidden")
                 return
@@ -349,8 +407,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(303, location=self.app.url(customer=customer))
         except TemplateError:
             self.reply(500, b"Unable to render local interface")
-        except connectors.BindingError as exc:
-            self.reply(409, str(exc).encode())
+        except connectors.BindingError:
+            self.reply(409, b"Connector binding could not be updated")
         except (ValueError, UnicodeError, OSError, KeyError):
             # Do not echo rejected secrets, filesystem paths or untrusted values.
             self.reply(
@@ -360,7 +418,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def serve(root: Path, port: int = 8765):
     with LocalServer(root, port) as server:
-        print("Local review interface: " + server.origin + server.url(), flush=True)
+        webbrowser.open(server.bootstrap_url())
+        print("Local review interface: " + server.origin + " (opened in your browser)", flush=True)
         print("Stop with Ctrl-C. Assessments remain in the CLI.", flush=True)
         try:
             server.serve_forever()

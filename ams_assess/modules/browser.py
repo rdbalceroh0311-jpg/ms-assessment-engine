@@ -4,9 +4,11 @@ from urllib.parse import urlsplit
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
+from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult, site_authority
 from ams_assess.modules.siteone import diagnostic
+from ams_assess.network import validate_public_url
 
 name = "browser"
 categories = {"accessibility", "geo", "local_seo", "entity", "cro_ux", "copywriting", "presence"}
@@ -107,24 +109,15 @@ def run(ctx: Context) -> ModuleResult:
         )
     records, errors = [], []
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(**LAUNCH_OPTIONS)
         try:
             for viewport, width, height in [("desktop", 1440, 1000), ("mobile", 390, 844)]:
-                session = browser.new_context(
+                session = isolate_context(
+                    browser,
                     viewport={"width": width, "height": height},
                     is_mobile=viewport == "mobile",
-                    service_workers="block",
                     # Strict CSPs would otherwise block the injected axe-core script.
                     bypass_csp=True,
-                )
-                # Observational only: no form submissions or background writes from page scripts.
-                session.route(
-                    "**/*",
-                    lambda route: (
-                        route.continue_()
-                        if route.request.method in {"GET", "HEAD"}
-                        else route.abort()
-                    ),
                 )
                 for index, url in enumerate(
                     select_pages(
@@ -149,6 +142,7 @@ def run(ctx: Context) -> ModuleResult:
                         ),
                     )
                     try:
+                        validate_public_url(url)
                         try:
                             response = page.goto(url, wait_until="networkidle", timeout=25000)
                         except PlaywrightTimeoutError:

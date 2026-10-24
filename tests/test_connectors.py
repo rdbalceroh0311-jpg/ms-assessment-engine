@@ -12,7 +12,7 @@ import httpx
 import pytest
 from google.oauth2.credentials import Credentials
 
-from ams_assess import ai, cli, register, store
+from ams_assess import ai, cli, egress, register, store
 from ams_assess.connectors import auth, ga4, service
 from ams_assess.connectors.core import AuthMaterial, ConnectorError, Period
 from ams_assess.connectors.http import ReadClient
@@ -202,6 +202,8 @@ def test_scope_specific_auth_never_widens_gsc(env, monkeypatch, capsys):
     seen = {}
 
     class Flow:
+        oauth2session = auth.PinnedSession("google_auth")
+
         @staticmethod
         def from_client_secrets_file(path, scopes):
             seen["scopes"] = scopes
@@ -579,7 +581,8 @@ def ui_server(root):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            with httpx.Client(base_url=server.origin, trust_env=False) as client:
+            with httpx.Client(base_url=server.origin, trust_env=False,
+                              headers={"Authorization": "Bearer " + server.token}) as client:
                 yield server, client
         finally:
             server.shutdown()
@@ -984,6 +987,7 @@ def test_new_module_api_key_adapter_needs_only_registry_entry(env, monkeypatch):
         transport_factory=lambda material: httpx.MockTransport(http),
     )
     monkeypatch.setitem(service.REGISTRY, "synthetic", spec)
+    monkeypatch.setitem(egress.HOSTS, "synthetic", frozenset({"synthetic.test"}))
     monkeypatch.setitem(register.PLATFORMS, "synthetic", spec.label)
     monkeypatch.setattr(service, "ReadClient", ReadClient)
     monkeypatch.setenv("SYNTHETIC_API_KEY", "synthetic-api-key")

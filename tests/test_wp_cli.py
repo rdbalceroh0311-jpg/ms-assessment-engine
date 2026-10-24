@@ -810,7 +810,8 @@ def ui_server(root):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            with httpx.Client(base_url=server.origin, trust_env=False) as client:
+            with httpx.Client(base_url=server.origin, trust_env=False,
+                              headers={"Authorization": "Bearer " + server.token}) as client:
                 yield server, client
         finally:
             server.shutdown()

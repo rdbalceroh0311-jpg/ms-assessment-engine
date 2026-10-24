@@ -882,7 +882,8 @@ def running(root):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            with httpx.Client(base_url=server.origin, trust_env=False) as client:
+            with httpx.Client(base_url=server.origin, trust_env=False,
+                              headers={"Authorization": "Bearer " + server.token}) as client:
                 yield server, client
         finally:
             server.shutdown()
@@ -1323,7 +1324,7 @@ def test_d9_malformed_ipv6_scope_gives_a_clean_error(value):
     assert value not in str(error.value)
 
 
-def test_d5_real_crawler_respects_seed_budget_and_exclusions(tmp_path):
+def test_d5_real_crawler_respects_seed_budget_and_exclusions(tmp_path, allow_local_fixture):
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     binary = REPO / "tools/siteone/siteone-crawler/siteone-crawler"
