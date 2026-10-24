@@ -587,7 +587,10 @@ def analyse_profile(
             complete=review.complete,
         )
 
-    # Reuse public NAP observations instead of repeating existing public findings.
+    # The framework supplies current public samples separately from connected evidence.
+    # locations/<id> is not a website binding: ctx.connected_evidence is intentionally empty.
+    # Use the approved profile and its public website NAP samples, without inferring a
+    # cross-connector site binding from the profile's website or Google's websiteUri.
     hosts = {site_key(w) for w in ctx.websites}
     for evidence in ctx.public_evidence:
         if evidence.source != "presence" or site_key(evidence.url) not in hosts:
@@ -688,6 +691,15 @@ CONNECTOR = Connector(
     label="Google Business Profile",
     provider="google",
     auth_kind="google_oauth",
+    auth_flow="client_secrets",
+    auth_hint=(
+        "ams-assess connect gbp auth --credential-ref <name> "
+        "--client-secrets ~/.config/ams-assess/google-desktop-client.json"
+    ),
+    # Account/location discovery shares this budget with reviews and performance reads.
+    # Retain the bounded interactive collection budget; the UI further caps it at 40s.
+    collection_seconds=45,
+    max_requests=80,
     scopes=(SCOPE,),
     resource_type="gbp_location",
     read_allowlist=(

@@ -640,9 +640,16 @@ collection, bounded account/location-name discovery resolves the parent needed b
 only the selected location receives profile, review and performance analysis. Missing or incomplete
 discovery is recorded and does not become a claim of no account or no reviews.
 
-The connector uses the framework's immutable current profile/evidence context for both standalone
-collection and `run --connect gbp`. The error hook reports `approval_required` for a specific approval
-reason or a 403/429 with an explicit zero quota, with the Basic API Access application as the next
+The connector declares `auth_flow='client_secrets'` and a GBP authorisation hint pointing to the
+private Desktop client JSON. It uses the framework's immutable current profile/evidence context
+for both standalone collection and `run --connect gbp`. Website comparisons use the latest scoped
+`ctx.public_evidence` NAP observations. `ctx.connected_evidence` is empty for the opaque
+`locations/<id>` binding: a profile website does not authorise comparisons with another connector's
+site data. GBP test/collect preserves public findings, their lifecycle history, evidence and AI
+recommendations; only GBP findings are rechecked by the connector operation.
+
+The error hook reports `approval_required` for a specific approval reason or a 403/429 with an
+explicit zero quota, with the Basic API Access application as the next
 action. Ordinary throttling remains `rate_limited` after bounded retries; an ambiguous 403 remains
 `permission_required` with the Manager role and scope requirements. Disabled APIs, expired/revoked
 credentials and missing resources retain distinct statuses. An inaccessible endpoint never becomes
@@ -659,9 +666,11 @@ current snapshots, not historical data filtered by the performance period; evide
 
 Account lists use at most five 20-row pages, location lists five 100-row pages per account, reviews
 five 50-row pages and monthly keywords five 100-row pages. Resource listing additionally caps its
-output at 500 locations. The framework limits each operation to 80 requests including retries,
-45 seconds (40 in the UI), 10-second I/O timeouts and 2 MB responses. Repeated page tokens stop
-pagination. Completed pages/endpoints survive subsequent failures; truncation and unavailable
+output at 500 locations. GBP explicitly sets `max_requests=80` and `collection_seconds=45`, sharing
+that budget across discovery, reviews and performance, including retries. The UI caps it at 40 seconds;
+caller limits can only reduce it. Requests have 10-second I/O timeouts and 2 MB response caps.
+Repeated page tokens stop pagination. Completed pages/endpoints survive subsequent failures;
+truncation and unavailable
 endpoints are shown in CLI, UI and report section 7. Review stars/reply counts describe only the
 retrieved sample, while Google's total count/average rating are separately identified.
 

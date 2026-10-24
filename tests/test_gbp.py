@@ -7,6 +7,7 @@ import stat
 import threading
 from collections.abc import Callable
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
@@ -26,6 +27,7 @@ from ams_assess.connectors.core import (
     Period,
 )
 from ams_assess.connectors.http import ReadClient
+from ams_assess.lifecycle import observe
 from ams_assess.models import Context, Evidence, ModuleResult, create_run_dir
 from ams_assess.report import render_customer
 from ams_assess.ui import LocalServer
@@ -1027,6 +1029,40 @@ def test_real_analyser_uses_latest_profile_in_collect_and_run(env, monkeypatch, 
             ]
         },
     )
+    stale_public = public.model_copy(deep=True)
+    stale_public.id = "ev-presence-r1-001"
+    stale_public.data["entities"][0]["telephone"] = PROFILE["phones"]
+    # Same-customer connected evidence still cannot obtain a website binding from a GBP ID.
+    connected = Evidence(
+        id="ev-gsc-r1-001",
+        source="gsc",
+        url="https://example.test",
+        description="Synthetic connected sample",
+        data={
+            "resource_id": "https://example.test",
+            "status": "connected",
+            "entities": stale_public.data["entities"],
+        },
+    )
+    unrelated = public.model_copy(deep=True)
+    unrelated.id = "ev-presence-r1-002"
+    unrelated.url = "https://unrelated.test"
+    unrelated.data["entities"][0]["page"] = unrelated.url
+    snapshot = current(env)
+    snapshot["evidence"].extend(e.model_dump() for e in (stale_public, connected, unrelated))
+    store.save(env.root, "synthetic", snapshot)
+    seen = []
+
+    def analyse_context(ctx, result):
+        seen.append(ctx)
+        assert ctx.connected_evidence == ()
+        assert all(e.source == "presence" for e in ctx.public_evidence)
+        assert stale_public.id not in ctx.public_evidence_refs
+        assert public.id in ctx.public_evidence_refs
+        gbp.analyse(ctx, result)
+
+    spec = replace(gbp.CONNECTOR, analysers=(analyse_context,))
+    monkeypatch.setitem(service.REGISTRY, "gbp", spec)
     if path == "collect":
         snapshot = current(env)
         public.id = "ev-presence-r2-001"
@@ -1043,7 +1079,7 @@ def test_real_analyser_uses_latest_profile_in_collect_and_run(env, monkeypatch, 
                 return ModuleResult(name="presence", evidence=[public], collection_started=True)
 
         monkeypatch.setattr(
-            runner, "REGISTRY", {"presence": PublicModule(), "gbp": ConnectorModule(gbp.CONNECTOR)}
+            runner, "REGISTRY", {"presence": PublicModule(), "gbp": ConnectorModule(spec)}
         )
         monkeypatch.setattr(runner.coverage, "collect", lambda ctx: {})
         ctx = Context(
@@ -1060,6 +1096,7 @@ def test_real_analyser_uses_latest_profile_in_collect_and_run(env, monkeypatch, 
         outcome = runner.run(ctx, no_ai=True, formats={"md"})
         assert outcome.get("store_status") != "failed"
     saved = current(env)
+    assert len(seen) == 1
     location = next(
         e
         for e in saved["evidence"]
@@ -1071,6 +1108,8 @@ def test_real_analyser_uses_latest_profile_in_collect_and_run(env, monkeypatch, 
     assert comparison["supplied_values"] == ["0299991111"]
     assert comparison["differs"]
     assert any(c.get("field") == "phone" for c in location["website_comparisons"])
+    refs = {ref for c in location["website_comparisons"] for ref in c["evidence_ids"]}
+    assert unrelated.id not in refs and connected.id not in refs and stale_public.id not in refs
     keys = {f["check_key"] for f in saved["findings"]}
     assert "gbp:profile-phone" in keys
     assert any(k.startswith("gbp:public-phone:") for k in keys)
@@ -1124,3 +1163,207 @@ def test_invalid_period_and_rebinding_never_reuse_old_results(env):
     state = current(env)["connectors"]["gbp"]
     assert state["status"] == "not_configured" and not state.get("last_successful_collection")
     assert any(e["source"] == "gbp" for e in current(env)["evidence"])
+
+
+def seed_public_nap(env):
+    result = ModuleResult(name="presence", collection_started=True)
+    ref = result.add_evidence(
+        "https://example.test",
+        "Synthetic public NAP",
+        {
+            "entities": [
+                {
+                    "name": PROFILE["name"],
+                    "page": "https://example.test",
+                    "telephone": ["0299993333"],
+                }
+            ],
+        },
+    )
+    result.finding(
+        "nap-inconsistent",
+        "Public NAP differs",
+        "local_seo",
+        [ref],
+        "Synthetic public observation",
+        "Review the public page",
+        site="https://example.test",
+        component="https://example.test",
+        coverage=["https://example.test"],
+    )
+    result.outcomes.append(
+        observe("presence", "nap-inconsistent", "local_seo", "https://example.test", "fail", [ref])
+    )
+    data = {
+        "target": "https://example.test",
+        "created_at": "2026-01-01T00:00:00Z",
+        "status": "complete",
+        "selected_categories": ["local_seo"],
+        "assessed_categories": ["local_seo"],
+        "findings": [f.model_dump() for f in result.findings],
+        "outcomes": [o.model_dump() for o in result.outcomes],
+        "modules": [result.model_dump()],
+        "pages": [],
+        "max_pages": 0,
+        "limitations": [],
+        "future": [],
+        "report_files": [],
+        "ai": {"status": "ok", "recommendations": [result.findings[0].id]},
+    }
+    saved = store.merge_run(
+        env.root, "synthetic", "Synthetic", data, result.evidence, "public-synthetic", ["public"]
+    )
+    # Stored report recommendations reference the lifecycle's stable finding identity.
+    saved["runs"][-1]["ai"]["recommendations"] = [saved["findings"][0]["id"]]
+    store.save(env.root, "synthetic", saved)
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "ui"])
+@pytest.mark.parametrize("action", ["test", "collect"])
+@pytest.mark.parametrize("scenario", ["success", "partial", "permission", "unbound"])
+def test_gbp_operations_preserve_public_findings_and_history(env, entrypoint, action, scenario):
+    seed_public_nap(env)
+    if scenario != "unbound":
+        bind(env)
+    if scenario == "permission":
+        env.provider.override = lambda r: httpx.Response(403)
+    elif scenario == "partial":
+        env.provider.override = lambda r: (
+            httpx.Response(503) if r.url.path.endswith("/reviews") else None
+        )
+    before = current(env)
+    old = copy.deepcopy(before["findings"])
+    old_run = copy.deepcopy(before["runs"][-1])
+    assert old and old[0]["category"] == "local_seo" and old[0]["events"]
+    assert old[0]["id"] in store.report_data(before)[0]["ai"]["recommendations"]
+    if entrypoint == "cli":
+        code = cli.main(
+            ["connect", "gbp", action, "--customer", "synthetic", "--start", START, "--end", END]
+        )
+        assert code == (1 if scenario in {"permission", "unbound"} else 0)
+    else:
+        with ui_server(env.root) as (server, client):
+            response = client.post(
+                server.url("/connect"),
+                headers={"Origin": server.origin},
+                data={
+                    "customer": "synthetic",
+                    "connector": "gbp",
+                    "action": action,
+                    "csrf": server.csrf,
+                },
+            )
+            assert response.status_code == 303
+    saved = current(env)
+    public = [f for f in saved["findings"] if not f["check_key"].startswith("gbp:")]
+    assert public == old  # Includes identity, citations, lifecycle, resolution and all events.
+    assert saved["runs"][-2] == old_run
+    assert saved["evidence"][: len(before["evidence"])] == before["evidence"]
+    assert not any(f["check_key"].startswith("gbp:public-") for f in saved["findings"])
+    assert all(o["module"] == "gbp" for o in saved["runs"][-1]["outcomes"])
+    assert old[0]["id"] in store.report_data(saved)[0]["ai"]["recommendations"]
+    render_customer(env.root, "synthetic", {"md"})
+    report = (env.root / "synthetic/report.md").read_text()
+    assert old[0]["title"] in report
+    assert "Previously observed — not rechecked" not in report
+    if action == "collect" and scenario in {"success", "partial"}:
+        location = next(
+            e["data"]["data"]
+            for e in saved["evidence"]
+            if e["source"] == "gbp" and e["data"]["operation"] == "location"
+        )
+        assert location["website_comparisons"][0]["related_finding_ids"] == [old[0]["id"]]
+
+
+def test_explicit_desktop_flow_dispatch_and_reauth_hint(env, monkeypatch, capsys):
+    calls = []
+    spec = replace(gbp.CONNECTOR, authorize=lambda *args: calls.append(args))
+    monkeypatch.setitem(service.REGISTRY, "gbp", spec)
+    assert spec.auth_flow == "client_secrets"
+    assert cli.main(["connect", "gbp", "auth", "--credential-ref", "synthetic"]) == 1
+    assert spec.auth_hint in capsys.readouterr().out
+    assert (
+        cli.main(
+            [
+                "connect",
+                "gbp",
+                "auth",
+                "--credential-ref",
+                "synthetic",
+                "--client-secrets",
+                str(env.private / "desktop.json"),
+            ]
+        )
+        == 0
+    )
+    assert calls == [(spec, "synthetic", env.private / "desktop.json")]
+    bind(env)
+    env.provider.override = lambda r: httpx.Response(401)
+    state = collect(env)
+    assert state["status"] == "credential_expired" and spec.auth_hint in state["detail"]
+
+
+@pytest.mark.parametrize("seconds,requests", [(None, None), (1000, 1000), (5, 2)])
+def test_gbp_read_budgets_cannot_be_increased(monkeypatch, seconds, requests):
+    monkeypatch.setattr("ams_assess.connectors.http.time.monotonic", lambda: 100)
+    calls = []
+
+    def read(request):
+        calls.append(request)
+        return httpx.Response(200, json={})
+
+    client = ReadClient(
+        gbp.CONNECTOR,
+        AuthMaterial(),
+        seconds=seconds,
+        max_requests=requests,
+        transport=httpx.MockTransport(read),
+    )
+    try:
+        assert client.deadline == 100 + (5 if seconds == 5 else 45)
+        cap = 2 if requests == 2 else 80
+        for _ in range(cap):
+            client.request("GET", gbp.ACCOUNTS + "accounts")
+        with pytest.raises(ConnectorError, match="Request cap"):
+            client.request("GET", gbp.ACCOUNTS + "accounts")
+        assert len(calls) == cap
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize("action", ["test", "collect", "list"])
+def test_gbp_request_budget_applies_to_service_operations(env, monkeypatch, action):
+    # A smaller declared budget exercises discovery/collection cutoffs through the service.
+    monkeypatch.setitem(service.REGISTRY, "gbp", replace(gbp.CONNECTOR, max_requests=1))
+    bind(env)
+    if action == "list":
+        listing = service.list_resources("gbp", "synthetic")
+        assert listing.status == "provider_unavailable"
+        assert "Request cap" in listing.detail
+    else:
+        state = service.execute(
+            env.root, "synthetic", "gbp", collect=action == "collect", start=START, end=END
+        )
+        assert state["status"] == ("connected" if action == "test" else "connected_partial")
+        if action == "collect":
+            assert "Request cap" in state["detail"]
+    assert len(env.provider.calls) == 1
+
+
+@pytest.mark.parametrize("quota", ["0", "100"])
+def test_429_zero_allocation_vs_consumed_quota(env, quota):
+    bind(env)
+    env.provider.override = lambda r: httpx.Response(
+        429,
+        json={
+            "error": {
+                "status": "RESOURCE_EXHAUSTED",
+                "details": [
+                    {"reason": "RATE_LIMIT_EXCEEDED", "metadata": {"quota_limit_value": quota}}
+                ],
+            }
+        },
+    )
+    state = collect(env)
+    assert state["status"] == ("approval_required" if quota == "0" else "rate_limited")
+    assert len(env.provider.calls) == (1 if quota == "0" else 3)
