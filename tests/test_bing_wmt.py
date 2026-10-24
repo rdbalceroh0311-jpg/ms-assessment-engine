@@ -7,6 +7,7 @@ import threading
 from contextlib import contextmanager
 from datetime import date
 from types import SimpleNamespace
+from urllib.parse import quote
 
 import httpx
 import pytest
@@ -30,6 +31,7 @@ class Provider:
     def __init__(self):
         self.calls = []
         self.overrides = {}
+        self.key = SECRET
         stats = {"Date": DAY, "Clicks": 5, "Impressions": 100}
         self.payloads = {
             "GetUserSites": [
@@ -81,7 +83,7 @@ class Provider:
         method = request.url.path.rsplit("/", 1)[1]
         assert request.method == "GET"
         assert request.url.host == "ssl.bing.com"
-        assert request.url.params["apikey"] == SECRET
+        assert request.url.params["apikey"] == self.key
         assert set(request.url.params) == (
             {"apikey"}
             if method == "GetUserSites"
@@ -148,6 +150,8 @@ def endpoint(result, key):
 
 
 def test_auth_reference_setup_and_cli_commands(env, capsys):
+    assert bing.CONNECTOR.auth_flow == "reference"
+    assert "--env-var BING_WMT_API_KEY" in bing.CONNECTOR.auth_hint
     assert (
         cli.main(
             [
@@ -676,6 +680,71 @@ def test_redaction_all_sinks_and_aggregate_only_ai(env, capsys, caplog):
     assert "rows_returned" in json.dumps(compact)
 
 
+@pytest.mark.parametrize(
+    "response_kind", ["fault", "forbidden", "redirect", "timeout", "exception", "echo"]
+)
+def test_query_key_is_private_in_errors_urls_and_every_output(
+    env, monkeypatch, capsys, caplog, response_kind
+):
+    key = "synthetic+bing/key=value%private"
+    env.provider.key = key
+    monkeypatch.setenv("BING_WMT_API_KEY", key)
+    bind(env)
+    caplog.set_level(logging.DEBUG)
+
+    def respond(request):
+        url = str(request.url)
+        assert request.url.params["apikey"] == key
+        assert quote(key, safe="") in url
+        logging.getLogger("httpcore").debug("Synthetic provider request %s", url)
+        if response_kind == "fault":
+            return httpx.Response(400, json={"ErrorCode": 14, "Message": url})
+        if response_kind == "forbidden":
+            return httpx.Response(403, json={"error": {"message": url}})
+        if response_kind == "redirect":
+            return httpx.Response(302, headers={"Location": url})
+        if response_kind == "timeout":
+            raise httpx.ReadTimeout(url)
+        if response_kind == "exception":
+            raise RuntimeError(url)
+        return httpx.Response(
+            200,
+            json={
+                "d": [
+                    {
+                        "Url": url,
+                        "Status": "Unrecognised status at " + url,
+                        "UrlCount": 1,
+                    }
+                ]
+            },
+        )
+
+    env.provider.overrides["GetFeeds"] = respond
+    state = execute(env)
+    assert state["status"] == ("connected" if response_kind == "echo" else "connected_partial")
+    snapshot = current(env)
+    cli.main(["connectors", "--customer", "synthetic"])
+    render_customer(env.root, "synthetic", {"md"})
+    with ui_server(env.root) as (server, client):
+        html = client.get(server.url(customer="synthetic")).text
+    output = json.dumps(snapshot) + html + (env.root / "synthetic/report.md").read_text()
+    output += capsys.readouterr().out + caplog.text
+    assert key not in output and quote(key, safe="") not in output
+    assert "Synthetic provider request" not in caplog.text
+    for item in snapshot["evidence"]:
+        if item["source"] == "bing_wmt":
+            assert "?" not in item["data"]["endpoint"]
+    if response_kind == "echo":
+        feed = next(
+            e["data"]["data"]["rows"][0]
+            for e in snapshot["evidence"]
+            if e["source"] == "bing_wmt" and e["data"]["operation"] == "feeds"
+        )
+        assert "[redacted]" in feed["status"]
+        assert "?" not in feed["url"]
+
+
 def test_findings_lifecycle_complete_pass_resolves_failure_unavailable_does_not(env):
     bind(env)
     env.provider.payloads["GetFeeds"] = []
@@ -809,6 +878,54 @@ def test_gsc_latest_failure_never_falls_back_to_old_success(env):
     new = gsc_evidence(status="permission_required", collected_at="2026-10-02T00:00:00Z")
     new.id = "ev-gsc-r2-page"
     result, _ = prepare(env, public_evidence=[old, new])
+    assert not result.findings
+
+
+@pytest.mark.parametrize("missing", ["bing", "gsc", "both"])
+def test_gsc_comparison_requires_both_sources_without_absence_finding(env, missing):
+    bind(env)
+    if missing in {"bing", "both"}:
+        env.provider.payloads["GetPageStats"] = []
+    incoming = [] if missing in {"gsc", "both"} else [gsc_evidence()]
+    result, state = prepare(env, public_evidence=incoming)
+    assert state["status"] == "connected" and not result.findings
+    assert "gsc_comparison" not in endpoint(result, "pages")["data"]
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        "https://other.test/",
+        "http://example.test/",
+        "https://example.test/section/",
+        "sc-domain:test",
+    ],
+)
+def test_gsc_comparison_rejects_unrelated_site_evidence(env, resource):
+    bind(env)
+    result, _ = prepare(env, public_evidence=[gsc_evidence(resource_id=resource)])
+    assert not result.findings
+
+
+def test_gsc_latest_failed_collection_without_page_does_not_reuse_old_page(env):
+    bind(env)
+    old = gsc_evidence()
+    snapshot = current(env)
+    snapshot["evidence"].append(old.model_dump())
+    latest = gsc_evidence(operation="site", status="permission_required")
+    latest.id = "ev-gsc-r2-001"
+    snapshot["evidence"].append(latest.model_dump())
+    store.save(env.root, "synthetic", snapshot)
+    result, state = prepare(env)
+    assert state["status"] == "connected" and not result.findings
+
+
+def test_gsc_comparison_never_uses_another_customer_store(env):
+    bind(env)
+    other_customer = store.new_store("other", "Other synthetic customer")
+    other_customer["evidence"].append(gsc_evidence().model_dump())
+    store.save(env.root, "other", other_customer)
+    result, _ = prepare(env)
     assert not result.findings
 
 

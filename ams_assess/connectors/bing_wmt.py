@@ -10,6 +10,7 @@ import json
 import math
 import re
 import time
+from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -530,9 +531,9 @@ def compare_gsc(
     if not pages or not pages.complete or not pages.rows:
         return
     candidates = []
-    for evidence in ctx.public_evidence:
+    for evidence in ctx.connected_evidence:
         data = evidence.data
-        if not isinstance(data, dict) or evidence.source != "gsc":
+        if not isinstance(data, Mapping) or evidence.source != "gsc":
             continue
         if (
             data.get("connector") == "gsc"
@@ -612,17 +613,17 @@ def compare_gsc(
     result.outcomes.append(outcome)
 
 
-class BingConnector(Connector):
-    @property
-    def auth_command(self) -> str:
-        return "ams-assess connect bing_wmt auth --credential-ref <name> --env-var BING_WMT_API_KEY"
-
-
-CONNECTOR = BingConnector(
+CONNECTOR = Connector(
     key="bing_wmt",
     label="Bing Webmaster Tools",
     provider="bing_wmt",
     auth_kind="api_key",
+    auth_flow="reference",
+    auth_hint=(
+        "ams-assess connect bing_wmt auth --credential-ref <name> --env-var BING_WMT_API_KEY"
+    ),
+    collection_seconds=45,
+    max_requests=27,  # Nine read methods, at most three attempts per method.
     scopes=(READ_PERMISSION,),
     resource_type="site",
     categories=frozenset({"seo", "technical"}),

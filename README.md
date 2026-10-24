@@ -575,10 +575,6 @@ Google `SERVICE_DISABLED`/`accessNotConfigured`, insufficient scopes/`PERMISSION
 
 ## Bing Webmaster Tools (`bing_wmt`)
 
-Implementation pending framework support: core `f3c0034` excludes GSC evidence from connector
-context. The required Bing/GSC comparison cannot run until a customer-scoped connected-evidence
-view is available. No direct store access or shared-framework workaround is implemented.
-
 This connector reads **Bing Webmaster Tools**, independently of Bing Places. It requires an
 existing API key and an explicitly selected, verified site. It does not add/verify sites, submit
 URLs or feeds, change crawl settings, or manage users. No paid service is used.
@@ -595,6 +591,9 @@ Store `BING_WMT_API_KEY` in `~/.config/ams-assess/credentials.env` using a priva
 CLI argument, repository file, report or chat. Keep the directory mode 0700 and the file 0600.
 Alternatively, `--credential-file ~/.config/ams-assess/bing-key.json` can reference a private JSON
 object with an `api_key` field. The shared reference loader also supports environment overrides.
+The connector declares `auth_flow='reference'` and a `BING_WMT_API_KEY` auth hint. Query-key
+requests run under the shared private logging guard; registered key values are redacted before
+any evidence or status is emitted, and provider error bodies/URLs are never echoed.
 Registration stores only the source reference; it neither verifies access nor binds every visible
 site. An invalid/revoked key produces `credential_expired` with instructions to update the existing
 private source. Rotation/re-authorisation is manual; this connector never obtains new access.
@@ -655,8 +654,9 @@ scope are recorded; missing dates never become zero activity. Feeds, issues, rol
 and blocked URLs are explicitly current snapshots, regardless of the requested traffic period.
 
 Each response retains at most `max_pages * page_size` rows (500 by default), with truncation
-recorded. The framework limits responses to 2 MB, requests to 80 including retries, I/O to 10
-seconds and the read phase to 45 seconds (40 in the UI). Oversized responses fail explicitly;
+recorded. The connector limits requests to 27 including retries (nine methods, three attempts).
+The framework limits responses to 2 MB, I/O to 10 seconds and the read phase to 45 seconds
+(40 in the UI). Oversized responses fail explicitly;
 there is no undocumented pagination fallback. Bing's small error bodies have an additional
 64 KB cap. 429/5xx/timeouts and documented throttling/internal-error faults use the shared
 three-attempt bounded backoff. Successful endpoints and processed rows survive other failures.
@@ -666,8 +666,9 @@ uses HTTP 400 with [ApiErrorCode](https://learn.microsoft.com/en-us/dotnet/api/m
 The module-owned transport maps those codes to framework statuses without retaining the message:
 invalid key → `credential_expired`; blocked/not-allowed/not-authorised → `permission_required`
 with the required ReadOnly site access; missing resource/access → `not_found`; throttling/internal
-errors → bounded retries. Deprecated faults and HTTP 405/410/501 explicitly record
-`availability=unsupported`, `provider_unavailable`. HTTP 404 on a method route is recorded as
+errors → bounded retries; exhausted throttling → `rate_limited`. Deprecated faults and HTTP
+405/410/501 explicitly record `availability=unsupported`, `provider_unavailable`.
+HTTP 404 on a method route is recorded as
 endpoint unavailable, not proof that the bound site does not exist. Other malformed or rejected
 reads are `failed`. Empty successful lists stay `connected`; mixed endpoint results become
 `connected_partial` with the affected endpoint names. Shared API-disabled/approval-required
@@ -677,10 +678,13 @@ Confirmed findings cover returned crawl errors, robots-blocked counts, crawl iss
 entries, absent submitted feeds and explicit error/failure feed statuses. Pending/unknown feed
 statuses cannot resolve an error finding. Findings describe Bing's observation and never infer
 that intentional blocks are wrong or that an empty issue list proves security. Existing public
-robots/sitemap findings are referenced rather than duplicated. Bing/GSC comparisons reuse saved
-GSC page evidence for a matching period and URL-prefix/domain property, filter page rows to the
-selected Bing site, and cite both sources. They are labelled `needs_verification`: different
-engines, verticals, reporting cadence and top-row coverage do not establish lost traffic or a
+robots/sitemap findings are referenced rather than duplicated. Bing/GSC comparisons use the
+framework's immutable `ctx.connected_evidence` view of the latest collection for this customer's
+bound site. They require both Bing and GSC page evidence for a matching period and exact URL
+property (or same-host root domain property), filter page rows to the selected Bing site, and
+cite both sources. Missing evidence creates no comparison finding. They are labelled
+`needs_verification`: different engines, verticals, reporting cadence and top-row coverage do not
+establish lost traffic or a
 ranking fault. Inaccessible, capped or mismatched evidence cannot support a comparison. AI
 receives only endpoint status/row-count/truncation aggregates, not queries, paths or role lists.
 
