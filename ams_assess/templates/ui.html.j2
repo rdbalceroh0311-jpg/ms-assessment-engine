@@ -70,7 +70,7 @@ details{background:white;padding:.8rem;margin:.7rem 0}summary{cursor:pointer;fon
 <p>{{ finding.detail }}</p><p>{{ finding.get('site', '') }} {{ finding.get('component', '') }}</p>
 <p>Last observed: {{ finding.get('last_observed', '') }} · Last run: {{ finding.get('last_run_id', '') }}</p>
 <p>Coverage: {{ finding.get('coverage', []) | join(', ') }}</p>
-{% for event in finding.get('events', []) %}<p>{{ event.date }} · {{ event.status }} · {{ event.run_id }} · Evidence: {{ event.get('evidence_ids', []) | join(', ') }}</p>{% endfor %}
+{% for event in finding.get('events', []) %}<p>{{ event.get('date', 'Date not recorded') }} · {{ event.status }} · {{ event.get('run_id', '') }} · Evidence: {{ event.get('evidence_ids', []) | join(', ') }}</p>{% endfor %}
 <p>Evidence: {{ finding.evidence_ids | join(', ') }}</p><a href="#reports">Compare saved report versions below</a>
 </details>{% else %}<p class="muted">None recorded.</p>{% endfor %}{% endfor %}
 {% for review in current.get('needs_review', []) %}<p class="review">{{ review.title }}: {{ review.reason }}</p>{% endfor %}

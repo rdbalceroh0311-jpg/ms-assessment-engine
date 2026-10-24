@@ -198,6 +198,40 @@ def test_lifecycle_groups_use_existing_states_and_review_overrides():
     }
 
 
+def test_findings_render_migration_events_and_saved_report_versions(customer):
+    from ams_assess.models import Finding
+    from ams_assess.report import render_customer
+
+    current = store.load(customer, "synthetic")
+    assert current is not None
+    eid = current["evidence"][0]["id"]
+    current["findings"] = [
+        Finding(
+            id="legacy-observation",
+            title="Migrated check",
+            category="seo",
+            detail="Historical observation",
+            recommendation="Recheck",
+            evidence_ids=[eid],
+            lifecycle_status="not_rechecked",
+            events=[{"status": "identity-predecessor", "observation": {"id": "old-check"}}],
+        ).model_dump(mode="json")
+    ]
+    with store.locked(customer, "synthetic"):
+        store.save(customer, "synthetic", current)
+    render_customer(customer, "synthetic", {"md", "html"})
+    with running(customer) as (server, client):
+        response = client.get(server.url(customer="synthetic"))
+        assert response.status_code == 200
+        assert "Not rechecked (1)" in response.text
+        assert "identity-predecessor" in response.text
+        assert "Revision 1" in response.text
+        saved = store.load(customer, "synthetic")
+        assert saved is not None
+        path = saved["report_revisions"][0]["directory"] + "/report.html"
+        assert client.get(server.url("/file", customer="synthetic", path=path)).status_code == 200
+
+
 def test_ui_command_does_not_read_credentials(tmp_path, monkeypatch):
     from ams_assess import ui
 
