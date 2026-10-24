@@ -90,8 +90,7 @@ def set_binding(
                 raise ValueError("Cannot verify binding isolation through a symlink")
             if not directory.is_dir() or not (directory / store.STORE_FILE).exists():
                 continue
-            other = store.load(root, directory.name, migrate_legacy=False) or {}
-            for other_key, binding in other.get("connectors", {}).items():
+            for other_key, binding in store.connector_bindings(root, directory.name).items():
                 other_spec = REGISTRY.get(other_key)
                 if (
                     resource
@@ -427,8 +426,9 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
             }
         )
         status = state.get("status", "not_configured")
+        customer_arg = " --customer " + current.get("customer_id", "<customer>")
         next_action = {
-            "not_configured": f"Bind a resource, then ams-assess connect {key} test",
+            "not_configured": f"Bind a resource, then ams-assess connect {key} test{customer_arg}",
             "credential_missing": spec.auth_command,
             "credential_expired": "Credential expired/revoked — re-authorise with "
             + spec.auth_command,
@@ -443,7 +443,7 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
             "provider_unavailable": "Retry the bounded read later",
             "failed": "Review the connector implementation and rerun the test",
             "connected_partial": "Review endpoint coverage and retry unavailable reads",
-            "connected": f"Review coverage; ams-assess connect {key} collect",
+            "connected": f"Review coverage; ams-assess connect {key} collect{customer_arg}",
         }[status]
         output.append(
             {

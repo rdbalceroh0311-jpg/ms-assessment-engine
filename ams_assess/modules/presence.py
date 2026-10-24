@@ -680,7 +680,7 @@ def checklist(readiness: list[dict[str, Any]], email: str) -> list[dict[str, Any
 def origin_of(url: str) -> tuple[str, str, int | None]:
     parts = urlsplit(url)
     port = parts.port or {"http": 80, "https": 443}.get(parts.scheme)
-    return parts.scheme, (parts.hostname or "").lower(), port
+    return parts.scheme, (parts.hostname or "").lower().removesuffix("."), port
 
 
 def fetch(client: httpx.Client, url: str, origin: tuple, deadline: float) -> dict[str, Any]:

@@ -169,6 +169,8 @@ def test_absent_gsc_does_not_use_other_customer_or_public_or_own_evidence(
         (SITE, True),
         ("https://example.test", True),
         ("https://example.test:443/", True),
+        ("https://example.test./", True),
+        ("sc-domain:example.test.", True),
         ("sc-domain:example.test", True),
         ("https://other.test/", False),
         ("https://example.test.evil.test/", False),

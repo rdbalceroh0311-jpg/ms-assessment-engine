@@ -1271,7 +1271,9 @@ def infrastructure(
     for module in ctx.results:
         for evidence in module.evidence:
             data = evidence.data
-            if not isinstance(data, dict) or urlsplit(evidence.url).hostname != ctx.site_host:
+            if not isinstance(data, dict) or (urlsplit(evidence.url).hostname or "").removesuffix(
+                "."
+            ) != ctx.site_host.removesuffix("."):
                 continue
             if "headers" in data:
                 headers = {

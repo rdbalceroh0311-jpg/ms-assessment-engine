@@ -35,7 +35,7 @@ LAB_NOTE = (
 def origin(url: str) -> str:
     parts = urlsplit(normalize_target(url))
     port = parts.port
-    host = parts.hostname or ""
+    host = (parts.hostname or "").removesuffix(".")
     if ":" in host:
         host = f"[{host}]"
     if port and (parts.scheme, port) not in {("https", 443), ("http", 80)}:

@@ -135,6 +135,26 @@ def new_store(customer: str, customer_name: str) -> dict[str, Any]:
     }
 
 
+def connector_bindings(root: Path, customer: str) -> dict[str, Any]:
+    """Read binding identities without migrating or analysing another customer's findings."""
+    path = store_file(root, customer)
+    with locked(root, customer, create=False):
+        current = json.loads(path.read_bytes())
+        if (
+            not isinstance(current, dict)
+            or current.get("customer_id") != customer
+            or current.get("schema_version") not in {1, 2, 3}
+        ):
+            raise ValueError("Unsupported or mismatched customer store")
+        bindings = current.get("connectors", {})
+        if not isinstance(bindings, dict) or any(
+            not isinstance(binding, dict) or not isinstance(binding.get("resource_id", ""), str)
+            for binding in bindings.values()
+        ):
+            raise ValueError("Invalid connector bindings")
+        return bindings
+
+
 def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str, Any] | None:
     """Read only this customer's store; None when it does not exist yet."""
     path = store_file(root, customer)

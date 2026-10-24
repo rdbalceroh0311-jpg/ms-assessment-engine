@@ -551,6 +551,14 @@ These checks concern the technical services behind the website and email. DNS is
 
 Connector status and any returned evidence are separate from public website checks. Failed reads do not establish access or absence of data. Successful reads describe the returned sample and reporting period, not a complete account audit.
 
+{% if connector_rows %}
+| Connector | Selected resource | Access status | Connection status | Last successful collection | Coverage | Next action |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for row in connector_rows %}
+| {{ row.label | text }} | {{ (row.resource or 'Not bound') | text }} | {{ row.access | text }} | {{ row.status | text }} | {{ row.last_successful_collection | text }} | {{ row.coverage_text | text }} | {{ row.next_action | text }} |
+{% endfor %}
+
+{% endif %}
 {% for row in connector_rows %}
 ### {{ row.label | text }} — {{ row.status | text }}
 

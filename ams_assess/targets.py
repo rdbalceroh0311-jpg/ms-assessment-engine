@@ -25,6 +25,7 @@ def suffixes() -> PublicSuffixList:
 
 
 def registrable(host: str) -> str | None:
+    host = host.lower().removesuffix(".")
     try:
         ipaddress.ip_address(host)
         return None
@@ -35,17 +36,18 @@ def registrable(host: str) -> str | None:
 
 def same_site(first: str, second: str) -> bool:
     a, b = urlsplit(first), urlsplit(second)
-    if a.hostname == b.hostname:
+    hosts = [(p.hostname or "").removesuffix(".") for p in (a, b)]
+    if hosts[0] == hosts[1]:
         return True
     # Explicit fixture exception; private addresses in general are not interchangeable.
-    if a.hostname in LOOPBACK_ALIASES and b.hostname in LOOPBACK_ALIASES:
+    if all(host in LOOPBACK_ALIASES for host in hosts):
         return a.port == b.port
-    domain = registrable(a.hostname or "")
-    return bool(domain and domain == registrable(b.hostname or ""))
+    domain = registrable(hosts[0])
+    return bool(domain and domain == registrable(hosts[1]))
 
 
 def crawl_hosts(requested: str, resolved: str) -> set[str]:
-    hosts = {urlsplit(u).hostname or "" for u in (requested, resolved)}
+    hosts = {(urlsplit(u).hostname or "").removesuffix(".") for u in (requested, resolved)}
     for host in list(hosts):
         domain = registrable(host)
         if domain and host in {domain, "www." + domain} and not is_local(host):

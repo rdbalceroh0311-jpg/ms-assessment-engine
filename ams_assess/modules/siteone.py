@@ -199,7 +199,7 @@ def run(ctx: Context) -> ModuleResult:
         url = row["url"]
         status = status_code(row.get("status"))
         if row.get("type") == 1 and 200 <= status < 300:
-            if urlsplit(url).hostname in hosts:
+            if (urlsplit(url).hostname or "").removesuffix(".") in hosts:
                 ctx.pages.append(url)
         eid = result.add_evidence(url, "SiteOne HTTP response", row)
         for check, failed in [
