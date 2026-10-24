@@ -240,6 +240,36 @@ def entry_for(
     return entry
 
 
+def edit_scope(store, platform, site, location):
+    """Prefer an existing exact scope, then the sole unambiguous platform entry."""
+    site = site_name(site) if site is not None else None
+    location = safe_text(location)
+    entries = [e for e in registry(store)["entries"] if e["platform"] == platform]
+    candidates = [e for e in entries if not site or site_key(e["site"]) == site_key(site)]
+    exact = [
+        e
+        for e in candidates
+        if site is not None and site_key(e["site"]) == site_key(site) and e["location"] == location
+    ]
+    located = [e for e in candidates if location and e["location"] == location]
+    # A supplied location must match or create that location; never silently discard it.
+    matches = exact or located or ([] if location else candidates)
+    if len(matches) == 1:
+        return matches[0]["site"], matches[0]["location"]
+    if len(matches) > 1:
+        if len({site_key(e["site"]) for e in matches}) > 1:
+            raise ValueError("Several websites match this platform; specify --site and --location")
+        raise ValueError("Several entries match this platform; specify --site and --location")
+    if site is None:
+        sites = list(dict.fromkeys(e["site"] for e in entries)) or list(
+            dict.fromkeys(e["site"] for e in registry(store)["entries"] if e["site"])
+        )
+        if len(sites) > 1:
+            raise ValueError("Several websites are recorded; specify --site")
+        site = sites[0] if sites else ""
+    return site, location
+
+
 def record(store, old, entry, who, source):
     if old != entry:
         registry(store)["history"].append(

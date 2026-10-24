@@ -561,5 +561,6 @@ def test_report_grouping_preserves_priority_and_held_site_check_evidence():
     ]
     text = render_markdown(data, evidence, data.get("discovery"))
     assert f"#### {mdtext(held['id'])}:" not in text
-    assert f"| {mdtext(held['title'])} (" in text
+    assert f"- **{mdtext(held['title'])} — " in text
+    assert all(eid in text for eid in held["evidence_ids"])
     assert f"**Needs review:** {held['id']}:" in text

@@ -12,8 +12,9 @@ from ams_assess.models import Connection, ConnectionStatus, Context, ModuleResul
 name = "dataforseo"
 categories = {"seo", "local_seo", "entity"}
 requires = ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD", "--dataforseo-max-usd"]
-# One task and one result: $0.01 task + $0.0001 result, without paid modifiers.
-ESTIMATE_USD = Decimal("0.0101")
+# One task and one result: ($0.01 task + $0.0001 result) x1.5 headroom,
+# consistent with SERP estimates. Actual charges still drive the overcharge stop.
+ESTIMATE_USD = Decimal("0.0101") * Decimal("1.5")
 API = "https://api.dataforseo.com/v3"
 SERP_ENDPOINTS = {
     "organic": f"{API}/serp/google/organic/live/advanced",

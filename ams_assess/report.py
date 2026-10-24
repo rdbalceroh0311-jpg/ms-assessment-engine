@@ -1,14 +1,19 @@
 import html
 import json
 import re
+import shutil
+import tempfile
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urlsplit
 from xml.etree import ElementTree
 
 import markdown
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from markdown.inlinepatterns import InlineProcessor
+from markdown.treeprocessors import Treeprocessor
 from playwright.sync_api import sync_playwright
 
 from ams_assess.ai import PHASES
@@ -113,8 +118,171 @@ def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-CSS = """@page { size: A4; margin: 18mm 17mm 20mm; }
-body { font-family: Arial, sans-serif; color: #20303d; font-size: 10pt; line-height: 1.48;
+def finding_views(findings: list[Finding]) -> tuple[list[Finding], dict[str, list[Finding]]]:
+    """Group repeated rule observations for display only; every original remains a member."""
+    groups: dict[tuple, list[Finding]] = {}
+    for f in findings:
+        site = site_key(f.site if "://" in f.site else f"//{f.site}") or site_key(f.component)
+        # Legacy runs may record only URLs. Unknown scopes must not merge unrelated findings.
+        sites = (site,) if site else tuple(sorted({site_key(url) for url in f.urls} - {""}))
+        repeated_rule = f.category == "accessibility" or f.check_key in {
+            "canonical-mismatch",
+            "console-errors",
+        }
+        identity = (
+            (
+                sites or (f.id,),
+                f.category,
+                f.check_key,
+                f.lifecycle_status,
+                f.provenance,
+                () if f.check_key.startswith("axe:") else (f.kind, f.basis, f.ams_service),
+            )
+            if repeated_rule and f.check_key
+            else (f.id,)
+        )
+        groups.setdefault(identity, []).append(f)
+    views, members = [], {}
+    for rows in groups.values():
+        f = rows[0].model_copy(deep=True)
+        for field in ("evidence_ids", "urls", "dependencies", "information_required"):
+            setattr(f, field, list(dict.fromkeys(v for r in rows for v in getattr(r, field))))
+        for field in ("recommendation", "business_impact", "likely_cause", "urgency"):
+            setattr(
+                f,
+                field,
+                " ".join(dict.fromkeys(getattr(r, field) for r in rows if getattr(r, field))),
+            )
+        f.severity = min((r.severity for r in rows), key=SEVERITIES.__getitem__)
+        f.priority = min(r.priority for r in rows)
+        f.confidence = max(
+            (r.confidence for r in rows),
+            key={
+                "confirmed": 0,
+                "needs_verification": 1,
+                "subjective": 2,
+            }.__getitem__,
+        )
+        views.append(f)
+        members[f.id] = rows
+    return views, members
+
+
+def evidence_index(evidence: list[Evidence]) -> list[dict[str, Any]]:
+    """Print each observation description and URL once, retaining all evidence IDs."""
+    groups: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for e in evidence:
+        group = groups.setdefault(
+            (e.source, e.description, e.provenance),
+            {
+                "source": e.source,
+                "description": e.description,
+                "provenance": e.provenance,
+                "urls": {},
+            },
+        )
+        group["urls"].setdefault(e.url, []).append(e.id)
+    return list(groups.values())
+
+
+def counted_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse identical coverage records without hiding their occurrence count."""
+    counts = Counter(json.dumps(r, sort_keys=True) for r in rows)
+    return [{"row": json.loads(row), "count": count} for row, count in counts.items()]
+
+
+def site_summaries(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """One latest summary per canonical website; earlier scope/limitations remain explicit."""
+    latest: dict[str, dict[str, Any]] = {}
+    history = []
+
+    def run_number(row):
+        match = re.fullmatch(r"r(\d+)", row.get("run_id", ""))
+        return int(match[1]) if match else 0
+
+    for row in sorted(rows, key=run_number):
+        identity = site_key(row.get("target", ""))
+        if identity in latest:
+            history.append(latest[identity])
+        latest[identity] = row
+    return list(latest.values()), history
+
+
+def coverage_groups(coverage: dict[str, Any]) -> list[dict[str, Any]]:
+    groups = {}
+    for row in coverage["discovered"]:
+        url = row["url"]
+        identity = (
+            tuple(row["sources"]),
+            *(
+                url in coverage[key]
+                for key in (
+                    "crawled",
+                    "browser_tested",
+                    "untested",
+                    "sitemap_not_reached",
+                )
+            ),
+        )
+        group = groups.setdefault(
+            identity,
+            {
+                "sources": row["sources"],
+                "crawled": identity[1],
+                "tested": identity[2],
+                "untested": identity[3],
+                "unreached": identity[4],
+                "urls": [],
+            },
+        )
+        group["urls"].append(url)
+    return list(groups.values())
+
+
+def register_actions(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups = {}
+    for r in entries:
+        group = groups.setdefault(
+            (r["next_action"], r["responsible"]),
+            {
+                "action": r["next_action"],
+                "responsible": r["responsible"],
+                "scopes": {},
+            },
+        )
+        group["scopes"].setdefault((r["site"], r["location"]), []).append(r["label"])
+    return list(groups.values())
+
+
+def register_observations(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups = {}
+    for row in rows:
+        shared = {k: v for k, v in row.items() if k not in {"date", "reference"}}
+        group = groups.setdefault(json.dumps(shared, sort_keys=True), {**shared, "citations": []})
+        citation = {"date": row["date"], "reference": row["reference"]}
+        if citation not in group["citations"]:
+            group["citations"].append(citation)
+    return list(groups.values())
+
+
+def url_groups(urls: list[str]) -> dict[str, list[tuple[str, str]]]:
+    """Factor repeated origins out of coverage lists; every link keeps its full URL."""
+    groups: dict[str, list[tuple[str, str]]] = {}
+    for url in urls:
+        parts = urlsplit(url)
+        origin = f"{parts.scheme}://{parts.netloc}" if parts.netloc else ""
+        path = url.removeprefix(origin) or "/"
+        groups.setdefault(origin, []).append((path, url))
+    return groups
+
+
+def standard_requirements(findings: list[Finding], field: str) -> list[str]:
+    values = Counter(tuple(getattr(f, field)) for f in findings)
+    return list(values.most_common(1)[0][0]) if values else []
+
+
+CSS = """@page { size: A4; margin: 16mm 15mm 18mm; }
+body { font-family: Arial, sans-serif; color: #20303d; font-size: 9.5pt; line-height: 1.25;
        max-width: 960px; margin: 32px auto; padding: 0 20px; }
 h1 { color: #143c52; font-size: 29pt; line-height: 1.12; border-bottom: 4px solid #16a59b;
      padding-bottom: 14px; margin-bottom: 20px; }
@@ -124,21 +292,26 @@ h3 { color: #195b68; font-size: 12pt; margin-top: 20px; break-after: avoid; }
 h4 { break-after: avoid; }
 h3 + p, h3 + p + p { break-after: avoid; }
 p,li { orphans: 3; widows: 3; overflow-wrap: anywhere; }
+p { margin: 6px 0; } ul,ol { margin: 6px 0; padding-left: 20px; }
 a { color: #166c7c; overflow-wrap: anywhere; }
 table { width: 100%; border-collapse: collapse; font-size: 8pt; table-layout: fixed; }
-th:first-child { width: 20%; } th:nth-child(2) { width: 12%; }
-table:has(th:nth-child(4)) th:nth-child(3) { width: 38%; }
-table:has(th:nth-child(5)) th { width: auto; }
-table:has(th:nth-child(6)) th:nth-child(n) { width: auto; }
-table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(1) { width: 22%; }
-table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(2) { width: 10%; }
-table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(3) { width: 24%; }
-table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(4) { width: 20%; }
-table:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(5) { width: 24%; }
-th,td { border: 1px solid #cfdae0; padding: 6px; text-align: left; vertical-align: top;
+table.coverage th:first-child { width: 58%; }
+table.lifecycle th:first-child { width: 16%; }
+table.sources th:first-child { width: 30%; }
+table.sources th:nth-child(2) { width: 14%; }
+table.register th:first-child, table.discovery th:first-child { width: 32%; }
+table.signals th:first-child { width: 22%; }
+table.signals th:nth-child(2) { width: 12%; }
+table.signals th:nth-child(3) { width: 46%; }
+table.infrastructure th:first-child { width: 17%; }
+table.infrastructure th:nth-child(2) { width: 12%; }
+table.infrastructure th:nth-child(3) { width: 41%; }
+th,td { border: 1px solid #cfdae0; padding: 4px; text-align: left; vertical-align: top;
         overflow-wrap: anywhere; }
 th { background: #eaf2f5; } tr { break-inside: avoid; }
 code { font-size: 8pt; overflow-wrap: anywhere; }
+h2#appendix-evidence-index ~ p, h2#appendix-evidence-index ~ ul {
+    font-size: 8.5pt; line-height: 1.25; margin-top: 2px; margin-bottom: 2px; }
 blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
  background: #f3f8fa; }
 @media print { body { margin: 0; padding: 0; max-width: none; }
@@ -151,9 +324,37 @@ def mdtext(value: object) -> str:
     return re.sub(r"([\\`*_{}\[\]#|<>])", r"\\\1", value)
 
 
+def mdlink(label: str, url: str) -> str:
+    """Keep long search URLs clickable without repeating the query in visible text."""
+    try:
+        parts = urlsplit(url)
+        if parts.scheme in {"https", "http"} and parts.hostname and not parts.username:
+            return f"[{mdtext(label)}]({quote(url, safe=':/?&=#%+-._~')})"
+    except ValueError:
+        pass
+    return f"{mdtext(label)} ({mdtext(url)})"
+
+
 class ReportLineBreak(InlineProcessor):
     def handleMatch(self, m, data):
         return ElementTree.Element("br"), m.start(0), m.end(0)
+
+
+class ReportTableLayout(Treeprocessor):
+    def run(self, root):
+        layouts = {
+            "Known URL": "coverage",
+            "State": "lifecycle",
+            "Source / website / date": "sources",
+            "Platform / website / location": "register",
+            "Platform / relevance / state": "discovery",
+            "Signal": "signals",
+            "Area": "infrastructure",
+        }
+        for table in root.iter("table"):
+            header = table.find("./thead/tr/th")
+            if header is not None and header.text in layouts:
+                table.set("class", layouts[header.text])
 
 
 def markdown_html(content: str) -> str:
@@ -164,6 +365,7 @@ def markdown_html(content: str) -> str:
     renderer.inlinePatterns.deregister("html")
     renderer.ESCAPED_CHARS = [*renderer.ESCAPED_CHARS, "<", ">"]
     renderer.inlinePatterns.register(ReportLineBreak(r"<br\s*/?>"), "report-br", 175)
+    renderer.treeprocessors.register(ReportTableLayout(renderer), "report-tables", 5)
     return renderer.convert(content)
 
 
@@ -229,31 +431,41 @@ def render_customer(
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         revision = reports / f"{number:03d}-{stamp}"
         reports.mkdir(exist_ok=True, mode=0o700)
-        revision.mkdir(mode=0o700)
         if content is None:
             data, evidence, discovery = report_data(store)
             content = render_markdown(data, evidence, discovery)
-        written = write_outputs(revision, content, formats)
+        # Publish a revision only after every requested format has rendered successfully.
+        # TemporaryDirectory also removes partial outputs if PDF generation fails.
+        with tempfile.TemporaryDirectory(prefix=".pending-", dir=reports) as staging:
+            written = write_outputs(Path(staging), content, formats)
+            Path(staging).rename(revision)
+        try:
+            for name in written:
+                (revision / name).chmod(0o400)  # a revision is never rewritten
+            runs = store["runs"]
+            revisions.append(
+                {
+                    "revision": number,
+                    "created_at": now(),
+                    "directory": f"reports/{revision.name}",
+                    "files": written,
+                    "source": "edited markdown" if edited_md else "generated",
+                    # The assessment state this report reflects (an edit inherits its ancestor's).
+                    "assessment_revision": runs[-1]["run_id"] if runs else None,
+                    "store_updated_at": store["updated_at"],
+                    **ancestry,
+                }
+            )
+            store["report_files"] = {name.rsplit(".", 1)[1]: name for name in written}
+            save(root, customer, store)
+        except Exception:
+            shutil.rmtree(revision)
+            raise
+        # Keep the previous latest copies intact if persistence fails. Once committed,
+        # the immutable revision remains available even if a convenience copy fails.
         for name in written:
-            (revision / name).chmod(0o400)  # a revision is never rewritten
             output_path(directory, name).write_bytes((revision / name).read_bytes())
             output_path(directory, name).chmod(0o600)
-        runs = store["runs"]
-        revisions.append(
-            {
-                "revision": number,
-                "created_at": now(),
-                "directory": f"reports/{revision.name}",
-                "files": written,
-                "source": "edited markdown" if edited_md else "generated",
-                # The assessment state this report reflects (an edit inherits its ancestor's).
-                "assessment_revision": runs[-1]["run_id"] if runs else None,
-                "store_updated_at": store["updated_at"],
-                **ancestry,
-            }
-        )
-        store["report_files"] = {name.rsplit(".", 1)[1]: name for name in written}
-        save(root, customer, store)
     return written
 
 
@@ -310,13 +522,16 @@ def render_markdown(
         for fid in [r.get("finding_id"), *r.get("finding_ids", [])]
         if fid
     }
-    lifecycle_findings = [
+    technical_findings = [
         f
         for f in findings
         if f.provenance == "technical_evidence"
         and f.category != "discovery"
         and (f.site or f.component or f.lifecycle_status != "current")
     ]
+    lifecycle_findings, lifecycle_members = finding_views(
+        [f for f in technical_findings if f.lifecycle_status != "current"]
+    )
     lifecycle_domains = {
         f.id: f.site
         or next(
@@ -327,25 +542,31 @@ def render_markdown(
             ),
             site_key(data.get("target", "")) or "Domain not recorded",
         )
-        for f in lifecycle_findings
+        for f in technical_findings
     }
-    by_id = {f.id: f for f in findings if f.id not in review and f.lifecycle_status == "current"}
-    findings = list(by_id.values())
+    current = [f for f in findings if f.id not in review and f.lifecycle_status == "current"]
+    findings, members = finding_views(current)
+    aliases = {f.id: group_id for group_id, rows in members.items() for f in rows}
+    by_id = {f.id: f for f in findings}
     site_finding_eids = {
         eid for f in findings if f.check_key.startswith("site:") for eid in f.evidence_ids
     }
     represented_site_checks = {
         (e.url, e.data["site_check"])
         for e in evidence
-        if e.id in site_finding_eids and e.source == "site_checks" and e.data.get("site_check")
+        if e.id in site_finding_eids
+        and e.source == "site_checks"
+        and isinstance(e.data, dict)
+        and e.data.get("site_check")
     }
     ai = data["ai"]
     proposed = ai.get("recommendations", [])
-    order = list(dict.fromkeys([i for i in proposed if i in by_id] + list(by_id)))
+    order = list(dict.fromkeys([aliases[i] for i in proposed if i in aliases] + list(by_id)))
     roadmap = {phase: [] for phase in PHASES}
     assigned = set()
     for phase in PHASES:
         for fid in ai.get("roadmap", {}).get(phase, []):
+            fid = aliases.get(fid, fid)
             if fid in by_id and fid not in assigned:
                 roadmap[phase].append(by_id[fid])
                 assigned.add(fid)
@@ -367,6 +588,13 @@ def render_markdown(
     env.filters["customer_statement"] = customer_statement
     env.filters["text"] = mdtext
     env.filters["discovery_rows"] = discovery_rows
+    env.filters["counted_rows"] = counted_rows
+    env.filters["coverage_groups"] = coverage_groups
+    env.filters["site_key"] = site_key
+    env.filters["register_actions"] = register_actions
+    env.filters["register_observations"] = register_observations
+    env.filters["link"] = mdlink
+    env.filters["url_groups"] = url_groups
     env.filters["discovery_heading"] = lambda title: (
         title if title in DISCOVERY_SECTIONS.values() else mdtext(title)
     )
@@ -378,14 +606,23 @@ def render_markdown(
     ):
         shown.add("domain_email")
     # Missing field/lab measurements still have an explicit performance interpretation.
-    if any(e.source == "performance" and e.data.get("performance") for e in evidence):
+    if any(
+        e.source == "performance" and isinstance(e.data, dict) and e.data.get("performance")
+        for e in evidence
+    ):
         shown.add("performance")
     connected_ids = {e.id for e in evidence if e.source == "gsc"}
     connected = [f for f in findings if connected_ids.intersection(f.evidence_ids)]
     public = [f for f in findings if f not in connected]
     sources = {e.id: e.source for e in evidence}
+    env.filters["source_name"] = sources.__getitem__
     presence_sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
     presence_sites = [p for p in presence_sites if p]
+    presence_sites, earlier_presence = site_summaries(presence_sites)
+    health_sites, earlier_health = site_summaries(
+        data.get("domain_email_health_sites")
+        or ([data["domain_email_health"]] if data.get("domain_email_health") else [])
+    )
     assessed_presence = [
         p
         for p in presence_sites
@@ -401,7 +638,7 @@ def render_markdown(
     ):
         public_categories |= shown
     security_categories = shown & {"security", "domain_email"}
-    connections = connection_rows(data)
+    connections = connection_rows({**data, "digital_presence_sites": presence_sites})
     profile = (data.get("profile") or {}).get("fields") or {}
     profile = {
         **profile,
@@ -412,8 +649,15 @@ def render_markdown(
         data=data,
         ai=ai,
         evidence=evidence,
+        evidence_index=evidence_index(evidence),
         findings=findings,
+        finding_count=len(current),
+        finding_members=members,
+        standard_dependencies=standard_requirements(findings, "dependencies"),
+        standard_information=standard_requirements(findings, "information_required"),
+        technical_count=len(technical_findings),
         lifecycle_findings=lifecycle_findings,
+        lifecycle_members=lifecycle_members,
         lifecycle_domains=lifecycle_domains,
         public_findings=public,
         finding_categories={f.category for f in public},
@@ -426,6 +670,9 @@ def render_markdown(
         profile=profile,
         connections=connections,
         presence_sites=presence_sites,
+        health_sites=health_sites,
+        earlier_presence=earlier_presence,
+        earlier_health=earlier_health,
         assessed_presence=assessed_presence,
         security_sections={k: t for k, t in CATEGORIES.items() if k in security_categories},
         web_sections={
@@ -457,7 +704,7 @@ def render_markdown(
             or any(e.source in {"browser", "site_checks"} for e in evidence)
         ),
     )
-    return content
+    return content.rstrip() + "\n"
 
 
 def write_outputs(run_dir: Path, content: str, formats: set[str]) -> list[str]:
@@ -496,7 +743,7 @@ def write_outputs(run_dir: Path, content: str, formats: set[str]) -> list[str]:
                     footer_template='<div style="font:9px Arial;width:100%;text-align:center;'
                     'color:#65727d">AI Managed Services | Page <span class="pageNumber"></span>'
                     ' of <span class="totalPages"></span></div>',
-                    margin={"top": "18mm", "bottom": "20mm", "left": "17mm", "right": "17mm"},
+                    margin={"top": "16mm", "bottom": "18mm", "left": "15mm", "right": "15mm"},
                 )
             finally:
                 browser.close()

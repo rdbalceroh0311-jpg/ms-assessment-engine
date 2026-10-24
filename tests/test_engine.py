@@ -388,9 +388,12 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert "Browser coverage: 12 page/viewport observations" in report
     assert all(f["priority"] == "P1" for f in results["findings"] if f["severity"] == "high")
     assert all(f["priority"] == "P3" for f in results["findings"] if f["severity"] == "low")
-    assert report_html.count("<td>") >= 4 * len(evidence) + 3 * len(results["modules"])
+    appendix = report_html.split("Appendix: evidence index", 1)[1]
+    assert all(e["id"] in appendix for e in evidence)
     # Escaped cell text must never split a Markdown table row into extra cells.
-    for table in re.findall(r"<table>.*?</table>", report_html, re.S):
+    tables = re.findall(r"<table(?: [^>]*)?>.*?</table>", report_html, re.S)
+    assert tables
+    for table in tables:
         width = len(re.findall(r"<th[ >]", table))
         rows = re.findall(r"<tr>(.*?)</tr>", table, re.S)[1:]
         assert rows and all(len(re.findall(r"<td[ >]", row)) == width for row in rows)
@@ -469,10 +472,17 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     for heading in numbered:
         assert heading.replace("&", "&amp;") in report_html
         assert heading.split(". ", 1)[1] in " ".join(pdf_text.split())
+    blocks = re.findall(r"(?ms)^#### .*?(?=^#{1,4} |\Z)", report)
     for finding in results["findings"]:
         assert finding["evidence_ids"] and set(finding["evidence_ids"]) <= known
         escaped_id = finding["id"].replace("_", "\\_")
-        block = report.split(f"### {escaped_id}:", 1)[1].split("###", 1)[0]
+        matching = [
+            block
+            for block in blocks
+            if f"#### {escaped_id}:" in block or f"({escaped_id}):" in block
+        ]
+        assert len(matching) == 1
+        block = matching[0]
         refs = set(re.findall(r"ev-[a-z_]+-\d+", block))
         assert set(finding["evidence_ids"]) <= refs <= known
     assert set(re.findall(r"ev-[a-z_]+-\d+", report)) <= known

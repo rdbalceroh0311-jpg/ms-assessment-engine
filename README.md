@@ -31,6 +31,10 @@ with the draft human-review banner. Findings use Confirmed / Reported by custome
 assessed basis labels and exactly one of the four AMS service categories. The planning approach is
 to improve processes and integrate existing systems first; there are no ranking, traffic, lead or
 revenue guarantees, and AI-search readiness does not measure AI visibility.
+Repeated accessibility rules on the same website share one customer-report block and recommendation
+(www/apex aliases share a website), with each affected page/viewport, finding ID and evidence reference
+retained. The lifecycle table shows non-current
+findings; JSON retains every individual finding. Repeated coverage and evidence are grouped for display.
 Only required modules run; a domain/security/performance-only run has no crawl. Customer IDs must be
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
@@ -153,6 +157,10 @@ rechecked**, with their last-observed dates. Resolution records its evidence, da
 reopens the identity and preserves its events and observations. Current severity follows the latest
 observation. Resolved and superseded findings are excluded from recommendations and the roadmap;
 conflicts remain **needs review**. Discovery supersession and conflict rules below are unchanged.
+Axe node groups produce one verdict per rule/page/viewport: any violation fails the check;
+incomplete nodes prevent a pass. Historical PASS/FAIL pairs citing the same axe audit are interpreted
+as FAIL, with false review holds corrected in the current view and saved on the next store write.
+Raw runs and evidence remain unchanged; contradictions between different audits still need review.
 Current citations refer to the current observation; older citations remain in finding events.
 Historical AI prose is removed only when its cited basis belongs solely to resolved or superseded
 findings, preserving sentences with a current or mixed basis.
@@ -309,8 +317,13 @@ evidence. Older assessments are backfilled when the register or customer report 
 Existing `presence-verify` records and recognised, explicitly named `systems_in_use` discovery
 systems are reused. A legacy verification with several websites stays
 customer-wide because it has no website attribution. Industry/buying-model relevance uses the
-existing platform catalogue. Use `--site` and `--location` to scope a manual record; a multi-site
-customer requires an explicit site when editing. Platform keys are listed by `register set --help`.
+existing platform catalogue. `register set` selects an exact existing `--site`/`--location` scope
+first, then reuses the sole matching entry for omitted/empty selectors. A nonempty `--site` or
+`--location` that matches nothing creates that scope; it is never silently discarded. When the
+site is omitted, a new location uses the platform's sole existing website (or the customer's sole
+website for a new platform). An explicit `--site ''` with a new location creates a customer-wide
+location. Ambiguous matches require explicit site/location selectors.
+Platform keys are listed by `register set --help`.
 
 ```sh
 uv run ams-assess register show --customer acme
@@ -330,7 +343,13 @@ observations. Conflicts are marked **Needs review**; re-confirm a field to ackno
 Evidence and full old/new history retain who, when and source. `--tested` records what was actually
 checked, with optional ISO `--date`; an access update alone does not claim an operational test.
 Manual operational checks remain current until manually changed; later automated checks remain
-in the evidence/history. Use `--site ''` for an explicitly customer-wide record.
+in the evidence/history. `--site ''` selects an existing customer-wide scope when present.
+To clean up an accidental duplicate after verifying the retained row has the intended human data,
+use `register remove --customer acme --platform localsearch --site '' --location ''`.
+Removal requires an exact scope (no auto-resolution), records the complete removed row in history,
+and retains all prior history and evidence. Only purely manual rows can be removed; engine evidence
+and nondefault integration states are protected. It does not merge fields into another row. Regenerate
+reports afterwards; existing report revisions remain immutable.
 Only an engine-recorded successful GSC connection with property evidence sets `connected`.
 Access granted never does. Missing tags are unknown, unsupported does not mean absent, and
 Workspace and Microsoft 365 can coexist. WP-CLI is server tooling, not an account.
@@ -372,7 +391,7 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | Security | HTTP headers and verified TLS certificate issuer/expiry/protocol/hostname. Not a penetration test. |
 | MDN Observatory | Public v2 scan; aggregate grade only. Failure and localhost are explicit skips. |
 | PageSpeed/CrUX | Mobile/desktop PageSpeed v5 with available URL/origin CrUX fields. Optional `PAGESPEED_API_KEY`. Separate CrUX only with `CRUX_API_KEY` or `GOOGLE_API_KEY`. Localhost and exhausted keyless quota are skipped. |
-| DataForSEO | Disabled unless `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` and explicit `--dataforseo-max-usd` are present. One Australia/English domain rank overview request by default (`DATAFORSEO_LOCATION_CODE`, overridden by `--dataforseo-location-code`), one result, no retries/pagination. Estimated $0.0101 is recorded before the call; a lower cap is refused. Presence discovery and `--keywords` SERP calls book against the same cap. Provider price changes are outside this client cap; verify [pricing](https://dataforseo.com/pricing/dataforseo-labs/dataforseo-labs-api) before enabling. No paid endpoint is used in tests. |
+| DataForSEO | Disabled unless `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` and explicit `--dataforseo-max-usd` are present. One Australia/English domain rank overview request by default (`DATAFORSEO_LOCATION_CODE`, overridden by `--dataforseo-location-code`), one result, no retries/pagination. Estimated $0.01515 (including pricing headroom) is recorded before the call; a `--dataforseo-max-usd` cap below $0.01515 refuses the domain overview call. Presence discovery and `--keywords` SERP calls book against the same cap. Provider price changes are outside this client cap; verify [pricing](https://dataforseo.com/pricing/dataforseo-labs/dataforseo-labs-api) before enabling. No paid endpoint is used in tests. |
 | Google Search Console | Explicit `--connect gsc`, service-account `GOOGLE_APPLICATION_CREDENTIALS` or OAuth `AMS_GSC_TOKEN_FILE`, and an accessible matching property. Optional `AMS_GSC_PROPERTY`. Read-only: top 100 queries/pages over 28 complete days with 3-day lag, plus sitemaps. OAuth requires an authorized-user JSON file created by `gsc-auth`. |
 | Digital presence (`presence`) | Reuses browser DOM (meta tags, script URLs, inline tag snippets, `<link>` URLs, anchors, JSON-LD, request URLs), SiteOne headers/external URLs/robots.txt/canonical summary, domain_email MX/TXT and the GSC connection state. Its only requests, and only after a SiteOne crawl, are one `robots.txt` GET and one GET of the first same-origin `Sitemap:` URL (else `/sitemap.xml`), each with at most one redirect that keeps scheme, host and port, all within one 10-second deadline (passed as each request's timeout) and a 2 MB cap; no recursion. The complete body is parsed with ElementTree. Sitemap PASS (sitemaps.org `urlset`/`sitemapindex` with at least one `<loc>`) / WARNING (404, or fully retrieved but invalid; needs verification when robots.txt could not be read) / NOT ASSESSED (fetch failed, incomplete or declared on another origin). Detects Search Console/Bing verification, GA4, legacy UA, GTM, Clarity, Hotjar, Google Ads, Meta, LinkedIn, Bing UET, TikTok, WordPress/Shopify/Wix/Squarespace/Webflow/Joomla/Drupal and Google Workspace/Microsoft 365, with IDs as evidence. IDs count only in tag context (gtag calls, tag URLs, the GTM loader), never as bare strings. Listings (Google Business Profile, Bing, Apple Maps, Facebook, Instagram, LinkedIn and AU directories) only when the website links to them. Produces platform, listing, search/local signal (NAP, location pages, robots.txt, sitemap, canonicals), connected-readiness and customer access checklist tables. Statuses: Detected / Not detected (no public signal on sampled pages, never "no account") / Unknown (GTM present but GA4 not seen, or a consent manager / consent-gated tags present and the tag not seen loading) / NOT ASSESSED. NAP is a confirmed mismatch only on one page with one business entity, untruncated text and exactly one different phone or postcode shown; several entities or values, truncation, absence or values from different pages give a manual verification item. AI cannot create presence findings or findings cited only by presence evidence; GSC data appears only under "Connected business-system findings". Listings always need ownership confirmation; platform pages are never fetched, and search happens only through the DataForSEO SERP under the cap (see above). `AMS_ACCESS_EMAIL` names the AMS account in the checklist (placeholder if unset). |
 | AI | `ANTHROPIC_API_KEY` selects Anthropic SDK (billable; no retries); otherwise authenticated `claude -p --output-format json` with strict schema, tools/hooks/MCP disabled and 300-second timeout; otherwise deterministic fallback. `--no-ai` disables both. Prompt/raw responses stay in the run directory. |

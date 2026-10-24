@@ -73,6 +73,24 @@ def select_pages(pages: list[str], target: str, limit: int = 6) -> list[str]:
     return list(dict.fromkeys(ordered))[:limit]
 
 
+def axe_outcomes(audit, component, evidence_id):
+    # Axe groups describe nodes, not whole-page verdicts. A violation takes precedence;
+    # incomplete nodes prevent a pass even when other nodes passed the same rule.
+    rules = {}
+    for group, status in [
+        ("violations", "fail"),
+        ("incomplete", "unavailable"),
+        ("passes", "pass"),
+        ("inapplicable", "out-of-scope"),
+    ]:
+        for rule in audit.get(group, []):
+            rules.setdefault(rule["id"], status)
+    return [
+        observe(name, "axe:" + rule, "accessibility", component, status, [evidence_id])
+        for rule, status in rules.items()
+    ]
+
+
 def run(ctx: Context) -> ModuleResult:
     result = ModuleResult(name=name)
     axe = ctx.tools_dir / "axe.min.js"
@@ -183,23 +201,7 @@ def run(ctx: Context) -> ModuleResult:
                             url, f"Rendered page evidence ({viewport})", record
                         )
                         component = url + "::" + viewport
-                        for group, status in [
-                            ("passes", "pass"),
-                            ("violations", "fail"),
-                            ("incomplete", "unavailable"),
-                            ("inapplicable", "out-of-scope"),
-                        ]:
-                            for rule in audit.get(group, []):
-                                result.outcomes.append(
-                                    observe(
-                                        name,
-                                        "axe:" + rule["id"],
-                                        "accessibility",
-                                        component,
-                                        status,
-                                        [eid],
-                                    )
-                                )
+                        result.outcomes.extend(axe_outcomes(audit, component, eid))
                         for violation in audit["violations"]:
                             severity = (
                                 "high"

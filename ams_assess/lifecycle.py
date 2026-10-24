@@ -149,7 +149,7 @@ def transition(
     """Absence is never a pass. A pass must cover every previously failing component."""
     known = {e.id: e for e in evidence}
     rows: dict[tuple[str, str, str], list[CheckOutcome]] = {}
-    for outcome in outcomes:
+    for outcome in page_axe_outcomes(outcomes):
         if not set(outcome.evidence_ids) <= known.keys():
             raise ValueError("Check outcome references missing evidence")
         identity = (
@@ -251,3 +251,34 @@ def transition(
         if {"pass", "fail"} <= statuses:
             finding.lifecycle_status = "needs_review"
     return result
+
+
+def page_axe_outcomes(outcomes: list[CheckOutcome]) -> list[CheckOutcome]:
+    """Interpret legacy node-group outcomes from one run without changing stored evidence.
+
+    Only a browser axe result citing the SAME audit can supersede its passing nodes.
+    Different audits and all non-axe contradictions still require review.
+    """
+
+    def audit_key(o):
+        return (o.site, o.check_id, o.component, frozenset(o.evidence_ids))
+
+    nonpasses = {
+        audit_key(o)
+        for o in outcomes
+        if o.module == "browser"
+        and o.check_id.startswith("axe:")
+        and o.category == "accessibility"
+        and o.status in {"fail", "unavailable"}
+        and o.evidence_ids
+    }
+    return [
+        o
+        for o in outcomes
+        if not (
+            o.module == "browser"
+            and o.category == "accessibility"
+            and o.status == "pass"
+            and audit_key(o) in nonpasses
+        )
+    ]

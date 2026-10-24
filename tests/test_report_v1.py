@@ -609,7 +609,7 @@ def test_report_review_basis_and_concise_customer_actions():
         assert ("prefer keeping and integrating existing systems" in block) == (
             f["ams_service"] in {"Business Systems", "AI & Automation"}
         )
-        assert roadmap.count(f"({f['id']})") == 1
+        assert roadmap.count(f"({mdtext(f['id'])})") == 1
         assert mdtext(f["recommendation"]) in roadmap
         if f["check_key"].startswith("site:"):
             assert not re.search(rf"^\| {re.escape(mdtext(f['title']))} \(", text, re.M)
@@ -617,9 +617,9 @@ def test_report_review_basis_and_concise_customer_actions():
     discovery = text.split("### Platform presence discovery", 1)[1].split(
         "### Website and email", 1
     )[0]
-    assert discovery.count(" | Not applicable | ") == 1
+    assert discovery.count("<br>Not applicable | ") == 1
     assert "Tripadvisor, OpenTable, Uber Eats" in discovery
-    assert "| high | hipages | Not assessed |" in discovery
+    assert "| hipages (high)<br>Not assessed |" in discovery
     assert "True Local, Localsearch, Houzz" in discovery
     assert "Manual verification tasks" in review and "**hipages**" in review
     platforms = data["digital_presence"]["discovery"]["platforms"]

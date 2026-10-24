@@ -17,7 +17,7 @@ This report connects the evidence to practical decisions about your business. A 
 **Business context — Reported by customer:** Harbour Demo Plumbing. Industry: Trades & home services (incl. painting). Buying model: Service-area (staff travel to customers). Service area: Sydney. Evidence: ev-profile-r1-001.
 
 
-The assessment recorded 20 findings supported by collected evidence or customer statements. The recommendations below prioritise the observed or reported issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
+The assessment recorded 20 findings supported by collected evidence or customer statements, presented as 20 issues below. Repeated page/viewport observations of the same rule share one recommendation; their individual IDs and evidence remain listed. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
 
 > No ranking, traffic, lead or revenue guarantees. AI-search readiness is not measured AI visibility. This technical assessment is a limited, point-in-time sample, not a full security, accessibility or operational audit. Potential impacts and likely causes require verification.
 
@@ -26,6 +26,8 @@ Basis labels: **Confirmed (technical evidence)** means directly observed; **Manu
 ## 2. Scope, sources, dates and coverage limitations
 
 The table explains what ran and where evidence was unavailable. Results apply only to the website, date and sample shown; they do not establish account ownership or complete coverage.
+
+**Standard requirements:** Where a finding refers to these requirements, its dependencies are Customer approval of scope and an accountable system owner before changes. Information still required: Confirm the current setup, existing integrations, access and business priority. Finding-specific exceptions are stated with each issue.
 
 | Website / run | Date (UTC) | Successful HTML pages / crawl URL budget | Run outcome |
 | --- | --- | --- | --- |
@@ -89,16 +91,13 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Managed IT & Technology
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/missing-offer.html
 
 **Source:** siteone (ev-siteone-r2-010).
-
-**Evidence:** ev-siteone-r2-010
-
 #### siteone-001: Review internal redirects
 
 **Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
@@ -113,16 +112,13 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Managed IT & Technology
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/old-service; http://127.0.0.1:18765/older-service
 
 **Source:** siteone (ev-siteone-r2-009); siteone (ev-siteone-r2-011).
-
-**Evidence:** ev-siteone-r2-009, ev-siteone-r2-011
-
 
 ### SEO findings
 
@@ -140,16 +136,13 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
 
 **Source:** siteone (ev-siteone-r2-015).
-
-**Evidence:** ev-siteone-r2-015
-
 #### siteone-005: Missing H1
 
 **Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
@@ -164,16 +157,13 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
 
 **Source:** siteone (ev-siteone-r2-015).
-
-**Evidence:** ev-siteone-r2-015
-
 #### site\_checks-002: Duplicates, headings / internal links
 
 **Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
@@ -188,14 +178,11 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** site\_checks (ev-site_checks-r2-007).
-
-**Evidence:** ev-site_checks-r2-007
-
 #### siteone-010: Pages without a canonical link
 
 **Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
@@ -210,16 +197,13 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/
 
 **Source:** siteone (ev-siteone-r2-024).
-
-**Evidence:** ev-siteone-r2-024
-
 
 ### GEO / AI search readiness
 
@@ -237,14 +221,11 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** site\_checks (ev-site_checks-r2-003).
-
-**Evidence:** ev-site_checks-r2-003
-
 
 
 ### Functionality & accessibility
@@ -263,16 +244,13 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
 
 **Source:** browser (ev-browser-r2-003); browser (ev-browser-r2-009).
-
-**Evidence:** ev-browser-r2-003, ev-browser-r2-009
-
 #### browser-002: Images must have alternative text
 
 **Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
@@ -287,16 +265,13 @@ These checks look at whether customers and search engines can reach and understa
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
 
 **Source:** browser (ev-browser-r2-003); browser (ev-browser-r2-009).
-
-**Evidence:** ev-browser-r2-003, ev-browser-r2-009
-
 
 
 
@@ -306,20 +281,18 @@ Each row describes the sampled evidence. NOT ASSESSED means evidence is unavaila
 
 Checks with findings are described in their finding blocks; the remaining checks are listed here.
 
-| Check / evidence | Status | What was checked | Why it matters | Recommended correction |
-| --- | --- | --- | --- | --- |
-| Robots rules / site-wide Disallow (ev-site_checks-r2-002)<br>http://127.0.0.1:18765/ | PASS | Parsed 4 groups; root and representative public path allowed for \*, Googlebot and Bingbot. | Broad rules can prevent search engines crawling public pages. | Confirm intended visibility, remove unintended broad Disallow rules, then retest. |
-| Page noindex / X-Robots-Tag (ev-site_checks-r2-004)<br>http://127.0.0.1:18765/ | PASS | No noindex in 7 crawl indexing records. Meta directives inspected where available; individual HTTP-header attribution may be unavailable outside the homepage. | Unintended noindex on home or key pages prevents those pages appearing in search. | Confirm intended indexing per URL; inspect response headers on unsampled pages. Remove noindex only on pages intended for search. |
-| Sitemap URL validity (ev-site_checks-r2-005)<br>http://127.0.0.1:18765/ | PASS | Compared 7 sitemap URLs with existing crawl results: 0 with observed issues, 0 uncrawled/unavailable (NOT ASSESSED). | Sitemaps should list final, successful, indexable URLs; uncrawled URLs are unknown. | Replace redirects/non-200/noindex URLs; manually validate uncrawled entries. Use absolute HTTP(S) sitemap URLs in production. |
-| Canonical accessibility / consistency (ev-site_checks-r2-006)<br>http://127.0.0.1:18765/ | PASS | 3 declarations; 0 need review; 0 targets NOT ASSESSED. http://127.0.0.1:18765/ -\> http://127.0.0.1:18765/: HTTP 200 ; http://127.0.0.1:18765/service/a/ -\> http://127.0.0.1:18765/service/a/: HTTP 200 ; http://127.0.0.1:18765/service/b/ -\> http://127.0.0.1:18765/service/b/: HTTP 200 | Canonical hints should consistently identify accessible, indexable preferred pages. | Review conflicting targets; use final indexable URLs. Manually verify uncrawled targets. |
-| Organization / LocalBusiness / BreadcrumbList (ev-site_checks-r2-008)<br>http://127.0.0.1:18765/ | INFO | Validated 1 supported JSON-LD nodes. No invalid supported properties found. 4 applicable-property suggestions; absence is not a failure. | Consistent structured data clarifies entities; it does not guarantee rich results. | Fix invalid JSON-LD and required properties; review applicable recommended properties with Google's Rich Results Test. Organization has no required properties. |
-| Core Web Vitals (field p75) (ev-site_checks-r2-010)<br>http://127.0.0.1:18765/ | NOT ASSESSED | No usable CrUX/PSI p75 field data. Lighthouse lab scores are not CWV. | Field LCP, INP and CLS describe real-user experience; origin and URL scopes differ. | Investigate non-good field metrics and verify all three at p75. Good: LCP \<=2500 ms, INP \<=200 ms, CLS \<=0.1. Poor: LCP \>4000 ms, INP \>500 ms, CLS \>0.25. Missing field data requires manual verification; preserve separate lab findings. |
-| Booking / CRM / chat tools (ev-site_checks-r2-011)<br>http://127.0.0.1:18765/ | INFO | Detected markup signals: Calendly. Script/link/iframe URLs and recognised inline API calls; prose excluded. Iframes outside the normal-UA homepage probe may be unavailable. | Public integration signals help identify systems to discuss; they do not prove account existence, ownership or working integration. | Confirm customer-owned systems and test authorised journeys before proposing changes. |
-| Conversion pathways / forms NOT TESTED (ev-site_checks-r2-012)<br>http://127.0.0.1:18765/ | INFO | 6 rendered pages inspected for forms, booking links, tel/mailto, CTA wording, trust signals and case-study/portfolio/team/about links. Above-the-fold placement NOT ASSESSED where positions are unavailable. Form submissions: NOT TESTED. Trust claims and journey outcomes are unverified. | Visible enquiry options help plan journey validation; their presence does not prove forms, booking, lead delivery or conversion performance work. | Review missing paths and CTA prominence manually; arrange an authorised safe journey test with the customer. No submissions were made. |
-| Analytics / conversion-event code signals (ev-site_checks-r2-013)<br>http://127.0.0.1:18765/ | NOT ASSESSED | Unknown: consent manager/gated scripts prevent confirming execution. Analytics/advertising tags: ga4, gtm, clarity; visible event calls: 2. Events are not proof of measured conversions. | An event call can indicate measurement intent; consent, delivery and key-event configuration need separate verification. | Use customer-authorised tag diagnostics and analytics access to verify post-consent events and conversion configuration. |
-| Suspected CDN / firewall crawler blocking (ev-site_checks-r2-014)<br>http://127.0.0.1:18765/ | PASS | Normal UA HTTP 200; AI-search UA HTTP 200. No differential HTTP block observed in this pair. | A differing response may indicate a CDN/firewall policy, rate limit or transient failure; spoofing a UA does not reproduce a verified crawler IP. | Review CDN/server logs and allow intentional search access after customer approval. Verify with the real crawler; do not bypass challenges. |
-| llms.txt (informational) (ev-site_checks-r2-015)<br>http://127.0.0.1:18765/ | INFO | llms.txt present; HTTP 200. One bounded fetch; HTML fallbacks, redirects, empty or incomplete responses are not confirmed files. | llms.txt is an optional informational convention, not an indexing requirement or evidence of ranking or AI-search visibility. | No correction required for absence. Review accuracy if choosing to publish this file. |
-| Answer readiness (heuristic) (ev-site_checks-r2-016)<br>http://127.0.0.1:18765/ | INFO | 6 pages checked for FAQPage/QAPage, question headings, FAQ sections, and service/location/contact statements. Signals are heuristic; clarity, correctness and AI-search visibility are not established. | Explicit answers and business context can make content easier to interpret. | Review accurate answers, service scope, locations and contact details with the customer; do not add unsupported schema or claim AI-search rankings. |
+- **Robots rules / site-wide Disallow — PASS** (ev-site_checks-r2-002; http://127.0.0.1:18765/). Checked: Parsed 4 groups; root and representative public path allowed for \*, Googlebot and Bingbot. Why it matters: Broad rules can prevent search engines crawling public pages. Recommended correction: Confirm intended visibility, remove unintended broad Disallow rules, then retest.
+- **Page noindex / X-Robots-Tag — PASS** (ev-site_checks-r2-004; http://127.0.0.1:18765/). Checked: No noindex in 7 crawl indexing records. Meta directives inspected where available; individual HTTP-header attribution may be unavailable outside the homepage. Why it matters: Unintended noindex on home or key pages prevents those pages appearing in search. Recommended correction: Confirm intended indexing per URL; inspect response headers on unsampled pages. Remove noindex only on pages intended for search.
+- **Sitemap URL validity — PASS** (ev-site_checks-r2-005; http://127.0.0.1:18765/). Checked: Compared 7 sitemap URLs with existing crawl results: 0 with observed issues, 0 uncrawled/unavailable (NOT ASSESSED). Why it matters: Sitemaps should list final, successful, indexable URLs; uncrawled URLs are unknown. Recommended correction: Replace redirects/non-200/noindex URLs; manually validate uncrawled entries. Use absolute HTTP(S) sitemap URLs in production.
+- **Canonical accessibility / consistency — PASS** (ev-site_checks-r2-006; http://127.0.0.1:18765/). Checked: 3 declarations; 0 need review; 0 targets NOT ASSESSED. http://127.0.0.1:18765/ -\> http://127.0.0.1:18765/: HTTP 200 ; http://127.0.0.1:18765/service/a/ -\> http://127.0.0.1:18765/service/a/: HTTP 200 ; http://127.0.0.1:18765/service/b/ -\> http://127.0.0.1:18765/service/b/: HTTP 200 Why it matters: Canonical hints should consistently identify accessible, indexable preferred pages. Recommended correction: Review conflicting targets; use final indexable URLs. Manually verify uncrawled targets.
+- **Organization / LocalBusiness / BreadcrumbList — INFO** (ev-site_checks-r2-008; http://127.0.0.1:18765/). Checked: Validated 1 supported JSON-LD nodes. No invalid supported properties found. 4 applicable-property suggestions; absence is not a failure. Why it matters: Consistent structured data clarifies entities; it does not guarantee rich results. Recommended correction: Fix invalid JSON-LD and required properties; review applicable recommended properties with Google's Rich Results Test. Organization has no required properties.
+- **Core Web Vitals (field p75) — NOT ASSESSED** (ev-site_checks-r2-010; http://127.0.0.1:18765/). Checked: No usable CrUX/PSI p75 field data. Lighthouse lab scores are not CWV. Why it matters: Field LCP, INP and CLS describe real-user experience; origin and URL scopes differ. Recommended correction: Investigate non-good field metrics and verify all three at p75. Good: LCP \<=2500 ms, INP \<=200 ms, CLS \<=0.1. Poor: LCP \>4000 ms, INP \>500 ms, CLS \>0.25. Missing field data requires manual verification; preserve separate lab findings.
+- **Booking / CRM / chat tools — INFO** (ev-site_checks-r2-011; http://127.0.0.1:18765/). Checked: Detected markup signals: Calendly. Script/link/iframe URLs and recognised inline API calls; prose excluded. Iframes outside the normal-UA homepage probe may be unavailable. Why it matters: Public integration signals help identify systems to discuss; they do not prove account existence, ownership or working integration. Recommended correction: Confirm customer-owned systems and test authorised journeys before proposing changes.
+- **Conversion pathways / forms NOT TESTED — INFO** (ev-site_checks-r2-012; http://127.0.0.1:18765/). Checked: 6 rendered pages inspected for forms, booking links, tel/mailto, CTA wording, trust signals and case-study/portfolio/team/about links. Above-the-fold placement NOT ASSESSED where positions are unavailable. Form submissions: NOT TESTED. Trust claims and journey outcomes are unverified. Why it matters: Visible enquiry options help plan journey validation; their presence does not prove forms, booking, lead delivery or conversion performance work. Recommended correction: Review missing paths and CTA prominence manually; arrange an authorised safe journey test with the customer. No submissions were made.
+- **Analytics / conversion-event code signals — NOT ASSESSED** (ev-site_checks-r2-013; http://127.0.0.1:18765/). Checked: Unknown: consent manager/gated scripts prevent confirming execution. Analytics/advertising tags: ga4, gtm, clarity; visible event calls: 2. Events are not proof of measured conversions. Why it matters: An event call can indicate measurement intent; consent, delivery and key-event configuration need separate verification. Recommended correction: Use customer-authorised tag diagnostics and analytics access to verify post-consent events and conversion configuration.
+- **Suspected CDN / firewall crawler blocking — PASS** (ev-site_checks-r2-014; http://127.0.0.1:18765/). Checked: Normal UA HTTP 200; AI-search UA HTTP 200. No differential HTTP block observed in this pair. Why it matters: A differing response may indicate a CDN/firewall policy, rate limit or transient failure; spoofing a UA does not reproduce a verified crawler IP. Recommended correction: Review CDN/server logs and allow intentional search access after customer approval. Verify with the real crawler; do not bypass challenges.
+- **llms.txt (informational) — INFO** (ev-site_checks-r2-015; http://127.0.0.1:18765/). Checked: llms.txt present; HTTP 200. One bounded fetch; HTML fallbacks, redirects, empty or incomplete responses are not confirmed files. Why it matters: llms.txt is an optional informational convention, not an indexing requirement or evidence of ranking or AI-search visibility. Recommended correction: No correction required for absence. Review accuracy if choosing to publish this file.
+- **Answer readiness (heuristic) — INFO** (ev-site_checks-r2-016; http://127.0.0.1:18765/). Checked: 6 pages checked for FAQPage/QAPage, question headings, FAQ sections, and service/location/contact statements. Signals are heuristic; clarity, correctness and AI-search visibility are not established. Why it matters: Explicit answers and business context can make content easier to interpret. Recommended correction: Review accurate answers, service scope, locations and contact details with the customer; do not add unsupported schema or claim AI-search rankings.
 
 Crawler-policy detail (training restrictions are customer choices):
 
@@ -366,14 +339,11 @@ These observations help you confirm where customers can find the business. A lik
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** presence (ev-presence-r2-010).
-
-**Evidence:** ev-presence-r2-010
-
 #### site\_checks-003: Near-duplicate location pages
 
 **Basis:** Inferred (heuristic or AI, needs verification). **Verification status:** needs verification.
@@ -388,14 +358,11 @@ These observations help you confirm where customers can find the business. A lik
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** site\_checks (ev-site_checks-r2-009).
-
-**Evidence:** ev-site_checks-r2-009
-
 
 ### Entity & brand authority
 
@@ -413,14 +380,11 @@ These observations help you confirm where customers can find the business. A lik
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** presence (ev-presence-r2-006); presence (ev-presence-r2-009); presence (ev-presence-r2-010).
-
-**Evidence:** ev-presence-r2-006, ev-presence-r2-009, ev-presence-r2-010
-
 
 
 
@@ -450,20 +414,18 @@ Website: http://127.0.0.1:18765/ (run r2). Public assessment: statuses below com
 
 ### Business listings linked from the website
 
-| Listing | Status | Source | Evidence URL | Ownership | Evidence |
-| --- | --- | --- | --- | --- | --- |
-| Google Business Profile / Google Maps | Detected (linked from website) | crawl external link, website link | https://g.page/harbour-demo-plumbing-fixture | Ownership confirmation needed | ev-presence-r2-006 |
-| Bing Places / Bing Maps | Not detected | - | - | Ownership confirmation needed | ev-presence-r2-001 |
-| Apple Business / Apple Maps | Not detected | - | - | Ownership confirmation needed | ev-presence-r2-001 |
-| Facebook | Detected (linked from website) | JSON-LD sameAs, crawl external link, website link | https://www.facebook.com/harbour.demo.plumbing.fixture | Ownership confirmation needed | ev-presence-r2-007 |
-| Instagram | Detected (linked from website) | JSON-LD sameAs | https://www.instagram.com/harbour.demo.plumbing.fixture | Ownership confirmation needed | ev-presence-r2-008 |
-| LinkedIn | Not detected | - | - | Ownership confirmation needed | ev-presence-r2-001 |
-| Yellow Pages AU | Detected (linked from website) | crawl external link, website link | https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture | Ownership confirmation needed | ev-presence-r2-009 |
-| True Local | Not detected | - | - | Ownership confirmation needed | ev-presence-r2-001 |
-| hipages | Not detected | - | - | Ownership confirmation needed | ev-presence-r2-001 |
-| ServiceSeeking | Not detected | - | - | Ownership confirmation needed | ev-presence-r2-001 |
-| Word of Mouth | Not detected | - | - | Ownership confirmation needed | ev-presence-r2-001 |
-| Houzz | Not detected | - | - | Ownership confirmation needed | ev-presence-r2-001 |
+- **Google Business Profile / Google Maps — Detected (linked from website)**. Source: crawl external link, website link. Evidence URL: https://g.page/harbour-demo-plumbing-fixture. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-006.
+- **Bing Places / Bing Maps — Not detected**. Source: -. Evidence URL: -. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-001.
+- **Apple Business / Apple Maps — Not detected**. Source: -. Evidence URL: -. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-001.
+- **Facebook — Detected (linked from website)**. Source: JSON-LD sameAs, crawl external link, website link. Evidence URL: https://www.facebook.com/harbour.demo.plumbing.fixture. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-007.
+- **Instagram — Detected (linked from website)**. Source: JSON-LD sameAs. Evidence URL: https://www.instagram.com/harbour.demo.plumbing.fixture. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-008.
+- **LinkedIn — Not detected**. Source: -. Evidence URL: -. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-001.
+- **Yellow Pages AU — Detected (linked from website)**. Source: crawl external link, website link. Evidence URL: https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-009.
+- **True Local — Not detected**. Source: -. Evidence URL: -. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-001.
+- **hipages — Not detected**. Source: -. Evidence URL: -. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-001.
+- **ServiceSeeking — Not detected**. Source: -. Evidence URL: -. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-001.
+- **Word of Mouth — Not detected**. Source: -. Evidence URL: -. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-001.
+- **Houzz — Not detected**. Source: -. Evidence URL: -. Ownership: Ownership confirmation needed. Evidence: ev-presence-r2-001.
 
 ### Platform presence discovery
 
@@ -479,27 +441,25 @@ Independent search: **Not assessed** (no --dataforseo-max-usd cap was passed). B
 
 > Keyword positions are point-in-time samples for one location; they are not a ranking guarantee and AI-search readiness is not AI-search visibility.
 
-| Relevance | Platform | State | Candidate profiles and match evidence | Detail | Evidence |
-| --- | --- | --- | --- | --- | --- |
-| high | Google Business Profile / Google Maps | Found — likely match | https://g.page/harbour-demo-plumbing-fixture [linked from the website] | 1 candidate profile(s); linked from the website. Searched through the DataForSEO Google Maps SERP only. | ev-presence-r2-015 |
-| high | hipages | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| medium | Bing Places / Bing Maps | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. No provider search; manual verification only. | ev-presence-r2-014 |
-| medium | Facebook | Found — likely match | https://www.facebook.com/harbour.demo.plumbing.fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-016 |
-| medium | Instagram | Found — likely match | https://www.instagram.com/harbour.demo.plumbing.fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-017 |
-| medium | Yellow Pages AU | Found — likely match | https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture [linked from the website] | 1 candidate profile(s); linked from the website | ev-presence-r2-018 |
-| medium | True Local, Localsearch, Houzz | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | Apple Business / Apple Maps | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Apple Business replaced Apple Business Connect. No provider search; manual only. | ev-presence-r2-014 |
-| low | LinkedIn, YouTube, TikTok, Yelp, Hotfrog, Cylex, Whereis, Word of Mouth, Airtasker, ServiceSeeking | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed | ev-presence-r2-014 |
-| low | Pinterest | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Relevant only where visual inspiration drives enquiries. | ev-presence-r2-014 |
-| low | Chambers of commerce / professional & industry associations | Not assessed | - | Not searched: no --dataforseo-max-usd cap was passed. Generic manual item: membership directories differ by industry and region (e.g. local chambers, trade or traffic-management industry bodies). | ev-presence-r2-014 |
-| not\_applicable | Tripadvisor, OpenTable, Uber Eats, DoorDash, Menulog, Fresha, Booksy, Timely, NSW buy.nsw Supplier Hub, AusTender, ICN Gateway | Not applicable | - | Not relevant for the recorded industry and buying model. | ev-presence-r2-014 |
+| Platform / relevance / state | Candidate profiles, match evidence and detail |
+| --- | --- |
+| Google Business Profile / Google Maps (high)<br>Found — likely match | https://g.page/harbour-demo-plumbing-fixture [linked from the website]; 1 candidate profile(s); linked from the website. Searched through the DataForSEO Google Maps SERP only. Evidence: ev-presence-r2-015 |
+| hipages (high)<br>Not assessed | Not searched: no --dataforseo-max-usd cap was passed Evidence: ev-presence-r2-014 |
+| Bing Places / Bing Maps (medium)<br>Not assessed | Not searched: no --dataforseo-max-usd cap was passed. No provider search; manual verification only. Evidence: ev-presence-r2-014 |
+| Facebook (medium)<br>Found — likely match | https://www.facebook.com/harbour.demo.plumbing.fixture [linked from the website]; 1 candidate profile(s); linked from the website Evidence: ev-presence-r2-016 |
+| Instagram (medium)<br>Found — likely match | https://www.instagram.com/harbour.demo.plumbing.fixture [linked from the website]; 1 candidate profile(s); linked from the website Evidence: ev-presence-r2-017 |
+| Yellow Pages AU (medium)<br>Found — likely match | https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture [linked from the website]; 1 candidate profile(s); linked from the website Evidence: ev-presence-r2-018 |
+| True Local, Localsearch, Houzz (medium)<br>Not assessed | Not searched: no --dataforseo-max-usd cap was passed Evidence: ev-presence-r2-014 |
+| Apple Business / Apple Maps (low)<br>Not assessed | Not searched: no --dataforseo-max-usd cap was passed. Apple Business replaced Apple Business Connect. No provider search; manual only. Evidence: ev-presence-r2-014 |
+| LinkedIn, YouTube, TikTok, Yelp, Hotfrog, Cylex, Whereis, Word of Mouth, Airtasker, ServiceSeeking (low)<br>Not assessed | Not searched: no --dataforseo-max-usd cap was passed Evidence: ev-presence-r2-014 |
+| Pinterest (low)<br>Not assessed | Not searched: no --dataforseo-max-usd cap was passed. Relevant only where visual inspiration drives enquiries. Evidence: ev-presence-r2-014 |
+| Chambers of commerce / professional & industry associations (low)<br>Not assessed | Not searched: no --dataforseo-max-usd cap was passed. Generic manual item: membership directories differ by industry and region (e.g. local chambers, trade or traffic-management industry bodies). Evidence: ev-presence-r2-014 |
+| Tripadvisor, OpenTable, Uber Eats, DoorDash, Menulog, Fresha, Booksy, Timely, NSW buy.nsw Supplier Hub, AusTender, ICN Gateway (not\_applicable)<br>Not applicable | Not relevant for the recorded industry and buying model. Evidence: ev-presence-r2-014 |
 
 ### Website and email platforms
 
-| Platform | Status | Connection readiness | Evidence | Recommended next action |
-| --- | --- | --- | --- | --- |
-| Google Workspace | NOT ASSESSED | Unsupported | Public DNS evidence unavailable (domain\_email not assessed) | Verify manually |
-| Microsoft 365 | NOT ASSESSED | Unsupported | Public DNS evidence unavailable (domain\_email not assessed) | Verify manually |
+- **Google Workspace — NOT ASSESSED**. Connection readiness: Unsupported. Public DNS evidence unavailable (domain\_email not assessed). Next action: Verify manually
+- **Microsoft 365 — NOT ASSESSED**. Connection readiness: Unsupported. Public DNS evidence unavailable (domain\_email not assessed). Next action: Verify manually
 
 Other website platforms not detected on the sampled pages: WordPress, Shopify, Wix, Squarespace, Webflow, Joomla, Drupal (evidence ev-presence-r2-001).
 
@@ -512,20 +472,18 @@ Public tags suggest which tools may be in use; they do not establish access to t
 
 Consent management observed (consent-gated scripts): tags not seen loading are reported as Unknown rather than Detected or Not detected.
 
-| Platform | Status | Connection readiness | Evidence | Recommended next action |
-| --- | --- | --- | --- | --- |
-| Google Search Console | Detected | Not connected | Seen on http://127.0.0.1:18765/ (ev-presence-r2-002) | Request access (customer access checklist) |
-| Bing Webmaster Tools | Not detected | Unsupported | No public signal on 6 sampled pages (ev-presence-r2-001) | Optional: import the site from Search Console |
-| Google Analytics 4 (G-FIXTURE001) | Unknown | Unsupported | Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages (ev-presence-r2-003) | Verify manually |
-| Universal Analytics (legacy) | Unknown | Unsupported | Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001) | Verify manually |
-| Google Tag Manager (GTM-FIXTURE1) | Unknown | Unsupported | Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages (ev-presence-r2-004) | Verify manually |
-| Microsoft Clarity (fixture01) | Unknown | Unsupported | Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages (ev-presence-r2-005) | Verify manually |
-| Hotjar | Unknown | Unsupported | Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001) | Verify manually |
-| Google Ads | Unknown | Unsupported | Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001) | Verify manually |
-| Meta Pixel | Unknown | Unsupported | Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001) | Verify manually |
-| LinkedIn Insight Tag | Unknown | Unsupported | Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001) | Verify manually |
-| Microsoft Advertising UET | Unknown | Unsupported | Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001) | Verify manually |
-| TikTok Pixel | Unknown | Unsupported | Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001) | Verify manually |
+- **Google Search Console — Detected**. Connection readiness: Not connected. Seen on http://127.0.0.1:18765/ (ev-presence-r2-002). Next action: Request access (customer access checklist)
+- **Bing Webmaster Tools — Not detected**. Connection readiness: Unsupported. No public signal on 6 sampled pages (ev-presence-r2-001). Next action: Optional: import the site from Search Console
+- **Google Analytics 4 — Unknown** (G-FIXTURE001). Connection readiness: Unsupported. Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages (ev-presence-r2-003). Next action: Verify manually
+- **Universal Analytics (legacy) — Unknown**. Connection readiness: Unsupported. Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001). Next action: Verify manually
+- **Google Tag Manager — Unknown** (GTM-FIXTURE1). Connection readiness: Unsupported. Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages (ev-presence-r2-004). Next action: Verify manually
+- **Microsoft Clarity — Unknown** (fixture01). Connection readiness: Unsupported. Tag present on http://127.0.0.1:18765/ but consent-gated and not seen loading on the sampled pages (ev-presence-r2-005). Next action: Verify manually
+- **Hotjar — Unknown**. Connection readiness: Unsupported. Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001). Next action: Verify manually
+- **Google Ads — Unknown**. Connection readiness: Unsupported. Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001). Next action: Verify manually
+- **Meta Pixel — Unknown**. Connection readiness: Unsupported. Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001). Next action: Verify manually
+- **LinkedIn Insight Tag — Unknown**. Connection readiness: Unsupported. Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001). Next action: Verify manually
+- **Microsoft Advertising UET — Unknown**. Connection readiness: Unsupported. Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001). Next action: Verify manually
+- **TikTok Pixel — Unknown**. Connection readiness: Unsupported. Not seen, but a consent manager or consent-gated tags are present; the tag may load only after consent (ev-presence-r2-001). Next action: Verify manually
 
 
 #### presence-001: Priority platforms still need presence verification
@@ -542,14 +500,11 @@ Consent management observed (consent-gated scripts): tags not seen loading are r
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** presence (ev-presence-r2-014); presence (ev-presence-r2-013).
-
-**Evidence:** ev-presence-r2-014, ev-presence-r2-013
-
 #### presence-003: Analytics or tracking tags could not be confirmed
 
 **Basis:** Inferred (heuristic or AI, needs verification). **Verification status:** needs verification.
@@ -564,14 +519,11 @@ Consent management observed (consent-gated scripts): tags not seen loading are r
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** presence (ev-presence-r2-001); presence (ev-presence-r2-003); presence (ev-presence-r2-004); presence (ev-presence-r2-005).
-
-**Evidence:** ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005
-
 ## 6. Domain, DNS, email and relevant security observations
 
 These checks concern the technical services behind the website and email. DNS is the domain's public address book; email authentication helps receiving systems recognise authorised senders. These observations do not guarantee security or email delivery.
@@ -592,16 +544,13 @@ These checks concern the technical services behind the website and email. DNS is
 
 **AMS service category:** Managed IT & Technology
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/
 
 **Source:** security (ev-security-r2-001); siteone (ev-siteone-r2-019); siteone (ev-siteone-r2-020); siteone (ev-siteone-r2-021); siteone (ev-siteone-r2-022).
-
-**Evidence:** ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022
-
 #### security-006: Server software version disclosed
 
 **Basis:** Confirmed (technical evidence). **Verification status:** confirmed.
@@ -616,16 +565,13 @@ These checks concern the technical services behind the website and email. DNS is
 
 **AMS service category:** Managed IT & Technology
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/
 
 **Source:** security (ev-security-r2-001).
-
-**Evidence:** ev-security-r2-001
-
 
 ## 8. Operational-process and automation findings
 
@@ -697,14 +643,11 @@ Business discovery: customer-provided information
 
 **AMS service category:** AI & Automation
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** discovery (ev-discovery-r3-005); discovery (ev-discovery-r3-006); discovery (ev-discovery-r3-017).
-
-**Evidence:** ev-discovery-r3-005, ev-discovery-r3-006, ev-discovery-r3-017
-
 #### discovery-job-scheduling-and-invoicing-data-live-in-disconne: Job, scheduling and invoicing data live in disconnected tools
 
 **Basis:** Reported by customer. **Verification status:** needs verification.
@@ -719,14 +662,11 @@ Business discovery: customer-provided information
 
 **AMS service category:** Business Systems
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** discovery (ev-discovery-r3-003); discovery (ev-discovery-r3-009); discovery (ev-discovery-r3-010); discovery (ev-discovery-r3-012); discovery (ev-discovery-r3-018).
-
-**Evidence:** ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018
-
 #### discovery-job-spreadsheet-has-no-backup: Job spreadsheet has no backup
 
 **Basis:** Reported by customer. **Verification status:** needs verification.
@@ -741,14 +681,11 @@ Business discovery: customer-provided information
 
 **AMS service category:** Managed IT & Technology
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** discovery (ev-discovery-r3-014).
-
-**Evidence:** ev-discovery-r3-014
-
 #### discovery-no-follow-up-on-quotes-or-service-reminders: No follow-up on quotes or service reminders
 
 **Basis:** Reported by customer. **Verification status:** needs verification.
@@ -763,14 +700,11 @@ Business discovery: customer-provided information
 
 **AMS service category:** Digital Growth
 
-**Dependencies:** Customer approval of scope and an accountable system owner before changes.
+**Dependencies:** Standard requirements (section 2).
 
-**Information still required:** Confirm the current setup, existing integrations, access and business priority.
+**Information still required:** Standard requirements (section 2).
 
 **Source:** discovery (ev-discovery-r3-002); discovery (ev-discovery-r3-008); discovery (ev-discovery-r3-011).
-
-**Evidence:** ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011
-
 ## 9. Prioritised improvement opportunities and recommended roadmap
 
 Agree the process, owner and desired outcome before selecting products. Timing is a planning suggestion, dependent on verification, access, budget and approval.
@@ -794,13 +728,13 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 
 - **P3 - No follow-up on quotes or service reminders (discovery-no-follow-up-on-quotes-or-service-reminders):** Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work. Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.
 - **P3 - Linked profiles missing from structured-data sameAs (presence-004):** Add the customer-owned profile URLs to the business sameAs property. Evidence: ev-presence-r2-006, ev-presence-r2-009, ev-presence-r2-010.
-- **P3 - AI crawler rules by purpose (site_checks-001):** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Evidence: ev-site_checks-r2-003.
-- **P3 - Near-duplicate location pages (site_checks-003):** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.
+- **P3 - AI crawler rules by purpose (site\_checks-001):** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Evidence: ev-site_checks-r2-003.
+- **P3 - Near-duplicate location pages (site\_checks-003):** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.
 - **P3 - Priority platforms still need presence verification (presence-001):** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Evidence: ev-presence-r2-014, ev-presence-r2-013.
 - **P3 - Analytics or tracking tags could not be confirmed (presence-003):** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
 - **P3 - Recommended security headers missing or need review (security-005):** Have the hosting team review the listed policies together, prioritising the higher importance items. Test content loading, embedding and HTTPS compatibility before deployment, then recheck the affected HTML responses and Observatory assessment. Evidence: ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.
 - **P3 - Server software version disclosed (security-006):** Remove unnecessary version detail in the hosting configuration; a version string alone does not establish a vulnerability. Evidence: ev-security-r2-001.
-- **P3 - Duplicates, headings / internal links (site_checks-002):** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.
+- **P3 - Duplicates, headings / internal links (site\_checks-002):** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.
 - **P3 - Pages without a canonical link (siteone-010):** Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-024.
 - **P3 - Review internal redirects (siteone-001):** Link directly to the final canonical URL. Evidence: ev-siteone-r2-009, ev-siteone-r2-011.
 
@@ -843,24 +777,24 @@ A successful connection means evidence was returned for this sample. Unsupported
 
 Manual verification tasks (record results with `ams-assess presence-verify`):
 
-1. **hipages** (high): Search hipages for the business and record what you find. Search: site:hipages.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Ahipages.com.au+%22Harbour+Demo+Plumbing%22).
-2. **Bing Places / Bing Maps** (medium): Search Bing Places / Bing Maps for the business and record what you find. Search: Harbour Demo Plumbing Sydney (https://www.bing.com/maps?q=Harbour+Demo+Plumbing+Sydney).
-3. **True Local** (medium): Search True Local for the business and record what you find. Search: site:truelocal.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Atruelocal.com.au+%22Harbour+Demo+Plumbing%22).
-4. **Localsearch** (medium): Search Localsearch for the business and record what you find. Search: site:localsearch.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Alocalsearch.com.au+%22Harbour+Demo+Plumbing%22).
-5. **Houzz** (medium): Search Houzz for the business and record what you find. Search: site:houzz.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Ahouzz.com.au+%22Harbour+Demo+Plumbing%22).
-6. **Apple Business / Apple Maps** (low): Search Apple Business / Apple Maps for the business and record what you find. Search: Harbour Demo Plumbing Sydney (https://maps.apple.com/?q=Harbour+Demo+Plumbing+Sydney).
-7. **LinkedIn** (low): Search LinkedIn for the business and record what you find. Search: site:linkedin.com/company "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Alinkedin.com%2Fcompany+%22Harbour+Demo+Plumbing%22).
-8. **YouTube** (low): Search YouTube for the business and record what you find. Search: site:youtube.com "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Ayoutube.com+%22Harbour+Demo+Plumbing%22).
-9. **TikTok** (low): Search TikTok for the business and record what you find. Search: site:tiktok.com "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Atiktok.com+%22Harbour+Demo+Plumbing%22).
-10. **Pinterest** (low): Search Pinterest for the business and record what you find. Search: site:pinterest.com "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Apinterest.com+%22Harbour+Demo+Plumbing%22).
-11. **Yelp** (low): Search Yelp for the business and record what you find. Search: site:yelp.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Ayelp.com.au+%22Harbour+Demo+Plumbing%22).
-12. **Hotfrog** (low): Search Hotfrog for the business and record what you find. Search: site:hotfrog.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Ahotfrog.com.au+%22Harbour+Demo+Plumbing%22).
-13. **Cylex** (low): Search Cylex for the business and record what you find. Search: site:cylex.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Acylex.com.au+%22Harbour+Demo+Plumbing%22).
-14. **Whereis** (low): Search Whereis for the business and record what you find. Search: site:whereis.com "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Awhereis.com+%22Harbour+Demo+Plumbing%22).
-15. **Word of Mouth** (low): Search Word of Mouth for the business and record what you find. Search: site:wordofmouth.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Awordofmouth.com.au+%22Harbour+Demo+Plumbing%22).
-16. **Chambers of commerce / professional & industry associations** (low): Search Chambers of commerce / professional & industry associations for the business and record what you find. Search: "Harbour Demo Plumbing" member (chamber OR association) Sydney (https://www.google.com.au/search?q=%22Harbour+Demo+Plumbing%22+member+%28chamber+OR+association%29+Sydney).
-17. **Airtasker** (low): Search Airtasker for the business and record what you find. Search: site:airtasker.com "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Aairtasker.com+%22Harbour+Demo+Plumbing%22).
-18. **ServiceSeeking** (low): Search ServiceSeeking for the business and record what you find. Search: site:serviceseeking.com.au "Harbour Demo Plumbing" (https://www.google.com.au/search?q=site%3Aserviceseeking.com.au+%22Harbour+Demo+Plumbing%22).
+1. **hipages** (high): Search hipages for the business and record what you find. Search: [site:hipages.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Ahipages.com.au+%22Harbour+Demo+Plumbing%22).
+2. **Bing Places / Bing Maps** (medium): Search Bing Places / Bing Maps for the business and record what you find. Search: [Harbour Demo Plumbing Sydney](https://www.bing.com/maps?q=Harbour+Demo+Plumbing+Sydney).
+3. **True Local** (medium): Search True Local for the business and record what you find. Search: [site:truelocal.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Atruelocal.com.au+%22Harbour+Demo+Plumbing%22).
+4. **Localsearch** (medium): Search Localsearch for the business and record what you find. Search: [site:localsearch.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Alocalsearch.com.au+%22Harbour+Demo+Plumbing%22).
+5. **Houzz** (medium): Search Houzz for the business and record what you find. Search: [site:houzz.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Ahouzz.com.au+%22Harbour+Demo+Plumbing%22).
+6. **Apple Business / Apple Maps** (low): Search Apple Business / Apple Maps for the business and record what you find. Search: [Harbour Demo Plumbing Sydney](https://maps.apple.com/?q=Harbour+Demo+Plumbing+Sydney).
+7. **LinkedIn** (low): Search LinkedIn for the business and record what you find. Search: [site:linkedin.com/company "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Alinkedin.com%2Fcompany+%22Harbour+Demo+Plumbing%22).
+8. **YouTube** (low): Search YouTube for the business and record what you find. Search: [site:youtube.com "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Ayoutube.com+%22Harbour+Demo+Plumbing%22).
+9. **TikTok** (low): Search TikTok for the business and record what you find. Search: [site:tiktok.com "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Atiktok.com+%22Harbour+Demo+Plumbing%22).
+10. **Pinterest** (low): Search Pinterest for the business and record what you find. Search: [site:pinterest.com "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Apinterest.com+%22Harbour+Demo+Plumbing%22).
+11. **Yelp** (low): Search Yelp for the business and record what you find. Search: [site:yelp.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Ayelp.com.au+%22Harbour+Demo+Plumbing%22).
+12. **Hotfrog** (low): Search Hotfrog for the business and record what you find. Search: [site:hotfrog.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Ahotfrog.com.au+%22Harbour+Demo+Plumbing%22).
+13. **Cylex** (low): Search Cylex for the business and record what you find. Search: [site:cylex.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Acylex.com.au+%22Harbour+Demo+Plumbing%22).
+14. **Whereis** (low): Search Whereis for the business and record what you find. Search: [site:whereis.com "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Awhereis.com+%22Harbour+Demo+Plumbing%22).
+15. **Word of Mouth** (low): Search Word of Mouth for the business and record what you find. Search: [site:wordofmouth.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Awordofmouth.com.au+%22Harbour+Demo+Plumbing%22).
+16. **Chambers of commerce / professional & industry associations** (low): Search Chambers of commerce / professional & industry associations for the business and record what you find. Search: ["Harbour Demo Plumbing" member (chamber OR association) Sydney](https://www.google.com.au/search?q=%22Harbour+Demo+Plumbing%22+member+%28chamber+OR+association%29+Sydney).
+17. **Airtasker** (low): Search Airtasker for the business and record what you find. Search: [site:airtasker.com "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Aairtasker.com+%22Harbour+Demo+Plumbing%22).
+18. **ServiceSeeking** (low): Search ServiceSeeking for the business and record what you find. Search: [site:serviceseeking.com.au "Harbour Demo Plumbing"](https://www.google.com.au/search?q=site%3Aserviceseeking.com.au+%22Harbour+Demo+Plumbing%22).
 
 ### Manual verification items
 
@@ -870,8 +804,8 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 - discovery-job-scheduling-and-invoicing-data-live-in-disconne: Job, scheduling and invoicing data live in disconnected tools. Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.
 - discovery-job-spreadsheet-has-no-backup: Job spreadsheet has no backup. Evidence: ev-discovery-r3-014.
 - discovery-no-follow-up-on-quotes-or-service-reminders: No follow-up on quotes or service reminders. Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.
-- site_checks-001: AI crawler rules by purpose. Evidence: ev-site_checks-r2-003.
-- site_checks-003: Near-duplicate location pages. Evidence: ev-site_checks-r2-009.
+- site\_checks-001: AI crawler rules by purpose. Evidence: ev-site_checks-r2-003.
+- site\_checks-003: Near-duplicate location pages. Evidence: ev-site_checks-r2-009.
 - presence-001: Priority platforms still need presence verification. Evidence: ev-presence-r2-014, ev-presence-r2-013.
 - presence-003: Analytics or tracking tags could not be confirmed. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
 - security-005: Recommended security headers missing or need review. Evidence: ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.
@@ -886,101 +820,138 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 
 The machine-readable evidence.json retains the observed snippets and links to raw source artefacts. Evidence IDs below are the stable references used throughout this report.
 
-| Evidence ID | Source | Observation | URL |
-| --- | --- | --- | --- |
-| ev-profile-r1-001 | profile | Customer business profile (customer statement) (customer statement) | customer-profile |
-| ev-siteone-r2-001 | siteone | Target redirect resolution before crawling | http://127.0.0.1:18765/ |
-| ev-siteone-r2-002 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/ |
-| ev-siteone-r2-003 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/a/ |
-| ev-siteone-r2-004 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/about.html |
-| ev-siteone-r2-005 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/services.html |
-| ev-siteone-r2-006 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/contact.html |
-| ev-siteone-r2-007 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/service/b/ |
-| ev-siteone-r2-008 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/quote.html |
-| ev-siteone-r2-009 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/old-service |
-| ev-siteone-r2-010 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/missing-offer.html |
-| ev-siteone-r2-011 | siteone | SiteOne HTTP response | http://127.0.0.1:18765/older-service |
-| ev-siteone-r2-012 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/ |
-| ev-siteone-r2-013 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/about.html |
-| ev-siteone-r2-014 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/contact.html |
-| ev-siteone-r2-015 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/quote.html |
-| ev-siteone-r2-016 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/a/ |
-| ev-siteone-r2-017 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/service/b/ |
-| ev-siteone-r2-018 | siteone | SiteOne SEO metadata | http://127.0.0.1:18765/services.html |
-| ev-siteone-r2-019 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-020 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-021 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-022 | siteone | SiteOne header analysis (crawl aggregate) | http://127.0.0.1:18765/ |
-| ev-siteone-r2-023 | siteone | SiteOne robots.txt load | http://127.0.0.1:18765/ |
-| ev-siteone-r2-024 | siteone | SiteOne canonical link summary | http://127.0.0.1:18765/ |
-| ev-siteone-r2-025 | siteone | SiteOne seo-headings table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-026 | siteone | SiteOne redirects table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-027 | siteone | SiteOne 404 table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-028 | siteone | SiteOne headers table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-029 | siteone | SiteOne headers-values table | http://127.0.0.1:18765/ |
-| ev-siteone-r2-030 | siteone | SiteOne external-urls table | http://127.0.0.1:18765/ |
-| ev-browser-r2-001 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/ |
-| ev-browser-r2-002 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/about.html |
-| ev-browser-r2-003 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/quote.html |
-| ev-browser-r2-004 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/service/a/ |
-| ev-browser-r2-005 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/service/b/ |
-| ev-browser-r2-006 | browser | Rendered page evidence (desktop) | http://127.0.0.1:18765/contact.html |
-| ev-browser-r2-007 | browser | Rendered page evidence (mobile) | http://127.0.0.1:18765/ |
-| ev-browser-r2-008 | browser | Rendered page evidence (mobile) | http://127.0.0.1:18765/about.html |
-| ev-browser-r2-009 | browser | Rendered page evidence (mobile) | http://127.0.0.1:18765/quote.html |
-| ev-browser-r2-010 | browser | Rendered page evidence (mobile) | http://127.0.0.1:18765/service/a/ |
-| ev-browser-r2-011 | browser | Rendered page evidence (mobile) | http://127.0.0.1:18765/service/b/ |
-| ev-browser-r2-012 | browser | Rendered page evidence (mobile) | http://127.0.0.1:18765/contact.html |
-| ev-security-r2-001 | security | HTTP response security headers | http://127.0.0.1:18765/ |
-| ev-presence-r2-001 | presence | Digital presence detection coverage (no additional requests) | http://127.0.0.1:18765/ |
-| ev-presence-r2-002 | presence | Platform signal: Google Search Console | http://127.0.0.1:18765/ |
-| ev-presence-r2-003 | presence | Platform signal: Google Analytics 4 | http://127.0.0.1:18765/ |
-| ev-presence-r2-004 | presence | Platform signal: Google Tag Manager | http://127.0.0.1:18765/ |
-| ev-presence-r2-005 | presence | Platform signal: Microsoft Clarity | http://127.0.0.1:18765/ |
-| ev-presence-r2-006 | presence | Listing link: Google Business Profile / Google Maps | https://g.page/harbour-demo-plumbing-fixture |
-| ev-presence-r2-007 | presence | Listing link: Facebook | https://www.facebook.com/harbour.demo.plumbing.fixture |
-| ev-presence-r2-008 | presence | Listing link: Instagram | https://www.instagram.com/harbour.demo.plumbing.fixture |
-| ev-presence-r2-009 | presence | Listing link: Yellow Pages AU | https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture |
-| ev-presence-r2-010 | presence | NAP consistency comparison | http://127.0.0.1:18765/ |
-| ev-presence-r2-011 | presence | Location / service-area page scan of crawled URLs | http://127.0.0.1:18765/ |
-| ev-presence-r2-012 | presence | Bounded robots.txt and XML sitemap fetch | http://127.0.0.1:18765/sitemap.xml |
-| ev-presence-r2-013 | presence | Customer business profile (customer statement) (customer statement) | customer-profile |
-| ev-presence-r2-014 | presence | Independent presence discovery plan and coverage | http://127.0.0.1:18765/ |
-| ev-presence-r2-015 | presence | Presence candidates: Google Business Profile / Google Maps | https://g.page/harbour-demo-plumbing-fixture |
-| ev-presence-r2-016 | presence | Presence candidates: Facebook | https://www.facebook.com/harbour.demo.plumbing.fixture |
-| ev-presence-r2-017 | presence | Presence candidates: Instagram | https://www.instagram.com/harbour.demo.plumbing.fixture |
-| ev-presence-r2-018 | presence | Presence candidates: Yellow Pages AU | https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture |
-| ev-site_checks-r2-001 | site\_checks | Bounded site-check HTTP probes | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-002 | site\_checks | Site check: Robots rules / site-wide Disallow | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-003 | site\_checks | Site check: AI crawler rules by purpose | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-004 | site\_checks | Site check: Page noindex / X-Robots-Tag | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-005 | site\_checks | Site check: Sitemap URL validity | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-006 | site\_checks | Site check: Canonical accessibility / consistency | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-007 | site\_checks | Site check: Duplicates, headings / internal links | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-008 | site\_checks | Site check: Organization / LocalBusiness / BreadcrumbList | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-009 | site\_checks | Site check: Near-duplicate location pages | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-010 | site\_checks | Site check: Core Web Vitals (field p75) | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-011 | site\_checks | Site check: Booking / CRM / chat tools | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-012 | site\_checks | Site check: Conversion pathways / forms NOT TESTED | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-013 | site\_checks | Site check: Analytics / conversion-event code signals | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-014 | site\_checks | Site check: Suspected CDN / firewall crawler blocking | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-015 | site\_checks | Site check: llms.txt (informational) | http://127.0.0.1:18765/ |
-| ev-site_checks-r2-016 | site\_checks | Site check: Answer readiness (heuristic) | http://127.0.0.1:18765/ |
-| ev-discovery-r3-001 | discovery | Customer statement (Business model, services, customers & priorities): Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-002 | discovery | Customer statement (Business model, services, customers & priorities): Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-003 | discovery | Customer statement (Systems in use): Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-004 | discovery | Customer statement (Systems in use): Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-005 | discovery | Customer statement (Enquiries & communication): Calls during jobs or after 5pm go to voicemail and some are never returned (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-006 | discovery | Customer statement (Enquiries & communication): Website form enquiries arrive in the shared inbox and can wait a day for a reply (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-007 | discovery | Customer statement (Sales & quoting): Quotes for refits are typed up in a word processor from the engineer's site notes (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-008 | discovery | Customer statement (Sales & quoting): Nobody follows up quotes that get no response (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-009 | discovery | Customer statement (Bookings & scheduling): Engineers' diaries are juggled by phone when an emergency job comes in (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-010 | discovery | Customer statement (Manual & duplicated tasks): Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-011 | discovery | Customer statement (Manual & duplicated tasks): Annual service reminders are sent by hand from a list (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-012 | discovery | Customer statement (Data duplication, integrations & disconnected systems): Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-013 | discovery | Customer statement (Pain points & bottlenecks): Month-end invoicing is the biggest bottleneck and delays cash coming in (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-014 | discovery | Customer statement (Pain points & bottlenecks): The office laptop holding the job spreadsheet has no backup (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-015 | discovery | Customer statement (Existing automations): Xero sends automatic payment reminders; nothing else is automated and no AI tools are used (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-016 | discovery | Customer statement (Opportunities, constraints & required human approvals): Owner would most like enquiries and bookings to run without the office chasing them (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-017 | discovery | Customer statement (Opportunities, constraints & required human approvals): Quotes and any message about price must be approved by the owner before sending (customer statement) | customer-discovery-notes |
-| ev-discovery-r3-018 | discovery | Customer statement (Opportunities, constraints & required human approvals): Budget is limited this year and the team wants to keep Xero (customer statement) | customer-discovery-notes |
+**profile — Customer business profile (customer statement)** (customer statement): customer-profile: ev-profile-r1-001.
+
+**siteone — Target redirect resolution before crawling**: http://127.0.0.1:18765/: ev-siteone-r2-001.
+
+**siteone — SiteOne HTTP response**: http://127.0.0.1:18765/: ev-siteone-r2-002; http://127.0.0.1:18765/service/a/: ev-siteone-r2-003; http://127.0.0.1:18765/about.html: ev-siteone-r2-004; http://127.0.0.1:18765/services.html: ev-siteone-r2-005; http://127.0.0.1:18765/contact.html: ev-siteone-r2-006; http://127.0.0.1:18765/service/b/: ev-siteone-r2-007; http://127.0.0.1:18765/quote.html: ev-siteone-r2-008; http://127.0.0.1:18765/old-service: ev-siteone-r2-009; http://127.0.0.1:18765/missing-offer.html: ev-siteone-r2-010; http://127.0.0.1:18765/older-service: ev-siteone-r2-011.
+
+**siteone — SiteOne SEO metadata**: http://127.0.0.1:18765/: ev-siteone-r2-012; http://127.0.0.1:18765/about.html: ev-siteone-r2-013; http://127.0.0.1:18765/contact.html: ev-siteone-r2-014; http://127.0.0.1:18765/quote.html: ev-siteone-r2-015; http://127.0.0.1:18765/service/a/: ev-siteone-r2-016; http://127.0.0.1:18765/service/b/: ev-siteone-r2-017; http://127.0.0.1:18765/services.html: ev-siteone-r2-018.
+
+**siteone — SiteOne header analysis (crawl aggregate)**: http://127.0.0.1:18765/: ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.
+
+**siteone — SiteOne robots.txt load**: http://127.0.0.1:18765/: ev-siteone-r2-023.
+
+**siteone — SiteOne canonical link summary**: http://127.0.0.1:18765/: ev-siteone-r2-024.
+
+**siteone — SiteOne seo-headings table**: http://127.0.0.1:18765/: ev-siteone-r2-025.
+
+**siteone — SiteOne redirects table**: http://127.0.0.1:18765/: ev-siteone-r2-026.
+
+**siteone — SiteOne 404 table**: http://127.0.0.1:18765/: ev-siteone-r2-027.
+
+**siteone — SiteOne headers table**: http://127.0.0.1:18765/: ev-siteone-r2-028.
+
+**siteone — SiteOne headers-values table**: http://127.0.0.1:18765/: ev-siteone-r2-029.
+
+**siteone — SiteOne external-urls table**: http://127.0.0.1:18765/: ev-siteone-r2-030.
+
+**browser — Rendered page evidence (desktop)**: http://127.0.0.1:18765/: ev-browser-r2-001; http://127.0.0.1:18765/about.html: ev-browser-r2-002; http://127.0.0.1:18765/quote.html: ev-browser-r2-003; http://127.0.0.1:18765/service/a/: ev-browser-r2-004; http://127.0.0.1:18765/service/b/: ev-browser-r2-005; http://127.0.0.1:18765/contact.html: ev-browser-r2-006.
+
+**browser — Rendered page evidence (mobile)**: http://127.0.0.1:18765/: ev-browser-r2-007; http://127.0.0.1:18765/about.html: ev-browser-r2-008; http://127.0.0.1:18765/quote.html: ev-browser-r2-009; http://127.0.0.1:18765/service/a/: ev-browser-r2-010; http://127.0.0.1:18765/service/b/: ev-browser-r2-011; http://127.0.0.1:18765/contact.html: ev-browser-r2-012.
+
+**security — HTTP response security headers**: http://127.0.0.1:18765/: ev-security-r2-001.
+
+**presence — Digital presence detection coverage (no additional requests)**: http://127.0.0.1:18765/: ev-presence-r2-001.
+
+**presence — Platform signal: Google Search Console**: http://127.0.0.1:18765/: ev-presence-r2-002.
+
+**presence — Platform signal: Google Analytics 4**: http://127.0.0.1:18765/: ev-presence-r2-003.
+
+**presence — Platform signal: Google Tag Manager**: http://127.0.0.1:18765/: ev-presence-r2-004.
+
+**presence — Platform signal: Microsoft Clarity**: http://127.0.0.1:18765/: ev-presence-r2-005.
+
+**presence — Listing link: Google Business Profile / Google Maps**: https://g.page/harbour-demo-plumbing-fixture: ev-presence-r2-006.
+
+**presence — Listing link: Facebook**: https://www.facebook.com/harbour.demo.plumbing.fixture: ev-presence-r2-007.
+
+**presence — Listing link: Instagram**: https://www.instagram.com/harbour.demo.plumbing.fixture: ev-presence-r2-008.
+
+**presence — Listing link: Yellow Pages AU**: https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture: ev-presence-r2-009.
+
+**presence — NAP consistency comparison**: http://127.0.0.1:18765/: ev-presence-r2-010.
+
+**presence — Location / service-area page scan of crawled URLs**: http://127.0.0.1:18765/: ev-presence-r2-011.
+
+**presence — Bounded robots.txt and XML sitemap fetch**: http://127.0.0.1:18765/sitemap.xml: ev-presence-r2-012.
+
+**presence — Customer business profile (customer statement)** (customer statement): customer-profile: ev-presence-r2-013.
+
+**presence — Independent presence discovery plan and coverage**: http://127.0.0.1:18765/: ev-presence-r2-014.
+
+**presence — Presence candidates: Google Business Profile / Google Maps**: https://g.page/harbour-demo-plumbing-fixture: ev-presence-r2-015.
+
+**presence — Presence candidates: Facebook**: https://www.facebook.com/harbour.demo.plumbing.fixture: ev-presence-r2-016.
+
+**presence — Presence candidates: Instagram**: https://www.instagram.com/harbour.demo.plumbing.fixture: ev-presence-r2-017.
+
+**presence — Presence candidates: Yellow Pages AU**: https://www.yellowpages.com.au/nsw/sydney/harbour-demo-plumbing-fixture: ev-presence-r2-018.
+
+**site\_checks — Bounded site-check HTTP probes**: http://127.0.0.1:18765/: ev-site_checks-r2-001.
+
+**site\_checks — Site check: Robots rules / site-wide Disallow**: http://127.0.0.1:18765/: ev-site_checks-r2-002.
+
+**site\_checks — Site check: AI crawler rules by purpose**: http://127.0.0.1:18765/: ev-site_checks-r2-003.
+
+**site\_checks — Site check: Page noindex / X-Robots-Tag**: http://127.0.0.1:18765/: ev-site_checks-r2-004.
+
+**site\_checks — Site check: Sitemap URL validity**: http://127.0.0.1:18765/: ev-site_checks-r2-005.
+
+**site\_checks — Site check: Canonical accessibility / consistency**: http://127.0.0.1:18765/: ev-site_checks-r2-006.
+
+**site\_checks — Site check: Duplicates, headings / internal links**: http://127.0.0.1:18765/: ev-site_checks-r2-007.
+
+**site\_checks — Site check: Organization / LocalBusiness / BreadcrumbList**: http://127.0.0.1:18765/: ev-site_checks-r2-008.
+
+**site\_checks — Site check: Near-duplicate location pages**: http://127.0.0.1:18765/: ev-site_checks-r2-009.
+
+**site\_checks — Site check: Core Web Vitals (field p75)**: http://127.0.0.1:18765/: ev-site_checks-r2-010.
+
+**site\_checks — Site check: Booking / CRM / chat tools**: http://127.0.0.1:18765/: ev-site_checks-r2-011.
+
+**site\_checks — Site check: Conversion pathways / forms NOT TESTED**: http://127.0.0.1:18765/: ev-site_checks-r2-012.
+
+**site\_checks — Site check: Analytics / conversion-event code signals**: http://127.0.0.1:18765/: ev-site_checks-r2-013.
+
+**site\_checks — Site check: Suspected CDN / firewall crawler blocking**: http://127.0.0.1:18765/: ev-site_checks-r2-014.
+
+**site\_checks — Site check: llms.txt (informational)**: http://127.0.0.1:18765/: ev-site_checks-r2-015.
+
+**site\_checks — Site check: Answer readiness (heuristic)**: http://127.0.0.1:18765/: ev-site_checks-r2-016.
+
+**discovery — Customer statement (Business model, services, customers & priorities): Residential plumbing and heating firm with 6 engineers and 2 office staff, mostly boiler servicing, repairs and bathroom refits** (customer statement): customer-discovery-notes: ev-discovery-r3-001.
+
+**discovery — Customer statement (Business model, services, customers & priorities): Priority for the next year is more planned servicing contracts and fewer one-off emergency call-outs** (customer statement): customer-discovery-notes: ev-discovery-r3-002.
+
+**discovery — Customer statement (Systems in use): Jobs are tracked in a shared spreadsheet, invoices in Xero, bookings in a shared Google Calendar** (customer statement): customer-discovery-notes: ev-discovery-r3-003.
+
+**discovery — Customer statement (Systems in use): Calls go to a single office landline with a basic voicemail; email is a shared Gmail inbox** (customer statement): customer-discovery-notes: ev-discovery-r3-004.
+
+**discovery — Customer statement (Enquiries & communication): Calls during jobs or after 5pm go to voicemail and some are never returned** (customer statement): customer-discovery-notes: ev-discovery-r3-005.
+
+**discovery — Customer statement (Enquiries & communication): Website form enquiries arrive in the shared inbox and can wait a day for a reply** (customer statement): customer-discovery-notes: ev-discovery-r3-006.
+
+**discovery — Customer statement (Sales & quoting): Quotes for refits are typed up in a word processor from the engineer's site notes** (customer statement): customer-discovery-notes: ev-discovery-r3-007.
+
+**discovery — Customer statement (Sales & quoting): Nobody follows up quotes that get no response** (customer statement): customer-discovery-notes: ev-discovery-r3-008.
+
+**discovery — Customer statement (Bookings & scheduling): Engineers' diaries are juggled by phone when an emergency job comes in** (customer statement): customer-discovery-notes: ev-discovery-r3-009.
+
+**discovery — Customer statement (Manual & duplicated tasks): Completed jobs are re-keyed from the spreadsheet into Xero to raise invoices** (customer statement): customer-discovery-notes: ev-discovery-r3-010.
+
+**discovery — Customer statement (Manual & duplicated tasks): Annual service reminders are sent by hand from a list** (customer statement): customer-discovery-notes: ev-discovery-r3-011.
+
+**discovery — Customer statement (Data duplication, integrations & disconnected systems): Customer details exist separately in the spreadsheet, Xero and the phone contacts, and often disagree** (customer statement): customer-discovery-notes: ev-discovery-r3-012.
+
+**discovery — Customer statement (Pain points & bottlenecks): Month-end invoicing is the biggest bottleneck and delays cash coming in** (customer statement): customer-discovery-notes: ev-discovery-r3-013.
+
+**discovery — Customer statement (Pain points & bottlenecks): The office laptop holding the job spreadsheet has no backup** (customer statement): customer-discovery-notes: ev-discovery-r3-014.
+
+**discovery — Customer statement (Existing automations): Xero sends automatic payment reminders; nothing else is automated and no AI tools are used** (customer statement): customer-discovery-notes: ev-discovery-r3-015.
+
+**discovery — Customer statement (Opportunities, constraints & required human approvals): Owner would most like enquiries and bookings to run without the office chasing them** (customer statement): customer-discovery-notes: ev-discovery-r3-016.
+
+**discovery — Customer statement (Opportunities, constraints & required human approvals): Quotes and any message about price must be approved by the owner before sending** (customer statement): customer-discovery-notes: ev-discovery-r3-017.
+
+**discovery — Customer statement (Opportunities, constraints & required human approvals): Budget is limited this year and the team wants to keep Xero** (customer statement): customer-discovery-notes: ev-discovery-r3-018.
