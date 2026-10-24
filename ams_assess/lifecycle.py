@@ -58,6 +58,15 @@ def key(finding: Finding) -> tuple[str, str, str]:
     )
 
 
+def outcome_key(outcome: CheckOutcome) -> tuple[str, str, str]:
+    """Use the same identity for saved outcomes and findings without rewriting either."""
+    return (
+        site_identity(outcome.site),
+        check_key(outcome.check_id, outcome.component),
+        identity_component(outcome.component),
+    )
+
+
 def scoped(findings: list[Finding], target: str, customer: str) -> list[Finding]:
     """Split page findings BEFORE consolidation, with a stable www/apex identity."""
     result = []
@@ -157,11 +166,7 @@ def transition(
     for outcome in page_axe_outcomes(outcomes):
         if not set(outcome.evidence_ids) <= known.keys():
             raise ValueError("Check outcome references missing evidence")
-        identity = (
-            site_identity(outcome.site),
-            check_key(outcome.check_id, outcome.component),
-            identity_component(outcome.component),
-        )
+        identity = outcome_key(outcome)
         rows.setdefault(identity, []).append(outcome)
     fresh = {key(f): f for f in incoming}
     failing_keys = set(fresh)
@@ -266,7 +271,7 @@ def page_axe_outcomes(outcomes: list[CheckOutcome]) -> list[CheckOutcome]:
     """
 
     def audit_key(o):
-        return (o.site, o.check_id, o.component, frozenset(o.evidence_ids))
+        return (*outcome_key(o), frozenset(o.evidence_ids))
 
     nonpasses = {
         audit_key(o)

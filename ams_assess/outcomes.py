@@ -2,7 +2,7 @@
 
 import math
 
-from ams_assess.lifecycle import identity_component, observe, scoped, site_key
+from ams_assess.lifecycle import identity_component, key, observe, outcome_key, scoped, site_key
 from ams_assess.models import Context, ModuleResult
 
 # Fixed checks remain explicit even when their collector cannot start. Axe rule IDs and
@@ -194,9 +194,9 @@ def record(ctx: Context, result: ModuleResult) -> None:
                         )
                     )
     result.findings = scoped(result.findings, ctx.site_url, ctx.customer_id)
-    represented = {(o.check_id, o.site, o.component) for o in result.outcomes}
+    represented = {outcome_key(o) for o in result.outcomes}
     for finding in result.findings:
-        if not finding.site or (finding.check_key, finding.site, finding.component) in represented:
+        if not finding.site or key(finding) in represented:
             continue
         result.outcomes.append(
             observe(

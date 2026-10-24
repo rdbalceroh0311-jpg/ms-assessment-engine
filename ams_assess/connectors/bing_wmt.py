@@ -28,7 +28,7 @@ from ams_assess.connectors.core import (
     ReadOperation,
 )
 from ams_assess.connectors.privacy import safe_url
-from ams_assess.lifecycle import observe, site_key
+from ams_assess.lifecycle import observe, site_identity, site_key
 from ams_assess.models import ModuleResult
 
 BASE = "https://ssl.bing.com/webmaster/api.svc/json/"
@@ -384,7 +384,7 @@ def analyse(ctx: ConnectorContext, result: ModuleResult) -> None:
             f
             for f in ctx.public_findings
             if f.get("check_key") in public_checks
-            and f.get("site") == site_key(ctx.resource)
+            and site_identity(f.get("site") or "") == site_key(ctx.resource)
             and f.get("lifecycle_status", "current") in {"current", "not_rechecked"}
         ]
         if failed and related:
