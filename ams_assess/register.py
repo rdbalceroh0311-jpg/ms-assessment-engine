@@ -141,9 +141,11 @@ def site_name(value: str) -> str:
     # "javascript:alert(1)" or "x.test:bad".
     hostport = parts.netloc.rsplit("@", 1)[-1]
     ipv6 = hostport.startswith("[")
+    # A single final dot denotes an absolute DNS name; empty labels remain invalid.
+    host = parts.hostname.removesuffix(".").lower()
     try:
         port = parts.port
-        ascii_host = parts.hostname.encode("idna").decode("ascii")
+        ascii_host = host.encode("idna").decode("ascii")
     except (ValueError, UnicodeError):
         raise ValueError(invalid) from None
     label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
@@ -160,7 +162,6 @@ def site_name(value: str) -> str:
         and not re.fullmatch(r"(?::[0-9]+)?", explicit)
     ):
         raise ValueError(invalid)
-    host = parts.hostname.lower()
     netloc = (f"[{host}]" if ipv6 else host) + (f":{port}" if port is not None else "")
     return f"{parts.scheme}://{netloc}/"
 

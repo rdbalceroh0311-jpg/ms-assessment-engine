@@ -814,6 +814,11 @@ def test_d8_ai_findings_with_forecasts_are_dropped_and_instructions_kept():
         "https://x.test:99999/",
         "https://exa mple.test/",
         "https://-bad.test/",
+        "https://example..test/",
+        "https://example.test../",
+        "https://example..test./",
+        "https://./",
+        "https://../",
     ],
 )
 def test_d9_register_site_rejects_malformed_hosts_and_ports_cleanly(tmp_path, value):
@@ -838,6 +843,19 @@ def test_d9_register_site_rejects_malformed_hosts_and_ports_cleanly(tmp_path, va
     ],
 )
 def test_d9_register_site_keeps_valid_scopes(value, expected):
+    assert register.site_name(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("example.test.", "https://example.test/"),
+        ("https://WWW.Example.test./path", "https://www.example.test/"),
+        ("http://Example.Test.:8080/path", "http://example.test:8080/"),
+        ("https://bücher.de./path", "https://bücher.de/"),
+    ],
+)
+def test_d9_register_site_normalises_a_single_trailing_dot(value, expected):
     assert register.site_name(value) == expected
 
 
