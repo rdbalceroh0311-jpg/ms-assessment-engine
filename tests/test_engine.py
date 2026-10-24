@@ -251,7 +251,9 @@ def test_pagespeed_quota_failure_is_missing_data_not_good_performance(tmp_path, 
     result = performance.run(ctx)
     assert calls == ["mobile", "desktop"]
     assert result.status == "skipped" and "429" in result.reason
-    assert not result.findings and not result.evidence
+    assert not result.findings
+    outcomes = result.evidence[-1].data["performance"]
+    assert all(lab["outcome"] == "quota" for lab in outcomes["lab"])
     assert (ctx.run_dir / "raw/performance.json").is_file()
 
 

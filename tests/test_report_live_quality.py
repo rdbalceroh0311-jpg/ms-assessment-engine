@@ -258,12 +258,10 @@ def test_crux_documented_no_data_is_distinct_from_api_errors(
     )
     result = performance.run(ctx)
     crux = next(c for c in result.connections if c.key == "crux")
-    expected = (
-        "No CrUX field data for this origin/URL (insufficient traffic)"
-        if no_data
-        else f"Separate CrUX API unavailable (HTTP {status})"
-    )
-    assert crux.detail == expected and expected in result.reason
+    fields = result.evidence[-1].data["performance"]["field"]
+    expected = "no_eligible_data" if no_data else "permission" if status == 403 else "error"
+    assert [f["outcome"] for f in fields] == [expected, expected]
+    assert all(f["detail"] in crux.detail and f["detail"] in result.reason for f in fields)
     assert crux.status == ("Permission required" if status == 403 else "Not assessed")
     assert "secret-key" not in json.dumps(result.model_dump())
     assert "secret-key" not in (ctx.run_dir / "raw/performance.json").read_text()
