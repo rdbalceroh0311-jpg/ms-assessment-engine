@@ -8,12 +8,12 @@
 {% for e in latest.sites.values() %}
 #### Infrastructure attribution: {{ e.url | text }}
 
-Labels in this block: **CONFIRMED** means customer-confirmed; **OBSERVED** means directly recorded public evidence; **INFERRED** means an interpretation requiring verification. Unknown values remain unknown. Evidence: {{ e.id }}.
+Labels in this block: **CONFIRMED** means customer-confirmed; **OBSERVED** means directly recorded public evidence; **INFERRED** means an interpretation requiring verification. **NOT ASSESSED** means attribution is unavailable. Unknown values remain unknown. Evidence: {{ e.id }}.
 
 | Area | Label | Attribution / evidence | Limits |
 | --- | --- | --- | --- |
 {% for key, item in e.data.infrastructure.items() if key not in ['schema_version', 'target'] %}
-| {{ key | replace('_', ' ') | title }} | {{ item.label }} | {% if key == 'website_endpoints' %}{{ item.value.host | text }}; A: {{ item.value.A.get('records', []) | join(', ') | text or 'unavailable' }}; AAAA: {{ item.value.AAAA.get('records', []) | join(', ') | text or 'unavailable' }}; CNAME: {% for link in item.value.cname.chain %}{{ link.host | text }} → {{ link.target | text }}; {% endfor %}({{ item.value.cname.status }}){% for h in item.value.http %}; HTTP {{ h.status }} {{ h.headers | text }}{% endfor %}{% for t in item.value.tls %}; TLS {{ t | text }}{% endfor %}{% elif key == 'registrar' %}{% for r in item.value %}{{ r.names | join(', ') | text or r.handle | text }}{% if not loop.last %}; {% endif %}{% else %}Unknown{% endfor %}{% elif key == 'email_routing' %}{{ item.value.get('records', []) | join('; ') | text or 'unavailable' }} ({{ item.value.status }}){% elif key in ['email_provider', 'website_provider'] %}{% for r in item.value %}{{ r.provider | text }}{% if r.get('detail') %}: {{ r.detail | text }}{% endif %}{% if not loop.last %}; {% endif %}{% else %}Unknown{% endfor %}{% elif item.value is string %}{{ item.value | text }}{% elif item.value is none %}Unknown{% else %}{{ item.value | join('; ') | text or 'Unknown' }}{% endif %}. Sources: {{ item.evidence_ids | join(', ') or e.id }} | {{ item.detail | text }} |
+| {{ key | replace('_', ' ') | title }} | {{ item.label }} | {% if key == 'website_endpoints' %}{{ item.value.host | text }}; A: {{ item.value.A.get('records', []) | join(', ') | text or 'unavailable' }}; AAAA: {{ item.value.AAAA.get('records', []) | join(', ') | text or 'unavailable' }}; CNAME: {% for link in item.value.cname.chain %}{{ link.host | text }} → {{ link.target | text }}; {% endfor %}({{ item.value.cname.status }}){% for h in item.value.http %}; HTTP {{ h.status }} {{ h.headers | text }}{% endfor %}{% for t in item.value.tls %}; TLS {{ t | text }}{% endfor %}{% elif key == 'registrar' %}{% for r in item.value %}{{ r.names | join(', ') | text or r.handle | text }}{% if not loop.last %}; {% endif %}{% else %}Unknown{% endfor %}{% elif key == 'email_routing' %}{{ item.value.get('records', []) | join('; ') | text or 'unavailable' }} ({{ item.value.status }}){% elif key in ['email_provider', 'website_provider'] %}{% for r in item.value %}{{ r.provider | text }}{% if key == 'website_provider' %}: {{ r.get('role', 'CDN; origin host unknown' if r.get('cdn') else 'possible hosting provider') | text }}; CDN flag: {{ 'yes' if r.get('cdn') else 'no' }}; signals: {{ r.get('signals', []) | join('; ') | text or 'Not recorded' }}{% endif %}{% if r.get('detail') %}: {{ r.detail | text }}{% endif %}{% if not loop.last %}; {% endif %}{% else %}Unknown{% endfor %}{% elif item.value is string %}{{ item.value | text }}{% elif item.value is none %}Unknown{% else %}{{ item.value | join('; ') | text or 'Unknown' }}{% endif %}. Sources: {{ item.evidence_ids | join(', ') or e.id }} | {{ item.detail | text }} |
 {% endfor %}
 
 {% endfor %}
@@ -31,6 +31,10 @@ Labels in this block: **CONFIRMED** means customer-confirmed; **OBSERVED** means
 
 Sample: homepage plus up to {{ p.max_key_pages }} key pages; one test per page and strategy. {{ p.selection | text }}. At most {{ p.psi_request_cap }} PSI requests and {{ p.crux_request_cap }} separate CrUX requests. Evidence: {{ e.id }}.
 
+{% if p.get('dropped_explicit_pages') %}
+Explicit performance pages excluded by the key-page cap: {{ p.dropped_explicit_pages | join('; ') | text }}. Increase the cap or change the supplied page order to include them.
+
+{% endif %}
 **CrUX real-user field data** (all form factors; origin data describes the origin, not an individual page):
 
 | Scope / URL | Outcome | Interpretation | Evidence |
@@ -48,6 +52,18 @@ Field metrics for {{ f.scope }} {{ f.url | text }} ({{ f.evidence_id }}). Collec
 | {{ metric | replace('_', ' ') | text }} | {{ value.get('percentiles', {}).get('p75', 'Not reported') | text }} |
 {% endfor %}
 
+{% endfor %}
+{% for lab in p.lab %}
+{% for scope, field in [('URL', lab.get('field_url', {})), ('origin', lab.get('field_origin', {}))] if field.get('metrics') %}
+**PSI-reported field data** — {{ 'origin (PSI fallback)' if field.get('origin_fallback') else scope }}; {{ lab.strategy }}; {{ field.get('id', lab.url) | text }}. Evidence: {{ lab.evidence_id }}. These are real-user measurements returned by PSI, separate from Lighthouse lab metrics and the separate CrUX API status above.
+
+| Field metric | 75th percentile (PSI units; CLS scaled by 100) |
+| --- | --- |
+{% for metric, value in field.metrics.items() %}
+| {{ metric | replace('_', ' ') | text }} | {{ value.get('percentile', 'Not reported') | text }} |
+{% endfor %}
+
+{% endfor %}
 {% endfor %}
 **Lighthouse / PageSpeed LAB results**:
 

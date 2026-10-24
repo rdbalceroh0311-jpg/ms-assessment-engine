@@ -12,7 +12,7 @@ from ams_assess.models import ModuleResult
 from ams_assess.modules import REGISTRY, domain_email
 
 
-def mock_domain(monkeypatch, ns=None, mx=None, headers=None):
+def mock_domain(monkeypatch, ns=None, mx=None, headers=None, rdap_body=None):
     table = {
         ("example.com", "A"): ["192.0.2.1"],
         ("example.com", "AAAA"): ["2001:db8::1"],
@@ -35,7 +35,9 @@ def mock_domain(monkeypatch, ns=None, mx=None, headers=None):
         return httpx.Response(
             200,
             request=httpx.Request("GET", url),
-            json={
+            json=rdap_body
+            if rdap_body is not None
+            else {
                 "ldhName": "example.com",
                 "entities": [
                     {
@@ -221,3 +223,129 @@ def test_infrastructure_report_and_store_preserve_attribution_without_lifecycle_
         e["data"]["infrastructure"] for e in saved["evidence"] if "infrastructure" in e["data"]
     )
     assert "ev-security-r1-001" in infra["website_endpoints"]["evidence_ids"]
+
+
+@pytest.mark.parametrize(
+    ("provider", "cname", "headers"),
+    [
+        ("Cloudflare", "edge.example.net", {"server": "cloudflare", "cf-ray": "test"}),
+        ("Vercel", "cname.vercel-dns.com", {"server": "Vercel", "x-vercel-id": "test"}),
+        ("Netlify", "demo.netlify.app", {"server": "Netlify"}),
+    ],
+)
+def test_website_provider_report_shows_cdn_signals_and_platform_roles(
+    tmp_path, monkeypatch, provider, cname, headers
+):
+    security, _ = mock_domain(monkeypatch, headers=headers)
+    monkeypatch.setattr(
+        domain_email,
+        "cname_chain",
+        lambda *a: {"chain": [{"host": "example.com", "target": cname}], "status": "absent"},
+    )
+    monkeypatch.setattr(
+        runner,
+        "REGISTRY",
+        {
+            "security": SimpleNamespace(categories={"security"}, run=lambda ctx: security),
+            "domain_email": domain_email,
+        },
+    )
+    ctx = context(tmp_path)
+    ctx.categories = {"domain_email", "security"}
+    runner.run(ctx, no_ai=True, formats={"md"})
+    infra = block(ctx.results[1])
+    (entry,) = infra["website_provider"]["value"]
+    assert entry["provider"] == provider and entry["cdn"] and entry["signals"]
+    report = (ctx.run_dir / "report.md").read_text()
+    line = next(line for line in report.splitlines() if "| Website Provider |" in line)
+    assert "CDN flag: yes" in line and "signals:" in line
+    assert all(signal in line for signal in entry["signals"])
+    if provider == "Cloudflare":
+        assert "CDN; origin host unknown" in line
+    else:
+        assert "platform/CDN (may also host the site)" in line
+        assert "may also host the site" in infra["origin_host"]["detail"]
+
+
+def test_unavailable_registrar_is_not_an_observation_in_report(tmp_path, monkeypatch):
+    mock_domain(monkeypatch)
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **kw: httpx.Response(
+            503, request=httpx.Request("GET", "https://rdap.org/domain/example.com")
+        ),
+    )
+    monkeypatch.setattr(runner, "REGISTRY", {"domain_email": domain_email})
+    ctx = context(tmp_path)
+    runner.run(ctx, no_ai=True, formats={"md"})
+    registrar = block(ctx.results[0])["registrar"]
+    assert registrar["label"] == "NOT ASSESSED" and not registrar["value"]
+    report = (ctx.run_dir / "report.md").read_text()
+    assert "| Registrar | NOT ASSESSED |" in report
+    assert "RDAP registrar unavailable" in report
+
+
+@pytest.mark.parametrize("redacted", [False, True])
+def test_registrant_redaction_is_observed_without_copying_contacts(tmp_path, monkeypatch, redacted):
+    body = {
+        "entities": [
+            {
+                "roles": ["registrar"],
+                "handle": "9999",
+                "vcardArray": ["vcard", [["fn", {}, "text", "Example Registrar"]]],
+                "entities": [
+                    {
+                        "roles": ["administrative"],
+                        "vcardArray": [
+                            "vcard",
+                            [
+                                [
+                                    "fn",
+                                    {},
+                                    "text",
+                                    "REDACTED FOR PRIVACY" if redacted else "Example Contact",
+                                ]
+                            ],
+                        ],
+                    }
+                ],
+            },
+        ],
+        "notices": [{"description": ["Registration data may be redacted for privacy."]}],
+    }
+    mock_domain(monkeypatch, rdap_body=body)
+    monkeypatch.setattr(runner, "REGISTRY", {"domain_email": domain_email})
+    ctx = context(tmp_path)
+    runner.run(ctx, no_ai=True, formats={"md"})
+    result = ctx.results[0]
+    source = next(e.data for e in result.evidence if e.description.startswith("RDAP registrar"))
+    assert source["privacy_redaction_observed"] is redacted
+    assert ("Privacy redaction observed" in block(result)["registrar"]["detail"]) is redacted
+    report = (ctx.run_dir / "report.md").read_text()
+    assert ("Privacy redaction observed" in report) is redacted
+    assert "Example Contact" not in json.dumps(block(result))
+
+
+def test_mx_provider_rows_are_deduplicated_without_losing_host_evidence(tmp_path, monkeypatch):
+    hosts = [
+        "aspmx.l.google.com",
+        "alt1.aspmx.l.google.com",
+        "mx1.mimecast.com",
+        "mx2.mimecast.com",
+    ]
+    mock_domain(monkeypatch, mx=[f"10 {host}." for host in [*hosts, hosts[0]]])
+    monkeypatch.setattr(runner, "REGISTRY", {"domain_email": domain_email})
+    ctx = context(tmp_path)
+    runner.run(ctx, no_ai=True, formats={"md"})
+    providers = block(ctx.results[0])["email_provider"]["value"]
+    assert len(providers) == 2
+    assert {p["provider"]: p["mx"] for p in providers} == {
+        "Google Workspace": hosts[:2],
+        "Mimecast": hosts[2:],
+    }
+    report = (ctx.run_dir / "report.md").read_text()
+    line = next(line for line in report.splitlines() if "| Email Provider |" in line)
+    # The generic inventory caveat also names Google Workspace once in the Limits column.
+    attribution = line.split(" | ")[2]
+    assert attribution.count("Google Workspace") == 1 and attribution.count("Mimecast") == 1

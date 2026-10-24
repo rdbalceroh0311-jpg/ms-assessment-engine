@@ -7,7 +7,8 @@ import pytest
 
 from ams_assess import cli, runner, store
 from ams_assess.models import Context, create_run_dir
-from ams_assess.modules import performance
+from ams_assess.modules import performance, site_checks
+from ams_assess.modules.site_rules import field_vitals
 
 NO_DATA = {
     "error": {"code": 404, "status": "NOT_FOUND", "message": "chrome ux report data not found"}
@@ -125,8 +126,11 @@ def test_crux_url_and_origin_outcomes(tmp_path, monkeypatch, status, body, outco
             fields[0]["record"]["metrics"]["interaction_to_next_paint"]["percentiles"]["p75"] == 175
         )
         assert not summary(result)["rum_recommendation"]
-    else:
+    elif outcome == "no_eligible_data":
         assert "Recommendation only; nothing installed" in summary(result)["rum_recommendation"]
+    else:
+        assert not summary(result)["rum_recommendation"]
+        assert all("field data status unknown" in f["detail"] for f in fields)
 
 
 @pytest.mark.parametrize("failure", ["timeout", "invalid_json"])
@@ -425,3 +429,108 @@ def test_key_page_sample_prefers_customer_journeys(tmp_path):
     ctx = context(tmp_path, AMS_PERFORMANCE_KEY_PAGES="1")
     ctx.pages = ["https://example.com/aaa-archive", "https://example.com/services"]
     assert performance.representative_pages(ctx)[1] == "https://example.com/services"
+
+
+@pytest.mark.parametrize("lab_error", [False, True])
+def test_keyless_psi_field_data_survives_for_cwv_and_report(tmp_path, monkeypatch, lab_error):
+    registry(monkeypatch)
+    payload = psi_body("https://example.com/", "mobile")
+    field = {
+        "metrics": {
+            "LARGEST_CONTENTFUL_PAINT_MS": {"percentile": 2400},
+            "INTERACTION_TO_NEXT_PAINT": {"percentile": 190},
+            "CUMULATIVE_LAYOUT_SHIFT_SCORE": {"percentile": 10},
+        }
+    }
+    payload["loadingExperience"] = {"id": "https://example.com/", **field}
+    payload["originLoadingExperience"] = {"id": "https://example.com", **field}
+    if lab_error:
+        payload["lighthouseResult"]["runtimeError"] = {"code": "FAILED_DOCUMENT_REQUEST"}
+    monkeypatch.setattr(httpx, "get", lambda *a, **kw: httpx.Response(200, json=payload))
+    monkeypatch.setattr(httpx, "post", lambda *a, **kw: pytest.fail("Keyless run queried CrUX"))
+    ctx = context(tmp_path)
+    runner.run(ctx, no_ai=True, formats={"md"})
+    result = ctx.results[0]
+    assert result.status == "ok"
+    for lab in summary(result)["lab"]:
+        assert lab["field_url"] == payload["loadingExperience"]
+        assert lab["field_origin"] == payload["originLoadingExperience"]
+        assert lab["field_data_label"] == "PSI-reported field data"
+        metrics = field_vitals(lab)
+        assert len(metrics) == 6 and all(m["grade"] == "good" for m in metrics)
+        assert {m["scope"] for m in metrics} == {"URL", "origin"}
+        assert {m["p75"] for m in metrics if m["metric"] == "INP"} == {190}
+        assert {m["p75"] for m in metrics if m["metric"] == "CLS"} == {0.1}
+    checks = site_checks.Checks(ctx, {})
+    checks.performance()
+    assert checks.result.checks[0]["status"] == "PASS"
+    report = (ctx.run_dir / "report.md").read_text()
+    assert "PSI-reported field data" in report and "190" in report
+    assert "Field monitoring recommendation" not in report
+
+
+@pytest.mark.parametrize(
+    ("status", "reason"),
+    [
+        (None, "not configured"),
+        (403, "permission"),
+        (429, "quota"),
+        (500, "HTTP 500"),
+    ],
+)
+def test_rum_not_recommended_when_field_availability_is_unknown(
+    tmp_path, monkeypatch, status, reason
+):
+    registry(monkeypatch)
+    mock_http(monkeypatch, status or 200, {})
+    ctx = context(tmp_path, **({"CRUX_API_KEY": "secret"} if status else {}))
+    runner.run(ctx, no_ai=True, formats={"md"})
+    p = summary(ctx.results[0])
+    assert not p["rum_recommendation"]
+    assert all(
+        "field data status unknown" in f["detail"] and reason in f["detail"] for f in p["field"]
+    )
+    report = (ctx.run_dir / "report.md").read_text()
+    assert "field data status unknown" in report and reason in report
+    assert "Field monitoring recommendation" not in report
+
+
+def test_equal_lab_scores_remain_attributable_after_consolidation(tmp_path, monkeypatch):
+    registry(monkeypatch)
+    mock_http(monkeypatch, score=0.6)
+    ctx = context(tmp_path)
+    ctx.pages = ["https://example.com/contact"]
+    data = runner.run(ctx, no_ai=True, formats={"md"})
+    findings = data["findings"]
+    assert len(findings) == 4 and len({f["check_key"] for f in findings}) == 4
+    for page in [ctx.target, ctx.pages[0]]:
+        for strategy in ["mobile", "desktop"]:
+            (finding,) = [f for f in findings if f["check_key"] == f"lighthouse-{strategy}:{page}"]
+            assert finding["urls"] == [page]
+            assert page in finding["detail"] and strategy in finding["detail"]
+            assert "60/100" in finding["detail"]
+
+
+@pytest.mark.parametrize("cap", [0, 1])
+def test_excess_explicit_performance_pages_are_reported(tmp_path, monkeypatch, cap):
+    registry(monkeypatch)
+    calls = mock_http(monkeypatch)
+    explicit = ["https://example.com/contact", "https://example.com/services"]
+    ctx = context(
+        tmp_path,
+        AMS_PERFORMANCE_KEY_PAGES=str(cap),
+        AMS_PERFORMANCE_PAGES=json.dumps([explicit[0], explicit[0], explicit[1]]),
+    )
+    ctx.resolved_url = "https://www.example.com/"
+    runner.run(ctx, no_ai=True, formats={"md"})
+    p = summary(ctx.results[0])
+    assert p["dropped_explicit_pages"] == explicit[cap:]
+    assert len(p["pages"]) == cap + 1
+    assert len([c for c in calls if c[0] == "psi"]) == (cap + 1) * 2
+    raw = json.loads((ctx.run_dir / "raw/performance.json").read_text())["performance"]
+    assert raw["dropped_explicit_pages"] == explicit[cap:]
+    report = (ctx.run_dir / "report.md").read_text()
+    line = next(line for line in report.splitlines() if "excluded by the key-page cap" in line)
+    assert all(page in line for page in explicit[cap:])
+    if cap:
+        assert explicit[0] not in line

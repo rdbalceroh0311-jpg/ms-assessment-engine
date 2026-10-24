@@ -810,6 +810,7 @@ def run(ctx: Context) -> ModuleResult:
             "domain": rdap.get("ldhName"),
             "events": rdap.get("events", []),
             "registrar": [e for e in rdap.get("entities", []) if "registrar" in e.get("roles", [])],
+            "privacy_redaction_observed": rdap_privacy_redacted(rdap),
         }
         rdap_eid = result.add_evidence(
             ctx.target, "RDAP registrar and registration/expiry events", summary
@@ -1202,6 +1203,27 @@ def cname_chain(resolver: dns.resolver.Resolver, host: str) -> dict[str, Any]:
     return {"chain": chain, "status": "limit", "terminal_host": host}
 
 
+def rdap_privacy_redacted(rdap: dict[str, Any]) -> bool:
+    """Look for actual entity/contact redaction markers, not generic privacy notices."""
+
+    def marker(value: Any) -> bool:
+        if isinstance(value, str):
+            return value.strip().casefold() in {
+                "redacted",
+                "redacted for privacy",
+                "data redacted",
+                "data protected",
+                "not disclosed",
+            }
+        if isinstance(value, dict):
+            return any(marker(v) for v in value.values())
+        if isinstance(value, list):
+            return any(marker(v) for v in value)
+        return False
+
+    return bool(rdap.get("redacted")) or marker(rdap.get("entities", []))
+
+
 def infrastructure(
     ctx: Context,
     raw: dict[str, Any],
@@ -1296,7 +1318,18 @@ def infrastructure(
                 headers.get("x-sg-cdn") in {"1", "true", "enabled"},
                 "HTTP x-sg-* header",
             )
+    for entry in providers.values():
+        entry["role"] = (
+            "platform/CDN (may also host the site)"
+            if entry["provider"] in {"Vercel", "Netlify"}
+            else "CDN; origin host unknown"
+            if entry["cdn"]
+            else "possible hosting provider"
+        )
     cdn = any(p["cdn"] for p in providers.values())
+    platforms = [
+        p["provider"] for p in providers.values() if p["provider"] in {"Vercel", "Netlify"}
+    ]
     endpoints = {
         "host": ctx.site_host,
         "A": raw["A"],
@@ -1306,32 +1339,42 @@ def infrastructure(
         "tls": tls,
     }
     mx = raw["MX"].get("records", [])
-    routes = []
+    routes: dict[str, dict[str, Any]] = {}
     for record in mx:
-        host = record.split()[-1].rstrip(".")
+        host = record.split()[-1].rstrip(".").lower()
         for pattern, (label, role) in MAIL_PROVIDERS.items():
             if hostname_matches(host, pattern):
-                routes.append(
+                route = routes.setdefault(
+                    label,
                     {
                         "provider": label,
                         "role": role,
-                        "mx": host,
+                        "mx": [],
                         "detail": "gateway; underlying mailbox provider unknown"
                         if role == "gateway"
                         else "MX indicates inbound routing only",
-                    }
+                    },
                 )
+                if host not in route["mx"]:
+                    route["mx"].append(host)
     web_ids = [eids["A"], eids["AAAA"], eids["CNAME"], *reused]
     return {
         "schema_version": 1,
         "target": ctx.target,
         "registrar": claim(
-            "OBSERVED",
+            "OBSERVED" if registrars else NOT_ASSESSED,
             registrars,
-            "RDAP registrar of record; reseller/white-label supplier may differ. "
-            "Privacy redaction may hide registrant details; RDAP does not prove account ownership."
-            if rdap is not None
-            else "RDAP unavailable; registrar unknown.",
+            (
+                "RDAP registrar of record; reseller/white-label supplier may differ. "
+                if registrars
+                else "RDAP registrar unavailable; registrar unknown. "
+            )
+            + (
+                "Privacy redaction observed in RDAP entity/contact records. "
+                if rdap is not None and rdap_privacy_redacted(rdap)
+                else "Privacy redaction may hide registrant details. "
+            )
+            + "RDAP does not prove account ownership.",
             [rdap_eid],
         ),
         "nameservers": claim(
@@ -1359,7 +1402,10 @@ def infrastructure(
         "origin_host": claim(
             "INFERRED",
             None,
-            "CDN in front indicated; origin host unknown."
+            ", ".join(platforms) + ": platform/CDN (may also host the site); "
+            "origin hosting arrangement requires customer confirmation."
+            if platforms
+            else "CDN in front indicated; origin host unknown."
             if cdn
             else "Origin hosting provider requires customer confirmation.",
             web_ids,
@@ -1372,7 +1418,7 @@ def infrastructure(
         ),
         "email_provider": claim(
             "INFERRED",
-            routes,
+            list(routes.values()),
             "MX routing is not a full software inventory. Google Workspace and "
             "Microsoft 365 can coexist; absence here does not exclude either. "
             "Gateway routes leave the underlying mailbox provider unknown.",

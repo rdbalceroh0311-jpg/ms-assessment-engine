@@ -43,7 +43,7 @@ def origin(url: str) -> str:
     return f"{parts.scheme}://{host}"
 
 
-def representative_pages(ctx: Context) -> list[str]:
+def representative_pages(ctx: Context, dropped_explicit: list[str] | None = None) -> list[str]:
     """Homepage plus a stable, bounded sample; explicit key pages take precedence."""
     limit = int(ctx.config.get("AMS_PERFORMANCE_KEY_PAGES", "3"))
     if not 0 <= limit <= MAX_KEY_PAGES:
@@ -75,6 +75,13 @@ def representative_pages(ctx: Context) -> list[str]:
             continue
         if url not in pages and len(pages) <= limit:
             pages.append(url)
+        elif (
+            url not in pages
+            and value in explicit
+            and dropped_explicit is not None
+            and value not in dropped_explicit
+        ):
+            dropped_explicit.append(value)
     return pages
 
 
@@ -89,7 +96,8 @@ def query_crux(scope: str, url: str, key: str) -> dict[str, Any]:
         "form_factor": "ALL",
         "outcome": "not_configured",
         "queried_at_utc": datetime.now(UTC).isoformat(),
-        "detail": "Separate CrUX API skipped: missing CRUX_API_KEY/GOOGLE_API_KEY",
+        "detail": "CrUX field data status unknown: separate API not configured "
+        "(missing CRUX_API_KEY/GOOGLE_API_KEY)",
     }
     if not key:
         return outcome
@@ -140,7 +148,13 @@ def query_crux(scope: str, url: str, key: str) -> dict[str, Any]:
         outcome.update(outcome=state, detail=detail)
     except (httpx.HTTPError, ValueError) as exc:
         outcome.update(outcome="error", detail=f"CrUX API error ({type(exc).__name__})")
+    if outcome["outcome"] in {"permission", "quota", "error"}:
+        outcome["detail"] = "CrUX field data status unknown: " + outcome["detail"]
     return outcome
+
+
+def has_psi_field(data: dict[str, Any]) -> bool:
+    return any(data.get(key, {}).get("metrics") for key in ("field_url", "field_origin"))
 
 
 def measure_lab(url: str, strategy: str, key: str) -> dict[str, Any]:
@@ -176,6 +190,15 @@ def measure_lab(url: str, strategy: str, key: str) -> dict[str, Any]:
             measured["detail"] = f"PageSpeed {strategy}: HTTP {status}"
             return measured
         body = response.json()
+        # Keep PSI's free field data in the existing shape consumed by site_rules.field_vitals,
+        # even when Lighthouse itself fails. It is separate from the lab measurement.
+        for field_key, source in [
+            ("field_url", "loadingExperience"),
+            ("field_origin", "originLoadingExperience"),
+        ]:
+            field = body.get(source, {})
+            measured[field_key] = field if isinstance(field, dict) else {}
+        measured["field_data_label"] = "PSI-reported field data"
         lighthouse = body.get("lighthouseResult", {})
         config = lighthouse.get("configSettings", {})
         measured["conditions"].update(
@@ -316,7 +339,8 @@ def run(ctx: Context) -> ModuleResult:
         return ModuleResult(
             name=name, status="skipped", reason="PageSpeed/CrUX cannot access localhost"
         )
-    pages = representative_pages(ctx)
+    dropped_explicit: list[str] = []
+    pages = representative_pages(ctx, dropped_explicit)
     result = ModuleResult(name=name)
     labs, fields, limitations = [], [], []
     psi = Connection(
@@ -345,7 +369,10 @@ def run(ctx: Context) -> ModuleResult:
         for strategy in ["mobile", "desktop"]:
             lab = measure_lab(page, strategy, ctx.config.get("PAGESPEED_API_KEY", ""))
             eid = result.add_evidence(
-                page, f"PageSpeed {strategy} LAB: {lab['outcome']}", lab.copy()
+                page,
+                f"PageSpeed {strategy} LAB: {lab['outcome']}"
+                + ("; PSI-reported field data" if has_psi_field(lab) else ""),
+                lab.copy(),
             )
             lab["evidence_id"] = eid
             labs.append(lab)
@@ -354,11 +381,12 @@ def run(ctx: Context) -> ModuleResult:
                 limitations.append(f"{page}: {lab['detail']}")
             elif lab["score"] < 0.9:
                 result.finding(
-                    f"lighthouse-{strategy}",
+                    f"lighthouse-{strategy}:{page}",
                     f"Improve {strategy} lab performance",
                     "performance",
                     [eid],
-                    f"Lighthouse LAB performance score: {lab['score'] * 100:.0f}/100.",
+                    f"{page}: Lighthouse {strategy} LAB performance score: "
+                    f"{lab['score'] * 100:.0f}/100.",
                     "Prioritise measured rendering bottlenecks and retest; compare field data.",
                     urls=[page],
                 )
@@ -371,7 +399,11 @@ def run(ctx: Context) -> ModuleResult:
         elif states != {"not_configured"}:
             connection.status = "Not assessed"
         connection.detail = "; ".join(dict.fromkeys(r["detail"] for r in rows))
-    absent = [f for f in fields if f["outcome"] != "data"]
+    psi_field_available = any(has_psi_field(lab) for lab in labs)
+    if psi_field_available:
+        psi.status = "Connected successfully"
+        psi.detail += "; PSI-reported field data available"
+    absent = [f for f in fields if f["outcome"] == "no_eligible_data"]
     recommendation = (
         "If these pages support important customer journeys and field coverage is worth the "
         "ongoing effort, seek customer approval for privacy-appropriate real-user monitoring "
@@ -382,6 +414,7 @@ def run(ctx: Context) -> ModuleResult:
     summary = {
         "schema_version": 1,
         "pages": pages,
+        "dropped_explicit_pages": dropped_explicit,
         "strategies": ["mobile", "desktop"],
         "selection": (
             "Homepage, explicit key pages, target page, then stable customer-journey page sample"
@@ -412,6 +445,6 @@ def run(ctx: Context) -> ModuleResult:
     result = ModuleResult.model_validate_json(encoded)
     summary = result.evidence[-1].data["performance"]
     result.raw_paths = [ctx.raw(name, {"performance": summary})]
-    if not any(r["outcome"] == "data" for r in [*labs, *fields]):
+    if not psi_field_available and not any(r["outcome"] == "data" for r in [*labs, *fields]):
         result.status = "skipped"
     return result
