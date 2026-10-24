@@ -11,7 +11,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from ams_assess import store
 from ams_assess.discovery import load_notes
 from ams_assess.models import CATEGORIES, Context, create_run_dir, normalize_target
-from ams_assess.modules import FUTURE, REGISTRY, gsc
+from ams_assess.modules import FUTURE, REGISTRY, gsc, performance
 from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
 from ams_assess.presence_discovery import MAX_KEYWORDS, keyword_problem
 from ams_assess.profile import Location, Profile, load_verifications, read_json
@@ -167,6 +167,18 @@ def main(argv: list[str] | None = None) -> int:
     assess.add_argument("--categories", default=",".join(CATEGORIES))
     assess.add_argument("--connect", action="append", choices=["gsc"], default=[])
     assess.add_argument("--max-pages", type=int, default=100)
+    assess.add_argument(
+        "--performance-key-pages",
+        type=int,
+        default=3,
+        help="Maximum key pages in addition to homepage (0-10); each gets mobile + desktop PSI",
+    )
+    assess.add_argument(
+        "--performance-page",
+        action="append",
+        default=[],
+        help="Representative page URL (repeatable, same origin); prioritised over crawled pages",
+    )
     assess.add_argument("--dataforseo-max-usd", type=float)
     assess.add_argument("--dataforseo-location-code", type=int)
     assess.add_argument(
@@ -312,7 +324,18 @@ def main(argv: list[str] | None = None) -> int:
         not math.isfinite(args.dataforseo_max_usd) or args.dataforseo_max_usd <= 0
     ):
         parser.error("--dataforseo-max-usd must be a finite positive amount")
+    if not 0 <= args.performance_key_pages <= performance.MAX_KEY_PAGES:
+        parser.error("--performance-key-pages must be between 0 and 10")
+    try:
+        for page in args.performance_page:
+            normalize_target(page)
+            if performance.origin(page) != performance.origin(args.target):
+                raise ValueError("--performance-page must use the target origin")
+    except ValueError as exc:
+        parser.error(str(exc))
     settings = config()
+    settings["AMS_PERFORMANCE_KEY_PAGES"] = str(args.performance_key_pages)
+    settings["AMS_PERFORMANCE_PAGES"] = json.dumps(args.performance_page)
     if args.dataforseo_location_code is not None:
         settings["DATAFORSEO_LOCATION_CODE"] = str(args.dataforseo_location_code)
     try:

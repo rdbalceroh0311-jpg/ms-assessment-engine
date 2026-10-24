@@ -245,7 +245,7 @@ def test_redirected_website_does_not_change_email_domain(tmp_path, monkeypatch, 
     assert ("example.com", "MX") in queries and ("example.com", "TXT") in queries
     assert ("www.example.com", "A") in queries and ("www.example.com", "AAAA") in queries
     assert not any(
-        "www.example.com" in host and kind not in {"A", "AAAA"} for host, kind in queries
+        "www.example.com" in host and kind not in {"A", "AAAA", "CNAME"} for host, kind in queries
     )
 
 
@@ -424,9 +424,19 @@ def test_website_measurements_use_resolved_host(tmp_path, monkeypatch):
     monkeypatch.setattr(security.socket, "create_connection", socket)
     results = [performance.run(ctx), security.run(ctx), observatory.run(ctx)]
     assert all(r.status == "ok" for r in results)
-    assert all(e.url == ctx.site_url for r in results for e in r.evidence)
+    for result in results:
+        for evidence in result.evidence:
+            if "performance" in evidence.data:
+                assert evidence.url == ctx.target  # summary retains the requested site identity
+            elif evidence.data.get("scope") == "origin":
+                assert evidence.url == "https://www.example.com"
+            else:
+                assert evidence.url == ctx.site_url
     assert [kw["params"]["url"] for u, kw in calls if "runPagespeed" in u] == [ctx.site_url] * 2
-    assert next(kw["json"]["url"] for u, kw in calls if "queryRecord" in u) == ctx.site_url
+    assert [kw["json"] for u, kw in calls if "queryRecord" in u] == [
+        {"url": ctx.site_url},
+        {"origin": "https://www.example.com"},
+    ]
     assert next(kw["params"]["host"] for u, kw in calls if "observatory" in u) == ctx.site_host
     assert any(u == ctx.site_url for u, _ in calls) and ctx.target == "https://example.com/"
 

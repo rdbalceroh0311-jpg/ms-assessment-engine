@@ -347,6 +347,9 @@ def render_markdown(
         m["name"] == "domain_email" and m["status"] != "skipped" for m in data["modules"]
     ):
         shown.add("domain_email")
+    # Missing field/lab measurements still have an explicit performance interpretation.
+    if any(e.source == "performance" and e.data.get("performance") for e in evidence):
+        shown.add("performance")
     connected_ids = {e.id for e in evidence if e.source == "gsc"}
     connected = [f for f in findings if connected_ids.intersection(f.evidence_ids)]
     public = [f for f in findings if f not in connected]

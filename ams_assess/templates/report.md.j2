@@ -1,3 +1,106 @@
+{% set performance_blocks = evidence | selectattr('source', 'equalto', 'performance') | selectattr('data.performance', 'defined') | list %}
+{% set infrastructure_blocks = evidence | selectattr('source', 'equalto', 'domain_email') | selectattr('data.infrastructure', 'defined') | list %}
+{% macro infrastructure_section() %}
+{% set latest = namespace(sites={}) %}
+{% for e in evidence if e.source == 'domain_email' and e.data.get('infrastructure') %}
+{% set _ = latest.sites.update({e.url: e}) %}
+{% endfor %}
+{% for e in latest.sites.values() %}
+#### Infrastructure attribution: {{ e.url | text }}
+
+Labels in this block: **CONFIRMED** means customer-confirmed; **OBSERVED** means directly recorded public evidence; **INFERRED** means an interpretation requiring verification. **NOT ASSESSED** means attribution is unavailable. Unknown values remain unknown. Evidence: {{ e.id }}.
+
+| Area | Label | Attribution / evidence | Limits |
+| --- | --- | --- | --- |
+{% for key, item in e.data.infrastructure.items() if key not in ['schema_version', 'target'] %}
+| {{ key | replace('_', ' ') | title }} | {{ item.label }} | {% if key == 'website_endpoints' %}{{ item.value.host | text }}; A: {{ item.value.A.get('records', []) | join(', ') | text or 'unavailable' }}; AAAA: {{ item.value.AAAA.get('records', []) | join(', ') | text or 'unavailable' }}; CNAME: {% for link in item.value.cname.chain %}{{ link.host | text }} → {{ link.target | text }}; {% endfor %}({{ item.value.cname.status }}){% for h in item.value.http %}; HTTP {{ h.status }} {{ h.headers | text }}{% endfor %}{% for t in item.value.tls %}; TLS {{ t | text }}{% endfor %}{% elif key == 'registrar' %}{% for r in item.value %}{{ r.names | join(', ') | text or r.handle | text }}{% if not loop.last %}; {% endif %}{% else %}Unknown{% endfor %}{% elif key == 'email_routing' %}{{ item.value.get('records', []) | join('; ') | text or 'unavailable' }} ({{ item.value.status }}){% elif key in ['email_provider', 'website_provider'] %}{% for r in item.value %}{{ r.provider | text }}{% if key == 'website_provider' %}: {{ r.get('role', 'CDN; origin host unknown' if r.get('cdn') else 'possible hosting provider') | text }}; CDN flag: {{ 'yes' if r.get('cdn') else 'no' }}; signals: {{ r.get('signals', []) | join('; ') | text or 'Not recorded' }}{% endif %}{% if r.get('detail') %}: {{ r.detail | text }}{% endif %}{% if not loop.last %}; {% endif %}{% else %}Unknown{% endfor %}{% elif item.value is string %}{{ item.value | text }}{% elif item.value is none %}Unknown{% else %}{{ item.value | join('; ') | text or 'Unknown' }}{% endif %}. Sources: {{ item.evidence_ids | join(', ') or e.id }} | {{ item.detail | text }} |
+{% endfor %}
+
+{% endfor %}
+{% endmacro %}
+{% macro performance_section() %}
+{% set latest = namespace(sites={}) %}
+{% for e in evidence if e.source == 'performance' and e.data.get('performance') %}
+{% set _ = latest.sites.update({e.url: e}) %}
+{% endfor %}
+{% for e in latest.sites.values() %}
+{% set p = e.data.performance %}
+#### Performance measurements: {{ e.url | text }}
+
+{{ p.lab_note | text }}
+
+Sample: homepage plus up to {{ p.max_key_pages }} key pages; one test per page and strategy. {{ p.selection | text }}. At most {{ p.psi_request_cap }} PSI requests and {{ p.crux_request_cap }} separate CrUX requests. Evidence: {{ e.id }}.
+
+{% if p.get('dropped_explicit_pages') %}
+Explicit performance pages excluded by the key-page cap: {{ p.dropped_explicit_pages | join('; ') | text }}. Increase the cap or change the supplied page order to include them.
+
+{% endif %}
+**CrUX real-user field data** (all form factors; origin data describes the origin, not an individual page):
+
+| Scope / URL | Outcome | Interpretation | Evidence |
+| --- | --- | --- | --- |
+{% for f in p.field %}
+| {{ f.scope }}: {{ f.url | text }} | {{ f.outcome | replace('_', ' ') }} | {{ f.detail | text }} | {{ f.evidence_id }} |
+{% endfor %}
+
+{% for f in p.field if f.outcome == 'data' %}
+Field metrics for {{ f.scope }} {{ f.url | text }} ({{ f.evidence_id }}). Collection period: {{ f.record.get('collectionPeriod', 'Not reported') | text }}. Returned record key: {{ f.record.get('key', 'Not reported') | text }}.
+
+| Field metric | 75th percentile (API units) |
+| --- | --- |
+{% for metric, value in f.record.metrics.items() %}
+| {{ metric | replace('_', ' ') | text }} | {{ value.get('percentiles', {}).get('p75', 'Not reported') | text }} |
+{% endfor %}
+
+{% endfor %}
+{% for lab in p.lab %}
+{% for scope, field in [('URL', lab.get('field_url', {})), ('origin', lab.get('field_origin', {}))] if field.get('metrics') %}
+**PSI-reported field data** — {{ 'origin (PSI fallback)' if field.get('origin_fallback') else scope }}; {{ lab.strategy }}; {{ field.get('id', lab.url) | text }}. Evidence: {{ lab.evidence_id }}. These are real-user measurements returned by PSI, separate from Lighthouse lab metrics and the separate CrUX API status above.
+
+| Field metric | 75th percentile (PSI units; CLS scaled by 100) |
+| --- | --- |
+{% for metric, value in field.metrics.items() %}
+| {{ metric | replace('_', ' ') | text }} | {{ value.get('percentile', 'Not reported') | text }} |
+{% endfor %}
+
+{% endfor %}
+{% endfor %}
+**Lighthouse / PageSpeed LAB results**:
+
+| Page / strategy | Outcome | Lab score (0–1) | Lab LCP (ms) | Lab CLS | Lab TBT (ms; not INP) | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for lab in p.lab %}
+| {{ lab.url | text }} / {{ lab.strategy }} | {{ lab.outcome }}{% if lab.outcome != 'data' %}: {{ lab.detail | text }}{% endif %} | {{ lab.get('score', '—') }} | {{ lab.get('metrics', {}).get('largest-contentful-paint', {}).get('numericValue', '—') }} | {{ lab.get('metrics', {}).get('cumulative-layout-shift', {}).get('numericValue', '—') }} | {{ lab.get('metrics', {}).get('total-blocking-time', {}).get('numericValue', '—') }} | {{ lab.evidence_id }} |
+{% endfor %}
+
+**Recorded lab test conditions** (unreported values do not imply defaults):
+
+{% for lab in p.lab %}
+- {{ lab.strategy }} — URL tested: {{ lab.conditions.url_tested | text }}; final URL: {{ (lab.conditions.final_url or 'Not reported') | text }}; requested UTC: {{ lab.conditions.requested_at_utc | text }}; fetched: {{ (lab.conditions.fetch_time or 'Not reported') | text }}; Lighthouse: {{ (lab.conditions.lighthouse_version or 'Not reported') | text }}; form factor: {{ (lab.conditions.form_factor or 'Not reported') | text }}; throttling method: {{ (lab.conditions.throttling_method or 'Not reported') | text }}; throttling: {{ (lab.conditions.throttling or 'Not reported') | text }}. Evidence: {{ lab.evidence_id }}.
+{% endfor %}
+
+**Before / after lab comparison:** {{ p.comparison.detail | text }}
+
+{% if p.comparison.rows %}
+| Page / strategy / prior run | Metric (units) | Before | After | Delta (after − before) |
+| --- | --- | --- | --- | --- |
+{% for row in p.comparison.rows %}
+{% for metric, values in row.metrics.items() %}
+| {{ row.url | text }} / {{ row.strategy }} / {{ row.before_run_id }} | {{ metric | text }} ({{ values.unit }}) | {{ values.before }} | {{ values.after }} | {{ values.delta }} |
+{% endfor %}
+{% endfor %}
+
+{% for row in p.comparison.rows %}
+Comparison evidence: {{ row.before_evidence_id }} → {{ row.after_evidence_id }}. Changed conditions: {{ row.conditions_changed | join(', ') | text or 'None recorded' }}. Unrecorded conditions: {{ row.conditions_unrecorded | join(', ') | text or 'None' }}.
+
+{% endfor %}
+{% endif %}
+{% if p.rum_recommendation %}
+**Field monitoring recommendation:** {{ p.rum_recommendation | text }}
+
+{% endif %}
+{% endfor %}
+{% endmacro %}
 {% macro site_checks_table() %}
 {# Site checks: self-contained additive block; stored evidence survives customer report merges. #}
 {% set site = namespace(rows={}) %}
@@ -72,11 +175,17 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 {% endfor %}
 {% endmacro %}
 {% macro category_section(category, title) %}
-{% if category in finding_categories or ai.get('sections', {}).get(category) or (category == 'domain_email' and data.get('domain_email_health')) %}
+{% if category in finding_categories or ai.get('sections', {}).get(category) or (category == 'performance' and performance_blocks) or (category == 'domain_email' and data.get('domain_email_health')) %}
 ### {{ title }}
 
 {% if ai.get('sections', {}).get(category) %}
 {{ ai.sections[category] | text }}
+{% endif %}
+{% if category == 'performance' and performance_blocks %}
+{{ performance_section() }}
+{% endif %}
+{% if category == 'domain_email' and infrastructure_blocks %}
+{{ infrastructure_section() }}
 {% endif %}
 {% if category == 'domain_email' and data.get('domain_email_health') %}
 {% for health in data.get('domain_email_health_sites') or [data.domain_email_health] %}

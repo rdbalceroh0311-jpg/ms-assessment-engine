@@ -10,6 +10,7 @@ import threading
 import time
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlsplit
 
 import dns.exception
 import dns.resolver
@@ -809,6 +810,7 @@ def run(ctx: Context) -> ModuleResult:
             "domain": rdap.get("ldhName"),
             "events": rdap.get("events", []),
             "registrar": [e for e in rdap.get("entities", []) if "registrar" in e.get("roles", [])],
+            "privacy_redaction_observed": rdap_privacy_redacted(rdap),
         }
         rdap_eid = result.add_evidence(
             ctx.target, "RDAP registrar and registration/expiry events", summary
@@ -1015,6 +1017,14 @@ def run(ctx: Context) -> ModuleResult:
                 )
     result.checks = [row(key, area_checks) for key, area_checks in rows.items()]
     raw["health"] = result.checks
+    raw["CNAME"] = cname_chain(resolver, ctx.site_host)
+    eids["CNAME"] = result.add_evidence(
+        f"dns:{ctx.site_host}", "Bounded website CNAME chain", raw["CNAME"]
+    )
+    raw["infrastructure"] = infrastructure(ctx, raw, eids, zone_eid, rdap, rdap_eid)
+    result.add_evidence(
+        ctx.target, "Infrastructure attribution", {"infrastructure": raw["infrastructure"]}
+    )
     result.raw_paths = [ctx.raw(name, raw)]
     result.reason = "; ".join(limitations)
     if all(raw[k]["status"] == "error" for k in ["A", "AAAA", "MX", "NS", "TXT", "CAA"]):
@@ -1130,3 +1140,295 @@ def health_summary(results: list[ModuleResult], selected: set[str]) -> dict[str,
         else:
             rows.append(own.get(key) or not_assessed(key, reason))
     return {"rows": rows, "limitations": [DELIVERABILITY_NOTE]}
+
+
+# Hostname patterns are clues, not proof of relationships or account access.
+DNS_PROVIDERS = {
+    "ns.cloudflare.com": "Cloudflare",
+    "domaincontrol.com": "GoDaddy",
+    "googledomains.com": "Google Cloud DNS",
+    "dns.google": "Google Cloud DNS",
+    "azure-dns.com": "Azure DNS",
+    "azure-dns.net": "Azure DNS",
+    "azure-dns.org": "Azure DNS",
+    "azure-dns.info": "Azure DNS",
+    "awsdns-": "Amazon Route 53",
+    "registrar-servers.com": "Namecheap",
+}
+WEB_PROVIDERS = {
+    "cloudflare.net": ("Cloudflare", True),
+    "cloudfront.net": ("Amazon CloudFront", True),
+    "fastly.net": ("Fastly", True),
+    "akamaiedge.net": ("Akamai", True),
+    "akamai.net": ("Akamai", True),
+    "edgekey.net": ("Akamai", True),
+    "azureedge.net": ("Azure CDN", True),
+    "vercel-dns.com": ("Vercel", True),
+    "netlify.app": ("Netlify", True),
+    "wpengine.com": ("WP Engine", False),
+    "sgvps.net": ("SiteGround", False),
+    "web-hosting.com": ("Namecheap", False),
+}
+MAIL_PROVIDERS = {
+    "google.com": ("Google Workspace", "mailbox routing"),
+    "googlemail.com": ("Google Workspace", "mailbox routing"),
+    "protection.outlook.com": ("Microsoft 365", "mailbox routing"),
+    "mimecast.com": ("Mimecast", "gateway"),
+    "pphosted.com": ("Proofpoint", "gateway"),
+    "ppe-hosted.com": ("Proofpoint", "gateway"),
+}
+
+
+def hostname_matches(host: str, suffix: str) -> bool:
+    host = host.lower().rstrip(".")
+    if suffix == "awsdns-":
+        import re
+
+        return bool(re.fullmatch(r"ns-\d+\.awsdns-\d+\.(com|net|org|co\.uk)", host))
+    return host == suffix or host.endswith("." + suffix)
+
+
+def cname_chain(resolver: dns.resolver.Resolver, host: str) -> dict[str, Any]:
+    chain, seen = [], {host.lower().rstrip(".")}
+    for _ in range(8):
+        status, records = _lookup(resolver, host, "CNAME")
+        if status != "ok":
+            return {"chain": chain, "status": status, "terminal_host": host}
+        target = records[0].lower().rstrip(".")
+        chain.append({"host": host, "target": target})
+        if target in seen:
+            return {"chain": chain, "status": "loop", "terminal_host": target}
+        seen.add(target)
+        host = target
+    return {"chain": chain, "status": "limit", "terminal_host": host}
+
+
+def rdap_privacy_redacted(rdap: dict[str, Any]) -> bool:
+    """Look for actual entity/contact redaction markers, not generic privacy notices."""
+
+    def marker(value: Any) -> bool:
+        if isinstance(value, str):
+            return value.strip().casefold() in {
+                "redacted",
+                "redacted for privacy",
+                "data redacted",
+                "data protected",
+                "not disclosed",
+            }
+        if isinstance(value, dict):
+            return any(marker(v) for v in value.values())
+        if isinstance(value, list):
+            return any(marker(v) for v in value)
+        return False
+
+    return bool(rdap.get("redacted")) or marker(rdap.get("entities", []))
+
+
+def infrastructure(
+    ctx: Context,
+    raw: dict[str, Any],
+    eids: dict[str, str],
+    zone_eid: str,
+    rdap: dict[str, Any] | None,
+    rdap_eid: str,
+) -> dict[str, Any]:
+    """Public attribution with explicit claim labels; no new HTTP or paid lookups."""
+
+    def claim(label, value, detail, ids):
+        return {
+            "label": label,
+            "value": value,
+            "detail": detail,
+            "evidence_ids": [eid for eid in ids if eid],
+        }
+
+    registrars = []
+    for entity in (rdap or {}).get("entities", []):
+        if "registrar" not in entity.get("roles", []):
+            continue
+        vcard = entity.get("vcardArray", [])
+        properties = vcard[1] if len(vcard) == 2 else []
+        names = [p[3] for p in properties if len(p) >= 4 and p[0] in {"fn", "org"}]
+        registrars.append(
+            {
+                "names": names,
+                "handle": entity.get("handle"),
+                "public_ids": entity.get("publicIds", []),
+            }
+        )
+    ns_status, nameservers = raw["zone"]["NS"]
+    nameservers = nameservers if ns_status == "ok" else []
+    dns_providers = sorted(
+        {
+            provider
+            for host in nameservers
+            for pattern, provider in DNS_PROVIDERS.items()
+            if hostname_matches(host, pattern)
+        }
+    )
+    http, tls, reused = [], [], []
+    for module in ctx.results:
+        for evidence in module.evidence:
+            data = evidence.data
+            if not isinstance(data, dict) or urlsplit(evidence.url).hostname != ctx.site_host:
+                continue
+            if "headers" in data:
+                headers = {
+                    str(k).lower(): v
+                    for k, v in data["headers"].items()
+                    if str(k).lower()
+                    in {"server", "via", "cf-ray", "x-served-by", "x-cache", "x-vercel-id"}
+                    or str(k).lower().startswith("x-sg-")
+                }
+                http.append({"url": evidence.url, "status": data.get("status"), "headers": headers})
+                reused.append(evidence.id)
+            if "hostname_match" in data:
+                tls.append(
+                    {
+                        k: data[k]
+                        for k in ["issuer", "protocol", "hostname_match", "error"]
+                        if k in data
+                    }
+                )
+                reused.append(evidence.id)
+    hosts = [ctx.site_host, *(link["target"] for link in raw["CNAME"]["chain"])]
+    providers: dict[str, dict[str, Any]] = {}
+
+    def provider(label, cdn, signal):
+        entry = providers.setdefault(label, {"provider": label, "cdn": cdn, "signals": []})
+        entry["cdn"] = entry["cdn"] or cdn
+        entry["signals"].append(signal)
+
+    for host in hosts:
+        for pattern, (label, cdn) in WEB_PROVIDERS.items():
+            if hostname_matches(host, pattern):
+                provider(label, cdn, f"Hostname: {host}")
+    for response in http:
+        headers = response["headers"]
+        server, via = str(headers.get("server", "")).lower(), str(headers.get("via", "")).lower()
+        if "cf-ray" in headers or server == "cloudflare":
+            provider("Cloudflare", True, "HTTP server/cf-ray header")
+        if "cloudfront" in via or "cloudfront" in str(headers.get("x-cache", "")).lower():
+            provider("Amazon CloudFront", True, "HTTP via/x-cache header")
+        if "x-vercel-id" in headers:
+            provider("Vercel", True, "HTTP x-vercel-id header")
+        if any(k.startswith("x-sg-") for k in headers):
+            provider(
+                "SiteGround",
+                headers.get("x-sg-cdn") in {"1", "true", "enabled"},
+                "HTTP x-sg-* header",
+            )
+    for entry in providers.values():
+        entry["role"] = (
+            "platform/CDN (may also host the site)"
+            if entry["provider"] in {"Vercel", "Netlify"}
+            else "CDN; origin host unknown"
+            if entry["cdn"]
+            else "possible hosting provider"
+        )
+    cdn = any(p["cdn"] for p in providers.values())
+    platforms = [
+        p["provider"] for p in providers.values() if p["provider"] in {"Vercel", "Netlify"}
+    ]
+    endpoints = {
+        "host": ctx.site_host,
+        "A": raw["A"],
+        "AAAA": raw["AAAA"],
+        "cname": raw["CNAME"],
+        "http": http,
+        "tls": tls,
+    }
+    mx = raw["MX"].get("records", [])
+    routes: dict[str, dict[str, Any]] = {}
+    for record in mx:
+        host = record.split()[-1].rstrip(".").lower()
+        for pattern, (label, role) in MAIL_PROVIDERS.items():
+            if hostname_matches(host, pattern):
+                route = routes.setdefault(
+                    label,
+                    {
+                        "provider": label,
+                        "role": role,
+                        "mx": [],
+                        "detail": "gateway; underlying mailbox provider unknown"
+                        if role == "gateway"
+                        else "MX indicates inbound routing only",
+                    },
+                )
+                if host not in route["mx"]:
+                    route["mx"].append(host)
+    web_ids = [eids["A"], eids["AAAA"], eids["CNAME"], *reused]
+    return {
+        "schema_version": 1,
+        "target": ctx.target,
+        "registrar": claim(
+            "OBSERVED" if registrars else NOT_ASSESSED,
+            registrars,
+            (
+                "RDAP registrar of record; reseller/white-label supplier may differ. "
+                if registrars
+                else "RDAP registrar unavailable; registrar unknown. "
+            )
+            + (
+                "Privacy redaction observed in RDAP entity/contact records. "
+                if rdap is not None and rdap_privacy_redacted(rdap)
+                else "Privacy redaction may hide registrant details. "
+            )
+            + "RDAP does not prove account ownership.",
+            [rdap_eid],
+        ),
+        "nameservers": claim(
+            "OBSERVED", nameservers, f"Authoritative zone NS lookup: {ns_status}", [zone_eid]
+        ),
+        "dns_provider": claim(
+            "INFERRED",
+            dns_providers,
+            "NS hostname patterns; provider unknown when no pattern matches.",
+            [zone_eid],
+        ),
+        "website_endpoints": claim(
+            "OBSERVED",
+            endpoints,
+            "DNS endpoints and reused HTTP/TLS evidence. Missing HTTP/TLS "
+            "means not collected; certificate issuer is not the host.",
+            web_ids,
+        ),
+        "website_provider": claim(
+            "INFERRED",
+            list(providers.values()),
+            "Provider clues from CNAME/HTTP, not proof of an account or owner.",
+            web_ids,
+        ),
+        "origin_host": claim(
+            "INFERRED",
+            None,
+            ", ".join(platforms) + ": platform/CDN (may also host the site); "
+            "origin hosting arrangement requires customer confirmation."
+            if platforms
+            else "CDN in front indicated; origin host unknown."
+            if cdn
+            else "Origin hosting provider requires customer confirmation.",
+            web_ids,
+        ),
+        "email_routing": claim(
+            "OBSERVED",
+            raw["MX"],
+            "Published MX records; null MX declares no inbound mail.",
+            [eids["MX"]],
+        ),
+        "email_provider": claim(
+            "INFERRED",
+            list(routes.values()),
+            "MX routing is not a full software inventory. Google Workspace and "
+            "Microsoft 365 can coexist; absence here does not exclude either. "
+            "Gateway routes leave the underlying mailbox provider unknown.",
+            [eids["MX"]],
+        ),
+        "account_ownership": claim(
+            "INFERRED",
+            "customer confirmation required",
+            "Account ownership and administrative access require recorded "
+            "customer confirmation; public records cannot establish them.",
+            [],
+        ),
+    }
