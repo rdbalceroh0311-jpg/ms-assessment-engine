@@ -119,6 +119,15 @@ def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+LAB_CHECKS = {"lighthouse-mobile", "lighthouse-desktop"}
+
+
+def rule_key(check_key: str) -> str:
+    """The repeated check of a per-page key: lighthouse-mobile:<page> -> lighthouse-mobile."""
+    prefix = check_key.split(":", 1)[0]
+    return prefix if prefix in LAB_CHECKS else check_key
+
+
 def finding_views(findings: list[Finding]) -> tuple[list[Finding], dict[str, list[Finding]]]:
     """Group repeated rule observations for display only; every original remains a member."""
     groups: dict[tuple, list[Finding]] = {}
@@ -126,15 +135,16 @@ def finding_views(findings: list[Finding]) -> tuple[list[Finding], dict[str, lis
         site = site_key(f.site if "://" in f.site else f"//{f.site}") or site_key(f.component)
         # Legacy runs may record only URLs. Unknown scopes must not merge unrelated findings.
         sites = (site,) if site else tuple(sorted({site_key(url) for url in f.urls} - {""}))
-        repeated_rule = f.category == "accessibility" or f.check_key in {
+        repeated_rule = f.category == "accessibility" or rule_key(f.check_key) in {
             "canonical-mismatch",
             "console-errors",
+            *LAB_CHECKS,
         }
         identity = (
             (
                 sites or (f.id,),
                 f.category,
-                f.check_key,
+                rule_key(f.check_key),
                 f.lifecycle_status,
                 f.provenance,
                 () if f.check_key.startswith("axe:") else (f.kind, f.basis, f.ams_service),
@@ -621,6 +631,11 @@ def render_markdown(
     public = [f for f in findings if f not in connected]
     sources = {e.id: e.source for e in evidence}
     env.filters["source_name"] = sources.__getitem__
+    # Latest coverage per website; earlier runs (and www/apex aliases) are summarised.
+    coverage_sites, coverage_history = site_summaries(data.get("website_coverage_runs", []))
+    earlier_coverage: dict[str, list[dict[str, Any]]] = {}
+    for row in coverage_history:
+        earlier_coverage.setdefault(site_key(row.get("target", "")), []).append(row)
     presence_sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
     presence_sites = [p for p in presence_sites if p]
     for summary in presence_sites:
@@ -678,6 +693,8 @@ def render_markdown(
         profile=profile,
         connections=connections,
         presence_sites=presence_sites,
+        coverage_sites=coverage_sites,
+        earlier_coverage=earlier_coverage,
         health_sites=health_sites,
         earlier_presence=earlier_presence,
         earlier_health=earlier_health,

@@ -59,18 +59,23 @@ EXTRACT = r"""() => {
 }"""
 
 
-def select_pages(pages: list[str], target: str, limit: int = 6) -> list[str]:
+KEY_PAGE = re.compile(r"contact|about|service|quote|book", re.I)
+
+
+def select_pages(
+    pages: list[str], target: str, limit: int = 6, seeds: list[str] | None = None
+) -> list[str]:
     # Only reuse successfully crawled pages. No independent link discovery.
-    ordered = sorted(
-        pages,
-        key=lambda u: (
-            u != target,
-            not bool(re.search(r"contact|about|service|quote|book", u, re.I)),
-            len(u),
-            u,
-        ),
+    ordered = list(
+        dict.fromkeys(sorted(pages, key=lambda u: (u != target, not KEY_PAGE.search(u), len(u), u)))
     )
-    return list(dict.fromkeys(ordered))[:limit]
+    # Up to a third of the sample is reserved for crawled sitemap/WordPress-inventory pages
+    # that the key-page order would always skip (they may be linked from nowhere).
+    known = set(seeds or [])
+    reserved = [u for u in ordered if u in known and u != target and not KEY_PAGE.search(u)]
+    reserved = reserved[: limit // 3]
+    regular = [u for u in ordered if u not in reserved][: limit - len(reserved)]
+    return [u for u in ordered if u in regular or u in reserved]
 
 
 def axe_outcomes(audit, component, evidence_id):
@@ -122,7 +127,9 @@ def run(ctx: Context) -> ModuleResult:
                     ),
                 )
                 for index, url in enumerate(
-                    select_pages(ctx.pages, ctx.site_url, ctx.browser_pages)
+                    select_pages(
+                        ctx.pages, ctx.site_url, ctx.browser_pages, ctx.inventory.get("seeds")
+                    )
                 ):
                     page = session.new_page()
                     console, requested = [], []

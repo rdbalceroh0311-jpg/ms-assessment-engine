@@ -217,6 +217,8 @@ def test_redirect_host_change_crawls_both_hosts_and_feeds_downstream(tmp_path, m
 @pytest.mark.parametrize("exit_code", [0, 3])
 def test_siteone_redirect_only_is_an_explicit_failure(tmp_path, monkeypatch, exit_code):
     monkeypatch.setattr(siteone, "resolve_target", lambda target: {"resolved": target, "chain": []})
+    # No pre-crawl robots/sitemap request to the public example host.
+    monkeypatch.setattr("ams_assess.coverage.presence.sitemap_check", lambda ctx: {})
     monkeypatch.setattr(
         siteone.subprocess,
         "run",

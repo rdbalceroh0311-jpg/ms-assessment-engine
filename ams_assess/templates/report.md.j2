@@ -146,7 +146,7 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 
 {% set members = finding_members[finding.id] %}
 {% if members | length > 1 %}
-**Observed / reported:** {{ members | length }} affected page/viewport findings for this rule:
+**Observed / reported:** {{ members | length }} {{ 'affected page/viewport findings for this rule' if finding.check_key.startswith('axe:') else 'affected pages for this check' }}:
 
 {% for member in members %}
 - {{ member.component | text }}{% if member.severity != finding.severity %} (importance: {{ member.severity }}){% endif %} ({{ member.id }}): {% if member.title != finding.title %}{{ member.title | text }} — {% endif %}{{ member.detail | text }} Evidence: {{ member.evidence_ids | join(', ') }}.
@@ -282,9 +282,14 @@ The table explains what ran and where evidence was unavailable. Results apply on
 {% endif %}
 
 
-{% for coverage in data.get('website_coverage_runs', []) or ([data.website_coverage] if data.get('website_coverage') else []) %}
+{% for coverage in coverage_sites or ([data.website_coverage] if data.get('website_coverage') else []) %}
 ### Website coverage{% if coverage.get('run_id') %}: {{ coverage.target | text }} ({{ coverage.run_id }}){% endif %}
 
+{% set earlier = earlier_coverage.get(coverage.get('target', '') | site_key, []) %}
+{% if earlier %}
+Latest run for this website (www/apex aliases share a website). Earlier coverage: {% for run in earlier %}{{ run.run_id }} ({{ run.target | text }}): {{ (run.summary if run.get('status') != 'unavailable' else run.reason) | trim | trim('.') | text }}{{ '; ' if not loop.last }}{% endfor %}. Full detail for every run is retained in the assessment JSON.
+
+{% endif %}
 {% if coverage.get('status') == 'unavailable' %}
 {{ coverage.reason | text }}.
 {% else %}
