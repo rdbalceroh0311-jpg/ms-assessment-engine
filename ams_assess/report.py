@@ -14,6 +14,7 @@ from playwright.sync_api import sync_playwright
 from ams_assess.ai import PHASES
 from ams_assess.consolidate import consolidate
 from ams_assess.discovery import DISCOVERY_SECTIONS
+from ams_assess.lifecycle import site_key
 from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding, customer_path
 from ams_assess.modules.gsc import AI_REPORT_NOTE
 from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
@@ -309,7 +310,25 @@ def render_markdown(
         for fid in [r.get("finding_id"), *r.get("finding_ids", [])]
         if fid
     }
-    lifecycle_findings = findings
+    lifecycle_findings = [
+        f
+        for f in findings
+        if f.provenance == "technical_evidence"
+        and f.category != "discovery"
+        and (f.site or f.component or f.lifecycle_status != "current")
+    ]
+    lifecycle_domains = {
+        f.id: f.site
+        or next(
+            (
+                e.url.removeprefix("dns:")
+                for e in evidence
+                if e.id in f.evidence_ids and e.url.startswith("dns:")
+            ),
+            site_key(data.get("target", "")) or "Domain not recorded",
+        )
+        for f in lifecycle_findings
+    }
     by_id = {f.id: f for f in findings if f.id not in review and f.lifecycle_status == "current"}
     findings = list(by_id.values())
     site_finding_eids = {
@@ -395,6 +414,7 @@ def render_markdown(
         evidence=evidence,
         findings=findings,
         lifecycle_findings=lifecycle_findings,
+        lifecycle_domains=lifecycle_domains,
         public_findings=public,
         finding_categories={f.category for f in public},
         connected_findings=connected,

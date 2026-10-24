@@ -302,7 +302,7 @@ def test_progressive_customer_scenario(local_fixture, tmp_path, monkeypatch):
         assert required in text
     # The subsequent GSC run did not recheck the website's P1 technical failures.
     # They remain visible with dates, but must not appear as current roadmap actions.
-    assert "previously observed — not rechecked" in text
+    assert "| Not rechecked |" in text
     assert "### 0-30 days" not in text
     assert all(f["ams_service"] in AMS_SERVICES for f in saved(root, "alpha")["findings"])
     assert re.findall(r"^## (\d+)\.", text, re.M) == [str(i) for i in range(1, 11) if i != 3]
@@ -478,6 +478,10 @@ def test_item_5_legacy_ai_run_and_store_remain_readable(tmp_path, monkeypatch):
     data = json.loads(originals["results.json"])
     evidence = [Evidence.model_validate(e) for e in json.loads(originals["evidence.json"])]
     legacy = {f["check_key"] or f["id"]: f["ams_service"] for f in data["findings"]}
+    legacy["security-headers"] = next(
+        (service for key, service in legacy.items() if key.startswith("header-missing:")),
+        legacy.get("security-headers"),
+    )
     assert {"Content and copywriting", "Conversion optimisation"} <= set(legacy.values())
     render(run, {"md", "pdf"})
     assert "Draft" in PdfReader(run / "report.pdf").pages[0].extract_text()

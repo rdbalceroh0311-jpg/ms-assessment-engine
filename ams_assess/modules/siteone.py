@@ -46,7 +46,10 @@ def diagnostic(value: Any, ctx: Context) -> str:
     text = re.sub(r"https?://\S+", safe_url, text)
     # Scheme-less paths/hosts can carry the same credentials, query and fragment secrets.
     text = re.sub(
-        r"[^\s<>\"']+[?#][^\s<>\"']*",
+        r"(?<![\w])(?:(?://)?(?:[^\s/@<>\"']+@)?"
+        r"(?:localhost|(?:[\w-]+\.)+[\w-]+|\[[0-9a-fA-F:]+\])(?::\d+)?"
+        r"(?:/[^\s<>\"'?#]*)?|(?:/|\./|\.\./|[\w.-]+/)[^\s<>\"'?#]+)"
+        r"[?#][^\s<>\"']*",
         lambda m: m.group().split("?", 1)[0].split("#", 1)[0].rsplit("@", 1)[-1],
         text,
     )

@@ -61,9 +61,10 @@ def scoped(findings: list[Finding], target: str, customer: str) -> list[Finding]
             result.append(finding)
             continue
         components = [finding.component] if finding.component else finding.urls or [target]
+        components = [
+            identity_component(urldefrag(c)[0] if not finding.component else c) for c in components
+        ]
         for component in dict.fromkeys(components):
-            component = urldefrag(component)[0] if not finding.component else component
-            component = identity_component(component)
             check_id = check_key(finding.check_key or f"{finding.category}:{finding.id}", component)
             site = (finding.site or site_key(component) or site_key(target)).removeprefix("www.")
             digest = hashlib.sha256(
@@ -115,6 +116,28 @@ def observe(
     )
 
 
+def archive_observation(finding: Finding) -> None:
+    """Archive the old basis before replacing current citations, including legacy records."""
+    historical_ids = {
+        eid
+        for event in finding.events
+        for eid in [
+            *event.get("evidence_ids", []),
+            *event.get("observation", {}).get("evidence_ids", []),
+        ]
+    }
+    if not set(finding.evidence_ids) <= historical_ids:
+        finding.events.append(
+            {
+                "status": "previously-observed",
+                "run_id": finding.last_run_id,
+                "date": finding.last_observed,
+                "evidence_ids": finding.evidence_ids,
+                "observation": finding.model_dump(exclude={"events", "resolution"}),
+            }
+        )
+
+
 def transition(
     existing: list[Finding],
     incoming: list[Finding],
@@ -142,6 +165,7 @@ def transition(
         current = fresh.pop(key(old), None)
         observations = rows.get(key(old), [])
         if current is not None:
+            archive_observation(old)
             current.id = old.id
             current.first_observed = old.first_observed or old.last_observed or date
             current.last_observed = date
@@ -157,8 +181,6 @@ def transition(
                     "observation": current.model_dump(exclude={"events", "resolution"}),
                 },
             ]
-            # Preserve old citations/history without retaining the highest historical severity.
-            current.evidence_ids = list(dict.fromkeys(old.evidence_ids + current.evidence_ids))
             current.lifecycle_status = "current"
             current.resolution = None
             result.append(current)
@@ -172,14 +194,22 @@ def transition(
             <= {identity_component(c) for c in o.coverage}
             and all(known[i].provenance == "technical_evidence" for i in o.evidence_ids)
         ]
-        failures = [o for o in observations if o.status == "fail"]
+        failures = [
+            o
+            for o in observations
+            if o.status == "fail"
+            and o.evidence_ids
+            and all(known[i].provenance == "technical_evidence" for i in o.evidence_ids)
+        ]
         if failures and valid_passes:
             old.lifecycle_status = "needs_review"
         elif failures:
+            archive_observation(old)
             event_status = "reopened" if old.lifecycle_status == "resolved" else "observed"
             old.lifecycle_status = "current"
             old.last_observed, old.last_run_id = date, run_id
             old.resolution = None
+            old.evidence_ids = sorted({i for o in failures for i in o.evidence_ids})
             old.events.append(
                 {
                     "status": event_status,
