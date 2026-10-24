@@ -15,11 +15,12 @@ import selectors
 import shlex
 import subprocess
 import time
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 
@@ -312,39 +313,67 @@ def run_bounded(argv: list[str], seconds: float) -> tuple[int, str, str]:
 def check_failure(code: int, stdout: str, stderr: str, operation: str) -> None:
     diagnostic = (stdout + "\n" + stderr).lower()
     if code == 255:
-        if any(
-            s in diagnostic
-            for s in (
-                "host key verification failed",
-                "host identification",
-                "no matching host key",
-                "host key is known",
+        # OpenSSH also returns the remote process's exit status. PHP fatals use 255;
+        # the number alone (or permission/expiry text inside a PHP error) proves no SSH failure.
+        if re.search(
+            r"(?:php\s+)?(?:fatal|parse) error:|uncaught (?:\w*error|\w*exception)", diagnostic
+        ):
+            raise ConnectorError(
+                "failed", "Remote PHP command failed; diagnostics withheld for privacy"
             )
+        ssh_error = stderr.lower()
+        if re.search(
+            r"^(?:host key verification failed\.?|@+\s+warning: remote host identification "
+            r"has changed!\s+@+|remote host identification has changed|"
+            r"no \S+ host key is known for .+|unable to negotiate with .+: "
+            r"no matching host key type found\..*)$",
+            ssh_error,
+            re.M,
         ):
             raise ConnectorError(
                 "permission_required",
                 "SSH host key not trusted or changed; obtain and verify "
                 "the pinned known_hosts entry with the host administrator. Never auto-accept.",
             )
-        if "expired" in diagnostic or "revoked" in diagnostic:
+        if re.search(
+            r"^(?:certificate invalid: expired|authentication key revoked|"
+            r"host key .+ revoked by file .+)\.?$",
+            ssh_error,
+            re.M,
+        ):
             raise ConnectorError(
                 "credential_expired",
                 "SSH key/certificate expired or revoked; "
                 "ask the administrator to renew the authorised read identity",
             )
-        if any(
-            s in diagnostic
-            for s in ("permission denied", "authentication failed", "load key", "bad permissions")
+        if re.search(
+            r"^(?:(?:\S+: )?permission denied \([a-z0-9,-]+\)\.?|"
+            r'load key "[^"]+": .+|permissions 0[0-7]+ for .+ are too open\.)$',
+            ssh_error,
+            re.M,
         ):
             raise ConnectorError(
                 "permission_required",
                 "SSH public-key authentication denied; "
                 "authorise the selected user's key for the bound installation",
             )
-        raise httpx.ConnectError("SSH connection unavailable")
+        if re.search(
+            r"^(?:(?:ssh: connect to host \S+ port \d+: )?"
+            r"(?:connection (?:timed out|refused|reset by peer)|operation timed out|"
+            r"no route to host|network is unreachable)"
+            r"|ssh: could not resolve hostname \S+: .+"
+            r"|(?:kex_exchange_identification: read: |ssh_dispatch_run_fatal: .+: )"
+            r"(?:connection reset by peer|connection timed out|broken pipe)"
+            r"|connection (?:closed|reset) by \S+ port \d+)$",
+            ssh_error,
+            re.M,
+        ):
+            raise httpx.ConnectError("SSH connection unavailable")
+        # Unknown 255 is ambiguous; do not retry a potentially deterministic remote failure.
+        raise ConnectorError("failed", "Command exited 255 without a recognised SSH failure")
     if code in {124, 137}:
         raise httpx.ReadTimeout("Remote WP-CLI deadline reached")
-    if "permission denied" in diagnostic or "not permitted" in diagnostic:
+    if code and ("permission denied" in diagnostic or "not permitted" in diagnostic):
         raise ConnectorError(
             "permission_required",
             "SSH user needs read access to this "
@@ -376,10 +405,50 @@ def safe_word(value: Any, *, empty: bool = False) -> str:
     raise ValueError
 
 
+def metadata_row(row: Any) -> dict[str, str]:
+    """WP-CLI optional list fields can be null, false or absent, especially on drop-ins."""
+    if not isinstance(row, dict):
+        raise ValueError
+    result = {}
+    for field in FIELDS.split(","):
+        value = row.get(field)
+        if value is None or value is False:
+            value = ""
+        if field in {"version", "update_version"}:
+            if not isinstance(value, (str, int)) or isinstance(value, bool):
+                raise ValueError
+            text = str(value)
+            # Versions are plugin/theme header text, not strict semantic-version identifiers.
+            # Keep ordinary punctuation/spaces but no paths, HTML, controls or unbounded prose.
+            if not re.fullmatch(r"[A-Za-z0-9 ._+(),:'\"\[\]-]{0,120}", text):
+                raise ValueError
+            result[field] = redact(text)
+        else:
+            result[field] = safe_word(value, empty=True)
+    if not result["name"] or not result["status"]:
+        raise ValueError
+    return result
+
+
+def decoded_url_text(value: str) -> str:
+    """Validate every decoding layer, including the shared persistence redactor's decoding."""
+    decoded = value
+    while True:
+        if any(
+            ord(c) < 32 or 127 <= ord(c) <= 159 or unicodedata.category(c) == "Cf" for c in decoded
+        ):
+            raise ValueError
+        unquoted = unquote(decoded, errors="strict")
+        if unquoted == decoded:
+            return decoded
+        decoded = unquoted
+
+
 def public_link(value: Any) -> str:
     """Retain public permalinks (including plain ?p= IDs), never URL secrets or email paths."""
     if not isinstance(value, str) or len(value) > 2000 or any(ord(c) < 33 for c in value):
         raise ValueError
+    decoded = decoded_url_text(value)
     parts = urlsplit(value)
     if (
         parts.scheme not in {"https", "http"}
@@ -388,15 +457,22 @@ def public_link(value: Any) -> str:
         or parts.password
     ):
         raise ValueError
-    if redact(parts.path) != parts.path or "@" in parts.path or "\\" in value:
+    decoded_path = decoded_url_text(parts.path)
+    if redact(decoded_path) != decoded_path or "@" in decoded_path or "\\" in decoded:
         raise ValueError
     query = [
         (k, v)
         for k, v in parse_qsl(parts.query)
         if k in {"p", "page_id"} and re.fullmatch(r"[1-9][0-9]{0,19}", v)
     ]
-    host = parts.hostname.lower()
-    host = f"[{host}]" if ":" in host else host
+    host = parts.hostname.encode("idna").decode("ascii").lower().removesuffix(".")
+    labels = host.split(".")
+    if (
+        len(host) > 253
+        or labels[-1].isdigit()
+        or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)
+    ):
+        raise ValueError
     port = parts.port
     netloc = host + (f":{port}" if port else "")
     return urlunsplit((parts.scheme, netloc, parts.path or "/", urlencode(query), ""))
@@ -495,13 +571,18 @@ def payload(operation: str, code: int, stdout: str, stderr: str) -> dict[str, An
         if operation == "runtime":
             data = {key: safe_word(body[key]) for key in ("php_version", "wp_cli_version")}
         elif operation in {"plugins", "themes"}:
-            if not isinstance(body, list) or not all(isinstance(r, dict) for r in body):
+            if not isinstance(body, list):
                 raise ValueError
+            metadata = []
+            rejected = 0
+            for row in body[:1000]:
+                try:
+                    metadata.append(metadata_row(row))
+                except (ValueError, TypeError):
+                    rejected += 1
             data = {
-                "rows": [
-                    {key: safe_word(row[key], empty=True) for key in FIELDS.split(",")}
-                    for row in body[:1000]
-                ],
+                "rows": metadata,
+                "rejected_rows": rejected,
                 "truncated": len(body) > 1000,
                 "update_source": "existing cached update metadata; freshness unknown",
             }
@@ -595,7 +676,13 @@ def read(ctx: ConnectorContext, operation: str) -> Endpoint:
         endpoint.data["snapshot"] = True
         endpoint.rows = len(endpoint.data["rows"]) if "rows" in endpoint.data else 1
         endpoint.truncated = bool(endpoint.data.get("truncated"))
-        if endpoint.data.get("complete") is False or endpoint.data.get("warnings"):
+        if endpoint.data.get("rejected_rows"):
+            endpoint.status = "connected_partial"
+            endpoint.detail = (
+                f"{endpoint.data['rejected_rows']} metadata rows could not be parsed; "
+                "valid rows retained, counts are lower bounds"
+            )
+        elif endpoint.data.get("complete") is False or endpoint.data.get("warnings"):
             endpoint.status = "connected_partial"
             endpoint.detail = (
                 "Checksum coverage incomplete; premium/custom plugins or provider errors can be "
@@ -719,7 +806,7 @@ def analyse(ctx: ConnectorContext, result: ModuleResult) -> None:
             )
 
     plugins = endpoints.get("plugins")
-    if plugins and plugins.complete:
+    if plugins and plugins.status in {"connected", "connected_partial"}:
         updates = sum(row["update"] == "available" for row in plugins.data["rows"])
         inactive = sum(row["status"] == "inactive" for row in plugins.data["rows"])
         # Cached negative update data is not an equivalent passing freshness recheck.
@@ -728,17 +815,19 @@ def analyse(ctx: ConnectorContext, result: ModuleResult) -> None:
                 "updates",
                 True,
                 "Plugin update available — not a confirmed vulnerability",
-                f"{updates} plugins have an update in cached metadata; freshness is unknown. "
+                f"At least {updates} plugins have an update in cached metadata; "
+                "freshness is unknown. "
                 "No vulnerability feed was queried and no exploitability is established.",
                 plugins,
             )
-        check(
-            "inactive",
-            inactive > 0,
-            "Inactive WordPress plugins present",
-            f"{inactive} plugins are inactive; review whether they are still needed.",
-            plugins,
-        )
+        if inactive or plugins.complete:
+            check(
+                "inactive",
+                inactive > 0,
+                "Inactive WordPress plugins present",
+                f"At least {inactive} plugins are inactive; review whether they are still needed.",
+                plugins,
+            )
     for key in ("core_checksums", "plugin_checksums"):
         endpoint = endpoints.get(key)
         if endpoint and any(endpoint.data.get(k, 0) for k in ("mismatches", "missing", "extra")):

@@ -9,6 +9,7 @@ import threading
 from contextlib import contextmanager
 from dataclasses import replace
 from types import SimpleNamespace
+from urllib.parse import quote, unquote
 
 import httpx
 import pytest
@@ -52,6 +53,7 @@ class SSH:
                 "auto_update": "off",
             }
         ]
+        self.themes = []
         self.posts = {"post": [], "page": [self.post(1, "page")]}
 
     @staticmethod
@@ -116,7 +118,7 @@ class SSH:
         elif operation == "plugins":
             body = self.plugins
         elif operation == "themes":
-            body = []
+            body = self.themes
         elif operation.startswith("posts_"):
             assert page is not None
             start = (page - 1) * wp_cli.PAGE_SIZE
@@ -178,6 +180,120 @@ def snapshot(env, customer="synthetic"):
 
 def endpoints(result):
     return {e.data["operation"]: e.data for e in result.evidence}
+
+
+@pytest.fixture
+def wp_metadata():
+    """Synthetic fixtures matching WP-CLI's nullable/must-use/drop-in/header output shapes."""
+    return {
+        "plugins": [
+            {
+                "name": "available",
+                "status": "inactive",
+                "update": "available",
+                "version": "1.0 beta",
+                "update_version": "1.1 (build 7)",
+                "auto_update": "off",
+            },
+            {
+                "name": "current",
+                "status": "active",
+                "update": "none",
+                "version": "1.1",
+                "update_version": None,
+                "auto_update": "off",
+            },
+            {
+                "name": "must-use-loader",
+                "status": "must-use",
+                "update": False,
+                "version": "1.0",
+                "update_version": None,
+                "auto_update": False,
+            },
+            {"name": "object-cache.php", "status": "dropin", "update": False},
+            {
+                "name": "php-blocked",
+                "status": "active",
+                "update": "unavailable",
+                "version": "1.0-rc.1+build [7]",
+                "update_version": "2.0",
+                "auto_update": "off",
+            },
+        ],
+        "themes": [
+            {
+                "name": "sample-theme",
+                "status": "active",
+                "update": "none",
+                "version": "1.0 beta",
+                "update_version": None,
+                "auto_update": "off",
+            },
+        ],
+    }
+
+
+def test_real_wp_cli_metadata_shapes_preserve_evidence_and_findings(env, wp_metadata):
+    env.ssh.plugins, env.ssh.themes = wp_metadata["plugins"], wp_metadata["themes"]
+    result, state = prepare(env)
+    assert state["status"] == "connected"
+    data = endpoints(result)
+    plugins = {row["name"]: row for row in data["plugins"]["data"]["rows"]}
+    assert len(plugins) == 5 and data["plugins"]["data"]["rejected_rows"] == 0
+    assert plugins["current"]["update_version"] == ""
+    assert plugins["must-use-loader"]["update"] == ""
+    assert plugins["must-use-loader"]["auto_update"] == ""
+    assert plugins["object-cache.php"]["version"] == ""
+    assert plugins["object-cache.php"]["update_version"] == ""
+    assert plugins["php-blocked"]["update"] == "unavailable"
+    assert plugins["available"]["version"] == "1.0 beta"
+    assert plugins["available"]["update_version"] == "1.1 (build 7)"
+    assert data["themes"]["data"]["rows"][0]["update_version"] == ""
+    updates = next(f for f in result.findings if f.check_key == "wp_cli:updates")
+    assert "At least 1 plugins" in updates.detail  # 'unavailable' is not counted as available.
+    assert any(f.check_key == "wp_cli:inactive" for f in result.findings)
+
+
+@pytest.mark.parametrize("operation", ["plugins", "themes"])
+@pytest.mark.parametrize(
+    "bad_row",
+    [
+        None,
+        "unparseable",
+        {},
+        {"name": "invalid", "status": "inactive", "version": {"unexpected": "shape"}},
+        {"name": "invalid", "status": "inactive", "version": "x" * 121},
+        {"name": "invalid", "status": "inactive", "version": "/srv/private/file"},
+        {"name": "invalid", "status": "inactive", "version": "1.0\nsecret"},
+    ],
+)
+def test_one_unparseable_metadata_row_preserves_valid_rows(env, wp_metadata, operation, bad_row):
+    setattr(env.ssh, operation, [*wp_metadata[operation], bad_row])
+    result, state = prepare(env)
+    endpoint = endpoints(result)[operation]
+    assert state["status"] == endpoint["status"] == "connected_partial"
+    assert endpoint["data"]["rejected_rows"] == 1 and "lower bounds" in endpoint["detail"]
+    assert endpoint["coverage"]["rows_returned"] == len(wp_metadata[operation])
+    assert len(endpoint["data"]["rows"]) == len(wp_metadata[operation])
+    assert all(row["name"] != "invalid" for row in endpoint["data"]["rows"])
+    if operation == "plugins":
+        assert {"wp_cli:updates", "wp_cli:inactive"} <= {f.check_key for f in result.findings}
+
+
+def test_unparseable_rows_cannot_resolve_an_inactive_plugin_finding(env, wp_metadata):
+    env.ssh.plugins = wp_metadata["plugins"]
+    service.execute(env.root, "synthetic", "wp_cli", collect=True)
+    env.ssh.plugins = [wp_metadata["plugins"][1], None]
+    result, _ = prepare(env)
+    assert not any(o.check_id == "wp_cli:inactive" for o in result.outcomes)
+    service.execute(env.root, "synthetic", "wp_cli", collect=True)
+    finding = next(f for f in snapshot(env)["findings"] if f["check_key"] == "wp_cli:inactive")
+    assert finding["lifecycle_status"] != "resolved"
+    env.ssh.plugins = [wp_metadata["plugins"][1]]
+    service.execute(env.root, "synthetic", "wp_cli", collect=True)
+    finding = next(f for f in snapshot(env)["findings"] if f["check_key"] == "wp_cli:inactive")
+    assert finding["lifecycle_status"] == "resolved"
 
 
 def test_success_reads_only_explicit_installation_and_fixed_commands(env):
@@ -284,6 +400,63 @@ def test_transient_retry_is_bounded_and_never_marks_connection_success(env, fail
     result, state = prepare(env)
     assert state["status"] == "provider_unavailable"
     assert len(env.ssh.calls) == 3 and not result.findings
+
+
+@pytest.mark.parametrize(
+    "diagnostic",
+    [
+        "PHP Fatal error: Uncaught Error: bootstrap failed",
+        "PHP Fatal error: fopen(/srv/private): Permission denied",
+        "Fatal error: Certificate expired in /srv/private/bootstrap.php",
+        "PHP Parse error: unexpected identifier in /srv/private/config.php",
+        "Uncaught RuntimeException: authentication failed",
+        "Permission denied while loading a plugin",
+        "Error: plugin licence expired",
+        "",
+    ],
+)
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_remote_exit_255_is_not_retried_or_reported_as_ssh_auth(env, diagnostic, stream):
+    response = (
+        255,
+        diagnostic if stream == "stdout" else "",
+        diagnostic if stream == "stderr" else "",
+    )
+    env.ssh.override = lambda op, _: response if op == "plugins" else None
+    result, state = prepare(env)
+    assert state["status"] == "connected_partial"
+    assert endpoints(result)["plugins"]["status"] == "failed"
+    assert sum(op == "plugins" for op, _, _ in env.ssh.calls) == 1
+    assert endpoints(result)["themes"]["status"] == "connected"
+    assert "/srv/private" not in result.model_dump_json()
+
+
+@pytest.mark.parametrize(
+    "diagnostic",
+    [
+        "ssh: connect to host ssh.example.test port 22: Connection refused",
+        "ssh: Could not resolve hostname ssh.example.test: Temporary failure in name resolution",
+        "kex_exchange_identification: read: Connection reset by peer",
+        "Connection closed by 192.0.2.10 port 22",
+    ],
+)
+def test_recognised_ssh_transport_errors_remain_retryable(env, diagnostic):
+    env.ssh.override = lambda *_: (255, "", diagnostic)
+    _, state = prepare(env)
+    assert state["status"] == "provider_unavailable" and len(env.ssh.calls) == 3
+
+
+def test_successful_json_with_permission_warning_is_retained(env):
+    env.ssh.override = lambda op, _: (
+        (0, json.dumps(env.ssh.plugins), "PHP Warning: Permission denied /srv/private")
+        if op == "plugins"
+        else None
+    )
+    result, state = prepare(env)
+    endpoint = endpoints(result)["plugins"]
+    assert state["status"] == endpoint["status"] == "connected_partial"
+    assert endpoint["data"]["rows"] == env.ssh.plugins and endpoint["data"]["warnings"]
+    assert any(f.check_key == "wp_cli:updates" for f in result.findings)
 
 
 @pytest.mark.parametrize(
@@ -701,6 +874,74 @@ def test_plain_permalink_and_url_redaction():
         wp_cli.public_link("https://name:password@example.test/")
     with pytest.raises(ValueError):
         wp_cli.public_link(SITE + "person%40example.test")
+
+
+@pytest.mark.parametrize(
+    "character", [chr(n) for n in range(127, 160)] + ["\u202e", "\u200b", "\u2066", "\ufeff"]
+)
+def test_url_controls_and_format_characters_rejected_at_each_encoding_layer(character):
+    for text in (character, quote(character), quote(quote(character))):
+        for url in (SITE + text + "page", SITE + "?q=" + text, "https://exam" + text + "ple.test/"):
+            with pytest.raises(ValueError):
+                wp_cli.public_link(url)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "bad_host.test",
+        "-bad.test",
+        "bad-.test",
+        "bad..test",
+        ".example.test",
+        "example.test..",
+        "exam%70le.test",
+        "127.0.0.1",
+        "[::1]",
+        "a" * 64 + ".test",
+        "a." * 127 + "test",
+    ],
+)
+def test_public_link_requires_a_valid_dns_hostname(host):
+    with pytest.raises(ValueError):
+        wp_cli.public_link("https://" + host + "/page")
+
+
+@pytest.mark.parametrize("path", ["caf%C3%A9/", "%E6%97%A5%E6%9C%AC%E8%AA%9E/", "%F0%9F%91%8B/"])
+def test_international_encoded_permalinks_survive_collection(env, path):
+    url = SITE + path
+    assert wp_cli.public_link(url) == url
+    env.ssh.posts["page"] = [{**SSH.post(1, "page"), "url": url}]
+    result, state = prepare(env)
+    assert state["status"] == "connected"
+    assert endpoints(result)["posts_page"]["data"]["urls"] == [unquote(url)]
+    assert (
+        wp_cli.public_link("https://caf\u00e9.test/" + path) == "https://xn--caf-dma.test/" + path
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        SITE + "bad\x7f",
+        SITE + "bad%C2%9F",
+        SITE + "bad%25E2%2580%25AE",
+        SITE + "person%40example.test",
+        SITE + "x%23person%40example.test",
+        "https://bad_host.test/page",
+        "https://bad\u202e.test/page",
+    ],
+)
+def test_unsafe_urls_never_reach_evidence(env, url):
+    env.ssh.options["home"] = url
+    env.ssh.posts["page"] = [{**SSH.post(1, "page"), "url": url}]
+    result, state = prepare(env)
+    data = endpoints(result)
+    assert state["status"] == "connected_partial"
+    assert data["option_home"]["status"] == "failed"
+    assert data["posts_page"]["data"]["urls"] == []
+    assert data["posts_page"]["data"]["rejected_urls"] == 1
+    assert url not in json.dumps(result.model_dump(), ensure_ascii=False)
 
 
 def test_real_bounded_pipe_reader_caps_both_streams_and_cleans_up(monkeypatch):

@@ -591,11 +591,13 @@ David must obtain these details from the hosting administrator:
   in OpenSSH `known_hosts` format. For a non-default port use `[hostname]:port`. Hashed entries
   are supported by OpenSSH. Do not trust an unverified `ssh-keyscan` result or auto-accept a key.
 
-The local machine needs `/usr/bin/ssh`. The remote POSIX host needs `wp`, PHP and GNU `timeout`
+The local machine needs `/usr/bin/ssh`. The remote POSIX host needs **WP-CLI ≥ 2.6.0**, PHP and GNU `timeout`
 in `/usr/local/bin:/usr/bin:/bin`; no tools are installed by this connector. The SSH identity needs
 file read/traverse access and WordPress database SELECT access through the installation's existing
 configuration. Ask the administrator to enforce least privilege, including filesystem/database
 write restrictions where feasible. The connector does not grant permissions or alter configuration.
+The minimum follows the [official context configuration history](https://make.wordpress.org/cli/handbook/references/config/#context-configuration):
+`--context=cli` was introduced in 2.6.0 and is unavailable in 2.5.x.
 
 Keep the credential JSON, key and pinned-host file directly under `~/.config/ams-assess/`
 (0700 directory, 0600 files; no symlinks or hard links). Example setup, using placeholders only:
@@ -654,6 +656,8 @@ process (TERM, then KILL after one second). The framework bounds collection to 9
 UI), 40 attempts, and at most three attempts per transient connection/timeout failure. Permission,
 host-key, malformed-output and command errors are not retried. Completed endpoints/pages survive
 later failures and appear as `connected_partial`, with failed endpoint names in CLI/UI/report.
+Exit 255 alone does not establish an SSH failure: remote PHP can return it too. Only recognised SSH
+transport diagnostics are retried; PHP fatals and ambiguous exit-255 failures are not retried.
 
 The fixed WP-CLI command allowlist was checked against the official references below. Every command
 also gets `--path=<validated path> --skip-plugins --skip-themes --skip-packages --context=cli --no-color`.
@@ -666,7 +670,7 @@ filters, PHP, shell programs, filenames, post types or statuses are accepted.
 | [`wp core version --extra`](https://developer.wordpress.org/cli/commands/core/version/) | Parse the documented text version. This command has no JSON format option. |
 | [`wp core is-installed`](https://developer.wordpress.org/cli/commands/core/is-installed/) | Exit-code check; success intentionally has no output. It has no JSON format option. |
 | [`wp core verify-checksums`](https://developer.wordpress.org/cli/commands/core/verify-checksums/) | Parse fixed success/warning messages into counts. Official docs mark `--format` as not yet in a stable release, so use the section G text command; never install a nightly release or use `--insecure`. |
-| [`wp plugin list`](https://developer.wordpress.org/cli/commands/plugin/list/) and [`wp theme list`](https://developer.wordpress.org/cli/commands/theme/list/) | `--format=json --fields=name,status,version,update,update_version,auto_update --skip-update-check`; retain at most 1,000 rows each, flag caps. |
+| [`wp plugin list`](https://developer.wordpress.org/cli/commands/plugin/list/) and [`wp theme list`](https://developer.wordpress.org/cli/commands/theme/list/) | `--format=json --fields=name,status,version,update,update_version,auto_update --skip-update-check`; retain at most 1,000 rows each, flag caps. Null/false/missing optional fields become empty strings; bounded version header text and `update=unavailable` are retained. Unparseable rows are counted and excluded individually, preserving valid rows with partial coverage. |
 | [`wp plugin verify-checksums --all --format=json`](https://developer.wordpress.org/cli/commands/plugin/verify-checksums/) | Parse JSON discrepancies and the documented batch summary. A fully passing run may emit only the success message; skipped/unverifiable premium/custom plugins never count as a passing integrity check. |
 | [`wp post list`](https://developer.wordpress.org/cli/commands/post/list/) | `--post_type=post` or `page`, `--post_status=publish --format=json --fields=ID,post_type,post_name,post_modified,url --posts_per_page=100 --paged=1..5 --orderby=ID --order=ASC`. At most 500 records per type; cap or page failure makes counts a lower bound. Persist counts/URLs, not titles, content, author, slugs or modified timestamps. |
 | [`wp option get <name> --format=json`](https://developer.wordpress.org/cli/commands/option/get/) | Only `blog_public`, `siteurl`, `home`, `permalink_structure`, `blogdescription`, `default_comment_status`, `users_can_register`, `default_role`, `WPLANG`, `timezone_string`. Prose/permalink/timezone options become presence flags; no arbitrary option names or secret fields. |
@@ -702,6 +706,8 @@ with its default role. Unknown/empty diagnostics never imply "secure". No fresh 
 so a cached negative update flag cannot resolve an earlier update finding. Inaccessible or partial
 checks cannot resolve findings; an equivalent complete passing recheck can. Existing same-site public
 noindex findings are referenced by ID/evidence rather than duplicated.
+Valid rows within a partial plugin list can still establish update/inactive findings; an incomplete
+list cannot establish absence or resolve an earlier inactive-plugin finding.
 
 During `run --connect wp_cli`, the additive coverage hook consumes only that run's bound inventory
 evidence, revalidates same-origin URLs, retains successful partial pages and marks source **`wp_cli`**.
@@ -710,6 +716,10 @@ Prior customer evidence and other installations cannot be substituted. A standal
 inventory evidence and comparisons without claiming to have performed a public crawl. Query secrets,
 URL credentials, personal email paths and absolute server paths are excluded; numeric `?p=`/`?page_id=`
 public permalinks are retained. AI receives the framework's aggregate status/row coverage only.
+URL hosts must be syntactically valid DNS names (including IDNA); address literals are excluded.
+Valid percent-encoded international permalinks are accepted after validating the decoded text.
+C0/DEL/C1 controls and Unicode format/bidi characters, including encoded forms, are rejected before
+evidence is produced. The shared privacy layer may store accepted international paths as Unicode.
 
 ## Outputs and interpretation
 
