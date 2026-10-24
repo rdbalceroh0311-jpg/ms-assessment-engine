@@ -70,10 +70,19 @@ DIRECTION = (
     r"(?:sky)?rocket(?:s|ing)?|improv(?:e|es|ing)|lift(?:s|ing)?|boost(?:s|ing)?|"
     r"rebound(?:s|ing)?|recover(?:s|ing)?|multipl(?:y|ies|ying)|explod(?:e|es|ing))"
 )
+# In the object position the outcome must head a noun phrase, not modify a page/form
+# or occur inside a clause such as "how enquiries are tracked". Modifiers before the
+# head cannot introduce a clause or prepositional object; the head ends at punctuation
+# or an adjunct. This also preserves forecasts with arbitrary adjectives ("monthly leads").
+OUTCOME_OBJECT = (
+    r"(?:(?!(?:how|what|where|when|why|whether|that|of|to|for|with)\b)[\w'-]+\s+){0,3}?"
+    rf"{OUTCOME_NOUN}\b(?=\s*(?:[.,;:!?)]|$)|"
+    r"\s+(?:after|before|by|from|with|without|in|over|through|once|when|because|if|and|or)\b)"
+)
 OUTCOME_FORECAST = re.compile(
     rf"\b{OUTCOME_NOUN}\b(?:\s+\S+){{0,4}}?\s+{FUTURE_MARKER}\s+(?:\w+\s+){{0,2}}?{DIRECTION}\b"
     rf"|\b{OUTCOME_NOUN}['’]ll\s+(?:\w+\s+){{0,2}}?{DIRECTION}\b"
-    rf"|\b{FUTURE_MARKER}\s+(?:\w+\s+){{0,2}}?{DIRECTION}\s+(?:\S+\s+){{0,3}}?{OUTCOME_NOUN}\b",
+    rf"|\b{FUTURE_MARKER}\s+(?:\w+\s+){{0,2}}?{DIRECTION}\s+{OUTCOME_OBJECT}",
     re.I,
 )
 

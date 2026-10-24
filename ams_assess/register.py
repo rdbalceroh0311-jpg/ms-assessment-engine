@@ -57,16 +57,37 @@ SECRET = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY|\bBearer\s+\S+|"
     r"\b(?:password|passwd|secret|api[_ -]?key|access[_ -]?token|refresh[_ -]?token|"
     r"client[_ -]?secret|authorization|credential|token)[\"']?\s*[=:]\s*\S+|"
-    # Space-separated "api-key ABCDEFGH": the value must look like a key (8+ key characters,
-    # not a plain or capitalised word, not a date), so prose such as "password reset" passes.
-    r"\b(?:password|passwd|secret|api[_ -]?key|access[_ -]?token|refresh[_ -]?token|"
-    r"client[_ -]?secret|token)[\"']?\s+(?!(?-i:[A-Z]?[a-z]+(?:-[a-z]+)*)\b)"
-    r"(?!\d{4}-\d{2}-\d{2}\b)[\w./+=-]{8,}(?![\w./+=-])|"
     r"\b(?:sk-[A-Za-z0-9_-]{12,}|AIza[A-Za-z0-9_-]{20,}|"
     r"gh[pousr]_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|ya29\.[\w.-]+)|"
     r"\beyJ[\w-]+\.[\w-]+\.[\w-]+",
     re.I,
 )
+SPACE_SECRET = re.compile(
+    r"\b(?:password|passwd|secret|api[_ -]?key|access[_ -]?token|refresh[_ -]?token|"
+    r"client[_ -]?secret|token)[\"']?\s+([\w./+=-]{8,})(?![\w./+=-])",
+    re.I,
+)
+# Word-shaped product names and versioned identifiers are ordinary register prose.
+PRODUCT_WORD = re.compile(r"(?:[A-Z]+)?[A-Z]?[a-z]{2,}(?:[A-Z][a-z]{2,})+")
+VERSIONED_WORD = re.compile(r"(?:[A-Z]+)?(?:[A-Z][a-z]{2,})+\d+(?:\.\d+)+")
+
+
+def space_secret(value: str) -> bool:
+    for match in SPACE_SECRET.finditer(value):
+        token = match[1].rstrip(".")
+        if (
+            token.isdecimal()
+            or re.fullmatch(r"\d{4}-\d{2}-\d{2}", token)
+            or PRODUCT_WORD.fullmatch(token)
+            or VERSIONED_WORD.fullmatch(token)
+        ):
+            continue
+        opaque = len(token) >= 24 and len(set(token.lower())) >= 10
+        if opaque or not re.fullmatch(r"[A-Z]?[a-z]+(?:-[a-z]+)*", token):
+            return True
+    return False
+
+
 SECRET_KEY = re.compile(
     r"password|passwd|secret|token|credential|authorization|api.?key|signature|^(key|auth|code|sig)$",
     re.I,
@@ -80,7 +101,11 @@ def safe_text(value: str, *, identifier: bool = False) -> str:
     decoded = value
     for _ in range(4):
         decoded = unquote(decoded)
-    if any(ord(c) < 32 and c not in "\n\t" for c in decoded) or SECRET.search(decoded):
+    if (
+        any(ord(c) < 32 and c not in "\n\t" for c in decoded)
+        or SECRET.search(decoded)
+        or space_secret(decoded)
+    ):
         raise ValueError("Secret-looking values are not allowed in the register")
     for candidate in re.findall(r"https?://[^\s<>]+", decoded, re.I):
         try:

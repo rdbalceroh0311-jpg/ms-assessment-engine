@@ -5,6 +5,8 @@ import mimetypes
 import os
 import secrets
 import stat
+from collections.abc import Generator
+from contextlib import ExitStack, contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
@@ -29,6 +31,30 @@ REPORT_FILES = {"report.html", "report.pdf", "report.md"}
 MAX_BODY = 32_768
 
 
+@contextmanager
+def open_output(directory: Path, relative: str) -> Generator[int, None, None]:
+    """Open a regular output beneath the customer directory without following symlinks.
+
+    Every component is opened relative to the preceding directory descriptor. Renaming a
+    parent after it is opened cannot redirect later opens to a replacement or outside path.
+    """
+    path = PurePosixPath(relative)
+    if not path.parts or path.is_absolute() or ".." in path.parts or "\\" in relative:
+        raise ValueError("Invalid output path")
+    directory_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY
+    with ExitStack() as stack:
+        parent = os.open(directory, directory_flags)
+        stack.callback(os.close, parent)
+        for part in path.parts[:-1]:
+            parent = os.open(part, directory_flags, dir_fd=parent)
+            stack.callback(os.close, parent)
+        fd = os.open(path.parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        stack.callback(os.close, fd)
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("Output must be a regular file")
+        yield fd
+
+
 def output_files(root: Path, customer: str, current: dict[str, Any]) -> dict[str, Path]:
     return {name: path for name, (path, _) in checked_outputs(root, customer, current).items()}
 
@@ -38,9 +64,8 @@ def checked_outputs(
 ) -> dict[str, tuple[Path, os.stat_result]]:
     """Exact per-customer output allowlist, never raw/credentials or arbitrary JSON files.
 
-    Reject every symlink component (also within the customer). A stored directory name
-    must be a simple relative path with the expected shape, never an arbitrary path. Each
-    entry keeps the identity of the file that passed the checks, for read_checked().
+    Open every component relative to the customer directory with O_NOFOLLOW. Each entry
+    keeps the opened regular file's identity for a second descriptor walk in read_checked().
     """
     directory = customer_path(root, customer)
     allowed: dict[str, tuple[Path, os.stat_result]] = {}
@@ -53,17 +78,10 @@ def checked_outputs(
         if target.suffix not in EXTENSIONS:
             return
         try:
-            # Capture identity BEFORE the path checks, never stat a replacement afterwards.
-            checked = target.lstat()
-            if not stat.S_ISREG(checked.st_mode):
-                return
-            if any(p.is_symlink() for p in [target, *target.parents] if p != directory.parent):
-                return
-            resolved = target.resolve()
-            if resolved.is_relative_to(directory.resolve()):
-                allowed[relative] = (resolved, checked)
-        except (OSError, RuntimeError):
-            return  # A disappearing file or symlink loop is not an allowed output.
+            with open_output(directory, relative) as fd:
+                allowed[relative] = (target, os.fstat(fd))
+        except (OSError, ValueError):
+            return  # Missing files, symlinks and non-regular outputs are not allowed.
 
     for revision in current.get("report_revisions", []):
         path = PurePosixPath(revision["directory"])
@@ -84,24 +102,21 @@ def checked_outputs(
     return allowed
 
 
-def read_checked(path: Path, checked: os.stat_result) -> bytes | None:
-    """Read the file the allowlist checked, or nothing if it was swapped since (TOCTOU).
+def read_checked(path: Path, checked: os.stat_result, *, directory: Path) -> bytes | None:
+    """Repeat the no-symlink descriptor walk and read only the allowlisted file identity.
 
-    O_NOFOLLOW refuses a final-component symlink; comparing the open descriptor's identity
-    with the checked one refuses any other replacement, including a swapped parent directory.
+    O_NOFOLLOW is applied to every parent and the final file. fstat verifies a regular file
+    and compares device/inode with the allowlisted descriptor, never a path-based stat.
     """
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0))
-    except OSError:
+        with open_output(directory, str(path.relative_to(directory))) as fd:
+            opened = os.fstat(fd)
+            if (opened.st_dev, opened.st_ino) != (checked.st_dev, checked.st_ino):
+                return None
+            with os.fdopen(os.dup(fd), "rb") as handle:
+                return handle.read()
+    except (OSError, ValueError):
         return None
-    with os.fdopen(fd, "rb") as handle:
-        opened = os.fstat(handle.fileno())
-        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
-            checked.st_dev,
-            checked.st_ino,
-        ):
-            return None
-        return handle.read()
 
 
 def finding_groups(current):
@@ -234,7 +249,11 @@ class Handler(BaseHTTPRequestHandler):
                 allowed = checked_outputs(self.app.root, customer, current) if current else {}
                 entry = allowed.get(params.get("path", ""))
                 # Rebuild the allowlist on every request; symlink changes are never cached.
-                body = read_checked(*entry) if entry else None
+                body = (
+                    read_checked(*entry, directory=customer_path(self.app.root, customer))
+                    if entry
+                    else None
+                )
                 if entry is None or body is None:
                     self.reply(403, b"Output is not allowed for this customer")
                     return

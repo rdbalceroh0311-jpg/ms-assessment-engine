@@ -729,6 +729,9 @@ def test_d7_stored_runs_are_analysed_once_and_replace_ai_connected_findings(tmp_
         "Calls are likely to jump once the form works.",
         "Traffic is set to double.",
         "The fix is going to lift enquiries.",
+        "The fix should boost monthly enquiries.",
+        "This should improve qualified leads.",
+        "The fix should double our overall monthly enquiries.",
     ],
 )
 def test_d8_future_outcome_phrasings_are_promises(text):
@@ -746,6 +749,13 @@ def test_d8_future_outcome_phrasings_are_promises(text):
         "The form is set to send enquiries to the office.",
         "Enquiries rose last year.",
         "Calls should be answered within one business day.",
+        "You should improve the booking page so it loads faster.",
+        "You could boost the call button contrast.",
+        "You can improve the enquiry form by adding labels.",
+        "This should improve the leads form.",
+        "We should improve how enquiries are tracked.",
+        "We should improve how we handle enquiries.",
+        "You should improve the tracking of enquiries.",
     ],
 )
 def test_d8_instructions_and_observations_are_not_promises(text):
@@ -835,15 +845,17 @@ def test_d9_file_read_refuses_a_file_swapped_after_the_allowlist_check(tmp_path)
     path = tmp_path / "report.html"
     path.write_text("checked")
     checked = path.stat()
-    assert ui.read_checked(path, checked) == b"checked"
+    assert ui.read_checked(path, checked, directory=tmp_path) == b"checked"
     replacement = tmp_path / "other.html"
     replacement.write_text("swapped")
     os.replace(replacement, path)  # same name, different file
-    assert ui.read_checked(path, checked) is None
+    assert ui.read_checked(path, checked, directory=tmp_path) is None
     path.unlink()
     (tmp_path / "secret.html").write_text("secret")
     path.symlink_to(tmp_path / "secret.html")
-    assert ui.read_checked(path, (tmp_path / "secret.html").stat()) is None  # O_NOFOLLOW
+    assert (
+        ui.read_checked(path, (tmp_path / "secret.html").stat(), directory=tmp_path) is None
+    )  # O_NOFOLLOW
 
 
 @contextmanager
@@ -903,6 +915,14 @@ def test_d9_file_route_does_not_serve_a_swap_between_check_and_read(tmp_path, mo
         ("password Management policy", False),
         ("Access token rotation scheduled", False),
         ("token 2024-10-23 renewal", False),
+        ("password LastPass", False),
+        ("password WordPress", False),
+        ("token SharePoint", False),
+        ("api key OAuth2.0", False),
+        ("token 12345678 is the order number", False),
+        ("api key a9G7k2Q8m4Z1w6R3t0V5x9P2", True),
+        ("client secret qwejvkdfnzyapohgumlrstxcbi", True),
+        ("token ghp_abcdefghijklmnopqrstuvwxyz1234567890", True),
     ],
 )
 def test_d9_space_separated_secrets_are_rejected_and_prose_kept(note, rejected):
@@ -1150,16 +1170,20 @@ def test_d9_allowlist_does_not_capture_replacement_identity_after_path_checks(
     replacement = path.with_name("replacement.md")
     replacement.write_text("REPLACEMENT")
     current = {"report_revisions": [{"directory": "reports/001-synthetic", "files": ["report.md"]}]}
-    resolve = Path.resolve
+    open_file = os.open
 
-    def racing(self, *args, **kwargs):
-        if self == path and replacement.exists():
+    def racing(name, flags, *args, **kwargs):
+        fd = open_file(name, flags, *args, **kwargs)
+        if name == "report.md" and replacement.exists():
             os.replace(replacement, path)
-        return resolve(self, *args, **kwargs)
+        return fd
 
-    monkeypatch.setattr(Path, "resolve", racing)
+    monkeypatch.setattr(os, "open", racing)
     allowed = ui.checked_outputs(tmp_path, CUSTOMER, current)
-    assert ui.read_checked(*allowed["reports/001-synthetic/report.md"]) is None
+    assert (
+        ui.read_checked(*allowed["reports/001-synthetic/report.md"], directory=tmp_path / CUSTOMER)
+        is None
+    )
 
 
 def test_d9_checked_file_disappearing_is_refused_without_server_error(tmp_path, monkeypatch):
@@ -1167,14 +1191,14 @@ def test_d9_checked_file_disappearing_is_refused_without_server_error(tmp_path, 
     path.parent.mkdir(parents=True)
     path.write_text("original")
     current = {"report_revisions": [{"directory": "reports/001-synthetic", "files": ["report.md"]}]}
-    lstat = Path.lstat
+    open_file = os.open
 
-    def disappearing(self, *args, **kwargs):
-        if self == path:
+    def disappearing(name, flags, *args, **kwargs):
+        if name == "report.md":
             path.unlink()
-        return lstat(self, *args, **kwargs)
+        return open_file(name, flags, *args, **kwargs)
 
-    monkeypatch.setattr(Path, "lstat", disappearing)
+    monkeypatch.setattr(os, "open", disappearing)
     assert ui.checked_outputs(tmp_path, CUSTOMER, current) == {}
 
 
@@ -1348,3 +1372,248 @@ def test_d5_real_crawler_respects_seed_budget_and_exclusions(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+@pytest.mark.parametrize(
+    "instruction",
+    [
+        "You should improve the booking page so it loads faster.",
+        "You could boost the call button contrast.",
+        "You can improve the enquiry form by adding labels.",
+        "This should improve the leads form.",
+        "We should improve how enquiries are tracked.",
+    ],
+)
+def test_review_d8_keeps_instruction_findings(instruction):
+    evidence = [
+        Evidence(
+            id="ev-browser-001",
+            source="browser",
+            url="https://example.test/",
+            description="Form observation",
+            data={},
+        )
+    ]
+    finding = {
+        "id": "ai-form",
+        "title": "Review the enquiry form",
+        "category": "cro_ux",
+        "evidence_ids": [evidence[0].id],
+        "detail": "The form needs review.",
+        "recommendation": instruction,
+    }
+    analysis, findings, warnings = ai.validate_analysis(
+        {"findings": [finding], "executive_summary": instruction + " (ev-browser-001)"},
+        evidence,
+        {"cro_ux"},
+        [],
+    )
+    assert not warnings
+    assert len(findings) == 1 and findings[0].recommendation == instruction
+    assert analysis["executive_summary"] == instruction + " (ev-browser-001)"
+
+
+@pytest.mark.parametrize(
+    "probe_status,probe_body",
+    [
+        (404, "not found"),
+        (200, "<html>Not a WordPress website</html>"),
+        (200, '{"message": "This is a different API"}'),
+    ],
+)
+def test_review_d5_non_wordpress_probe_is_not_an_access_gap(tmp_path, probe_status, probe_body):
+    requests = []
+
+    def respond(request):
+        requests.append(request.url.path)
+        if request.url.path == "/robots.txt":
+            return httpx.Response(200, text="User-agent: *\nAllow: /\n")
+        if request.url.path == "/sitemap.xml":
+            return httpx.Response(
+                200,
+                text=(
+                    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                    "<url><loc>https://example.com/unlinked.html</loc></url></urlset>"
+                ),
+            )
+        return httpx.Response(probe_status, text=probe_body)
+
+    transport = httpx.MockTransport(respond)
+    ctx = context(tmp_path)
+    coverage.seed_inventory(ctx, transport)
+    assert ctx.inventory["seeds"] == ["https://example.com/unlinked.html"]
+    collected = coverage.collect(ctx, transport)
+    assert collected["wordpress"]["status"] == "not detected"
+    assert collected["wordpress"].get("stop_reasons", []) == []
+    assert not any("WordPress" in r or coverage.UNAVAILABLE in r for r in collected["stop_reasons"])
+    assert requests.count("/wp-json/wp/v2/types") == 1
+    # A separate positive WordPress signal must still expose a missing REST inventory.
+    known = ModuleResult(name="presence")
+    known.add_evidence(ctx.target, "Platform signal: WordPress", {})
+    ctx.results = [known]
+    collected = coverage.collect(ctx, transport)
+    assert collected["wordpress"]["status"] == "unavailable"
+    assert coverage.UNAVAILABLE in collected["stop_reasons"]
+    assert requests.count("/wp-json/wp/v2/types") == 1
+
+
+def test_review_d9_parent_swap_during_allowlisting_and_read_is_refused(tmp_path, monkeypatch):
+    store.set_profile(tmp_path, CUSTOMER, {"name": "Synthetic"})
+    directory = tmp_path / CUSTOMER
+    parent = directory / "reports/001-fixture"
+    parent.mkdir(parents=True)
+    target = parent / "report.md"
+    target.write_text("ALLOWED")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "report.md").write_text("OUTSIDE")
+    held = directory / "reports/held"
+    current = store.load(tmp_path, CUSTOMER)
+    assert current is not None
+    current["report_revisions"] = [{"directory": "reports/001-fixture", "files": ["report.md"]}]
+    save(tmp_path, current)
+    lstat = Path.lstat
+    captured = {"once": False}
+
+    def poisoned_identity(self, *args, **kwargs):
+        if self == target and not captured["once"]:
+            captured["once"] = True
+            parent.rename(held)
+            parent.symlink_to(outside, target_is_directory=True)
+            checked = lstat(self, *args, **kwargs)  # lstat follows the symlinked parent.
+            parent.unlink()
+            held.rename(parent)  # Restore the path before the old symlink checks.
+            return checked
+        return lstat(self, *args, **kwargs)
+
+    checked_outputs = ui.checked_outputs
+
+    def swap_after_check(root, customer, current):
+        allowed = checked_outputs(root, customer, current)
+        parent.rename(held)
+        parent.symlink_to(outside, target_is_directory=True)
+        return allowed
+
+    monkeypatch.setattr(Path, "lstat", poisoned_identity)
+    monkeypatch.setattr(ui, "checked_outputs", swap_after_check)
+    with running(tmp_path) as (server, client):
+        response = client.get(
+            server.url("/file", customer=CUSTOMER, path="reports/001-fixture/report.md")
+        )
+        assert response.status_code == 403
+        assert "OUTSIDE" not in response.text
+
+
+def test_review_d1_customer_report_decodes_stored_tel_values(tmp_path):
+    ctx = context(tmp_path, profile=PROFILE)
+    rendered = ModuleResult(name="browser")
+    rendered.add_evidence(ctx.target, "Rendered page evidence (desktop)", {"page": ENCODED_PAGE})
+    ctx.results = [rendered]
+    result = presence.run(ctx)
+    assert result.status == "ok"
+    summary = presence.summary([result], ctx)
+    mapping = {e.id: store.namespaced(e.id, "r3") for e in result.evidence}
+    summary = store.remap(summary, mapping)
+    rows = copy.deepcopy(LEGACY_NAP)
+    for row in rows:
+        row["evidence_ids"] = [mapping[result.evidence[0].id]]
+    summary["discovery"]["nap"] = rows
+    current = store.new_store(CUSTOMER, "Synthetic")
+    current["evidence"] = [store.remap(e.model_dump(), mapping) for e in result.evidence]
+    current["runs"] = [
+        {
+            "run_id": "r3",
+            "kind": "assessment",
+            "target": ctx.target,
+            "created_at": "2026-10-20T00:00:00Z",
+            "status": "complete",
+            "selected_categories": ["presence"],
+            "assessed_categories": ["presence"],
+            "ai": {"status": "skipped"},
+            "modules": [{"name": "presence", "status": "ok", "reason": ""}],
+            "pages": [ctx.target],
+            "max_pages": 10,
+            "limitations": [],
+            "future": [],
+            "digital_presence": summary,
+        }
+    ]
+    current["findings"] = [
+        Finding(
+            id="tech-nap",
+            title="Verify Facebook phone",
+            category="presence",
+            check_key="platform:external-nap-inconsistent:facebook",
+            site="example.com",
+            component=ctx.target,
+            last_run_id="r3",
+            evidence_ids=rows[0]["evidence_ids"],
+            detail="Legacy phone comparison: (02)%205550%200101",
+            recommendation="Verify listing",
+            confidence="needs_verification",
+        ).model_dump()
+    ]
+    original = copy.deepcopy(current)
+    data, evidence, discovery = store.report_data(current)
+    text = render_markdown(data, evidence, discovery)
+    assert "(02)%205550%200101" not in text
+    assert "(business: (02) 5550 0101, 0400 111 222)" in text
+    assert "| (02) 5550 0101, 0400 111 222 |" in text
+    assert "source shows 9 digits" in text
+    assert current == original  # Report corrections never rewrite the stored observations.
+
+
+@pytest.mark.parametrize("component", ["reports", "001-fixture"])
+def test_review_d9_parent_symlink_is_refused_even_with_matching_file_identity(tmp_path, component):
+    directory = tmp_path / CUSTOMER
+    target = directory / "reports/001-fixture/report.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("ALLOWED")
+    parent = target.parent if component == "001-fixture" else target.parent.parent
+    outside = tmp_path / "outside"
+    external = outside / target.relative_to(parent)
+    external.parent.mkdir(parents=True)
+    external.write_text("OUTSIDE")
+    parent.rename(tmp_path / "held")
+    parent.symlink_to(outside, target_is_directory=True)
+    assert ui.read_checked(target, external.stat(), directory=directory) is None
+
+
+def test_review_d9_parent_swap_after_directory_open_cannot_redirect_read(tmp_path, monkeypatch):
+    directory = tmp_path / CUSTOMER
+    target = directory / "reports/001-fixture/report.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("ALLOWED")
+    checked = target.stat()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "report.md").write_text("OUTSIDE")
+    open_file = os.open
+
+    def racing(name, flags, *args, **kwargs):
+        fd = open_file(name, flags, *args, **kwargs)
+        if name == "001-fixture":
+            target.parent.rename(tmp_path / "held")
+            target.parent.symlink_to(outside, target_is_directory=True)
+        return fd
+
+    monkeypatch.setattr(os, "open", racing)
+    assert ui.read_checked(target, checked, directory=directory) == b"ALLOWED"
+
+
+def test_review_d8_keeps_qualified_customer_figure():
+    evidence = Evidence(
+        id="ev-discovery-001",
+        source="discovery",
+        url="customer-statement",
+        description="Customer estimate",
+        provenance="customer_statement",
+        data={"statement": "Approximately 20 enquiries per week"},
+    )
+    claim = "Customer reports approximately 20 enquiries per week; not independently verified."
+    assert not ai.unsupported_claim(claim, [evidence])
+    cited = claim + " (ev-discovery-001)"
+    analysis, _, warnings = ai.validate_analysis(
+        {"executive_summary": cited}, [evidence], set(), []
+    )
+    assert not warnings and analysis["executive_summary"] == cited

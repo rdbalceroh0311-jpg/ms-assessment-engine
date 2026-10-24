@@ -127,6 +127,8 @@ def wp_inventory(
     ctx: Context,
     transport: httpx.BaseTransport | None = None,
     robots: RobotFileParser | None = None,
+    *,
+    probe: bool = False,
 ) -> dict[str, Any]:
     deadline = time.monotonic() + INVENTORY_SECONDS
     origin = presence.origin_of(ctx.site_url)
@@ -163,6 +165,27 @@ def wp_inventory(
                 return None
 
         types = fetch(base + "wp/v2/types")
+        advertised = isinstance(types, dict) and any(
+            isinstance(info, dict) and (info.get("rest_base") or kind in {"page", "post"})
+            for kind, info in types.items()
+        )
+        if (
+            probe
+            and requests
+            and (
+                requests[0]["status"] in {404, 410}
+                or requests[0]["status"] == 200
+                and requests[0]["complete"]
+                and not advertised
+            )
+        ):
+            return {
+                "status": "not detected",
+                "urls": [],
+                "requests": requests,
+                "reason": "No public WordPress types detected",
+                "stop_reasons": [],
+            }
         if not isinstance(types, dict):
             return {
                 "status": "unavailable",
@@ -333,7 +356,7 @@ def seed_inventory(ctx: Context, transport: httpx.BaseTransport | None = None) -
     if robots_known:
         # A custom sitemap and robots.txt need not advertise WordPress. Probe the bounded
         # public types endpoint before the crawl so inventory-only pages can be sampled too.
-        inventory["wordpress"] = wp_inventory(ctx, transport, robots)
+        inventory["wordpress"] = wp_inventory(ctx, transport, robots, probe=True)
         candidates += inventory["wordpress"]["urls"]
         media.update(inventory["wordpress"].get("attachment_urls", []))
     else:
@@ -483,6 +506,15 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
         if wp_detected
         else {"status": "not detected", "reason": "No WordPress signal in the sample", "urls": []}
     )
+    if wp_detected and inventory["status"] == "not detected":
+        # A speculative probe miss is harmless on other sites. Independent WordPress
+        # evidence makes the same miss a real inventory gap, without fetching it again.
+        inventory = {
+            **inventory,
+            "status": "unavailable",
+            "reason": UNAVAILABLE,
+            "stop_reasons": [UNAVAILABLE],
+        }
     for url in inventory["urls"]:
         add(url, "WordPress inventory")
     if ctx.wp_inventory:
