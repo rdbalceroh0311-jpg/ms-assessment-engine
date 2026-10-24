@@ -910,6 +910,136 @@ Google `SERVICE_DISABLED`/`accessNotConfigured`, insufficient scopes/`PERMISSION
 `RESOURCE_EXHAUSTED` with `quota_limit_value` zero. Hook details are redacted again and capped at
 2,000 characters before reaching evidence, CLI, UI or report status. Raw error bodies are not stored.
 
+## Bing Webmaster Tools (`bing_wmt`)
+
+This connector reads **Bing Webmaster Tools**, independently of Bing Places. It requires an
+existing API key and an explicitly selected, verified site. It does not add/verify sites, submit
+URLs or feeds, change crawl settings, or manage users. No paid service is used.
+
+Microsoft documents [API-key and OAuth access](https://learn.microsoft.com/en-us/bingwebmaster/getting-access).
+This implementation uses the API-key option only: there is no OAuth token to refresh. The key
+belongs to a user and can access that user's verified sites. Ask the owner for
+[ReadOnly site access](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.siteroles.userrole?view=bing-webmaster-dotnet)
+where available; the key itself is not restricted to read operations. The connector enforces a
+GET-only allowlist containing exactly the nine methods below, refusing all other routes and verbs.
+The declaration's permission description is a site role, not an OAuth scope.
+
+Store `BING_WMT_API_KEY` in `~/.config/ams-assess/credentials.env` using a private editor, never a
+CLI argument, repository file, report or chat. Keep the directory mode 0700 and the file 0600.
+Alternatively, `--credential-file ~/.config/ams-assess/bing-key.json` can reference a private JSON
+object with an `api_key` field. The shared reference loader also supports environment overrides.
+The connector declares `auth_flow='reference'` and a `BING_WMT_API_KEY` auth hint. Query-key
+requests run under the shared private logging guard; registered key values are redacted before
+any evidence or status is emitted, and provider error bodies/URLs are never echoed.
+Registration stores only the source reference; it neither verifies access nor binds every visible
+site. An invalid/revoked key produces `credential_expired` with instructions to update the existing
+private source. Rotation/re-authorisation is manual; this connector never obtains new access.
+
+From this worktree (replace the example site with the **exact** verified URL in the listing):
+
+```sh
+uv sync
+uv run ams-assess connect bing_wmt auth --credential-ref bing-2ec --env-var BING_WMT_API_KEY
+uv run ams-assess connect bing_wmt list-resources --credential-ref bing-2ec
+uv run ams-assess connect bing_wmt bind --customer 2ec-traffic \
+  --credential-ref bing-2ec --resource 'https://2ectraffic.com/'
+uv run ams-assess connect bing_wmt test --customer 2ec-traffic
+uv run ams-assess connect bing_wmt collect --customer 2ec-traffic --days 28
+uv run ams-assess connect bing_wmt collect --customer 2ec-traffic \
+  --start 2026-09-01 --end 2026-09-28
+uv run ams-assess connectors --customer 2ec-traffic
+uv run ams-assess report --customer 2ec-traffic
+```
+
+`bind` records a selection; `test` and every `collect` authenticate that exact URL using
+`GetUserSites` with `IsVerified=true` before any site-data read. Scheme, hostname, path and trailing
+slash are not guessed. Unverified sites are omitted from the listing. Other sites' verification
+codes and inventory are never persisted in the bound customer's evidence. A site already bound to
+another customer is refused across credential references unless `--force --reason '...'` records
+an explicit shared-site exception. Collection uses the existing CLI, UI, register and report
+section 7 lifecycle; a partial/unavailable recheck cannot resolve an earlier finding.
+
+Official contracts checked **2026-10-24**. All routes are below
+`https://ssl.bing.com/webmaster/api.svc/json/`, with the API key supplied privately as `apikey`.
+Each method is probed separately on each collection; documentation does not establish live
+availability for a particular account.
+
+| Method and official reference | Parameters beyond `apikey` | Evidence and limits |
+| --- | --- | --- |
+| [GetUserSites](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getusersites?view=bing-webmaster-dotnet) | None | Exact selected URL and verified flag; verification codes discarded. |
+| [GetRankAndTrafficStats](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getrankandtrafficstats?view=bing-webmaster-dotnet) | `siteUrl` | Daily impressions/clicks, filtered to the selected period. Microsoft describes traffic across search verticals, not web-only traffic. |
+| [GetQueryStats](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getquerystats?view=bing-webmaster-dotnet) | `siteUrl` | Provider top-query records, clicks/impressions and average positions; query text replaced by a stable hash. Weekly updates. |
+| [GetPageStats](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getpagestats?view=bing-webmaster-dotnet) | `siteUrl` | Provider top-page records and positions; URL query strings, credentials, fragments and email identifiers removed. Weekly updates. |
+| [GetCrawlStats](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getcrawlstats?view=bing-webmaster-dotnet) | `siteUrl` | Daily crawl/status/index/block/error counts; API describes six months of history. |
+| [GetCrawlIssues](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getcrawlissues?view=bing-webmaster-dotnet) | `siteUrl` | Current counts by documented issue flag. Fixed issues can remain for days; no URL inventory retained. |
+| [GetFeeds](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getfeeds?view=bing-webmaster-dotnet) | `siteUrl` | Current top-level sitemap/feed URLs, status, dates and URL counts; no recursive child-feed fetching. |
+| [GetSiteRoles](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getsiteroles?view=bing-webmaster-dotnet) | `siteUrl`, `includeAllSubdomains=false` | Current counts by role/expired flag; emails, delegation and verification codes discarded. |
+| [GetBlockedUrls](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi.getblockedurls?view=bing-webmaster-dotnet) | `siteUrl` | Count of current blocked page/directory entries; no URL inventory retained. |
+
+The `GetBlockedUrls` page's JSON example mistakenly shows the write method `AddBlockedUrl`;
+this connector follows the declared **WebGet** signature and refuses that write method.
+[Crawl issue flags](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.urlwithcrawlissues.crawlissues?view=bing-webmaster-dotnet)
+and [role enum values](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.siteroles.userrole?view=bing-webmaster-dotnet)
+are interpreted explicitly; unknown shapes/values fail the affected endpoint.
+
+None of these method signatures offers paging or period parameters. One bounded response is read
+per method, then dates are filtered locally (including Microsoft's `/Date(milliseconds-offset)/`
+format). The default period is the last 28 complete UTC days; `--days 1..366` or `--start/--end`
+uses the framework's complete-day validation. Stored dates retain the provider's offset/date basis.
+Top-query/page records are weekly provider samples, not daily totals. Returned dates and top-row
+scope are recorded; missing dates never become zero activity. Feeds, issues, roles, verification
+and blocked URLs are explicitly current snapshots, regardless of the requested traffic period.
+
+Each response retains at most `max_pages * page_size` rows (500 by default), with truncation
+recorded. The connector limits requests to 27 including retries (nine methods, three attempts).
+The framework limits responses to 2 MB, I/O to 10 seconds and the read phase to 45 seconds
+(40 in the UI). Oversized responses fail explicitly;
+there is no undocumented pagination fallback. Bing's small error bodies have an additional
+64 KB cap. 429/5xx/timeouts and documented throttling/internal-error faults use the shared
+three-attempt bounded backoff. Successful endpoints and processed rows survive other failures.
+
+Microsoft's [JSON fault format](https://learn.microsoft.com/en-us/bingwebmaster/getting-started)
+uses HTTP 400 with [ApiErrorCode](https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.apierrorcode?view=bing-webmaster-dotnet).
+The module-owned transport maps those codes to framework statuses without retaining the message:
+invalid key → `credential_expired`; blocked/not-allowed/not-authorised → `permission_required`
+with the required ReadOnly site access; missing resource/access → `not_found`; throttling/internal
+errors → bounded retries; exhausted throttling → `rate_limited`. Deprecated faults and HTTP
+405/410/501 explicitly record `availability=unsupported`, `provider_unavailable`.
+HTTP 404 on a method route is recorded as
+endpoint unavailable, not proof that the bound site does not exist. Other malformed or rejected
+reads are `failed`. Empty successful lists stay `connected`; mixed endpoint results become
+`connected_partial` with the affected endpoint names. Shared API-disabled/approval-required
+machine-code handling remains available when the provider actually returns those codes.
+
+Confirmed findings cover returned crawl errors, robots-blocked counts, crawl issues, blocking
+entries, absent submitted feeds and explicit error/failure feed statuses. Pending/unknown feed
+statuses cannot resolve an error finding. Findings describe Bing's observation and never infer
+that intentional blocks are wrong or that an empty issue list proves security. Existing public
+robots/sitemap findings are referenced rather than duplicated. Bing/GSC comparisons use the
+framework's immutable `ctx.connected_evidence` view of the latest collection for this customer's
+bound site. They require both Bing and GSC page evidence for a matching period and exact URL
+property (or same-host root domain property), filter page rows to the selected Bing site, and
+cite both sources. Missing evidence creates no comparison finding. They are labelled
+`needs_verification`: different engines, verticals, reporting cadence and top-row coverage do not
+establish lost traffic or a
+ranking fault. Inaccessible, capped or mismatched evidence cannot support a comparison. AI
+receives only endpoint status/row-count/truncation aggregates, not queries, paths or role lists.
+
+Synthetic verification (no live network, real credentials or customer fixtures):
+
+```sh
+uv run pytest -q tests/test_bing_wmt.py
+uv run pytest -q
+uv run ruff check .
+uv run ty check ams_assess tests
+```
+
+For the authorised 2EC validation, live reading is allowed only if `BING_WMT_API_KEY` already
+exists in `~/.config/ams-assess/credentials.env` and a verified `2ectraffic.com` site is returned
+by `GetUserSites`. Otherwise stop at tested code. Do not copy or change the main checkout's
+`data/customers/**`. No live read was made during implementation: the key name was absent on
+2026-10-24.
+
 ## WordPress WP-CLI over SSH (`wp_cli`)
 
 This connector reads one explicitly configured installation through the existing connector
