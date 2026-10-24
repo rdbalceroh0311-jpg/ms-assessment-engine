@@ -153,6 +153,10 @@ rechecked**, with their last-observed dates. Resolution records its evidence, da
 reopens the identity and preserves its events and observations. Current severity follows the latest
 observation. Resolved and superseded findings are excluded from recommendations and the roadmap;
 conflicts remain **needs review**. Discovery supersession and conflict rules below are unchanged.
+Axe node groups produce one verdict per rule/page/viewport: any violation fails the check;
+incomplete nodes prevent a pass. Historical PASS/FAIL pairs citing the same axe audit are interpreted
+as FAIL, with false review holds corrected in the current view and saved on the next store write.
+Raw runs and evidence remain unchanged; contradictions between different audits still need review.
 Current citations refer to the current observation; older citations remain in finding events.
 Historical AI prose is removed only when its cited basis belongs solely to resolved or superseded
 findings, preserving sentences with a current or mixed basis.
@@ -309,8 +313,14 @@ evidence. Older assessments are backfilled when the register or customer report 
 Existing `presence-verify` records and recognised, explicitly named `systems_in_use` discovery
 systems are reused. A legacy verification with several websites stays
 customer-wide because it has no website attribution. Industry/buying-model relevance uses the
-existing platform catalogue. Use `--site` and `--location` to scope a manual record; a multi-site
-customer requires an explicit site when editing. Platform keys are listed by `register set --help`.
+existing platform catalogue. `register set` selects an exact existing `--site`/`--location` scope
+first, then reuses the sole matching entry for that platform. Omitting `--site`, passing `--site ''`,
+or supplying a new location will not duplicate a sole existing entry: its scope stays unchanged.
+Use `--location` to select a different existing location, not to annotate an address. Ambiguous
+matches require explicit site/location selectors. An explicitly different nonempty website creates
+a new scope; where the platform already spans multiple scopes, an explicit site/location pair can
+also create a scope. A platform with no entries uses the customer's sole website by default.
+Platform keys are listed by `register set --help`.
 
 ```sh
 uv run ams-assess register show --customer acme
@@ -330,7 +340,12 @@ observations. Conflicts are marked **Needs review**; re-confirm a field to ackno
 Evidence and full old/new history retain who, when and source. `--tested` records what was actually
 checked, with optional ISO `--date`; an access update alone does not claim an operational test.
 Manual operational checks remain current until manually changed; later automated checks remain
-in the evidence/history. Use `--site ''` for an explicitly customer-wide record.
+in the evidence/history. `--site ''` selects an existing customer-wide scope when present.
+To clean up an accidental duplicate after verifying the retained row has the intended human data,
+use `register remove --customer acme --platform localsearch --site '' --location ''`.
+Removal requires an exact scope (no auto-resolution), records the complete removed row in history,
+and retains all prior history and evidence. It does not merge fields into another row. Regenerate
+reports afterwards; existing report revisions remain immutable.
 Only an engine-recorded successful GSC connection with property evidence sets `connected`.
 Access granted never does. Missing tags are unknown, unsupported does not mean absent, and
 Workspace and Microsoft 365 can coexist. WP-CLI is server tooling, not an account.

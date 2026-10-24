@@ -1,6 +1,8 @@
 import html
 import json
 import re
+import shutil
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -229,31 +231,38 @@ def render_customer(
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         revision = reports / f"{number:03d}-{stamp}"
         reports.mkdir(exist_ok=True, mode=0o700)
-        revision.mkdir(mode=0o700)
         if content is None:
             data, evidence, discovery = report_data(store)
             content = render_markdown(data, evidence, discovery)
-        written = write_outputs(revision, content, formats)
-        for name in written:
-            (revision / name).chmod(0o400)  # a revision is never rewritten
-            output_path(directory, name).write_bytes((revision / name).read_bytes())
-            output_path(directory, name).chmod(0o600)
-        runs = store["runs"]
-        revisions.append(
-            {
-                "revision": number,
-                "created_at": now(),
-                "directory": f"reports/{revision.name}",
-                "files": written,
-                "source": "edited markdown" if edited_md else "generated",
-                # The assessment state this report reflects (an edit inherits its ancestor's).
-                "assessment_revision": runs[-1]["run_id"] if runs else None,
-                "store_updated_at": store["updated_at"],
-                **ancestry,
-            }
-        )
-        store["report_files"] = {name.rsplit(".", 1)[1]: name for name in written}
-        save(root, customer, store)
+        # Publish a revision only after every requested format has rendered successfully.
+        # TemporaryDirectory also removes partial outputs if PDF generation fails.
+        with tempfile.TemporaryDirectory(prefix=".pending-", dir=reports) as staging:
+            written = write_outputs(Path(staging), content, formats)
+            Path(staging).rename(revision)
+        try:
+            for name in written:
+                (revision / name).chmod(0o400)  # a revision is never rewritten
+                output_path(directory, name).write_bytes((revision / name).read_bytes())
+                output_path(directory, name).chmod(0o600)
+            runs = store["runs"]
+            revisions.append(
+                {
+                    "revision": number,
+                    "created_at": now(),
+                    "directory": f"reports/{revision.name}",
+                    "files": written,
+                    "source": "edited markdown" if edited_md else "generated",
+                    # The assessment state this report reflects (an edit inherits its ancestor's).
+                    "assessment_revision": runs[-1]["run_id"] if runs else None,
+                    "store_updated_at": store["updated_at"],
+                    **ancestry,
+                }
+            )
+            store["report_files"] = {name.rsplit(".", 1)[1]: name for name in written}
+            save(root, customer, store)
+        except Exception:
+            shutil.rmtree(revision)
+            raise
     return written
 
 
@@ -337,7 +346,10 @@ def render_markdown(
     represented_site_checks = {
         (e.url, e.data["site_check"])
         for e in evidence
-        if e.id in site_finding_eids and e.source == "site_checks" and e.data.get("site_check")
+        if e.id in site_finding_eids
+        and e.source == "site_checks"
+        and isinstance(e.data, dict)
+        and e.data.get("site_check")
     }
     ai = data["ai"]
     proposed = ai.get("recommendations", [])
@@ -378,7 +390,10 @@ def render_markdown(
     ):
         shown.add("domain_email")
     # Missing field/lab measurements still have an explicit performance interpretation.
-    if any(e.source == "performance" and e.data.get("performance") for e in evidence):
+    if any(
+        e.source == "performance" and isinstance(e.data, dict) and e.data.get("performance")
+        for e in evidence
+    ):
         shown.add("performance")
     connected_ids = {e.id for e in evidence if e.source == "gsc"}
     connected = [f for f in findings if connected_ids.intersection(f.evidence_ids)]

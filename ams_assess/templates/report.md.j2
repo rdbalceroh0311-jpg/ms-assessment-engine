@@ -2,7 +2,7 @@
 {% set infrastructure_blocks = evidence | selectattr('source', 'equalto', 'domain_email') | selectattr('data.infrastructure', 'defined') | list %}
 {% macro infrastructure_section() %}
 {% set latest = namespace(sites={}) %}
-{% for e in evidence if e.source == 'domain_email' and e.data.get('infrastructure') %}
+{% for e in evidence if e.source == 'domain_email' and e.data is mapping and e.data.get('infrastructure') %}
 {% set _ = latest.sites.update({e.url: e}) %}
 {% endfor %}
 {% for e in latest.sites.values() %}
@@ -20,7 +20,7 @@ Labels in this block: **CONFIRMED** means customer-confirmed; **OBSERVED** means
 {% endmacro %}
 {% macro performance_section() %}
 {% set latest = namespace(sites={}) %}
-{% for e in evidence if e.source == 'performance' and e.data.get('performance') %}
+{% for e in evidence if e.source == 'performance' and e.data is mapping and e.data.get('performance') %}
 {% set _ = latest.sites.update({e.url: e}) %}
 {% endfor %}
 {% for e in latest.sites.values() %}
@@ -104,7 +104,7 @@ Comparison evidence: {{ row.before_evidence_id }} → {{ row.after_evidence_id }
 {% macro site_checks_table() %}
 {# Site checks: self-contained additive block; stored evidence survives customer report merges. #}
 {% set site = namespace(rows={}) %}
-{% for e in evidence if e.source == 'site_checks' and e.data.get('site_check') %}
+{% for e in evidence if e.source == 'site_checks' and e.data is mapping and e.data.get('site_check') %}
 {% set _ = site.rows.update({(e.url, e.data.site_check): e}) %}
 {% endfor %}
 {% if site.rows %}
@@ -507,10 +507,11 @@ These checks concern the technical services behind the website and email. DNS is
 The evidence below came from authorised access, separate from public website checks. It describes the returned sample and reporting period, not a complete account audit.
 
 {% for e in connected_evidence %}
-**Confirmed (technical evidence) — {{ e.source | text }}:** {{ e.description | text }}. Website: {{ e.url | text }}. Property: {{ e.data.get('property', 'Not recorded') | text }}. Reporting period: {{ e.data.get('start_date', 'Not recorded') | text }} to {{ e.data.get('end_date', 'Not recorded') | text }}. Evidence: {{ e.id }}.
+{% set record = e.data if e.data is mapping else {} %}
+**Confirmed (technical evidence) — {{ e.source | text }}:** {{ e.description | text }}. Website: {{ e.url | text }}. Property: {{ record.get('property', 'Not recorded') | text }}. Reporting period: {{ record.get('start_date', 'Not recorded') | text }} to {{ record.get('end_date', 'Not recorded') | text }}. Evidence: {{ e.id }}.
 
 {% if e.source == 'gsc' %}
-Returned sample: {{ e.data.get('query', {}).get('rows', []) | length }} query rows; {{ e.data.get('page', {}).get('rows', []) | length }} page rows; {{ e.data.get('sitemaps', {}).get('sitemap', []) | length }} submitted sitemap records. Top rows only, with reporting delay and possible omission of low-volume queries. These are not separate AI-visibility measurements.
+Returned sample: {{ record.get('query', {}).get('rows', []) | length }} query rows; {{ record.get('page', {}).get('rows', []) | length }} page rows; {{ record.get('sitemaps', {}).get('sitemap', []) | length }} submitted sitemap records. Top rows only, with reporting delay and possible omission of low-volume queries. These are not separate AI-visibility measurements.
 
 {% endif %}
 {% endfor %}

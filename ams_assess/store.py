@@ -25,7 +25,7 @@ from ams_assess.consolidate import consolidate
 from ams_assess.discovery import DISCOVERY_SECTIONS, Notes, slug
 from ams_assess.figures import sentences
 from ams_assess.lifecycle import key as technical_key
-from ams_assess.lifecycle import observe, scoped, site_key, transition
+from ams_assess.lifecycle import observe, page_axe_outcomes, scoped, site_key, transition
 from ams_assess.models import (
     DISCOVERY_CATEGORY,
     SEVERITIES,
@@ -158,6 +158,7 @@ def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str,
             migrate(store)
             save(root, customer, store)
         unique_findings(store)
+        repair_axe_reviews(store)
         return store
 
 
@@ -165,6 +166,52 @@ def unique_findings(store: dict[str, Any]) -> None:
     ids = [f["id"] for f in store.get("findings", [])]
     if len(ids) != len(set(ids)):
         raise ValueError("Duplicate finding IDs in customer store")
+
+
+def repair_axe_reviews(store: dict[str, Any]) -> None:
+    """Correct false historical axe conflicts in the current view; retain raw runs/history."""
+    repaired = set()
+    for index, raw in enumerate(store.get("findings", [])):
+        if raw.get("lifecycle_status") != "needs_review" or not raw.get("check_key", "").startswith(
+            "axe:"
+        ):
+            continue
+        finding = Finding.model_validate(raw)
+        for run in reversed(store.get("runs", [])):
+            rows = [
+                CheckOutcome.model_validate(o)
+                for o in run.get("outcomes", [])
+                if (o["site"], o["check_id"], o["component"]) == technical_key(finding)
+            ]
+            if not rows:
+                continue
+            corrected = page_axe_outcomes(rows)
+            statuses = {o.status for o in corrected}
+            if len(corrected) < len(rows) and "fail" in statuses and "pass" not in statuses:
+                updated = transition(
+                    [finding],
+                    [],
+                    corrected,
+                    [Evidence.model_validate(e) for e in store["evidence"]],
+                    run["run_id"],
+                    run["created_at"],
+                )[0]
+                if updated.lifecycle_status == "current":
+                    updated.events[-1]["reason"] = (
+                        "Axe failing nodes override same-audit passing nodes"
+                    )
+                    store["findings"][index] = updated.model_dump(mode="json")
+                    repaired.add(finding.id)
+            break
+    if repaired:
+        store["needs_review"] = [
+            r
+            for r in store.get("needs_review", [])
+            if not (
+                r.get("finding_id") in repaired
+                and r.get("reason") == "conflicting explicit check outcomes need review"
+            )
+        ]
 
 
 def deduplicate_technical(findings: list[Finding]) -> list[Finding]:
@@ -922,13 +969,7 @@ def set_register(
         if current is None:
             raise ValueError("No assessment store for this customer")
         register.refresh(current)
-        if site is None:
-            sites = list(
-                dict.fromkeys(e["site"] for e in register.registry(current)["entries"] if e["site"])
-            )
-            if len(sites) > 1:
-                raise ValueError("Several websites are recorded; specify --site")
-            site = sites[0] if sites else ""
+        site, location = register.edit_scope(current, platform, site, location)
         entry = register.manual_edit(current, platform, site, location, checked)
         # Manual register evidence also supports reports before any technical run.
         run_id = f"r{max((int(r['run_id'][1:]) for r in current['runs']), default=0) + 1}"
@@ -950,10 +991,45 @@ def set_register(
         return entry
 
 
+def remove_register(
+    root: Path,
+    customer: str,
+    platform: str,
+    site: str,
+    location: str = "",
+    who: str = "local operator",
+) -> None:
+    """Remove exactly one scoped row, retaining its full snapshot and all evidence/history."""
+    site, location, who = (
+        register.site_name(site),
+        register.safe_text(location),
+        register.safe_text(who),
+    )
+    with locked(root, customer, create=False):
+        current = load(root, customer)
+        if current is None:
+            raise ValueError("No assessment store for this customer")
+        register.refresh(current)
+        reg = register.registry(current)
+        matches = [
+            e
+            for e in reg["entries"]
+            if (e["platform"], site_key(e["site"]), e["location"])
+            == (platform, site_key(site), location)
+        ]
+        if len(matches) != 1:
+            raise ValueError("No unique entry at that exact platform/site/location scope")
+        entry = matches[0]
+        reg["entries"].remove(entry)
+        register.record(current, entry, None, who, "register remove")
+        save(root, customer, current)
+
+
 def report_data(
     store: dict[str, Any],
 ) -> tuple[dict[str, Any], list[Evidence], dict[str, Any] | None]:
     """Compose the dict the report template expects from the store, whatever stages ran."""
+    repair_axe_reviews(store)
     runs = [r for r in store["runs"] if r["kind"] == "assessment"]
     evidence = [Evidence.model_validate(e) for e in store["evidence"]]
     if not evidence:

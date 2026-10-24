@@ -157,8 +157,14 @@ def main(argv: list[str] | None = None) -> int:
     edit = register_sub.add_parser("set")
     edit.add_argument("--customer", required=True)
     edit.add_argument("--platform", required=True, choices=register.PLATFORMS)
-    edit.add_argument("--site", help="Website scope; use an empty string for customer-wide")
-    edit.add_argument("--location", default="")
+    edit.add_argument("--site", help="Existing website scope; omitted/empty reuses a sole entry")
+    edit.add_argument("--location", default="", help="Select an existing location scope")
+    remove = register_sub.add_parser("remove", help="Remove an exact scoped row; retain history")
+    remove.add_argument("--customer", required=True)
+    remove.add_argument("--platform", required=True, choices=register.PLATFORMS)
+    remove.add_argument("--site", required=True, help="Exact site; empty string for customer-wide")
+    remove.add_argument("--location", default="", help="Exact location; defaults to empty")
+    remove.add_argument("--who", default="local operator")
     for field, choices in register.CHOICES.items():
         edit.add_argument(
             "--access" if field == "ams_access" else "--" + field, dest=field, choices=choices
@@ -287,6 +293,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             if args.register_command == "show":
                 result = store.register_store(data_root(), args.customer)["systems_register"]
+            elif args.register_command == "remove":
+                store.remove_register(
+                    data_root(), args.customer, args.platform, args.site, args.location, args.who
+                )
+                result = {"removed": True, "history_retained": True}
             else:
                 fields = register.EDIT_FIELDS | {
                     "evidence_url",

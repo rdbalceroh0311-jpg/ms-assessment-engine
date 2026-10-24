@@ -1144,6 +1144,7 @@ def health_summary(results: list[ModuleResult], selected: set[str]) -> dict[str,
 
 # Hostname patterns are clues, not proof of relationships or account access.
 DNS_PROVIDERS = {
+    "siteground.net": "SiteGround",
     "ns.cloudflare.com": "Cloudflare",
     "domaincontrol.com": "GoDaddy",
     "googledomains.com": "Google Cloud DNS",

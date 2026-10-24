@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, cast
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateError
 
 from ams_assess import register, store
 from ams_assess.models import CUSTOMER_RE, customer_path
@@ -228,6 +228,8 @@ class Handler(BaseHTTPRequestHandler):
                 platforms=register.PLATFORMS,
             )
             self.reply(200, html.encode(), "text/html; charset=utf-8")
+        except TemplateError:
+            self.reply(500, b"Unable to render local interface")
         except (ValueError, OSError, KeyError):
             self.reply(400, b"Invalid customer or output request")
 
@@ -265,6 +267,8 @@ class Handler(BaseHTTPRequestHandler):
             changes = {k: v for k, v in values.items() if v}
             store.set_register(self.app.root, customer, platform, changes, site, location)
             self.reply(303, location=self.app.url(customer=customer))
+        except TemplateError:
+            self.reply(500, b"Unable to render local interface")
         except (ValueError, UnicodeError, OSError, KeyError):
             # Do not echo rejected secrets, filesystem paths or untrusted values.
             self.reply(
