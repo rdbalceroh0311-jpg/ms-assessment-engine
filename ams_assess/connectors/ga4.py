@@ -2,6 +2,7 @@
 
 import math
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from ams_assess.connectors.auth import google_authenticate, google_authorize
@@ -335,7 +336,7 @@ def analyse(ctx: ConnectorContext, result: ModuleResult) -> None:
     public = [
         e
         for e in ctx.public_evidence
-        if e.source == "presence" and isinstance(e.data, dict) and site_key(e.url) in hosts
+        if e.source == "presence" and isinstance(e.data, Mapping) and site_key(e.url) in hosts
     ]
     for row in streams.data.get("rows", []):
         if row.get("type") != "WEB_DATA_STREAM":

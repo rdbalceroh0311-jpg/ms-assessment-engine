@@ -6,8 +6,13 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from ams_assess.connectors.core import AuthMaterial, Connector, ConnectorError
-from ams_assess.connectors.privacy import private_logs
+from ams_assess.connectors.core import AuthMaterial, Connector, ConnectorError, ErrorClassification
+from ams_assess.connectors.errors import (
+    MAX_ERROR_DETAIL_CHARS,
+    default_error_classifier,
+    error_body,
+)
+from ams_assess.connectors.privacy import private_logs, redact
 
 
 class ReadClient:
@@ -37,6 +42,26 @@ class ReadClient:
             raise ConnectorError("provider_unavailable", "Collection deadline reached")
         return remaining
 
+    def classify_error(self, status_code: int, body: Any) -> ErrorClassification:
+        clean = error_body(body, self.auth.secrets)
+        classified = (
+            self.connector.classify_error(status_code, clean)
+            if self.connector.classify_error
+            else None
+        )
+        classified = classified or default_error_classifier(status_code, clean)
+        detail = classified.detail or {
+            "credential_expired": "Credential expired/revoked — re-authorise with "
+            + self.connector.auth_command,
+            "permission_required": "Read permission required: "
+            + ", ".join(self.connector.scopes)
+            + "; verify the resource reader role",
+        }.get(classified.status, "Provider read failed")
+        # The hook's output is untrusted too, even if it copies a diagnostic verbatim.
+        return ErrorClassification(
+            classified.status, redact(detail, self.auth.secrets)[:MAX_ERROR_DETAIL_CHARS]
+        )
+
     @private_logs()
     def request(self, method: str, url: str, **kwargs) -> dict[str, Any]:
         # Queries are supplied separately so a pattern can never accidentally allow a suffix.
@@ -47,6 +72,9 @@ class ReadClient:
         host = urlsplit(url).hostname or ""
         if host in self.quota_exhausted:
             raise ConnectorError("provider_unavailable", "Provider quota exhausted; retry later")
+        failure = ErrorClassification(
+            "provider_unavailable", "Provider unavailable after bounded retries"
+        )
         for attempt in range(3):
             if self.requests >= self.max_requests:
                 raise ConnectorError("provider_unavailable", "Request cap reached")
@@ -80,49 +108,21 @@ class ReadClient:
                         ):
                             self.quota_exhausted.add(host)
                         return body
-                    if status == 401:
-                        raise ConnectorError(
-                            "credential_expired",
-                            "Credential expired/revoked — re-authorise with "
-                            + self.connector.auth_command,
-                        )
-                    if status == 403:
-                        # Inspect only machine codes, never echo the provider's message/body.
-                        try:
-                            error = response.json().get("error", {})
-                            reasons = {
-                                d.get("reason")
-                                for d in error.get("details", [])
-                                if isinstance(d, dict)
-                            } | {
-                                d.get("reason")
-                                for d in error.get("errors", [])
-                                if isinstance(d, dict)
-                            }
-                        except (ValueError, AttributeError, TypeError):
-                            reasons = set()
-                        if reasons & {"SERVICE_DISABLED", "accessNotConfigured", "API_DISABLED"}:
-                            raise ConnectorError(
-                                "api_not_enabled", "Enable the provider API in the OAuth project"
-                            )
-                        if reasons & {"APPROVAL_REQUIRED", "API_NOT_APPROVED"}:
-                            raise ConnectorError("approval_required", "Provider approval required")
-                        raise ConnectorError(
-                            "permission_required",
-                            "Read permission required: "
-                            + ", ".join(self.connector.scopes)
-                            + "; verify the resource reader role",
-                        )
-                    if status == 404:
-                        raise ConnectorError("not_found", "Bound resource was not found")
-                    if status != 429 and status < 500:
-                        raise ConnectorError("failed", f"Provider rejected read (HTTP {status})")
+                    try:
+                        body = response.json()
+                    except (ValueError, RecursionError):
+                        body = {}
+                    failure = self.classify_error(status, body)
+                    if not failure.retryable:
+                        raise ConnectorError(failure.status, failure.detail)
                     try:
                         retry_after = float(response.headers.get("Retry-After", "0"))
                     except ValueError:
                         retry_after = 0.0
             except (httpx.TimeoutException, httpx.TransportError):
-                pass
+                failure = ErrorClassification(
+                    "provider_unavailable", "Provider unavailable after bounded retries"
+                )
             except (ValueError, TypeError):
                 raise ConnectorError("failed", "Invalid provider response") from None
             if attempt < 2:
@@ -130,4 +130,4 @@ class ReadClient:
                 if self.remaining() <= delay:
                     break
                 time.sleep(delay)
-        raise ConnectorError("provider_unavailable", "Provider unavailable after bounded retries")
+        raise ConnectorError(failure.status, failure.detail)

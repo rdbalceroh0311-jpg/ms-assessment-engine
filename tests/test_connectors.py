@@ -426,7 +426,8 @@ def test_retry_then_partial_preserves_admin_and_does_not_resolve(env, code):
     assert len([r for r in env.provider.calls if r.method == "POST"]) == 18
     assert any(e["endpoint"] == "streams" and e["status"] == "connected" for e in state["coverage"])
     assert any(
-        e["endpoint"] == "daily" and e["status"] == "provider_unavailable"
+        e["endpoint"] == "daily"
+        and e["status"] == ("rate_limited" if code == 429 else "provider_unavailable")
         for e in state["coverage"]
     )
     finding = next(f for f in current(env)["findings"] if f["id"] == old["id"])

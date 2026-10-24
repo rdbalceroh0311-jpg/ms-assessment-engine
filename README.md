@@ -458,14 +458,17 @@ No user inventories are collected. AI receives coverage aggregates, not report r
 Each endpoint records resource, collection time, period, status, rows and truncation. Lists/reports
 have at most five 100-row pages; landing pages are the top 100 by sessions. HTTP responses are capped
 at 2 MB, requests at 80 including retries, individual I/O at 10 seconds and the read phase at 45 seconds
-(40 in the UI). 429/5xx/timeouts receive at most three attempts with bounded backoff. OAuth refresh
+(40 in the UI). Transient rate limits/5xx/timeouts receive at most three attempts with bounded
+backoff. Provider errors are classified before retrying: disabled APIs, missing permissions,
+licence gates and approval requirements (including Google zero quota) are not retried. OAuth refresh
 has a separate bounded transport timeout. Quota responses stop further Data API calls when exhausted.
 Successful pages/endpoints survive subsequent failures. Sampling/thresholding/caps are explicit
 partial coverage and cannot support zero-event findings. Only allowlisted GETs and the exact
 read-only Data `runReport` POST are permitted; redirects and all write endpoints are refused.
 
 CLI, UI and report use the same statuses: `not_configured`, `credential_missing`,
-`credential_expired`, `permission_required`, `not_found`, `provider_unavailable`, `api_not_enabled`,
+`credential_expired`, `permission_required`, `licence_required`, `rate_limited`, `not_found`,
+`provider_unavailable`, `api_not_enabled`,
 `approval_required`, `failed`, `connected`, `connected_partial`. The register's integration field is
 engine-controlled; human `ams_access=granted` remains separate. The UI shows each endpoint's coverage
 and offers reference, bind, test and bounded collect POST controls under its existing token/CSRF rules.
@@ -641,6 +644,42 @@ Add one module under `ams_assess/connectors/`, export a `core.Connector` declara
 - The shared service handles binding isolation, secret redaction, aggregate-only AI projection,
   persistence, register status and UI/report views. Test auth, allowlist, errors, caps, privacy,
   lifecycle and cross-customer isolation with synthetic fixtures.
+
+Both `connect <key> collect` and `run --connect <key>` pass the same `ConnectorContext` to
+`collect(ctx)` and each `analyser(ctx, result)`. It includes:
+
+- `ctx.profile: Mapping[str, Any]`: the current stored approved fields (`name`, `aliases`,
+  `websites`, `abn`, `phones`, `locations`, `service_area`, `industry`, `buying_model`).
+- `ctx.profile_evidence_id: str` and `ctx.profile_evidence: EvidenceView | None`: the current
+  profile's citation and evidence, retaining `customer_statement` provenance. Without an approved
+  profile these are an empty mapping, empty ID and `None`; a target URL does not create one.
+- `ctx.public_evidence: tuple[EvidenceView, ...]` and `ctx.public_evidence_refs: tuple[str, ...]`:
+  latest public samples per source/site. Current-run samples replace the matching stored group;
+  other latest stored groups remain. Profile/discovery/other connector records are excluded.
+  `EvidenceView` exposes `id`, `source`, `url`, `description`, `data`, `provenance`.
+
+These are detached read-only views: nested mappings are immutable and lists become tuples.
+Connectors do not read the store. Persist selected comparison values and source reference IDs in
+the connector's own endpoint evidence, and cite that endpoint evidence in findings. Preserve the
+source provenance on derived findings, such as `customer_statement` for profile comparisons.
+
+Optionally declare `Connector(classify_error=classify_error, ...)` with this signature:
+
+```python
+def classify_error(status_code: int, body: Mapping[str, Any]) -> ErrorClassification | None:
+    if body.get("error", {}).get("code") == "LicenseRequired":
+        return ErrorClassification("licence_required", "Microsoft Entra ID P1 licence required")
+    return None  # shared default classification
+```
+
+Import `ErrorClassification` from `ams_assess.connectors.core`. The hook receives parsed JSON
+after secret/email redaction, capped at 16 KiB, 8 levels and 64 items per container; invalid/non-object
+JSON becomes `{}`. Machine-readable `error.status`, `error.code`, `details[].reason` and quota
+metadata are prioritised. Return an error status and a specific missing permission/role/licence
+in `detail`. Only `rate_limited` and `provider_unavailable` are retryable. The shared default handles
+Google `SERVICE_DISABLED`/`accessNotConfigured`, insufficient scopes/`PERMISSION_DENIED`, and
+`RESOURCE_EXHAUSTED` with `quota_limit_value` zero. Hook details are redacted again and capped at
+2,000 characters before reaching evidence, CLI, UI or report status. Raw error bodies are not stored.
 
 ## Outputs and interpretation
 

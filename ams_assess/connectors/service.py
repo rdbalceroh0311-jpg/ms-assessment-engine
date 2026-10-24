@@ -15,7 +15,14 @@ from typing import Any
 from ams_assess import register, store
 from ams_assess.connectors import REGISTRY
 from ams_assess.connectors.auth import config_dir, reference_name
-from ams_assess.connectors.core import ConnectorContext, ConnectorError, Endpoint, Period
+from ams_assess.connectors.core import (
+    ConnectorContext,
+    ConnectorError,
+    Endpoint,
+    EvidenceView,
+    Period,
+    readonly,
+)
 from ams_assess.connectors.http import ReadClient
 from ams_assess.connectors.privacy import redact
 from ams_assess.lifecycle import site_key
@@ -137,9 +144,16 @@ def list_resources(
         http.close()
 
 
-def latest_public_evidence(current: dict[str, Any]) -> list[Evidence]:
+def latest_public_evidence(
+    current: dict[str, Any],
+    incoming: list[Evidence] | None = None,
+) -> list[Evidence]:
     """Only the latest sample per source/site can support a current tag comparison."""
     evidence = [Evidence.model_validate(e) for e in current.get("evidence", [])]
+    evidence = [e for e in evidence if e.source not in {"profile", "discovery", *REGISTRY}]
+    fresh = [e for e in incoming or [] if e.source not in {"profile", "discovery", *REGISTRY}]
+    replaced = {(e.source, site_key(e.url)) for e in fresh}
+    evidence = [e for e in evidence if (e.source, site_key(e.url)) not in replaced]
     latest: dict[tuple[str, str], int] = {}
     stamped = []
     for item in evidence:
@@ -148,7 +162,7 @@ def latest_public_evidence(current: dict[str, Any]) -> list[Evidence]:
         scope = (item.source, site_key(item.url))
         latest[scope] = max(latest.get(scope, -1), revision)
         stamped.append((item, scope, revision))
-    return [item for item, scope, revision in stamped if latest[scope] == revision]
+    return [item for item, scope, revision in stamped if latest[scope] == revision] + fresh
 
 
 def prepare(
@@ -164,22 +178,36 @@ def prepare(
     public_evidence: list[Evidence] | None = None,
     public_findings: list[dict] | None = None,
     seconds: float = 45,
+    fallback_websites: list[str] | None = None,
 ) -> tuple[ModuleResult, dict[str, Any]]:
     spec = connector(key)
     period = Period.make(days, start, end)
     binding = copy.deepcopy(current.get("connectors", {}).get(key, {}))
     result = ModuleResult(name=key, collection_started=True)
     state = {**binding, "tested_at": store.now(), "operation": "collect" if collect else "test"}
+    profile = current.get("profile") or {}
+    profile_evidence = next(
+        (
+            Evidence.model_validate(e)
+            for e in current.get("evidence", [])
+            if e["id"] == profile.get("evidence_id") and e["source"] == "profile"
+        ),
+        None,
+    )
     context = ConnectorContext(
         None,
         binding.get("resource_id", ""),
         period,
         customer=current.get("customer_id", ""),
-        websites=(current.get("profile") or {}).get("fields", {}).get("websites", [])
+        profile=readonly(profile.get("fields", {})),
+        profile_evidence_id=profile.get("evidence_id", ""),
+        profile_evidence=EvidenceView.of(profile_evidence) if profile_evidence else None,
+        websites=list(profile.get("fields", {}).get("websites", []))
+        or fallback_websites
         or list(dict.fromkeys(r["target"] for r in current.get("runs", []) if r.get("target"))),
-        public_evidence=public_evidence
-        if public_evidence is not None
-        else latest_public_evidence(current),
+        public_evidence=tuple(
+            EvidenceView.of(e) for e in latest_public_evidence(current, public_evidence)
+        ),
         public_findings=public_findings
         if public_findings is not None
         else current.get("findings", []),
@@ -404,6 +432,8 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
             "permission_required": "Request "
             + ", ".join(spec.scopes)
             + " and a resource reader role",
+            "licence_required": "Confirm the required provider licence for this endpoint",
+            "rate_limited": "Retry later after the provider rate limit resets",
             "not_found": "Check the explicit resource ID and delegated access",
             "api_not_enabled": "Enable the provider API in the OAuth project",
             "approval_required": "Request provider API approval",
