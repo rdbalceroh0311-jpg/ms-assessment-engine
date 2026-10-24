@@ -137,6 +137,17 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         data["digital_presence"] = presence.summary(results, ctx)
     if any(r.status != "ok" or r.reason for r in results) or ai["status"] == "error":
         data["status"] = "partial" if evidence else "incomplete"
+    from ams_assess import register
+
+    try:
+        previous = store.load(ctx.store_root, ctx.customer_id) if ctx.store_root else None
+    except (OSError, ValueError):
+        # Keep the existing contract: a bad/busy store never discards completed run output.
+        # The merge below reports the store failure and the CLI's existing exit status.
+        previous = None
+    if previous:
+        register.refresh(previous)
+    data["systems_register"] = register.snapshot(data, evidence, previous)
     write_json(ctx.run_dir / "findings.json", data["findings"])
     write_json(ctx.run_dir / "results.json", data)
     try:

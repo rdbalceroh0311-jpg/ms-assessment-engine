@@ -292,6 +292,62 @@ record becomes `manual_verification` evidence. In the customer report it replace
 for that platform, which stays shown beside it. A changed record supersedes the earlier one without
 deleting its evidence, and importing the same file again changes nothing.
 
+## Customer systems register and local interface
+
+The systems register lives in the existing `assessment.json`; no separate database is created.
+Every assessment refreshes public presence, platform, infrastructure and successful GSC test
+evidence. Older assessments are backfilled when the register or customer report is opened.
+Existing `presence-verify` records and recognised, explicitly named `systems_in_use` discovery
+systems are reused. A legacy verification with several websites stays
+customer-wide because it has no website attribution. Industry/buying-model relevance uses the
+existing platform catalogue. Use `--site` and `--location` to scope a manual record; a multi-site
+customer requires an explicit site when editing. Platform keys are listed by `register set --help`.
+
+```sh
+uv run ams-assess register show --customer acme
+uv run ams-assess register set --customer acme --platform google_business_profile \
+  --site https://example.com --location Sydney --presence publicly_observed \
+  --ownership customer_confirmed --access requested \
+  --evidence-url 'https://maps.google.com/?cid=123456789' --identifier 'CID:123456789' \
+  --method manual --tested 'Reviewed public profile and customer control confirmation' \
+  --who 'AMS reviewer' --note 'Customer retains recovery methods' \
+  --next-action 'Customer to grant delegated access' --responsible customer
+uv run ams-assess report --customer acme
+```
+
+Presence, ownership, AMS access, engine integration, operational verification and next action are
+separate fields. Human-entered status/action fields take precedence over subsequent automated
+observations. Conflicts are marked **Needs review**; re-confirm a field to acknowledge its conflicts.
+Evidence and full old/new history retain who, when and source. `--tested` records what was actually
+checked, with optional ISO `--date`; an access update alone does not claim an operational test.
+Manual operational checks remain current until manually changed; later automated checks remain
+in the evidence/history. Use `--site ''` for an explicitly customer-wide record.
+Only an engine-recorded successful GSC connection with property evidence sets `connected`.
+Access granted never does. Missing tags are unknown, unsupported does not mean absent, and
+Workspace and Microsoft 365 can coexist. WP-CLI is server tooling, not an account.
+Use public property/account identifiers and evidence references only. Secret-looking inputs,
+credential-bearing URLs and long opaque identifiers are rejected; never paste passwords or tokens.
+Customers retain ownership and recovery methods; request named, revocable, least-privilege access.
+The generated report includes the register, separate public/authorised evidence, and customer actions.
+Saved report versions remain snapshots; regenerate a report after manual updates.
+
+Start the local interface from the repository worktree:
+
+```sh
+uv run ams-assess ui --port 8765
+```
+
+Open the `http://127.0.0.1:8765/?token=...` URL printed once at startup. The interface binds only
+to `127.0.0.1`; all requests require that per-start token. POST forms additionally require a separate
+CSRF token and matching Origin/Host. Keep the startup URL private. **Stop: press `Ctrl-C` in that
+terminal.** Restart with the same start command; a fresh token is generated and saved edits remain.
+No credentials/config files are loaded by this command. The UI lists customers, runs, coverage,
+register evidence, Current / Resolved / Not rechecked / Needs review findings and saved reports.
+Manual verification and access updates use the same validated, locked store functions as the CLI.
+It cannot execute commands or run assessments. File serving is limited to recorded customer output
+directories and known report/results/evidence/findings files or PNG screenshots; traversal, symlinks,
+raw files and credential files are excluded. Saved HTML is sandboxed with scripts disabled.
+
 ## Integrations and credentials
 
 Environment overrides repository `.env`, which overrides `~/.config/ams-assess/credentials.env`.

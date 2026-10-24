@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>AMS customer review</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font:16px system-ui,sans-serif;color:#172d3b;background:#f5f7f8;margin:2rem;line-height:1.5}
+main{max-width:1500px;margin:auto}h1,h2,h3{color:#173e52}a{color:#085f83}
+table{border-collapse:collapse;background:white;width:100%;margin:1rem 0;font-size:.9rem}
+th,td{padding:.6rem;text-align:left;border:1px solid #c5d3db;vertical-align:top;overflow-wrap:anywhere}
+th:nth-child(2),th:nth-child(3),th:nth-child(4),th:nth-child(5){min-width:7rem}
+label{display:inline-block;margin:.5rem}input,select,button{padding:.5rem;max-width:100%}
+details{background:white;padding:.8rem;margin:.7rem 0}summary{cursor:pointer;font-weight:600}
+.scroll{overflow-x:auto}.review{color:#8b3d09}.muted{color:#425867}
+</style></head><body><main>
+<h1>AMS customer review</h1>
+<p>Review saved assessments and record manual observations. Run assessments and regenerate reports in the CLI.</p>
+<form method="get" action="/">
+<input type="hidden" name="token" value="{{ token }}">
+<label>Customer <select name="customer"><option value="">Choose a customer</option>
+{% for id in customers %}<option value="{{ id }}" {% if id == customer %}selected{% endif %}>{{ id }}</option>{% endfor %}
+</select></label><button>Open</button></form>
+{% if current %}
+<h2>{{ current.customer_name }}</h2>
+<p>Updated {{ current.updated_at }} · {{ current.runs | length }} recorded stages / updates</p>
+<nav><a href="#register">Systems register</a> · <a href="#actions">Customer actions</a> · <a href="#findings">Findings</a> · <a href="#reports">Saved reports</a></nav>
+<h2>Assessment overview and coverage</h2>
+{% for run in current.runs | reverse %}
+<details><summary>{{ run.run_id }} · {{ run.kind }} · {{ run.created_at }} · {{ run.status }}</summary>
+<p>{{ run.get('target', '') }}</p>
+{% if run.get('website_coverage') %}<pre>{{ run.website_coverage | tojson(indent=2) }}</pre>{% else %}<p>No website coverage recorded for this stage.</p>{% endif %}
+{% for module in run.get('modules', []) %}<p>{{ module.name }}: {{ module.status }} · {{ module.reason }}</p>{% endfor %}
+{% for path in files %}{% if run.get('run_dir') and path.startswith(run.run_dir + '/') and '/report.' in path %}<a href="{{ url('/file', customer=customer, path=path) }}">{{ path }}</a> {% endif %}{% endfor %}
+</details>{% endfor %}
+<h2 id="register">Systems, presence and access register</h2>
+<p>Public profiles do not establish account control. Access granted does not mean connected. Missing public tags do not mean no account. Unsupported means no engine connector. Email routing is not a software inventory; Workspace and Microsoft 365 can coexist.</p>
+<div class="scroll"><table><thead><tr><th>Platform / scope</th><th>Presence</th><th>Ownership</th><th>AMS access</th><th>Engine integration</th><th>Last operational check</th><th>Next action</th></tr></thead><tbody>
+{% for entry in entries %}<tr>
+<td><a href="#entry-{{ loop.index }}">{{ entry.label }}</a><br>{{ entry.site or 'Customer-wide; website unspecified' }}<br>{{ entry.location }}</td>
+<td>{{ entry.presence | replace('_', ' ') }}</td><td>{{ entry.ownership | replace('_', ' ') }}</td><td>{{ entry.ams_access | replace('_', ' ') }}</td><td>{{ entry.integration | replace('_', ' ') }}</td>
+<td>{{ entry.operational_verification.get('date', 'Not tested') }}<br>{{ entry.operational_verification.get('tested', '') }}</td>
+<td>{{ entry.next_action }}<br>Responsible: {{ entry.responsible }}{% if entry.needs_review %}<p class="review">Needs review: conflicting evidence</p>{% endif %}</td>
+</tr>{% endfor %}</tbody></table></div>
+{% for entry in entries %}
+<details id="entry-{{ loop.index }}"><summary>{{ entry.label }} · {{ entry.site }} {{ entry.location }} — evidence and update</summary>
+{% for basis in ['public evidence', 'authorised connection', 'authorised connection attempt', 'manual verification', 'customer statement'] %}
+{% set observations = entry.evidence | selectattr('basis', 'equalto', basis) | list %}
+{% if observations %}<h3>{{ basis }}</h3><ul>{% for e in observations %}<li>{{ e.date }} · {{ e.method }} · {{ e.reference }}<br>Identifier: {{ e.identifier or 'Not recorded' }}<br>{{ e.tested }} {{ e.note }}</li>{% endfor %}</ul>{% endif %}
+{% endfor %}
+{% for conflict in entry.conflicts %}<p class="review">Needs review: {{ conflict.field }} retained {{ conflict.retained }}; observed {{ conflict.observed }} ({{ conflict.source }}, {{ conflict.date }}). Reconfirm that field to acknowledge the conflict.</p>{% endfor %}
+<form method="post" action="{{ url('/update') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="customer" value="{{ customer }}">
+<input type="hidden" name="platform" value="{{ entry.platform }}"><input type="hidden" name="site" value="{{ entry.site }}"><input type="hidden" name="location" value="{{ entry.location }}">
+{% for field, options in choices.items() %}<label>{{ 'AMS access' if field == 'ams_access' else field }} <select name="{{ field }}"><option value="">Keep current</option>{% for option in options %}<option value="{{ option }}">{{ option | replace('_', ' ') }}</option>{% endfor %}</select></label>{% endfor %}
+{% for field in ['evidence_url', 'identifier', 'note', 'tested', 'next_action', 'responsible', 'who', 'date'] %}<label>{{ field | replace('_', ' ') }} <input name="{{ field }}" maxlength="2000"></label>{% endfor %}
+<label>Method <select name="method"><option>manual</option><option>customer statement</option></select></label>
+<button>Save verification / access update</button></form>
+</details>{% endfor %}
+<details><summary>Add a system or location</summary><form method="post" action="{{ url('/update') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="customer" value="{{ customer }}">
+<label>Platform <select name="platform">{% for key, label in platforms.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+<label>Website <input name="site"></label><label>Location <input name="location"></label>
+<label>Customer observation <input name="note" required maxlength="2000"></label>
+<input type="hidden" name="method" value="customer statement"><input type="hidden" name="presence" value="customer_reported">
+<button>Add</button></form></details>
+<h2 id="actions">Customer action list</h2>
+<p>Find existing accounts → confirm customer control → request least-privilege delegated access. Consider recovery, claiming or creation only after confirming what exists and agreeing the need. Customers retain account ownership and recovery methods. Never supply passwords, tokens or secrets. This interface does not register, publish, purchase, install or migrate anything.</p>
+<ol>{% for entry in entries %}<li><strong>{{ entry.label }}</strong> ({{ entry.site }} {{ entry.location }}): {{ entry.next_action }} Responsible: {{ entry.responsible }}.</li>{% endfor %}</ol>
+<h2 id="findings">Findings</h2>
+{% for label, findings in groups.items() %}<h3>{{ label }} ({{ findings | length }})</h3>
+{% for finding in findings %}<details><summary>{{ finding.title }} · {{ finding.severity }}</summary>
+<p>{{ finding.detail }}</p><p>{{ finding.get('site', '') }} {{ finding.get('component', '') }}</p>
+<p>Last observed: {{ finding.get('last_observed', '') }} · Last run: {{ finding.get('last_run_id', '') }}</p>
+<p>Coverage: {{ finding.get('coverage', []) | join(', ') }}</p>
+{% for event in finding.get('events', []) %}<p>{{ event.date }} · {{ event.status }} · {{ event.run_id }} · Evidence: {{ event.get('evidence_ids', []) | join(', ') }}</p>{% endfor %}
+<p>Evidence: {{ finding.evidence_ids | join(', ') }}</p><a href="#reports">Compare saved report versions below</a>
+</details>{% else %}<p class="muted">None recorded.</p>{% endfor %}{% endfor %}
+{% for review in current.get('needs_review', []) %}<p class="review">{{ review.title }}: {{ review.reason }}</p>{% endfor %}
+<h2 id="reports">Saved report versions</h2>
+<p>Report versions are snapshots. Generate a new report in the CLI to include the latest manual updates.</p>
+{% for revision in current.get('report_revisions', []) | reverse %}<h3>Revision {{ revision.revision }} · {{ revision.created_at }}</h3><p>Assessment revision: {{ revision.assessment_revision }} · {{ revision.source }}</p>
+{% for name in revision.files %}{% set path = revision.directory + '/' + name %}{% if path in files %}<a href="{{ url('/file', customer=customer, path=path) }}">{{ name }}</a> {% endif %}{% endfor %}
+{% else %}<p>No saved customer report versions.</p>{% endfor %}
+<details><summary>Register history</summary><pre>{{ current.get('systems_register', {}).get('history', []) | tojson(indent=2) }}</pre></details>
+{% endif %}
+</main></body></html>
