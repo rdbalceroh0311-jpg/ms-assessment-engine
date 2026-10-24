@@ -15,11 +15,18 @@ import httpx
 import pytest
 from google.oauth2.credentials import Credentials
 
-from ams_assess import ai, cli, store
+from ams_assess import ai, cli, runner, store
 from ams_assess.connectors import auth, gbp, service
-from ams_assess.connectors.core import AuthMaterial, ConnectorContext, ConnectorError, Period
+from ams_assess.connectors.adapter import ConnectorModule
+from ams_assess.connectors.core import (
+    AuthMaterial,
+    ConnectorContext,
+    ConnectorError,
+    EvidenceView,
+    Period,
+)
 from ams_assess.connectors.http import ReadClient
-from ams_assess.models import Evidence, ModuleResult
+from ams_assess.models import Context, Evidence, ModuleResult, create_run_dir
 from ams_assess.report import render_customer
 from ams_assess.ui import LocalServer
 
@@ -105,8 +112,17 @@ class Provider:
         if path == "/v1/" + RESOURCE + ":fetchMultiDailyMetricsTimeSeries":
             assert set(request.url.params.get_list("dailyMetrics")) == set(gbp.METRICS)
             assert request.url.params["dailyRange.start_date.year"] == "2026"
-            start = int(request.url.params["dailyRange.start_date.day"])
-            end = int(request.url.params["dailyRange.end_date.day"])
+            start = datetime(
+                int(request.url.params["dailyRange.start_date.year"]),
+                int(request.url.params["dailyRange.start_date.month"]),
+                int(request.url.params["dailyRange.start_date.day"]),
+            )
+            end = datetime(
+                int(request.url.params["dailyRange.end_date.year"]),
+                int(request.url.params["dailyRange.end_date.month"]),
+                int(request.url.params["dailyRange.end_date.day"]),
+            )
+            days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
             return httpx.Response(
                 200,
                 json={
@@ -118,10 +134,14 @@ class Provider:
                                     "timeSeries": {
                                         "datedValues": [
                                             {
-                                                "date": {"year": 2026, "month": 1, "day": day},
+                                                "date": {
+                                                    "year": day.year,
+                                                    "month": day.month,
+                                                    "day": day.day,
+                                                },
                                                 "value": "2",
                                             }
-                                            for day in range(start, end + 1)
+                                            for day in days
                                         ]
                                     },
                                 }
@@ -195,6 +215,8 @@ def current(env):
 @contextmanager
 def context(provider, *, start=START, end=END, **kwargs):
     http = ReadClient(gbp.CONNECTOR, AuthMaterial(), transport=httpx.MockTransport(provider))
+    if "public_evidence" in kwargs:
+        kwargs["public_evidence"] = tuple(EvidenceView.of(e) for e in kwargs["public_evidence"])
     ctx = ConnectorContext(http, RESOURCE, Period.make(start=start, end=end), **kwargs)
     try:
         yield ctx
@@ -370,7 +392,7 @@ def test_success_preserves_metrics_metadata_and_keyword_thresholds(env):
         (403, "PERMISSION_DENIED", "permission_required"),
         (403, "SERVICE_DISABLED", "api_not_enabled"),
         (404, "", "not_found"),
-        (429, "RATE_LIMIT_EXCEEDED", "provider_unavailable"),
+        (429, "RATE_LIMIT_EXCEEDED", "rate_limited"),
         (503, "", "provider_unavailable"),
         (400, "", "failed"),
     ],
@@ -569,7 +591,7 @@ def test_public_findings_are_referenced_not_duplicated():
         location = gbp.test(ctx)
         result = analyse(ctx)
         assert not any(f.check_key.startswith("gbp:public-") for f in result.findings)
-        comparison = location.data["public_comparisons"][0]
+        comparison = location.data["website_comparisons"][0]
         assert comparison["related_finding_ids"] == ["public-nap"]
         assert comparison["evidence_ids"] == [evidence.id]
 
@@ -851,4 +873,254 @@ def test_public_ambiguous_entities_are_not_treated_as_complete_passes():
         location = gbp.test(ctx)
         result = analyse(ctx)
         assert not any(o.check_id.startswith("gbp:public-") for o in result.outcomes)
-        assert "needs verification" in location.data["public_comparisons"][0]["detail"]
+        assert "needs verification" in location.data["website_comparisons"][0]["detail"]
+
+
+@pytest.mark.parametrize("status", [403, 429])
+@pytest.mark.parametrize(
+    "reason,quota",
+    [
+        ("API_NOT_APPROVED", None),
+        ("APPROVAL_REQUIRED", None),
+        ("RESOURCE_EXHAUSTED", "0"),
+        ("RATE_LIMIT_EXCEEDED", 0),
+    ],
+)
+def test_approval_required_never_retries_or_loses_next_action(env, status, reason, quota):
+    detail = {"reason": reason, "metadata": {"quota_limit_value": quota}}
+    env.provider.override = lambda r: httpx.Response(
+        status, json={"error": {"status": reason, "details": [detail], "message": SECRET}}
+    )
+    bind(env)
+    state = collect(env)
+    assert state["status"] == "approval_required"
+    assert "Application for Basic API Access" in state["detail"]
+    assert "quota increase" in state["detail"]
+    assert len(env.provider.calls) == 1
+    assert SECRET not in json.dumps(current(env))
+
+
+def test_approval_failure_on_reviews_preserves_other_endpoint_results(env):
+    env.provider.override = lambda r: (
+        httpx.Response(
+            429,
+            json={
+                "error": {
+                    "status": "RESOURCE_EXHAUSTED",
+                    "details": [{"metadata": {"quota_limit_value": "0"}}],
+                }
+            },
+        )
+        if r.url.path.endswith("/reviews")
+        else None
+    )
+    bind(env)
+    state = collect(env)
+    assert state["status"] == "connected_partial"
+    assert next(e for e in state["coverage"] if e["endpoint"] == "reviews")["status"] == (
+        "approval_required"
+    )
+    assert next(e for e in state["coverage"] if e["endpoint"] == "daily_metrics")["rows"] == 248
+    assert len([r for r in env.provider.calls if r.url.path.endswith("/reviews")]) == 1
+
+
+@pytest.mark.parametrize(
+    "status,reason,expected",
+    [
+        (403, "PERMISSION_DENIED", "permission_required"),
+        (403, "SERVICE_DISABLED", "api_not_enabled"),
+        (429, "API_NOT_APPROVED", "approval_required"),
+        (429, "RATE_LIMIT_EXCEEDED", "rate_limited"),
+        (403, "LICENSE_REQUIRED", "licence_required"),
+    ],
+)
+def test_failure_statuses_agree_across_cli_ui_register_and_report(
+    env, capsys, status, reason, expected
+):
+    env.provider.override = lambda r: httpx.Response(status, json={"error": {"status": reason}})
+    bind(env)
+    assert collect(env)["status"] == expected
+    assert cli.main(["connectors", "--customer", "synthetic"]) == 0
+    output = capsys.readouterr().out
+    with ui_server(env.root) as (server, client):
+        page = client.get(server.url(customer="synthetic")).text
+    render_customer(env.root, "synthetic", {"md"})
+    report = (env.root / "synthetic/report.md").read_text()
+    assert expected in output and expected in page and expected in report
+    entry = next(e for e in current(env)["systems_register"]["entries"] if e["platform"] == "gbp")
+    assert entry["integration"] == expected
+    if expected == "permission_required":
+        assert "Manager" in page and "Manager" in report
+
+
+def test_cli_auth_bind_test_collect_and_ui_post_controls(env, capsys):
+    assert (
+        cli.main(
+            [
+                "connect",
+                "gbp",
+                "bind",
+                "--customer",
+                "synthetic",
+                "--credential-ref",
+                "synthetic",
+                "--resource",
+                RESOURCE,
+            ]
+        )
+        == 0
+    )
+    assert cli.main(["connect", "gbp", "test", "--customer", "synthetic"]) == 0
+    assert (
+        cli.main(
+            ["connect", "gbp", "collect", "--customer", "synthetic", "--start", START, "--end", END]
+        )
+        == 0
+    )
+    assert "connected" in capsys.readouterr().out
+    with ui_server(env.root) as (server, client):
+        payload = {
+            "customer": "synthetic",
+            "connector": "gbp",
+            "csrf": server.csrf,
+            "credential_ref": "synthetic",
+            "resource": RESOURCE,
+            "days": "28",
+        }
+        for action in ("reference", "bind", "test", "collect"):
+            response = client.post(
+                server.url("/connect"),
+                data={**payload, "action": action},
+                headers={"Origin": server.origin},
+            )
+            assert response.status_code == 303
+        assert current(env)["connectors"]["gbp"]["status"] in {"connected", "connected_partial"}
+        assert (
+            client.post(
+                server.url("/connect"),
+                data={**payload, "action": "collect", "csrf": "wrong"},
+                headers={"Origin": server.origin},
+            ).status_code
+            == 403
+        )
+
+
+@pytest.mark.parametrize("path", ["collect", "run"])
+def test_real_analyser_uses_latest_profile_in_collect_and_run(env, monkeypatch, path):
+    bind(env)
+    stale = current(env)["profile"]["evidence_id"]
+    _, profile_id, _ = store.set_profile(env.root, "synthetic", {"phones": ["0299991111"]})
+    assert stale != profile_id
+    store.set_profile(env.root, "other", {"phones": ["0299992222"]})
+    public = Evidence(
+        id="ev-presence-001",
+        source="presence",
+        url="https://example.test",
+        description="NAP sample",
+        data={
+            "entities": [
+                {
+                    "name": PROFILE["name"],
+                    "page": "https://example.test",
+                    "telephone": ["0299993333"],
+                }
+            ]
+        },
+    )
+    if path == "collect":
+        snapshot = current(env)
+        public.id = "ev-presence-r2-001"
+        snapshot["evidence"].append(public.model_dump())
+        store.save(env.root, "synthetic", snapshot)
+        collect(env)
+    else:
+
+        class PublicModule:
+            name = "presence"
+            categories = {"presence"}
+
+            def run(self, ctx):
+                return ModuleResult(name="presence", evidence=[public], collection_started=True)
+
+        monkeypatch.setattr(
+            runner, "REGISTRY", {"presence": PublicModule(), "gbp": ConnectorModule(gbp.CONNECTOR)}
+        )
+        monkeypatch.setattr(runner.coverage, "collect", lambda ctx: {})
+        ctx = Context(
+            "synthetic",
+            "Synthetic",
+            "https://example.test",
+            {"presence"},
+            {"gbp"},
+            {},
+            create_run_dir(env.root, "synthetic"),
+            env.root,
+            store_root=env.root,
+        )
+        outcome = runner.run(ctx, no_ai=True, formats={"md"})
+        assert outcome.get("store_status") != "failed"
+    saved = current(env)
+    location = next(
+        e
+        for e in saved["evidence"]
+        if e["source"] == "gbp" and e["data"]["operation"] == "location"
+    )["data"]["data"]
+    comparison = next(c for c in location["profile_comparisons"] if c["field"] == "phone")
+    assert comparison["profile_reference"] == profile_id
+    assert comparison["source_provenance"] == "customer_statement"
+    assert comparison["supplied_values"] == ["0299991111"]
+    assert comparison["differs"]
+    assert any(c.get("field") == "phone" for c in location["website_comparisons"])
+    keys = {f["check_key"] for f in saved["findings"]}
+    assert "gbp:profile-phone" in keys
+    assert any(k.startswith("gbp:public-phone:") for k in keys)
+    render_customer(env.root, "synthetic", {"md"})
+    report = (env.root / "synthetic/report.md").read_text().split("## 7.")[1]
+    assert "GBP phone differs from supplied profile" in report
+    assert "not which value is correct" in report
+
+
+def test_finding_lifecycle_failure_missing_pass_and_recurrence(env):
+    bind(env)
+    collect(env)
+
+    def hours():
+        return next(f for f in current(env)["findings"] if f["check_key"] == "gbp:hours-missing")
+
+    first_id = hours()["id"]
+    assert hours()["lifecycle_status"] == "current"
+    env.provider.override = lambda r: httpx.Response(403)
+    collect(env)
+    assert hours()["lifecycle_status"] == "not_rechecked"
+    env.provider.override = lambda r: None
+    env.provider.location["regularHours"] = {
+        "periods": [
+            {
+                "openDay": "MONDAY",
+                "closeDay": "MONDAY",
+                "openTime": {"hours": 9},
+                "closeTime": {"hours": 17},
+            }
+        ]
+    }
+    collect(env)
+    assert hours()["id"] == first_id and hours()["lifecycle_status"] == "resolved"
+    assert hours()["resolution"]["evidence_ids"]
+    del env.provider.location["regularHours"]
+    collect(env)
+    assert hours()["id"] == first_id and hours()["lifecycle_status"] == "current"
+    assert hours()["events"][-1]["status"] == "reopened"
+
+
+def test_invalid_period_and_rebinding_never_reuse_old_results(env):
+    bind(env)
+    before = (env.root / "synthetic/assessment.json").read_bytes()
+    with pytest.raises(ValueError):
+        service.execute(env.root, "synthetic", "gbp", collect=True, days=367)
+    assert not env.provider.calls
+    assert before == (env.root / "synthetic/assessment.json").read_bytes()
+    collect(env)
+    service.set_binding(env.root, "synthetic", "gbp", "synthetic", "locations/999999")
+    state = current(env)["connectors"]["gbp"]
+    assert state["status"] == "not_configured" and not state.get("last_successful_collection")
+    assert any(e["source"] == "gbp" for e in current(env)["evidence"])

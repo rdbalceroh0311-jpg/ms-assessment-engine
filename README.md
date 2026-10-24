@@ -615,6 +615,14 @@ collection, bounded account/location-name discovery resolves the parent needed b
 only the selected location receives profile, review and performance analysis. Missing or incomplete
 discovery is recorded and does not become a claim of no account or no reviews.
 
+The connector uses the framework's immutable current profile/evidence context for both standalone
+collection and `run --connect gbp`. The error hook reports `approval_required` for a specific approval
+reason or a 403/429 with an explicit zero quota, with the Basic API Access application as the next
+action. Ordinary throttling remains `rate_limited` after bounded retries; an ambiguous 403 remains
+`permission_required` with the Manager role and scope requirements. Disabled APIs, expired/revoked
+credentials and missing resources retain distinct statuses. An inaccessible endpoint never becomes
+an absence finding. No live approval check or access application is performed automatically.
+
 The usual period is 28 complete UTC days (`--days 1..366` or explicit `--start`/`--end`). Daily metrics
 cover impressions by Search/Maps and desktop/mobile, call-button clicks, website clicks, direction
 requests and Reserve with Google bookings where returned. Call clicks are not completed calls or
@@ -655,6 +663,8 @@ Business Information uses `readMask=name,title,categories,regularHours,specialHo
 phoneNumbers,storefrontAddress,serviceArea,profile.description,metadata`; review-parent discovery
 requests `name` only. See [location fields and metadata](https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations)
 and [daily metric definitions](https://developers.google.com/my-business/reference/performance/rest/v1/DailyMetric).
+Google's [time-series contract](https://developers.google.com/my-business/reference/performance/rest/v1/TimeSeries)
+defines an omitted numeric value on an explicitly returned date as zero; an absent date is not zero.
 Each endpoint reference specifies `business.manage`; no legacy `plus.business.manage` scope is requested.
 
 Synthetic verification, from this worktree:

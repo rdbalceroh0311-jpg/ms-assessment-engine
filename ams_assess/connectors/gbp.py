@@ -3,13 +3,20 @@
 import hashlib
 import math
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import date, timedelta
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit, urlunsplit
 
 from ams_assess.connectors.auth import google_authenticate, google_authorize
-from ams_assess.connectors.core import Connector, ConnectorContext, Endpoint, ReadOperation
+from ams_assess.connectors.core import (
+    Connector,
+    ConnectorContext,
+    Endpoint,
+    ErrorClassification,
+    ReadOperation,
+)
+from ams_assess.connectors.errors import default_error_classifier
 from ams_assess.connectors.privacy import EMAIL, redact, safe_url
 from ams_assess.lifecycle import observe, site_key
 from ams_assess.models import ModuleResult
@@ -37,6 +44,45 @@ METRICS = (
     "BUSINESS_BOOKINGS",
 )
 STARS = ("ONE", "TWO", "THREE", "FOUR", "FIVE")
+
+
+def classify_error(status_code: int, body: Mapping[str, Any]) -> ErrorClassification | None:
+    def zero_quota(value: Any) -> bool:
+        if isinstance(value, Mapping):
+            return any(
+                (key == "quota_limit_value" and str(item) == "0") or zero_quota(item)
+                for key, item in value.items()
+            )
+        return isinstance(value, (list, tuple)) and any(zero_quota(item) for item in value)
+
+    classified = default_error_classifier(status_code, body)
+    if classified.status == "approval_required" or (
+        status_code in {403, 429}
+        and classified.status in {"permission_required", "rate_limited"}
+        and zero_quota(body)
+    ):
+        return ErrorClassification(
+            "approval_required",
+            "GBP API access is not approved for this project (approval reason or zero quota). "
+            "Submit Application for Basic API Access using the OAuth project's number: "
+            "https://developers.google.com/my-business/content/prereqs . "
+            "Do not request a quota increase for a zero-quota project.",
+        )
+    if classified.status == "permission_required":
+        return ErrorClassification(
+            "permission_required",
+            "GBP requires business.manage OAuth scope and Manager (or existing Owner) access "
+            "to the selected profile. Reviews require a verified location. For Workspace users, "
+            "confirm the Google Business Profile service is enabled for the user.",
+        )
+    if classified.status == "api_not_enabled":
+        return ErrorClassification(
+            "api_not_enabled",
+            "Enable the failed GBP API in the approved OAuth project. This connector uses "
+            "My Business Account Management API, My Business Business Information API, "
+            "Google My Business API (reviews), and Business Profile Performance API.",
+        )
+    return None
 
 
 def normalize_resource(value: str) -> str:
@@ -385,7 +431,10 @@ def website(value: str) -> str:
 
 
 def analyse_profile(
-    ctx: ConnectorContext, result: ModuleResult, profile: dict, profile_reference: str = ""
+    ctx: ConnectorContext,
+    result: ModuleResult,
+    profile: Mapping[str, Any],
+    profile_reference: str = "",
 ) -> None:
     """Compare observed configuration to supplied identity; never validate the supplied claims."""
     endpoints = {e.key: e for e in ctx.endpoints}
@@ -464,6 +513,13 @@ def analyse_profile(
     areas = data.get("serviceArea", {}).get("places", {}).get("placeInfos", [])
     actual_areas = {folded(a["placeName"]) for a in areas if a.get("placeName")}
     expected_areas = {folded(a) for a in profile.get("service_area", [])}
+    expected_values = {
+        "name": [profile.get("name", ""), *profile.get("aliases", [])],
+        "phone": sorted(expected_phones),
+        "website": list(profile.get("websites", [])),
+        "address": [{k: a[k] for k in actual_parts if a.get(k)} for a in expected_addresses],
+        "service-area": list(profile.get("service_area", [])),
+    }
     fields = [
         (
             "name",
@@ -480,7 +536,8 @@ def analyse_profile(
         ),
         (
             "address",
-            bool(expected_addresses) and bool(actual_address),
+            bool(expected_addresses)
+            and data.get("serviceArea", {}).get("businessType") != "CUSTOMER_LOCATION_ONLY",
             not any(
                 all(folded(actual_parts[k]) == folded(a[k]) for k in actual_parts if a.get(k))
                 for a in expected_addresses
@@ -488,7 +545,7 @@ def analyse_profile(
         ),
         (
             "service-area",
-            bool(expected_areas) and bool(actual_areas),
+            bool(expected_areas),
             expected_areas != actual_areas,
         ),
     ]
@@ -499,6 +556,8 @@ def analyse_profile(
                 "assessed": assessed,
                 "differs": mismatch if assessed else None,
                 "profile_reference": profile_reference,
+                "source_provenance": "customer_statement",
+                "supplied_values": redact(expected_values[field]) if assessed else None,
             }
         )
         if assessed:
@@ -533,10 +592,10 @@ def analyse_profile(
     for evidence in ctx.public_evidence:
         if evidence.source != "presence" or site_key(evidence.url) not in hosts:
             continue
-        if not isinstance(evidence.data, dict) or not evidence.data.get("entities"):
+        if not isinstance(evidence.data, Mapping) or not evidence.data.get("entities"):
             continue
         related = [f["id"] for f in ctx.public_findings if evidence.id in f.get("evidence_ids", [])]
-        by_page: dict[str, list[dict]] = {}
+        by_page: dict[str, list[Mapping]] = {}
         for entity in evidence.data["entities"]:
             page = safe_url(entity.get("page", ""))
             if site_key(page) in hosts:
@@ -549,7 +608,7 @@ def analyse_profile(
         for page, entities in by_page.items():
             # Multiple entities on one page cannot establish which is the bound location.
             if len(entities) != 1:
-                data.setdefault("public_comparisons", []).append(
+                data.setdefault("website_comparisons", []).append(
                     {
                         "page": page,
                         "evidence_ids": [evidence.id],
@@ -587,7 +646,7 @@ def analyse_profile(
                 detail += "Values differ. " if differs else "Values match. "
                 if not matched:
                     detail += "Entity correspondence needs verification."
-                data.setdefault("public_comparisons", []).append(
+                data.setdefault("website_comparisons", []).append(
                     {
                         "field": field,
                         "differs": differs,
@@ -605,6 +664,23 @@ def analyse_profile(
                         detail,
                         inferred=not matched,
                     )
+
+    public_comparisons = data.get("website_comparisons", [])
+    if public_comparisons:
+        refs = sorted({ref for c in public_comparisons for ref in c["evidence_ids"]})
+        related_ids = sorted({ref for c in public_comparisons for ref in c["related_finding_ids"]})
+        location.detail += (
+            f"; {len(public_comparisons)} website comparisons recorded. "
+            "Public evidence: "
+            + ", ".join(refs[:10])
+            + ". Related public findings: "
+            + (", ".join(related_ids[:10]) or "none")
+            + ". See this endpoint's evidence for all comparison details and references."
+        )
+
+
+def analyse(ctx: ConnectorContext, result: ModuleResult) -> None:
+    analyse_profile(ctx, result, ctx.profile, ctx.profile_evidence_id)
 
 
 CONNECTOR = Connector(
@@ -633,7 +709,8 @@ CONNECTOR = Connector(
     list_resources=list_resources,
     test=test,
     collect=collect,
-    analysers=(),
+    analysers=(analyse,),
+    classify_error=classify_error,
     authenticate=google_authenticate,
     authorize=google_authorize,
     categories=frozenset({"local_seo"}),
