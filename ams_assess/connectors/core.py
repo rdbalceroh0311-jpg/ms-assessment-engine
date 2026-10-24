@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from types import MappingProxyType
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from ams_assess.models import Evidence, ModuleResult
+from ams_assess.models import Evidence, ModuleResult, Provenance
 
 Status = Literal[
     "not_configured",
     "credential_missing",
     "credential_expired",
     "permission_required",
+    "licence_required",
+    "rate_limited",
     "not_found",
     "provider_unavailable",
     "api_not_enabled",
@@ -34,6 +37,39 @@ class ConnectorError(Exception):
         self.status = status
         self.detail = detail
         super().__init__(detail)
+
+
+@dataclass(frozen=True)
+class ErrorClassification:
+    status: Status
+    detail: str = ""
+
+    @property
+    def retryable(self) -> bool:
+        return self.status in {"rate_limited", "provider_unavailable"}
+
+
+def readonly(value: Any) -> Any:
+    """Detached, recursively immutable JSON view; preserve evidence provenance."""
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: readonly(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(readonly(item) for item in value)
+    return value
+
+
+@dataclass(frozen=True)
+class EvidenceView:
+    id: str
+    source: str
+    url: str
+    description: str
+    data: Any
+    provenance: Provenance
+
+    @classmethod
+    def of(cls, evidence: Evidence) -> EvidenceView:
+        return cls(**{**evidence.model_dump(), "data": readonly(evidence.data)})
 
 
 @dataclass(frozen=True)
@@ -98,12 +134,19 @@ class ConnectorContext:
     period: Period
     customer: str = ""
     websites: list[str] = field(default_factory=list)
-    public_evidence: list[Evidence] = field(default_factory=list)
+    profile: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    profile_evidence_id: str = ""
+    profile_evidence: EvidenceView | None = None
+    public_evidence: tuple[EvidenceView, ...] = ()
     public_findings: list[dict[str, Any]] = field(default_factory=list)
     endpoints: list[Endpoint] = field(default_factory=list)
     max_pages: int = 5
     page_size: int = 100
     top_n: int = 100
+
+    @property
+    def public_evidence_refs(self) -> tuple[str, ...]:
+        return tuple(item.id for item in self.public_evidence)
 
     def capture(self, key: str, endpoint: str, read: Callable[[Endpoint], None]) -> Endpoint:
         result = Endpoint(key=key, endpoint=endpoint)
@@ -139,6 +182,9 @@ class Connector:
     categories: frozenset[str] = frozenset({"cro_ux"})
     # An optional module-owned transport can map allowlisted read routes to SSH/SDK operations.
     transport_factory: Callable[[AuthMaterial], Any] | None = None
+
+    # Return None to use the default classifier. Only transient statuses are retried.
+    classify_error: Callable[[int, Mapping[str, Any]], ErrorClassification | None] | None = None
 
     def __post_init__(self) -> None:
         if not re.fullmatch(r"[a-z][a-z0-9_]{0,30}", self.key):

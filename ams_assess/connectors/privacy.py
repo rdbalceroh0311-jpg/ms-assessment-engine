@@ -2,6 +2,7 @@
 
 import logging
 import re
+from collections.abc import Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
@@ -15,14 +16,14 @@ TOKEN = re.compile(r"\b(?:ya29\.[\w.-]+|Bearer\s+\S+|eyJ[\w.-]+)", re.I)
 
 
 def redact(value: Any, secrets: tuple[str, ...] = ()) -> Any:
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return {
             str(k): "[redacted]"
             if SENSITIVE.search(str(k)) and k != "credential_ref"
             else redact(v, secrets)
             for k, v in value.items()
         }
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return [redact(v, secrets) for v in value]
     if isinstance(value, str):
         for _ in range(3):
