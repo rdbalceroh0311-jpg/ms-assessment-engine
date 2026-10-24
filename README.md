@@ -573,6 +573,144 @@ Google `SERVICE_DISABLED`/`accessNotConfigured`, insufficient scopes/`PERMISSION
 `RESOURCE_EXHAUSTED` with `quota_limit_value` zero. Hook details are redacted again and capped at
 2,000 characters before reaching evidence, CLI, UI or report status. Raw error bodies are not stored.
 
+## WordPress WP-CLI over SSH (`wp_cli`)
+
+This connector reads one explicitly configured installation through the existing connector
+framework. It never discovers other installs, requests admin passwords, retrieves `wp-config.php`,
+or runs arbitrary commands. No live SSH was used during implementation or in tests.
+
+David must obtain these details from the hosting administrator:
+
+- SSH **hostname, port and username**, with a dedicated key authorised for this installation.
+  Supply the usable private key as a local 0600 file; passwords and SSH agents are disabled.
+- The **canonical absolute installation path**, for example `/srv/www/example/wordpress`.
+  Use the same canonical hostname/path across references; aliases/symlink paths cannot be resolved
+  safely by this command allowlist. Spaces, traversal, trailing slashes and shell metacharacters
+  are rejected. The customer is explicitly bound to this installation, not all sites on the host.
+- The server's **pinned host public key**, independently verified with the host administrator,
+  in OpenSSH `known_hosts` format. For a non-default port use `[hostname]:port`. Hashed entries
+  are supported by OpenSSH. Do not trust an unverified `ssh-keyscan` result or auto-accept a key.
+
+The local machine needs `/usr/bin/ssh`. The remote POSIX host needs `wp`, PHP and GNU `timeout`
+in `/usr/local/bin:/usr/bin:/bin`; no tools are installed by this connector. The SSH identity needs
+file read/traverse access and WordPress database SELECT access through the installation's existing
+configuration. Ask the administrator to enforce least privilege, including filesystem/database
+write restrictions where feasible. The connector does not grant permissions or alter configuration.
+
+Keep the credential JSON, key and pinned-host file directly under `~/.config/ams-assess/`
+(0700 directory, 0600 files; no symlinks or hard links). Example setup, using placeholders only:
+
+```sh
+install -d -m 700 ~/.config/ams-assess
+# Save the authorised private key as wp-2ec-key and verified host entry as wp-2ec-known-hosts.
+chmod 600 ~/.config/ams-assess/wp-2ec-key ~/.config/ams-assess/wp-2ec-known-hosts
+```
+
+Create `~/.config/ams-assess/wp-2ec.json` privately with exactly these fields; substitute the
+administrator-supplied values and your absolute local config-directory paths:
+
+```json
+{
+  "host": "ssh.example.com",
+  "port": 22,
+  "user": "assessor",
+  "key_path": "/Users/david/.config/ams-assess/wp-2ec-key",
+  "known_hosts": "/Users/david/.config/ams-assess/wp-2ec-known-hosts",
+  "install_path": "/srv/www/example/wordpress"
+}
+```
+
+Once hosting access and the bootstrap precautions below are ready, run from this worktree:
+
+```sh
+chmod 600 ~/.config/ams-assess/wp-2ec.json
+uv run ams-assess connect wp_cli auth --credential-ref wp-2ec \
+  --credential-file ~/.config/ams-assess/wp-2ec.json
+uv run ams-assess connect wp_cli list-resources --credential-ref wp-2ec
+# Copy the returned wp-install:<64 hex digits> resource_id into the next command.
+uv run ams-assess connect wp_cli bind --customer 2ec-traffic \
+  --credential-ref wp-2ec --resource 'wp-install:<64 hex digits>'
+uv run ams-assess connect wp_cli test --customer 2ec-traffic
+uv run ams-assess connect wp_cli collect --customer 2ec-traffic --days 28
+uv run ams-assess connectors --customer 2ec-traffic
+uv run ams-assess report --customer 2ec-traffic
+# Collect alongside public checks to reconcile the current run's coverage:
+uv run ams-assess run --customer 2ec-traffic --target https://CUSTOMER-WEBSITE \
+  --connect wp_cli --no-ai
+```
+
+`auth` only registers the private reference. `list-resources` authenticates and reads
+`core is-installed` at the **single configured path**; it never scans the server. Its returned ID
+hashes the canonical host, port and install path, independently of username/key/reference. Only that
+ID and credential reference enter customer bindings. Cross-customer reuse requires the framework's
+`--force --reason 'approved non-secret reason'`; changing the credential's host/path without rebinding
+fails before SSH. Host-key mismatch fails closed; key renewal/revocation requires administrator action.
+
+All reads use strict host-key checking, BatchMode, explicit identity, no agent/X11/port forwarding,
+no password fallback, no SSH user config/proxies/control sockets, a five-second connect timeout and
+at most ten seconds per process. Both stdout and stderr are drained under a **combined 2 MB cap**;
+timeout/overflow kills and reaps the local process. A remote GNU timeout also terminates the WP-CLI
+process (TERM, then KILL after one second). The framework bounds collection to 90 seconds (40 in the
+UI), 40 attempts, and at most three attempts per transient connection/timeout failure. Permission,
+host-key, malformed-output and command errors are not retried. Completed endpoints/pages survive
+later failures and appear as `connected_partial`, with failed endpoint names in CLI/UI/report.
+
+The fixed WP-CLI command allowlist was checked against the official references below. Every command
+also gets `--path=<validated path> --skip-plugins --skip-themes --skip-packages --context=cli --no-color`.
+Only the page integer (1–5) varies within the fixed post-list operations. No user-supplied extra flags,
+filters, PHP, shell programs, filenames, post types or statuses are accepted.
+
+| Read and official contract | Output and limits |
+| --- | --- |
+| [`wp cli info --format=json`](https://developer.wordpress.org/cli/commands/cli/info/) | Retain CLI PHP and WP-CLI versions only; web PHP may differ. Discard binary, ini, home and config paths. |
+| [`wp core version --extra`](https://developer.wordpress.org/cli/commands/core/version/) | Parse the documented text version. This command has no JSON format option. |
+| [`wp core is-installed`](https://developer.wordpress.org/cli/commands/core/is-installed/) | Exit-code check; success intentionally has no output. It has no JSON format option. |
+| [`wp core verify-checksums`](https://developer.wordpress.org/cli/commands/core/verify-checksums/) | Parse fixed success/warning messages into counts. Official docs mark `--format` as not yet in a stable release, so use the section G text command; never install a nightly release or use `--insecure`. |
+| [`wp plugin list`](https://developer.wordpress.org/cli/commands/plugin/list/) and [`wp theme list`](https://developer.wordpress.org/cli/commands/theme/list/) | `--format=json --fields=name,status,version,update,update_version,auto_update --skip-update-check`; retain at most 1,000 rows each, flag caps. |
+| [`wp plugin verify-checksums --all --format=json`](https://developer.wordpress.org/cli/commands/plugin/verify-checksums/) | Parse JSON discrepancies and the documented batch summary. A fully passing run may emit only the success message; skipped/unverifiable premium/custom plugins never count as a passing integrity check. |
+| [`wp post list`](https://developer.wordpress.org/cli/commands/post/list/) | `--post_type=post` or `page`, `--post_status=publish --format=json --fields=ID,post_type,post_name,post_modified,url --posts_per_page=100 --paged=1..5 --orderby=ID --order=ASC`. At most 500 records per type; cap or page failure makes counts a lower bound. Persist counts/URLs, not titles, content, author, slugs or modified timestamps. |
+| [`wp option get <name> --format=json`](https://developer.wordpress.org/cli/commands/option/get/) | Only `blog_public`, `siteurl`, `home`, `permalink_structure`, `blogdescription`, `default_comment_status`, `users_can_register`, `default_role`, `WPLANG`, `timezone_string`. Prose/permalink/timezone options become presence flags; no arbitrary option names or secret fields. |
+
+Every command operates on a **current snapshot**, not historical activity within `--days`; the framework
+records that requested reporting period plus actual collection time and a snapshot flag. Only built-in
+public `post`/`page` with `publish` status are enumerated. Custom types would require reviewed additions
+to the fixed allowlist; loading plugins just to discover them is not permitted. Drafts/private posts,
+users, emails, database dumps, `wp eval`, `wp config *`, `wp db *`, `wp shell`, `wp option list` and
+update/install/activate/delete/set operations are forbidden. All remote values are validated and
+`shlex`-quoted into a constant SSH command scaffold; the local subprocess never uses `shell=True`.
+
+Bootstrap precautions: [WP-CLI's global parameters and configuration](https://make.wordpress.org/cli/handbook/references/config/)
+document that `--skip-plugins` **does not skip must-use plugins**. WordPress reads that need bootstrap
+(is-installed, plugin/theme lists, plugin checksums, posts and options) necessarily load WordPress's
+own configuration, must-use plugins and applicable drop-ins. The connector never reads, transmits,
+prints or persists `wp-config.php` or its secret values; normal WordPress bootstrap reads it internally.
+Core version/checksums and CLI info execute before WordPress loads.
+
+The remote environment is cleared, starts in `/`, suppresses global/system YAML via `/dev/null`,
+disables the WP-CLI cache, sets `WP_CLI_DISABLE_AUTO_CHECK_UPDATE=1` and `DISABLE_WP_CRON=1`, and skips
+plugin/theme update checks. Cached update flags can be stale. **An environment variable is not the
+PHP `DISABLE_WP_CRON` constant**: this client cannot prove arbitrary site bootstrap code is side-effect
+free. Before a production read, the administrator must verify cron is disabled for this CLI context,
+that root `/wp-cli.yml` / `/wp-cli.local.yml` cannot add hooks, and that mu-plugins/drop-ins/config/PHP
+and SSH startup hooks do not write, send mail, trigger updates or run background tasks. Use a reviewed read-only
+snapshot if this cannot be guaranteed. No remote configuration changes or injected PHP are used to
+enforce this, and no live access has been attempted.
+
+Findings distinguish **update available — not a confirmed vulnerability**, inactive plugins,
+published-checksum integrity discrepancies (not proof of malware), search discouragement and registration
+with its default role. Unknown/empty diagnostics never imply "secure". No fresh update check is performed,
+so a cached negative update flag cannot resolve an earlier update finding. Inaccessible or partial
+checks cannot resolve findings; an equivalent complete passing recheck can. Existing same-site public
+noindex findings are referenced by ID/evidence rather than duplicated.
+
+During `run --connect wp_cli`, the additive coverage hook consumes only that run's bound inventory
+evidence, revalidates same-origin URLs, retains successful partial pages and marks source **`wp_cli`**.
+It adds **known URLs only**, alongside REST/manual-export inputs, never crawled/browser-tested pages.
+Prior customer evidence and other installations cannot be substituted. A standalone `collect` stores
+inventory evidence and comparisons without claiming to have performed a public crawl. Query secrets,
+URL credentials, personal email paths and absolute server paths are excluded; numeric `?p=`/`?page_id=`
+public permalinks are retained. AI receives the framework's aggregate status/row coverage only.
+
 ## Outputs and interpretation
 
 ```text
@@ -602,7 +740,7 @@ Observatory unavailable. GSC, DataForSEO and the SDK path require credentials an
 by the fixture. Platform and listing detection only sees the sampled pages: tags behind consent or
 loaded from unsampled templates, and profiles not linked from the site, are reported as not detected
 or unknown, never as absent. The access checklist never requests passwords; customers keep ownership. `modules` lists future capabilities (Elmo, Houtini, OpenSEO, GBP,
-WP-CLI, Workspace/M365, social SEO, PR, A/B and heatmaps); these future capabilities are not implemented or measured. GA4 is available through explicit binding.
+Site Health, Workspace/M365, social SEO, PR, A/B and heatmaps); these future capabilities are not implemented or measured. GA4 and WP-CLI are available through explicit binding. The legacy combined "WP-CLI / Site Health" opportunity label does not indicate the bound connector's status; use the connector table.
 
 ## Development
 
