@@ -14,14 +14,19 @@ import re
 import tempfile
 import time
 from collections.abc import Generator
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ams_assess.ai import CITATIONS
 from ams_assess.consolidate import consolidate
 from ams_assess.discovery import DISCOVERY_SECTIONS, Notes, slug
+from ams_assess.lifecycle import key as technical_key
+from ams_assess.lifecycle import observe, scoped, site_key, transition
 from ams_assess.models import (
     DISCOVERY_CATEGORY,
+    CheckOutcome,
     Evidence,
     Finding,
     customer_path,
@@ -34,7 +39,8 @@ from ams_assess.profile import (
     merge_profile,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+_HELD: ContextVar[frozenset[str]] = ContextVar("assessment_locks", default=frozenset())
 STORE_FILE = "assessment.json"
 LOCK_FILE = ".assessment.lock"
 LOCK_TIMEOUT = 30.0
@@ -125,10 +131,73 @@ def load(root: Path, customer: str) -> dict[str, Any] | None:
     path = store_file(root, customer)
     if not path.is_file():
         return None
-    store = json.loads(path.read_text())
-    if store.get("schema_version") != SCHEMA_VERSION or store.get("customer_id") != customer:
-        raise ValueError("Unsupported or mismatched customer store")
-    return store
+    guard = (
+        contextlib.nullcontext()
+        if str(path.parent) in _HELD.get()
+        else locked(root, customer, create=False)
+    )
+    with guard:
+        original = path.read_bytes()
+        store = json.loads(original)
+        if store.get("customer_id") != customer or store.get("schema_version") not in {1, 2, 3}:
+            raise ValueError("Unsupported or mismatched customer store")
+        if store["schema_version"] != SCHEMA_VERSION:
+            # Backup the exact original bytes before ANY schema conversion or saved change.
+            stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+            backup = path.with_name(f"assessment.json.backup-{stamp}")
+            fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(original)
+                handle.flush()
+                os.fsync(handle.fileno())
+            migrate(store)
+            save(root, customer, store)
+        return store
+
+
+def migrate(store: dict[str, Any]) -> None:
+    runs = [r for r in store.get("runs", []) if r.get("kind") == "assessment"]
+    evidence = {e["id"]: e for e in store.get("evidence", [])}
+    findings = []
+    checked_evidence = [Evidence.model_validate(e) for e in evidence.values()]
+    for raw in store.get("findings", []):
+        finding = consolidate([Finding.model_validate(raw)], checked_evidence)[0]
+        if finding.category == DISCOVERY_CATEGORY or finding.provenance != "technical_evidence":
+            findings.append(finding.model_dump(mode="json"))
+            continue
+        # Legacy consolidation may span sites. Split known affected URLs; never infer a host
+        # from an unrelated run. Ambiguous legacy components cannot resolve automatically.
+        cited = [evidence[i] for i in finding.evidence_ids if i in evidence]
+        urls = finding.urls or list(dict.fromkeys(e["url"] for e in cited if site_key(e["url"])))
+        if not urls:
+            urls = ["legacy:unattributed:" + finding.id]
+        finding.urls = urls
+        for part in scoped([finding], "", store["customer_id"]):
+            matching_runs = [
+                r for r in runs if any(f"-{r['run_id']}-" in i for i in part.evidence_ids)
+            ]
+            part.lifecycle_status = "not_rechecked"
+            part.last_observed = (
+                matching_runs[-1]["created_at"]
+                if matching_runs
+                else store.get("updated_at", "unknown")
+            )
+            part.first_observed = part.last_observed
+            part.last_run_id = matching_runs[-1]["run_id"] if matching_runs else "legacy"
+            part.events = [
+                {
+                    "status": "legacy-observed",
+                    "date": part.last_observed,
+                    "run_id": part.last_run_id,
+                    "evidence_ids": part.evidence_ids,
+                }
+            ]
+            findings.append(part.model_dump(mode="json"))
+    store["findings"] = findings
+    store.setdefault("finding_history", [])
+    store.setdefault("needs_review", [])
+    store.setdefault("report_revisions", [])
+    store["schema_version"] = SCHEMA_VERSION
 
 
 def save(root: Path, customer: str, store: dict[str, Any]) -> None:
@@ -155,6 +224,7 @@ def save(root: Path, customer: str, store: dict[str, Any]) -> None:
 def locked(root: Path, customer: str, create: bool = True) -> Generator[None]:
     """Exclusive per-customer lock spanning load -> modify -> save; waits LOCK_TIMEOUT at most."""
     directory = customer_path(root, customer)
+    lock_key = str(directory)
     if not directory.is_dir():
         if not create:
             raise ValueError("No assessment store for this customer")
@@ -172,7 +242,11 @@ def locked(root: Path, customer: str, create: bool = True) -> Generator[None]:
                         "Customer store is busy (another import or report is running); try again"
                     ) from None
                 time.sleep(0.05)
-        yield
+        token = _HELD.set(_HELD.get() | {lock_key})
+        try:
+            yield
+        finally:
+            _HELD.reset(token)
     finally:
         os.close(fd)  # closing the descriptor releases the lock
 
@@ -251,6 +325,16 @@ def _lifecycle(
                         "finding_ids": affected,
                     }
                 )
+    review.extend(
+        {
+            "finding_id": f.id,
+            "title": f.title,
+            "reason": "conflicting explicit check outcomes need review",
+            "evidence_ids": f.evidence_ids,
+        }
+        for f in active
+        if f.lifecycle_status == "needs_review"
+    )
     store["needs_review"] = review
     return active
 
@@ -343,9 +427,65 @@ def _merge_run(
         return store
     mapping = {e.id: namespaced(e.id, run_id) for e in evidence}
     stored = [Evidence.model_validate(remap(e.model_dump(mode="json"), mapping)) for e in evidence]
-    incoming = [Finding.model_validate(remap(f, mapping)) for f in data["findings"]]
     all_evidence = [Evidence.model_validate(e) for e in store["evidence"]] + stored
-    findings, id_map = _combine(store, incoming, all_evidence, run_id)
+    incoming = scoped(
+        [
+            consolidate([Finding.model_validate(remap(f, mapping))], all_evidence)[0]
+            for f in data["findings"]
+        ],
+        data.get("resolved_url", data["target"]),
+        customer,
+    )
+    previous = [Finding.model_validate(f) for f in store["findings"]]
+    technical = [f for f in previous if f.site or f.component]
+    incoming_technical = [f for f in incoming if f.site or f.component]
+    other_store = {
+        **store,
+        "findings": [f.model_dump() for f in previous if not (f.site or f.component)],
+    }
+    others, id_map = _combine(
+        other_store, [f for f in incoming if not (f.site or f.component)], all_evidence, run_id
+    )
+    store["finding_history"] = other_store["finding_history"]
+    outcomes = [CheckOutcome.model_validate(remap(o, mapping)) for o in data.get("outcomes", [])]
+    represented = {(o.site, o.check_id, o.component) for o in outcomes}
+    module_states = {m["name"]: m["status"] for m in data["modules"]}
+    by_evidence = {e.id: e for e in all_evidence}
+    for f in technical + incoming_technical:
+        if technical_key(f) in represented:
+            continue
+        fresh = f in incoming_technical
+        sources = {by_evidence[i].source for i in f.evidence_ids}
+        status = "fail" if fresh else "skipped"
+        if not fresh:
+            if f.site not in {
+                site_key(data["target"]),
+                site_key(data.get("resolved_url", data["target"])),
+            }:
+                status = "out-of-scope"
+            elif f.category not in data["selected_categories"]:
+                status = "out-of-scope"
+            elif any(module_states.get(source) == "error" for source in sources):
+                status = "failed-to-run"
+            elif any(module_states.get(source) == "skipped" for source in sources):
+                status = "unavailable"
+        outcome = observe(
+            next(iter(sorted(sources))),
+            f.check_key,
+            f.category,
+            f.component,
+            status,
+            f.evidence_ids if fresh else [],
+            coverage=f.coverage if fresh else [],
+            reason="Observed failure" if fresh else "No equivalent retest recorded",
+        )
+        outcome.site = f.site
+        outcomes.append(outcome)
+        represented.add(technical_key(f))
+    findings = others + transition(
+        technical, incoming_technical, outcomes, all_evidence, run_id, data["created_at"]
+    )
+    id_map.update({f.id: f.id for f in incoming_technical})
     ai = remap(data["ai"], mapping)
     ai["recommendations"] = [id_map.get(i, i) for i in ai.get("recommendations", [])]
     ai["roadmap"] = {p: [id_map.get(i, i) for i in ids] for p, ids in ai.get("roadmap", {}).items()}
@@ -358,6 +498,8 @@ def _merge_run(
         "stages": stages,
         "target": data["target"],
         "resolved_url": data.get("resolved_url", data["target"]),
+        "outcomes": [o.model_dump() for o in outcomes],
+        "website_coverage": remap(data.get("website_coverage", {}), mapping),
         "crawl_assets_excluded": data.get("crawl_assets_excluded", False),
         "selected_categories": data["selected_categories"],
         "assessed_categories": data["assessed_categories"],
@@ -742,6 +884,11 @@ def report_data(
             }
             for r in runs
         ],
+        "website_coverage_runs": [
+            {**r["website_coverage"], "run_id": r["run_id"], "target": r["target"]}
+            for r in runs
+            if r.get("website_coverage")
+        ],
         "created_at": store["updated_at"],
         "target": latest("target", ""),
         "resolved_url": latest("resolved_url", latest("target", "")),
@@ -785,6 +932,29 @@ def report_data(
             "Manual presence verifications are recorded (see the evidence index) but no "
             "presence discovery run exists to compare them with"
         )
+    actionable = {
+        f["id"] for f in data["findings"] if f.get("lifecycle_status", "current") == "current"
+    }
+    review_ids = {
+        fid
+        for row in data["needs_review"]
+        for fid in [row.get("finding_id"), *row.get("finding_ids", [])]
+    }
+    actionable -= review_ids
+    inactive_eids = {
+        eid for f in data["findings"] if f["id"] not in actionable for eid in f["evidence_ids"]
+    }
+    if inactive_eids & set(CITATIONS.findall(ai.get("executive_summary", ""))):
+        ai["executive_summary"] = ""
+    ai["sections"] = {
+        key: text
+        for key, text in ai.get("sections", {}).items()
+        if not inactive_eids & set(CITATIONS.findall(text))
+    }
+    ai["recommendations"] = [i for i in ai.get("recommendations", []) if i in actionable]
+    ai["roadmap"] = {
+        p: [i for i in ids if i in actionable] for p, ids in ai.get("roadmap", {}).items()
+    }
     sections = [
         {"title": title, "statements": store["discovery"]["sections"][key]}
         for key, title in DISCOVERY_SECTIONS.items()

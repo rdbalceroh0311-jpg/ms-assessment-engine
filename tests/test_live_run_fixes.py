@@ -131,6 +131,10 @@ def test_resolution_prefers_https_and_detects_loops(monkeypatch):
 
 
 def test_redirect_host_change_crawls_both_hosts_and_feeds_downstream(tmp_path, monkeypatch):
+    if not (
+        Path(__file__).resolve().parents[1] / "tools/siteone/siteone-crawler/siteone-crawler"
+    ).is_file():
+        pytest.skip("SiteOne missing; run scripts/setup.sh")
     requests = []
 
     class Handler(http.server.BaseHTTPRequestHandler):

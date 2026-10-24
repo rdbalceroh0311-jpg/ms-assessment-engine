@@ -116,6 +116,18 @@ class Evidence(BaseModel):
     provenance: Provenance = "technical_evidence"
 
 
+class CheckOutcome(BaseModel):
+    module: str
+    check_id: str
+    category: str
+    site: str
+    component: str
+    status: Literal["pass", "fail", "skipped", "failed-to-run", "unavailable", "out-of-scope"]
+    coverage: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
 class Finding(BaseModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
     title: str
@@ -143,6 +155,15 @@ class Finding(BaseModel):
             "Confirm the current setup, existing integrations, access and business priority"
         ]
     )
+    site: str = ""
+    component: str = ""
+    coverage: list[str] = Field(default_factory=list)
+    lifecycle_status: Literal["current", "not_rechecked", "resolved", "needs_review"] = "current"
+    first_observed: str = ""
+    last_observed: str = ""
+    last_run_id: str = ""
+    resolution: dict[str, Any] | None = None
+    events: list[dict[str, Any]] = Field(default_factory=list)
     # Derived worst-of from cited evidence by consolidate(); never trusted from AI output.
     provenance: Provenance = "technical_evidence"
 
@@ -212,6 +233,8 @@ class ModuleResult(BaseModel):
     raw_paths: list[str] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+    outcomes: list[CheckOutcome] = Field(default_factory=list)
+    collection_started: bool = False
     # Optional structured per-area check rows (domain_email health summary).
     checks: list[dict[str, Any]] = Field(default_factory=list)
     connections: list[Connection] = Field(default_factory=list)
@@ -313,6 +336,8 @@ class Context:
     run_dir: Path
     tools_dir: Path
     max_pages: int = 100
+    browser_pages: int = 6
+    wp_inventory: Path | None = None
     dataforseo_max_usd: float | None = None
     # Root of data/customers; when set, run() also merges the run into the customer store.
     store_root: Path | None = None

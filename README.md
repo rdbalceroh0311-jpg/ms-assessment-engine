@@ -20,7 +20,7 @@ uv run ams-assess run --customer acme --target example.com \
 uv run ams-assess report data/customers/acme/<timestamp>
 ```
 
-Options: `--max-pages 100` (a page-crawl URL budget excluding static assets; redirects and failed/non-HTML responses can consume slots), `--formats md,html,pdf`,
+Options: `--browser-pages 6` (1-50), `--wp-inventory /path/to/authorised-export.json` (JSON or CSV URLs), `--max-pages 100` (a page-crawl URL budget excluding static assets; redirects and failed/non-HTML responses can consume slots), `--formats md,html,pdf`,
 `--no-ai`, `--connect gsc`, `--dataforseo-max-usd X`, `--keywords 'k1,k2'`, `--dkim-selectors a,b`, `--mail-tls-check`. Default categories: technical, seo, geo,
 performance, accessibility, cro_ux, copywriting, security, domain_email, local_seo, entity, presence.
 The report follows ten sections: context; scope and limitations; critical risks; website checks;
@@ -65,7 +65,7 @@ manually. No new business-system connectors are implemented.
 
 ### Progressive assessment: one customer, one evolving assessment
 
-Each customer has a store at `data/customers/<customer>/assessment.json` (`schema_version` 2, mode
+Each customer has a store at `data/customers/<customer>/assessment.json` (`schema_version` 3, mode
 0600 in a 0700 directory, gitignored, written atomically). Stages can run in any order and any number
 of times; none is a prerequisite for another:
 
@@ -145,10 +145,20 @@ this is deliberately conservative. Synonyms are covered: audited, (cross-/double
 
 **Evidence IDs are namespaced per run in the store** (`ev-gsc-001` becomes `ev-gsc-r2-001`; discovery
 statements are `ev-discovery-rN-NNN`); every citation (findings, AI narrative, summaries) is rewritten
-with the same mapping. Findings consolidate across runs by category and check key: the worst
-severity and priority win and `needs_verification`/`subjective` confidence sticks. The store is
-cumulative: a finding from an earlier run stays until superseded, so re-run and review rather than
-assuming a missing finding was fixed.
+with the same mapping. Technical findings use stable customer, site-host, check and page/component identities. A later
+explicit pass resolves a failure only when the same check actually covers its affected component(s),
+with cited technical evidence. Skipped, failed-to-run, unavailable, out-of-scope and absent results
+never resolve a finding. Partial samples leave the other findings **previously observed — not
+rechecked**, with their last-observed dates. Resolution records its evidence, date and run; recurrence
+reopens the identity and preserves its events and observations. Current severity follows the latest
+observation. Resolved and superseded findings are excluded from recommendations and the roadmap;
+conflicts remain **needs review**. Discovery supersession and conflict rules below are unchanged.
+
+Schema 1/2 stores migrate under the existing customer lock. Before conversion, the exact original
+`assessment.json` bytes are fsynced to `assessment.json.backup-<UTC timestamp>` beside the store,
+mode 0600. Migration is then saved atomically. Legacy findings have no inferred pass: they start as
+not rechecked, and ambiguous legacy components require review or an equivalent explicit retest.
+Evidence, runs and immutable report revisions are retained.
 
 **Finding versions.** A finding whose cited statements have all been superseded is retired to
 `finding_history` (kept, never recommended); re-importing a discovery finding with a changed claim
@@ -156,7 +166,7 @@ creates a new version that supersedes the old one instead of merging text. A fin
 superseded statement whose new version it does not cite, or two current versions of the same
 statement (together with every finding citing either version), are listed under "needs review"
 in the report and left out of the recommendations and roadmap.
-Limitation: stores created by pre-merge development builds of PR #4 are not migrated; recreate them.
+Unrecognised schema versions and mismatched customer IDs are rejected without modification.
 
 **Provenance.** Evidence is `technical_evidence` (default), `customer_statement` or `assumption`. A
 finding takes the worst provenance of the evidence it cites and can never be `confirmed` unless all
@@ -178,12 +188,44 @@ uv run ams-assess report --customer fixture-v1
 The synthetic fixture includes a broken link, missing H1/meta description/alt text, low
 contrast, a weak CTA and a structured-data telephone mismatch. Its home page also carries fictional,
 consent-gated, non-loading (`type="text/plain"`) GA4, GTM and Clarity tags (reported Unknown), a
-`google-site-verification` meta tag, a robots.txt `Sitemap:` line with a seven-URL sitemap,
+`google-site-verification` meta tag, a robots.txt `Sitemap:` line with an eight-URL sitemap including an unlinked fixture page,
 JSON-LD `sameAs` and footer links to fictional Google Business Profile, Facebook and Yellow Pages
 listings. It contains no real customer data and makes no third-party requests.
 A synthetic public + discovery + customer-profile sample, generated with AI disabled, is committed
 under [`examples/fixture-report/`](examples/fixture-report/) (Markdown, HTML, PDF, results, findings
 and evidence). No live customer or paid/connected API data is included.
+
+### Website coverage and inventories
+
+Every run records discovery sources, successful SiteOne HTML crawls and the bounded Playwright/axe
+sample separately. Reports say **X of Y known URLs crawled, Z browser-tested**; known URLs are never
+claimed to be the whole site. Untested browser URLs, unreached sitemap URLs, exclusions, blocked,
+failed and redirected responses, collection limits and stop reasons are retained per run and in the
+customer report. Axe outcomes retain desktop/mobile scope; unavailable or inapplicable rules do not
+resolve earlier violations. Site-check aggregates also retain the observation methods and sample.
+
+Coverage reuses the existing robots/sitemap result and follows same-origin sitemap declarations and
+index children without recrawling their page URLs: at most 10 sitemap documents, a known-URL budget
+of 5000 (or the configured crawl budget when higher),
+a further shared 10-second inventory deadline and 2 MB per response. WordPress detection triggers
+public read-only REST GETs: `/wp-json/wp/v2/types`, then advertised published pages, posts and public
+custom types (`context=view`, `status=publish`, `per_page=100`). Inventory requests identify as
+`AMSAssessment/1.0`, use no authentication, reject cross-origin redirects, wait 200 ms between
+collection requests, and stop after 10 collection pages or 10 seconds. A disabled or blocked REST
+API is reported as **inventory unavailable — authorised export or read-only access needed**.
+
+`--wp-inventory <file>` is an explicit authorised export input, never fetched or uploaded. JSON may
+be a list of URLs, a list of `{"url": "..."}` objects, or `{"urls": [...]}`; CSV has a `url` (or `link`)
+column. Maximum 2 MB / 5000 rows; URLs outside the assessed origin and credential-bearing URLs are
+excluded. Export URLs have their own discovery source and do not count as crawled or browser-tested.
+No inventory collection claims complete coverage.
+
+Supported business figures are matched to discovery statements or structured measurements by value,
+unit, period and qualifier. Customer statements render from the original source and retain context,
+for example: **Customer reports approximately 20 enquiries per week; not independently verified.**
+Citations remain attached; matching a bare number or score does not authorise an enquiry count.
+Invented quantities, upgrades to measured claims, lost-revenue/ROI claims and promised gains remain
+blocked. This processing does not send discovery notes to an AI provider.
 
 ### Business identity and platform presence discovery
 
@@ -255,7 +297,7 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | Module/provider | Requirements and behaviour |
 | --- | --- |
 | SiteOne | Local binary; one crawl, 2 workers, 5 requests/second, robots honoured, no shared crawl cache or uploads. JSON includes broken links, redirects, SEO and headers. |
-| Browser + axe | Chromium + `tools/axe.min.js`; up to 6 successful crawled pages, desktop/mobile. Screenshots, console errors, headings/text, forms, CTAs, contacts, JSON-LD/microdata, trust signals. No form submissions. |
+| Browser + axe | Chromium + `tools/axe.min.js`; up to `--browser-pages` successful crawled pages (default 6, maximum 50), desktop/mobile. Screenshots, console errors, headings/text, forms, CTAs, contacts, JSON-LD/microdata, trust signals. No form submissions. |
 | Domain/email | Public DNS A/AAAA/MX/NS/SOA/TXT/CAA, checkdmarc SPF/DMARC/DNSSEC, RDAP registrar/expiry (expired = ERROR, <30 days = WARNING), DKIM (`--dkim-selectors`/`AMS_DKIM_SELECTORS`, otherwise 8 common selectors; unknown selector = NOT ASSESSED), A/MX/NS/SPF agreement across 1.1.1.1, 8.8.8.8 and 9.9.9.9, and DNSBL lookups of up to 4 MX and 2 website IPv4 addresses (at most 30 queries) on SpamCop, Barracuda (free resolver registration required, otherwise refused = NOT ASSESSED) and PSBL. Spamhaus ZEN only with `SPAMHAUS_DQS_KEY`. SMTP only with `--mail-tls-check`: at most 2 MX hosts, banner/EHLO/STARTTLS/certificate/QUIT, 10-second timeout, never MAIL/RCPT/VRFY/EXPN/DATA. Produces the Domain, DNS & Email Health summary (PASS / WARNING / ERROR / NOT ASSESSED), which reuses Security/Observatory evidence for TLS and headers. Does not measure inbox placement. |
 | Security | HTTP headers and verified TLS certificate issuer/expiry/protocol/hostname. Not a penetration test. |
 | MDN Observatory | Public v2 scan; aggregate grade only. Failure and localhost are explicit skips. |

@@ -1,0 +1,423 @@
+"""Synthetic cumulative assessments exercise real persistence and report rendering."""
+
+import json
+import stat
+
+import pytest
+
+from ams_assess import store
+from ams_assess.lifecycle import observe
+from ams_assess.models import Evidence, Finding
+from ams_assess.report import render_markdown
+
+
+def merge(root, *, run=1, target="https://example.test/", failures=("a",), outcomes=None):
+    evidence = [
+        Evidence(
+            id="ev-siteone-001",
+            source="siteone",
+            url=target,
+            description="Synthetic metadata observation",
+            data={"run": run},
+        )
+    ]
+    findings = [
+        Finding(
+            id=f"issue-{i}",
+            title="Missing title " + page,
+            category="seo",
+            check_key="missing-title",
+            evidence_ids=[evidence[0].id],
+            detail="Missing title",
+            recommendation="Add title",
+            urls=[target + page],
+        )
+        for i, page in enumerate(failures)
+    ]
+    rows = (
+        outcomes
+        if outcomes is not None
+        else [
+            observe("siteone", "missing-title", "seo", target + page, "fail", [evidence[0].id])
+            for page in failures
+        ]
+    )
+    data = {
+        "target": target,
+        "created_at": f"2026-10-{run:02d}T00:00:00Z",
+        "status": "complete",
+        "selected_categories": ["seo"],
+        "assessed_categories": ["seo"],
+        "findings": [f.model_dump() for f in findings],
+        "outcomes": [o.model_dump() for o in rows],
+        "ai": {"status": "skipped", "recommendations": [f.id for f in findings]},
+        "modules": [{"name": "siteone", "status": "ok", "reason": ""}],
+        "pages": [target + page for page in failures],
+        "max_pages": 10,
+        "limitations": [],
+        "future": [],
+        "report_files": [],
+    }
+    return store.merge_run(root, "synthetic", "Synthetic", data, evidence, f"run-{run}", ["public"])
+
+
+def outcome(status="pass", page="a", **changes):
+    row = observe(
+        "siteone",
+        "missing-title",
+        "seo",
+        "https://example.test/" + page,
+        status,
+        ["ev-siteone-001"],
+    )
+    return row.model_copy(update=changes)
+
+
+def test_failure_pass_resolves_with_evidence_date_and_run(tmp_path):
+    before = merge(tmp_path)
+    after = merge(tmp_path, run=2, failures=(), outcomes=[outcome()])
+    f = after["findings"][0]
+    assert f["id"] == before["findings"][0]["id"]
+    assert f["lifecycle_status"] == "resolved"
+    assert f["resolution"] == {
+        "date": "2026-10-02T00:00:00Z",
+        "run_id": "r2",
+        "evidence_ids": ["ev-siteone-r2-001"],
+    }
+    data, evidence, _ = store.report_data(after)
+    text = render_markdown(data, evidence)
+    assert "Resolved" in text and "ev-siteone-r2-001" in text and "2026-10-02" in text
+    assert "Add title" not in text
+    assert not data["ai"]["recommendations"]
+
+
+@pytest.mark.parametrize("status", ["unavailable", "skipped", "failed-to-run", "out-of-scope"])
+def test_non_pass_outcomes_never_resolve(tmp_path, status):
+    merge(tmp_path)
+    after = merge(tmp_path, run=2, failures=(), outcomes=[outcome(status)])
+    f = after["findings"][0]
+    assert f["lifecycle_status"] == "not_rechecked" and f["resolution"] is None
+    assert f["last_observed"] == "2026-10-01T00:00:00Z"
+
+
+def test_absence_and_uncited_pass_never_resolve(tmp_path):
+    merge(tmp_path)
+    after = merge(tmp_path, run=2, failures=(), outcomes=[])
+    assert after["findings"][0]["lifecycle_status"] == "not_rechecked"
+    after = merge(tmp_path, run=3, failures=(), outcomes=[outcome(evidence_ids=[])])
+    assert after["findings"][0]["lifecycle_status"] == "not_rechecked"
+
+
+def test_partial_coverage_resolves_only_retested_page(tmp_path):
+    merge(tmp_path, failures=("a", "b"))
+    after = merge(tmp_path, run=2, failures=(), outcomes=[outcome()])
+    states = {f["component"]: f["lifecycle_status"] for f in after["findings"]}
+    assert states == {
+        "https://example.test/a": "resolved",
+        "https://example.test/b": "not_rechecked",
+    }
+    data, evidence, _ = store.report_data(after)
+    text = render_markdown(data, evidence)
+    assert "previously observed — not rechecked" in text and "2026-10-01" in text
+
+
+def test_recurrence_reopens_stable_identity_and_preserves_resolution_history(tmp_path):
+    first = merge(tmp_path)
+    merge(tmp_path, run=2, failures=(), outcomes=[outcome()])
+    after = merge(tmp_path, run=3)
+    f = after["findings"][0]
+    assert f["id"] == first["findings"][0]["id"] and f["lifecycle_status"] == "current"
+    assert f["resolution"] is None
+    assert [event["status"] for event in f["events"]] == ["observed", "resolved", "reopened"]
+    assert f["events"][1]["evidence_ids"] == ["ev-siteone-r2-001"]
+
+
+def test_two_websites_never_merge_or_resolve_each_other(tmp_path):
+    first = merge(tmp_path)
+    merge(tmp_path, run=2, target="https://other.test/")
+    after = merge(tmp_path, run=3, failures=(), outcomes=[outcome()])
+    assert len(after["findings"]) == 2
+    assert len({f["id"] for f in after["findings"]}) == 2
+    assert (
+        next(f for f in after["findings"] if f["id"] == first["findings"][0]["id"])[
+            "lifecycle_status"
+        ]
+        == "resolved"
+    )
+    assert (
+        next(f for f in after["findings"] if f["site"] == "other.test")["lifecycle_status"]
+        == "not_rechecked"
+    )
+
+
+def test_legacy_migration_backs_up_exact_bytes_before_change(tmp_path):
+    old = merge(tmp_path)
+    old["schema_version"] = 2
+    for f in old["findings"]:
+        for key in ("site", "component", "coverage", "events", "lifecycle_status", "last_observed"):
+            f.pop(key, None)
+    old["runs"][0].pop("outcomes")
+    path = store.store_file(tmp_path, "synthetic")
+    path.write_text(json.dumps(old))
+    original = path.read_bytes()
+    loaded = store.load(tmp_path, "synthetic")
+    assert loaded and loaded["schema_version"] == 3
+    (backup,) = path.parent.glob("assessment.json.backup-*")
+    assert backup.read_bytes() == original and stat.S_IMODE(backup.stat().st_mode) == 0o600
+    assert loaded["findings"][0]["lifecycle_status"] == "not_rechecked"
+    assert loaded["runs"] == old["runs"]
+    store.load(tmp_path, "synthetic")
+    assert len(list(path.parent.glob("assessment.json.backup-*"))) == 1
+    after = merge(tmp_path, run=2, failures=(), outcomes=[outcome()])
+    assert after["findings"][0]["lifecycle_status"] == "resolved"
+
+
+def test_failed_backup_leaves_legacy_store_unchanged(tmp_path, monkeypatch):
+    old = merge(tmp_path)
+    old["schema_version"] = 2
+    path = store.store_file(tmp_path, "synthetic")
+    path.write_text(json.dumps(old))
+    original = path.read_bytes()
+    real_open = store.os.open
+
+    def fail_backup(path, *args, **kwargs):
+        if ".backup-" in str(path):
+            raise OSError("synthetic disk full")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(store.os, "open", fail_backup)
+    with pytest.raises(OSError):
+        store.load(tmp_path, "synthetic")
+    assert path.read_bytes() == original
+
+
+def test_conflicting_outcomes_need_review_and_exclude_roadmap(tmp_path):
+    merge(tmp_path)
+    after = merge(tmp_path, run=2, failures=(), outcomes=[outcome(), outcome("fail")])
+    assert after["findings"][0]["lifecycle_status"] == "needs_review"
+    assert after["needs_review"]
+    data, evidence, _ = store.report_data(after)
+    assert "Needs review" in render_markdown(data, evidence)
+    assert not data["ai"]["recommendations"]
+
+
+def test_pass_for_smaller_component_sample_does_not_resolve(tmp_path):
+    merge(tmp_path)
+    after = merge(tmp_path, run=2, failures=(), outcomes=[outcome(coverage=[])])
+    assert after["findings"][0]["lifecycle_status"] == "not_rechecked"
+
+
+def test_real_siteone_outcomes_drive_runner_store_and_report(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from ams_assess import runner
+    from ams_assess.models import Context, create_run_dir
+    from ams_assess.modules import siteone
+
+    binary = tmp_path / "tools/siteone/siteone-crawler/siteone-crawler"
+    binary.parent.mkdir(parents=True)
+    binary.touch()
+    monkeypatch.setattr(siteone, "resolve_target", lambda url: {"resolved": url})
+    monkeypatch.setattr("ams_assess.coverage.presence.sitemap_check", lambda ctx: {})
+    monkeypatch.setattr(runner, "REGISTRY", {"siteone": siteone})
+    root = tmp_path / "customers"
+    target = "https://example.test/"
+    for title in ("", "Restored title"):
+        monkeypatch.setattr(
+            siteone.subprocess,
+            "run",
+            lambda *a, title=title, **kw: SimpleNamespace(
+                returncode=0,
+                stderr="",
+                stdout=json.dumps(
+                    {
+                        "results": [{"url": target, "status": 200, "type": 1}],
+                        "tables": {
+                            "seo": {
+                                "rows": [
+                                    {
+                                        "urlPathAndQuery": "/",
+                                        "title": title,
+                                        "h1": "Heading",
+                                        "description": "Description",
+                                        "robotsIndex": 1,
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ),
+            ),
+        )
+        ctx = Context(
+            "synthetic",
+            "Synthetic",
+            target,
+            {"seo"},
+            set(),
+            {},
+            create_run_dir(root, "synthetic"),
+            tmp_path / "tools",
+            store_root=root,
+        )
+        result = runner.run(ctx, no_ai=True, formats={"md"})
+        assert result.get("store_status") != "failed"
+        row = next(o for o in result["outcomes"] if o["check_id"] == "missing-title")
+        assert row["status"] == ("pass" if title else "fail")
+        assert row["coverage"] == [target] and row["evidence_ids"]
+    saved = store.load(root, "synthetic")
+    assert saved
+    (finding,) = saved["findings"]
+    assert finding["lifecycle_status"] == "resolved" and finding["resolution"]["run_id"] == "r2"
+    data, evidence, _ = store.report_data(saved)
+    text = render_markdown(data, evidence)
+    assert "Resolved" in text and "Prioritised improvement opportunities" not in text
+
+
+def test_outcomes_keep_requested_dns_host_and_performance_device(tmp_path):
+    from ams_assess import outcomes
+    from ams_assess.models import Context, ModuleResult
+
+    ctx = Context(
+        "synthetic",
+        "Synthetic",
+        "https://example.test/",
+        {"domain_email", "performance"},
+        set(),
+        {},
+        tmp_path,
+        tmp_path,
+        resolved_url="https://www.example.test/",
+    )
+    dns = ModuleResult(name="domain_email")
+    eid = dns.add_evidence(ctx.target, "Synthetic expiry", {})
+    dns.checks = [
+        {
+            "key": "registration",
+            "checks": [
+                {"name": "Expiry", "status": "PASS", "evidence_ids": [eid], "detail": "Valid"}
+            ],
+        }
+    ]
+    outcomes.record(ctx, dns)
+    assert dns.outcomes[0].check_id == "health:registration:expiry"
+    assert dns.outcomes[0].site == "example.test"
+    perf = ModuleResult(name="performance")
+    perf.add_evidence(
+        ctx.site_url,
+        "PageSpeed mobile: lab and available field data",
+        {"strategy": "mobile", "score": 0.98},
+    )
+    outcomes.record(ctx, perf)
+    assert perf.outcomes[0].check_id == "lighthouse-mobile" and perf.outcomes[0].status == "pass"
+    assert perf.outcomes[0].site == "www.example.test"
+
+
+def test_site_check_pass_without_same_rendered_sample_does_not_resolve(tmp_path):
+    from ams_assess import outcomes
+    from ams_assess.models import Context, ModuleResult
+    from ams_assess.modules.site_checks import Checks
+
+    ctx = Context(
+        "synthetic", "Synthetic", "https://example.test/", {"entity"}, set(), {}, tmp_path, tmp_path
+    )
+    root = tmp_path / "customers"
+    for run, page in [(1, "a"), (2, "b")]:
+        browser = ModuleResult(name="browser")
+        url = ctx.target + page
+        browser.add_evidence(
+            url, "Rendered page evidence (desktop)", {"url": url, "page": {"json_ld": []}}
+        )
+        ctx.results = [browser]
+        checks = Checks(ctx, {})
+        checks.row(
+            "structured-data",
+            "Schema",
+            ["entity"],
+            "WARNING" if run == 1 else "PASS",
+            "Synthetic check",
+            "Entity clarity",
+            "Correct schema",
+            [],
+            checks.refs("pages"),
+        )
+        outcomes.record(ctx, checks.result)
+        data = {
+            "target": ctx.target,
+            "created_at": f"2026-10-0{run}",
+            "status": "complete",
+            "selected_categories": ["entity"],
+            "assessed_categories": ["entity"],
+            "findings": [f.model_dump() for f in checks.result.findings],
+            "outcomes": [o.model_dump() for o in checks.result.outcomes],
+            "ai": {"status": "skipped"},
+            "modules": [],
+            "pages": [url],
+            "max_pages": 1,
+            "limitations": [],
+            "future": [],
+            "report_files": [],
+        }
+        saved = store.merge_run(
+            root,
+            "synthetic",
+            "Synthetic",
+            data,
+            browser.evidence + checks.result.evidence,
+            str(run),
+            ["public"],
+        )
+    assert saved["findings"][0]["lifecycle_status"] == "not_rechecked"
+
+
+def test_category_selection_does_not_change_check_identity(tmp_path):
+    from ams_assess.lifecycle import scoped, transition
+
+    evidence = [
+        Evidence(
+            id="ev-source-001",
+            source="source",
+            url="https://example.test/",
+            description="Synthetic observation",
+            data={},
+        )
+    ]
+    finding = Finding(
+        id="issue",
+        title="Synthetic",
+        category="technical",
+        check_key="shared-check",
+        evidence_ids=[evidence[0].id],
+        detail="Observed",
+        recommendation="Review",
+    )
+    initial = scoped([finding], evidence[0].url, "synthetic")
+    changed = scoped([finding.model_copy(update={"category": "seo"})], evidence[0].url, "synthetic")
+    assert initial[0].id == changed[0].id
+    rows = [observe("source", "shared-check", "seo", evidence[0].url, "pass", [evidence[0].id])]
+    assert (
+        transition(initial, [], rows, evidence, "r2", "2026-10-24")[0].lifecycle_status
+        == "resolved"
+    )
+
+
+def test_conflict_remains_needs_review_when_next_run_has_no_equivalent_result(tmp_path):
+    merge(tmp_path)
+    merge(tmp_path, run=2, failures=(), outcomes=[outcome(), outcome("fail")])
+    saved = merge(tmp_path, run=3, failures=(), outcomes=[])
+    assert saved["findings"][0]["lifecycle_status"] == "needs_review" and saved["needs_review"]
+
+
+def test_failed_collector_records_explicit_unrun_checks(tmp_path):
+    from ams_assess import outcomes
+    from ams_assess.models import Context, ModuleResult
+
+    ctx = Context(
+        "synthetic", "Synthetic", "https://example.test/", {"seo"}, set(), {}, tmp_path, tmp_path
+    )
+    result = ModuleResult(name="siteone", status="error", reason="Synthetic launch error")
+    outcomes.record(ctx, result)
+    title = next(o for o in result.outcomes if o.check_id == "missing-title")
+    assert title.status == "failed-to-run" and title.coverage == []
+    technical = next(o for o in result.outcomes if o.check_id == "broken-links")
+    assert technical.status == "out-of-scope" and not technical.coverage

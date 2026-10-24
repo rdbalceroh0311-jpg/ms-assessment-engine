@@ -853,6 +853,14 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
         ]
         data["sitemap_urls"] = urls[:500]
         data["sitemap_urls_truncated"] = len(urls) > 500
+    if kind == "sitemapindex":
+        root = ET.fromstring(response["body"].decode("utf-8-sig"))
+        children = [
+            (node.findtext(SITEMAP_NS + "loc") or "").strip()
+            for node in root.findall(SITEMAP_NS + "sitemap")
+        ]
+        data["sitemap_children"] = children[:500]
+        data["sitemap_urls_truncated"] = len(children) > 500
     noun = "URLs" if kind == "urlset" else "child sitemaps"
     return data | {
         "entries": count,

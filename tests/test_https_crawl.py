@@ -103,7 +103,7 @@ def test_preflight_failure_crawls_last_safe_url(tmp_path, monkeypatch, failure):
 
     def handler(request):
         calls.append(request)
-        assert request.headers["user-agent"] == site_checks.NORMAL_UA
+        assert request.headers["user-agent"] == "AMSAssessment/1.0"
         assert request.extensions["timeout"]["read"] == targets.REQUEST_SECONDS
         if request.url.host == "example.com":
             return httpx.Response(301, headers={"location": "https://www.example.com/"})
@@ -125,7 +125,7 @@ def test_preflight_failure_crawls_last_safe_url(tmp_path, monkeypatch, failure):
     assert result.status == "ok" and "preflight limitation" in result.reason
     assert ctx.target == "https://example.com/" and ctx.site_url == "https://www.example.com/"
     assert "--url=https://www.example.com/" in commands[0]
-    assert f"--user-agent={site_checks.NORMAL_UA}!" in commands[0]
+    assert "--user-agent=AMSAssessment/1.0!" in commands[0]
     assert f"--timeout={targets.REQUEST_SECONDS}" in commands[0]
     assert "--allowed-domain-for-crawling=example.com" in commands[0]
     assert "--allowed-domain-for-crawling=www.example.com" in commands[0]

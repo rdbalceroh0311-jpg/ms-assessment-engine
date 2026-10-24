@@ -138,6 +138,7 @@ def test_headers_framing_and_observatory_form_one_cited_action(tmp_path, monkeyp
         raise OSError("mock TLS unavailable")
 
     monkeypatch.setattr(security.socket, "create_connection", unavailable)
+    monkeypatch.setattr("ams_assess.coverage.presence.sitemap_check", lambda ctx: {})
     monkeypatch.setattr(runner, "REGISTRY", {m.name: m for m in [siteone, security, observatory]})
     data = runner.run(ctx, no_ai=True, formats={"md"})
     groups = [f for f in data["findings"] if f["check_key"] == "security-headers"]

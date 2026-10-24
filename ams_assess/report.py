@@ -292,7 +292,11 @@ def render_markdown(
     # Recheck each basis without merging distinct customer-store findings across websites.
     findings = [consolidate([Finding.model_validate(f)], evidence)[0] for f in data["findings"]]
     known = {e.id for e in evidence}
-    if any(not set(f.evidence_ids) <= known for f in findings):
+    if any(
+        not set(f.evidence_ids) <= known
+        or (f.resolution and not set(f.resolution.get("evidence_ids", [])) <= known)
+        for f in findings
+    ):
         raise ValueError("Report refused: a finding references missing evidence")
     findings.sort(key=lambda f: (f.priority, SEVERITIES[f.severity], f.category, f.id))
     # Findings whose basis changed or conflicts belong only in section 10.
@@ -302,7 +306,8 @@ def render_markdown(
         for fid in [r.get("finding_id"), *r.get("finding_ids", [])]
         if fid
     }
-    by_id = {f.id: f for f in findings if f.id not in review}
+    lifecycle_findings = findings
+    by_id = {f.id: f for f in findings if f.id not in review and f.lifecycle_status == "current"}
     findings = list(by_id.values())
     site_finding_eids = {
         eid for f in findings if f.check_key.startswith("site:") for eid in f.evidence_ids
@@ -335,6 +340,9 @@ def render_markdown(
         trim_blocks=True,
         lstrip_blocks=True,
     )
+    from ams_assess.figures import customer_statement
+
+    env.filters["customer_statement"] = customer_statement
     env.filters["text"] = mdtext
     env.filters["discovery_rows"] = discovery_rows
     env.filters["discovery_heading"] = lambda title: (
@@ -380,6 +388,7 @@ def render_markdown(
         ai=ai,
         evidence=evidence,
         findings=findings,
+        lifecycle_findings=lifecycle_findings,
         public_findings=public,
         finding_categories={f.category for f in public},
         connected_findings=connected,

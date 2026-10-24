@@ -8,6 +8,7 @@ from urllib.parse import urldefrag, urljoin, urlsplit
 
 import httpx
 
+from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
 from ams_assess.modules import presence, siteone
 from ams_assess.modules.site_rules import (
@@ -222,6 +223,37 @@ class Checks:
         }
         eid = self.result.add_evidence(self.ctx.site_url, f"Site check: {title}", row)
         self.result.checks.append({**row, "evidence_ids": [eid]})
+        component = self.ctx.site_url + "::site-check"
+        # Attribute the actual observation methods as well as pages: a crawl response
+        # cannot stand in for a missing rendered-page/schema/header observation on that URL.
+        coverage = sorted(
+            {f"{e.source}:{e.url}:{e.description}" for e in self.evidence if e.id in refs}
+        )
+        if self.probe_eid in refs:
+            coverage.extend(
+                f"probe:{key}:{value.get('url', self.ctx.site_url)}"
+                for key, value in self.probes.items()
+                if value.get("status") == 200 and value.get("complete")
+            )
+        if key == "cwv" and isinstance(detail, list):
+            coverage = sorted(
+                {
+                    f"{r['scope']}:{r['device']}:{r['metric']}"
+                    for r in detail
+                    if r.get("grade") != "NOT ASSESSED"
+                }
+            )
+        self.result.outcomes.append(
+            observe(
+                name,
+                "site:" + key,
+                category,
+                component,
+                {"PASS": "pass", "WARNING": "fail", "ERROR": "fail"}.get(status, "unavailable"),
+                [eid],
+                coverage=coverage if status in {"PASS", "WARNING", "ERROR"} else [],
+            )
+        )
         if status in {"WARNING", "ERROR"}:
             self.result.finding(
                 "site:" + key,
@@ -232,6 +264,8 @@ class Checks:
                 correction,
                 severity="high" if status == "ERROR" else "low",
                 confidence=confidence,
+                component=component,
+                coverage=coverage,
                 urls=sorted({u for u in re.findall(r"https?://[^\s;]+", checked)}),
             )
 
@@ -459,7 +493,7 @@ class Checks:
             f"Compared {len(rows)} sitemap URLs with existing crawl results: {len(bad)} with "
             f"observed issues, {len(unknown)} uncrawled/unavailable (NOT ASSESSED). "
             + (
-                "Sitemap index children are not fetched. "
+                "Sitemap index children are reconciled separately in website coverage. "
                 if self.sitemap.get("kind") == "sitemapindex"
                 else ""
             )

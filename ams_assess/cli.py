@@ -167,6 +167,15 @@ def main(argv: list[str] | None = None) -> int:
     assess.add_argument("--categories", default=",".join(CATEGORIES))
     assess.add_argument("--connect", action="append", choices=["gsc"], default=[])
     assess.add_argument("--max-pages", type=int, default=100)
+    assess.add_argument(
+        "--browser-pages",
+        type=int,
+        default=6,
+        help="Maximum successful crawl pages inspected in the browser (1-50)",
+    )
+    assess.add_argument(
+        "--wp-inventory", type=Path, help="Authorised WordPress URL inventory export (JSON or CSV)"
+    )
     assess.add_argument("--dataforseo-max-usd", type=float)
     assess.add_argument("--dataforseo-location-code", type=int)
     assess.add_argument(
@@ -312,6 +321,15 @@ def main(argv: list[str] | None = None) -> int:
         not math.isfinite(args.dataforseo_max_usd) or args.dataforseo_max_usd <= 0
     ):
         parser.error("--dataforseo-max-usd must be a finite positive amount")
+    if not 1 <= args.browser_pages <= 50:
+        parser.error("--browser-pages must be between 1 and 50")
+    if args.wp_inventory:
+        from ams_assess.coverage import load_export
+
+        try:
+            load_export(args.wp_inventory)
+        except (OSError, ValueError):
+            parser.error("Cannot read WordPress inventory: expected bounded JSON/CSV URLs")
     settings = config()
     if args.dataforseo_location_code is not None:
         settings["DATAFORSEO_LOCATION_CODE"] = str(args.dataforseo_location_code)
@@ -358,6 +376,8 @@ def main(argv: list[str] | None = None) -> int:
         tools_dir=ROOT / "tools",
         store_root=data_root(),
         max_pages=args.max_pages,
+        browser_pages=args.browser_pages,
+        wp_inventory=args.wp_inventory,
         dataforseo_max_usd=args.dataforseo_max_usd,
         profile=profile,
         keywords=keywords,

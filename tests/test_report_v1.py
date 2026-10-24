@@ -295,14 +295,17 @@ def test_progressive_customer_scenario(local_fixture, tmp_path, monkeypatch):
         "**Information still required:**",
         "Form submissions: NOT TESTED",
         "Needs review",
-        "0-30 days",
         "30-90 days",
         "90+ days",
         "existing systems",
     ):
         assert required in text
+    # The subsequent GSC run did not recheck the website's P1 technical failures.
+    # They remain visible with dates, but must not appear as current roadmap actions.
+    assert "previously observed — not rechecked" in text
+    assert "### 0-30 days" not in text
     assert all(f["ams_service"] in AMS_SERVICES for f in saved(root, "alpha")["findings"])
-    assert re.findall(r"^## (\d+)\.", text, re.M) == [str(i) for i in range(1, 11)]
+    assert re.findall(r"^## (\d+)\.", text, re.M) == [str(i) for i in range(1, 11) if i != 3]
     known = {e["id"] for e in saved(root, "alpha")["evidence"]}
     assert set(re.findall(r"ev-[a-z_]+-r\d+-\d+", text)) <= known
     # (11) Separate customer state and owner-only data; revisions intentionally read-only.
@@ -474,7 +477,7 @@ def test_item_5_legacy_ai_run_and_store_remain_readable(tmp_path, monkeypatch):
         (run / name).write_bytes(originals[name])
     data = json.loads(originals["results.json"])
     evidence = [Evidence.model_validate(e) for e in json.loads(originals["evidence.json"])]
-    legacy = {f["id"]: f["ams_service"] for f in data["findings"]}
+    legacy = {f["check_key"] or f["id"]: f["ams_service"] for f in data["findings"]}
     assert {"Content and copywriting", "Conversion optimisation"} <= set(legacy.values())
     render(run, {"md", "pdf"})
     assert "Draft" in PdfReader(run / "report.pdf").pages[0].extract_text()
@@ -485,7 +488,7 @@ def test_item_5_legacy_ai_run_and_store_remain_readable(tmp_path, monkeypatch):
     value = store.merge_run(root, customer, "Legacy", data, evidence, "old-run", ["public"])
     # Reproduce a pre-v1 store, rather than only testing new ingestion of old run files.
     for finding in value["findings"]:
-        finding["ams_service"] = legacy[finding["id"]]
+        finding["ams_service"] = legacy[finding["check_key"]]
     store.save(root, customer, value)
     monkeypatch.setattr(cli, "ROOT", tmp_path)
     assert cli.main(["report", "--customer", customer, "--formats", "md"]) == 0
@@ -499,7 +502,7 @@ def test_item_5_legacy_ai_run_and_store_remain_readable(tmp_path, monkeypatch):
     }.items()
     # Discovery also validates the existing store via _combine.
     for finding in merged["findings"]:
-        finding["ams_service"] = legacy[finding["id"]]
+        finding["ams_service"] = legacy[finding["check_key"]]
     store.save(root, customer, merged)
     import_notes(customer)
     assert cli.main(["report", "--customer", customer, "--formats", "md"]) == 0
