@@ -7,12 +7,15 @@ from typing import Any
 
 from ams_assess.models import Evidence
 
+UNIT_PATTERN = (
+    r"leads?|sales|conversions?|enquir(?:y|ies)|calls?|bookings?|jobs?|customers?|"
+    r"visitors?|traffic|clicks"
+)
 QUANTITY = re.compile(
     r"(?P<qualifier>approximately\s+|approx\.?\s+|about\s+|around\s+|~\s*|up to\s+|at least\s+)?"
     r"(?P<value>\d+(?:,\d{3})*(?:\.\d+)?)\s+"
     r"(?P<modifier>(?:new|more|additional)\s+)?"
-    r"(?P<unit>leads?|sales|conversions?|enquir(?:y|ies)|calls?|bookings?|jobs?|customers?|"
-    r"visitors?|traffic|clicks)\b"
+    rf"(?P<unit>{UNIT_PATTERN})\b"
     r"(?P<period>\s+(?:per|a|each)\s+(?:day|week|month|year)|\s*/\s*(?:day|week|month|year))?",
     re.I,
 )
@@ -41,14 +44,27 @@ FORECAST = re.compile(
 FIGURE_REFERENCE = re.compile(
     r"\b(?:that|this|these|those|it|them|the\s+(?:number|figure|count|total|volume))\b", re.I
 )
+FUTURE = re.compile(
+    r"\b(?:will|would|could|can|should|may|might|shall|expect(?:s|ed|ing)?|likely)\b"
+    r"|\b\w+['’](?:ll|d)\b",
+    re.I,
+)
+OUTCOME_OR_DIRECTION = re.compile(
+    rf"\b(?:{UNIT_PATTERN}|revenue|more|higher|ris(?:e[sd]?|ing)|"
+    r"(?:lift|climb|jump)(?:s|ed|ing)?|tripl(?:e[sd]?|ing)|"
+    r"improv(?:e[sd]?|ing)|increas(?:e[sd]?|ing))\b",
+    re.I,
+)
 
 
 def followup_promise(sentence: str) -> bool:
     """A modal/causal instruction alone is not a promised effect on the recorded figure."""
+    reference = re.sub(r"\b(?:check|ensure|confirm|verify)\s+that\b", "", sentence, flags=re.I)
     return bool(
         GAIN.search(sentence)
         or FORECAST.search(sentence)
-        or (PROMISSORY.search(sentence) and FIGURE_REFERENCE.search(sentence))
+        or (PROMISSORY.search(sentence) and FIGURE_REFERENCE.search(reference))
+        or (FUTURE.search(sentence) and OUTCOME_OR_DIRECTION.search(sentence))
     )
 
 
