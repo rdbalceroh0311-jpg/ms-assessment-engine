@@ -183,7 +183,7 @@ class Checks:
         # the same bounded collector without selecting the entire presence category.
         crawl = self.modules.get("siteone")
         if self.ctx.categories & {"seo", "geo", "technical"} and crawl and crawl.status == "ok":
-            data = presence.sitemap_check(self.ctx)
+            data = self.ctx.inventory.get("sitemap") or presence.sitemap_check(self.ctx)
             eid = self.result.add_evidence(
                 self.ctx.site_url, "Reused robots/sitemap collector", data
             )

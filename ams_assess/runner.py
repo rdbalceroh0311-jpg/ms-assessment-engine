@@ -15,7 +15,7 @@ from ams_assess.models import (
     ModuleResult,
     write_json,
 )
-from ams_assess.modules import FUTURE, REGISTRY, domain_email, presence
+from ams_assess.modules import FUTURE, REGISTRY, domain_email, gsc, presence
 from ams_assess.report import render
 
 
@@ -72,6 +72,12 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             flush=True,
         )
     evidence = [e for result in results for e in result.evidence]
+    for result in results:
+        if result.name == gsc.name and result.status == "ok" and result.evidence:
+            # Connected evidence is analysed once every public collector (sitemap) has run.
+            derived, checks = gsc.connected_findings(evidence, ctx.site_url)
+            result.findings += [f for f in derived if f.category in ctx.categories]
+            result.outcomes += [o for o in checks if o.category in ctx.categories]
     findings = consolidate([f for result in results for f in result.findings], evidence)
     findings = scoped(
         consolidate_security_headers(findings, evidence), ctx.site_url, ctx.customer_id

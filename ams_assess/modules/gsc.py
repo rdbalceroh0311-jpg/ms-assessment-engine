@@ -2,13 +2,23 @@ import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from urllib.parse import quote, urlsplit
+from typing import Any
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 from google.auth.transport.requests import Request
 from google.oauth2 import credentials, service_account
 
-from ams_assess.models import Connection, ConnectionStatus, Context, ModuleResult
+from ams_assess.lifecycle import observe, site_key
+from ams_assess.models import (
+    CheckOutcome,
+    Connection,
+    ConnectionStatus,
+    Context,
+    Evidence,
+    Finding,
+    ModuleResult,
+)
 
 name = "gsc"
 categories = {"seo", "geo"}
@@ -29,6 +39,180 @@ AI_REPORT_NOTE = (
     "https://developers.google.com/webmaster-tools/v1/searchanalytics/query and "
     "https://support.google.com/webmasters/answer/16984139"
 )
+
+# Default WordPress content that should not be indexed once a site is live.
+PLACEHOLDER_PATHS = {
+    "/sample-page/": "WordPress sample page",
+    "/hello-world/": "WordPress sample post",
+    "/category/uncategorized/": "default Uncategorized category archive",
+}
+PUBLIC_SITEMAP = {"Bounded robots.txt and XML sitemap fetch", "Reused robots/sitemap collector"}
+VERIFY = "Needs verification before any change: "
+
+
+def connected_findings(
+    evidence: list[Evidence], site_url: str
+) -> tuple[list[Finding], list[CheckOutcome]]:
+    """Deterministic findings from the returned Search Console sample.
+
+    Each observation is confirmed from GSC and cites the GSC evidence plus the public evidence
+    it relates to (redirect resolution, public sitemap, crawled page) instead of repeating it.
+    Recommendations still need verification. Every analysed check also records an explicit
+    outcome, so a later run without the condition can resolve the finding.
+    """
+    site, preferred = site_key(site_url), urlsplit(site_url)
+    record = next(
+        (
+            e
+            for e in evidence
+            if e.source == name
+            and site_key(e.url) == site
+            and isinstance(e.data, dict)
+            and isinstance(e.data.get("page"), dict)
+        ),
+        None,
+    )
+    if record is None:
+        return [], []
+    findings: list[Finding] = []
+    outcomes: list[CheckOutcome] = []
+
+    def number(value: Any) -> int:
+        return int(value) if isinstance(value, int | float) else 0
+
+    rows = {
+        str(row["keys"][0]): row
+        for row in record.data["page"].get("rows", [])
+        if isinstance(row, dict) and row.get("keys")
+    }
+    own = {
+        url: row
+        for url, row in rows.items()
+        if site_key(url) == site and number(row.get("impressions"))
+    }
+
+    def shown(url: str) -> str:
+        impressions, clicks = number(rows[url].get("impressions")), number(rows[url].get("clicks"))
+        return (
+            f"{url} ({impressions} impression{'s' * (impressions != 1)}, "
+            f"{clicks} click{'s' * (clicks != 1)})"
+        )
+
+    def check(key: str, status: str, finding: dict[str, Any] | None = None) -> None:
+        outcomes.append(observe(name, key, "seo", site_url, status, [record.id]))
+        if finding:
+            findings.append(
+                Finding(
+                    id=f"gsc-{len(findings) + 1:03d}",
+                    check_key=key,
+                    category="seo",
+                    component=site_url,
+                    confidence="confirmed",
+                    ams_service="Digital Growth",
+                    **finding,
+                )
+            )
+
+    def public(predicate) -> list[str]:
+        return [e.id for e in evidence if e.source != name and predicate(e)]
+
+    variants, variant_urls = [], []
+    for url in own:
+        parts = urlsplit(url)
+        if (parts.scheme, parts.hostname) == (preferred.scheme, preferred.hostname):
+            continue
+        canonical = urlunsplit(
+            (preferred.scheme, preferred.netloc, parts.path or "/", parts.query, "")
+        )
+        variant_urls.append(url)
+        variants.append(
+            shown(url) + (f" alongside {shown(canonical)}" if canonical in rows else "")
+        )
+    redirects = public(
+        lambda e: (
+            e.description == "Target redirect resolution before crawling"
+            and isinstance(e.data, dict)
+            and e.data.get("resolved") == site_url
+        )
+    )
+    finding = None
+    if variants:
+        finding = {
+            "title": "Search Console reports non-canonical URL variants with impressions",
+            "evidence_ids": [record.id, *redirects],
+            "detail": f"Confirmed from Search Console ({record.id}): "
+            + "; ".join(variants)
+            + (
+                f". The website resolves to {site_url}"
+                if redirects
+                else f". The assessment's preferred URL is {site_url}"
+            )
+            + (f" ({', '.join(redirects)})" if redirects else "")
+            + ".",
+            "recommendation": VERIFY + "confirm that each variant permanently redirects (301) "
+            f"to its {preferred.scheme}://{preferred.netloc} URL and that canonical tags name "
+            "that URL, then recheck Search Console after Google recrawls.",
+            "severity": "medium",
+            "urls": variant_urls,
+        }
+    check("gsc:non-canonical-variants", "fail" if variants else "pass", finding)
+
+    submitted = record.data.get("sitemaps")
+    submitted = submitted.get("sitemap", []) if isinstance(submitted, dict) else None
+    published = [
+        e
+        for e in evidence
+        if e.source != name
+        and e.description in PUBLIC_SITEMAP
+        and isinstance(e.data, dict)
+        and e.data.get("status") == "PASS"
+        and site_key(str(e.data.get("sitemap_url") or e.url)) == site
+    ]
+    finding = None
+    if submitted is None or not published:
+        status = "unavailable"  # Without both lists, absence cannot be established.
+    elif submitted:
+        status = "pass"
+    else:
+        status, sitemap = "fail", published[0]
+        location = sitemap.data.get("sitemap_url") or sitemap.url
+        finding = {
+            "title": "No sitemap submitted in Search Console although the website publishes one",
+            "evidence_ids": [record.id, sitemap.id],
+            "detail": f"Confirmed from Search Console ({record.id}): property "
+            f"{record.data.get('property', 'not recorded')} lists no submitted sitemaps. "
+            f"The website publishes {location} ({sitemap.id}).",
+            "recommendation": VERIFY + "confirm with the property owner that the sitemap is "
+            f"not submitted under another property, then submit {location} in Search Console.",
+            "severity": "low",
+            "kind": "opportunity",
+        }
+    check("gsc:sitemap-not-submitted", status, finding)
+
+    placeholders = [url for url in own if urlsplit(url).path in PLACEHOLDER_PATHS]
+    pages = public(
+        lambda e: any(
+            site_key(e.url) == site and urlsplit(e.url).path == urlsplit(url).path
+            for url in placeholders
+        )
+    )
+    finding = None
+    if placeholders:
+        finding = {
+            "title": "Placeholder pages receive Search Console impressions",
+            "evidence_ids": [record.id, *pages],
+            "detail": f"Confirmed from Search Console ({record.id}): "
+            + "; ".join(
+                f"{shown(url)}, a {PLACEHOLDER_PATHS[urlsplit(url).path]}" for url in placeholders
+            )
+            + ".",
+            "recommendation": VERIFY + "confirm the pages are unused, then remove them (or mark "
+            "them noindex) and drop them from the sitemap.",
+            "severity": "low",
+            "urls": placeholders,
+        }
+    check("gsc:placeholder-impressions", "fail" if placeholders else "pass", finding)
+    return findings, outcomes
 
 
 def save_token(path: Path, auth: credentials.Credentials) -> None:

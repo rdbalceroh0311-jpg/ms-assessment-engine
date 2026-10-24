@@ -33,8 +33,13 @@ to improve processes and integrate existing systems first; there are no ranking,
 revenue guarantees, and AI-search readiness does not measure AI visibility.
 Repeated accessibility rules on the same website share one customer-report block and recommendation
 (www/apex aliases share a website), with each affected page/viewport, finding ID and evidence reference
-retained. The lifecycle table shows non-current
-findings; JSON retains every individual finding. Repeated coverage and evidence are grouped for display.
+retained. Per-page mobile/desktop lab-performance findings group the same way, listing each page
+and its score. The lifecycle table shows non-current
+findings; JSON retains every individual finding. Repeated coverage and evidence are grouped for display;
+website coverage shows the latest run per website with earlier runs summarised in one line.
+Same-site HTML pages published in the sitemap or public WordPress inventory are seeded into the crawl
+(robots.txt applied; media, attachments and feeds excluded; at most half of `--max-pages`), and up to a
+third of the `--browser-pages` sample is reserved for crawled seeds the key-page order would skip.
 Only required modules run; a domain/security/performance-only run has no crawl. Customer IDs must be
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
@@ -65,7 +70,10 @@ Unsupported (no connector) and Not assessed. GSC unverified users and HTTP 403 r
 The [documented GSC API](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)
 does not expose a separate generative-AI performance report/filter (checked 2026-10-23); review a
 customer-provided [Search Console UI export](https://support.google.com/webmasters/answer/16984139)
-manually. GA4 and explicitly bound GSC reads use the connector framework below.
+manually. GA4 and explicitly bound GSC reads use the connector framework below. Returned GSC rows are analysed
+deterministically into section-7 findings (confirmed from GSC; recommendations need verification):
+http/www variants of the website with impressions, no submitted sitemap while the website publishes
+one, and default WordPress placeholder pages with impressions. AI cannot write findings on GSC evidence.
 
 ### Progressive assessment: one customer, one evolving assessment
 
@@ -396,6 +404,177 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | Digital presence (`presence`) | Reuses browser DOM (meta tags, script URLs, inline tag snippets, `<link>` URLs, anchors, JSON-LD, request URLs), SiteOne headers/external URLs/robots.txt/canonical summary, domain_email MX/TXT and the GSC connection state. Its only requests, and only after a SiteOne crawl, are one `robots.txt` GET and one GET of the first same-origin `Sitemap:` URL (else `/sitemap.xml`), each with at most one redirect that keeps scheme, host and port, all within one 10-second deadline (passed as each request's timeout) and a 2 MB cap; no recursion. The complete body is parsed with ElementTree. Sitemap PASS (sitemaps.org `urlset`/`sitemapindex` with at least one `<loc>`) / WARNING (404, or fully retrieved but invalid; needs verification when robots.txt could not be read) / NOT ASSESSED (fetch failed, incomplete or declared on another origin). Detects Search Console/Bing verification, GA4, legacy UA, GTM, Clarity, Hotjar, Google Ads, Meta, LinkedIn, Bing UET, TikTok, WordPress/Shopify/Wix/Squarespace/Webflow/Joomla/Drupal and Google Workspace/Microsoft 365, with IDs as evidence. IDs count only in tag context (gtag calls, tag URLs, the GTM loader), never as bare strings. Listings (Google Business Profile, Bing, Apple Maps, Facebook, Instagram, LinkedIn and AU directories) only when the website links to them. Produces platform, listing, search/local signal (NAP, location pages, robots.txt, sitemap, canonicals), connected-readiness and customer access checklist tables. Statuses: Detected / Not detected (no public signal on sampled pages, never "no account") / Unknown (GTM present but GA4 not seen, or a consent manager / consent-gated tags present and the tag not seen loading) / NOT ASSESSED. NAP is a confirmed mismatch only on one page with one business entity, untruncated text and exactly one different phone or postcode shown; several entities or values, truncation, absence or values from different pages give a manual verification item. AI cannot create presence findings or findings cited only by presence evidence; GSC data appears only under "Connected business-system findings". Listings always need ownership confirmation; platform pages are never fetched, and search happens only through the DataForSEO SERP under the cap (see above). `AMS_ACCESS_EMAIL` names the AMS account in the checklist (placeholder if unset). |
 | AI | `ANTHROPIC_API_KEY` selects Anthropic SDK (billable; no retries); otherwise authenticated `claude -p --output-format json` with strict schema, tools/hooks/MCP disabled and 300-second timeout; otherwise deterministic fallback. `--no-ai` disables both. Prompt/raw responses stay in the run directory. |
 
+## Microsoft 365 read-only connector (`m365`)
+
+This connector reads one explicitly selected Microsoft Entra tenant through Microsoft Graph
+v1.0. It uses the shared credential references, binding locks, GET allowlist, evidence lifecycle,
+systems register, local UI and report section 7. No tenant has been authorised for a live read;
+verification uses synthetic Graph responses and mocked Microsoft authentication only. The connector
+declares the framework's native `device_code` auth flow, auth hint and collection/request limits.
+
+### Entra app registration (David / the customer administrator)
+
+1. In **Microsoft Entra admin center → Entra ID → App registrations → New registration**,
+   create a dedicated app named `AMS Assessment Read Only`. Select **Accounts in any
+   organizational directory (Any Microsoft Entra ID tenant — Multitenant)**, excluding personal
+   Microsoft accounts. Record its **Application (client) ID**. Separately record the **Directory
+   (tenant) ID of the customer being assessed**, which may differ from the app's home tenant.
+   See [app registration](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)
+   and [multitenant registration](https://learn.microsoft.com/en-us/entra/identity-platform/howto-convert-app-to-be-multi-tenant).
+2. Under **Authentication → Advanced settings**, set **Allow public client flows = Yes**
+   and save. This connector uses MSAL's local CLI device-code flow; no redirect URI, implicit
+   grants, client secret or certificate is needed. The CLI displays the short-lived user code
+   and `https://microsoft.com/devicelogin`; enter that code there and sign in to the authorised
+   customer tenant. The private device code and tokens are never displayed. Sign-in polling is
+   capped at 180 seconds. See [device-code authentication](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code)
+   and [the public-client-flow setting](https://learn.microsoft.com/en-us/entra/identity-platform/msal-client-applications).
+3. Under **API permissions**, remove the default `User.Read` entry. Choose **Add a permission →
+   Microsoft Graph → Delegated permissions**, and add exactly `Organization.Read.All`,
+   `Domain.Read.All`, `User.Read.All`, `RoleManagement.Read.Directory`, `AuditLog.Read.All` and
+   `Policy.Read.All`. Add no application permissions, mail/files permissions or write scopes.
+   The endpoint table below verifies these permissions. MSAL adds only the protocol scopes
+   `openid`, `profile` and `offline_access` for sign-in and refresh; the connector rejects broader
+   Graph grants and missing permissions rather than silently expanding consent.
+4. Obtain **tenant-wide admin consent in the customer's tenant** from its authorised consent
+   administrator (for these delegated scopes, Cloud Application Administrator is supported).
+   For an app registered in that tenant, use **App registrations → app → API permissions →
+   Grant admin consent**. To provision the app in another tenant, run the `auth` command below
+   with that customer's tenant ID and have its consent administrator complete the device-code
+   sign-in, review the six permissions and select **Consent on behalf of your organization**.
+   Confirm the grant under **Enterprise apps → app → Permissions**; repeat `auth` as the reader
+   account in step 5 before any `test` or `collect`. Consent in the app's home tenant does not
+   grant customer-tenant access. See [Microsoft's admin consent instructions](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/grant-admin-consent).
+5. Use a customer-tenant **member** account for collection, with **Directory Readers + Security
+   Reader**, or an existing **Global Reader** assignment. These reader roles cover the endpoint
+   requirements below. Activate any required PIM assignment before authenticating. App consent
+   and the signed-in user's role are separate requirements; granting app consent alone is
+   insufficient. Do not use a Global Administrator account for routine collection.
+6. Confirm existing **Entra ID P1/P2** entitlement for authentication registration reporting and
+   Conditional Access. The connector does not purchase licences or change configuration. Without
+   required entitlement, affected endpoint evidence is `licence_required`; successful endpoints
+   remain available with overall `connected_partial`. Ordinary permission denial stays
+   `permission_required`. Neither status is a security finding. See
+   [registration-report licensing](https://learn.microsoft.com/en-us/entra/identity/authentication/howto-authentication-methods-activity)
+   and [Conditional Access licensing](https://learn.microsoft.com/en-us/entra/identity/conditional-access/overview#license-requirements).
+
+### Local setup, authorisation and explicit tenant binding
+
+Run from this checkout. MSAL is a declared dependency installed from `uv.lock` by `uv sync`;
+it loads only when Microsoft authentication is requested.
+
+```sh
+uv sync
+```
+
+After the customer explicitly authorises assessment, substitute its slug, approved website,
+tenant UUID and application client UUID below. Choose a distinct lowercase credential reference
+for each tenant. Native framework auth flags create the private reference and MSAL cache; no
+app JSON file is required.
+
+```sh
+uv run ams-assess customer --customer CUSTOMER_SLUG --website https://APPROVED_CUSTOMER_DOMAIN
+uv run ams-assess connect m365 auth --credential-ref CUSTOMER-m365 --tenant-id CUSTOMER_TENANT_UUID --client-id APPLICATION_CLIENT_UUID
+uv run ams-assess connect m365 list-resources --credential-ref CUSTOMER-m365
+uv run ams-assess connect m365 bind --customer CUSTOMER_SLUG --credential-ref CUSTOMER-m365 --resource tenant:CUSTOMER_TENANT_UUID
+uv run ams-assess connect m365 test --customer CUSTOMER_SLUG
+uv run ams-assess connect m365 collect --customer CUSTOMER_SLUG --days 28
+uv run ams-assess connectors --customer CUSTOMER_SLUG
+uv run ams-assess run --customer CUSTOMER_SLUG --target https://APPROVED_CUSTOMER_DOMAIN --connect m365 --no-ai
+```
+
+Use lowercase reference names, for example `example-m365` (the uppercase text above is a
+replacement marker). The website option replaces the saved website list; repeat `--website`
+for each approved website that should remain. `tenant:<UUID>` is the public resource identifier
+syntax; bare UUIDs are rejected by the shared register's opaque-secret guard. Listing returns
+only the credential's configured tenant, never all visible tenants, and does not bind it.
+The test refuses a mismatch among the credential tenant, bound tenant and Graph organization.
+It also requires an exact match between an organization verified domain and a saved profile
+website hostname (case/IDNA/trailing-dot normalization, removing a leading `www.`). It never uses
+an arbitrary previous run target as proof of customer identity. A missing profile or unmatched
+domain stops collection; a deliberate cross-customer `--force --reason ...` binding does not
+override this tenant/domain check.
+
+The reference is stored in `~/.config/ams-assess/connectors.json`. The client ID, tenant ID,
+selected account and MSAL refresh cache stay in `~/.config/ams-assess/m365-<reference>-token.json`
+(0600, directory 0700), protected by shared credential locks. Customer records contain the
+reference name and resource ID only. Silent MSAL authentication refreshes expired access tokens;
+revoked tokens require repeating `auth` with the same reference, tenant ID and client ID. Changing tenant
+or application requires a new reference, preventing old customer bindings from being retargeted.
+For cached access tokens, the connector uses [MSAL's token-cache search](https://learn.microsoft.com/en-us/python/api/msal/msal.token_cache.tokencache?view=msal-py-latest#msal-token-cache-tokencache-search)
+to verify the exact scopes of the returned token for the selected account, tenant and app.
+Missing, ambiguous or extra cached scopes are refused; network token responses still require
+the exact delegated scope set.
+
+### Verified Graph v1.0 reads and delegated permissions
+
+Checked against Microsoft Learn on **2026-10-24**. All paths below are relative to
+`https://graph.microsoft.com/v1.0`; every operation is **GET**. The HTTP allowlist rejects other
+methods, hosts, versions and endpoints. OAuth discovery/token exchanges are handled by MSAL
+against the configured tenant's Microsoft identity authority; they do not write Graph resources.
+
+| Endpoint / official reference | Delegated permission used | Collected evidence / role requirement |
+| --- | --- | --- |
+| [`/organization`](https://learn.microsoft.com/en-us/graph/api/organization-list?view=graph-rest-1.0) | `Organization.Read.All` | Tenant ID and verified domains; Directory Readers or Global Reader. This scope is also reused for subscriptions. |
+| [`/domains`](https://learn.microsoft.com/en-us/graph/api/domain-list?view=graph-rest-1.0) | `Domain.Read.All` | Domain, verification flag and Managed/Federated authentication type; Directory Readers or Security Reader. |
+| [`/users`](https://learn.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0) | `User.Read.All` | Enabled/disabled, guest/member and licensed/unlicensed counts. `User.ReadBasic.All` cannot supply the requested account/licence properties; guest callers are unsupported. |
+| [`/subscribedSkus`](https://learn.microsoft.com/en-us/graph/api/subscribedsku-list?view=graph-rest-1.0) | `Organization.Read.All` | Assigned/prepaid seat totals across SKUs; Directory Readers. `LicenseAssignment.Read.All` is the narrowest permission in isolation, but Organization.Read.All is already needed and explicitly supported, so no additional grant is requested. Only `$select` is sent. |
+| [`/roleManagement/directory/roleAssignments`](https://learn.microsoft.com/en-us/graph/api/rbacapplication-list-roleassignments?view=graph-rest-1.0) | `RoleManagement.Read.Directory` | Active assignments, distinct roles/holders and privileged built-in role counts; Directory Readers. Uses the documented [`roleDefinition` expansion](https://learn.microsoft.com/en-us/graph/api/resources/unifiedroleassignment?view=graph-rest-1.0) with template ID and built-in flag. |
+| [`/reports/authenticationMethods/userRegistrationDetails`](https://learn.microsoft.com/en-us/graph/api/authenticationmethodsroot-list-userregistrationdetails?view=graph-rest-1.0) | `AuditLog.Read.All` | MFA registered/capable counts, administrator count and redacted administrators without registration; Security Reader (Reports Reader also works for this endpoint). Disabled users are excluded. Only `$filter` is documented, so no `$select`/`$top` is assumed: each received page is immediately reduced. |
+| [`/policies/identitySecurityDefaultsEnforcementPolicy`](https://learn.microsoft.com/en-us/graph/api/identitysecuritydefaultsenforcementpolicy-get?view=graph-rest-1.0) | `Policy.Read.All` | Security defaults `isEnabled`; the API page specifies this delegated permission without an additional role list. |
+| [`/identity/conditionalAccess/policies`](https://learn.microsoft.com/en-us/graph/api/conditionalaccessroot-list-policies?view=graph-rest-1.0) | `Policy.Read.All` | Enabled/disabled/report-only counts and enabled policies with an MFA requirement; Security Reader. |
+
+If Graph rejects the nested `roleDefinition($select=templateId,isBuiltIn)` projection with
+HTTP 400, the connector retries that page once with `$expand=roleDefinition`, retaining the
+assignment `$select` and pagination limits. The broader role definition is reduced to the same
+counts and redacted assignments; extra fields are discarded.
+
+### Evidence meaning, bounds and privacy
+
+- These are current configuration/report snapshots, not historical sign-in telemetry. The shared
+  `--days` (default 28) or `--start`/`--end` period is provenance; it does not retrospectively filter
+  these APIs. Each evidence record includes connector, selected resource, collection timestamp,
+  period, endpoint, status and row/truncation coverage.
+- [Graph pagination](https://learn.microsoft.com/en-us/graph/paging) follows `@odata.nextLink`
+  only on the original endpoint, retaining the decoded query values through HTTP parameter
+  encoding. Host/path changes, altered projections and repeated links are refused. Collection
+  has five pages and 500 processed rows per endpoint, 100 redacted holder samples, the shared
+  45-second Graph deadline, 80-request ceiling, 10-second request timeout and 2 MB response cap.
+  Each 429/5xx read receives up to three attempts with bounded backoff. Pagination cursors are
+  never saved. Caps and failures preserve earlier aggregates, with explicit partial coverage.
+- [Registration and capability](https://learn.microsoft.com/en-us/graph/api/resources/userregistrationdetails?view=graph-rest-1.0)
+  are distinct from enforcement. Registration reporting can lag 36 hours or longer. The only
+  automatic security finding is administrators reported without MFA registration, labelled as
+  confirmed **report evidence**, with an explicit enforcement caveat. Empty, unknown, failed or
+  truncated registration reports cannot resolve that finding; a complete equivalent passing
+  recheck can. This tenant finding does not duplicate public website/email findings.
+- Conditional Access counts describe policy configuration. An `OR` policy offering another grant
+  control alongside MFA is counted as an MFA option, not an MFA requirement; report-only policies
+  are not enabled enforcement. [Grant-control semantics](https://learn.microsoft.com/en-us/graph/api/resources/conditionalaccessgrantcontrols?view=graph-rest-1.0)
+  do not establish whether conditions/exclusions cover a particular user. Authentication-strength
+  policies are counted separately without inferring their MFA guarantee. Legacy per-user MFA,
+  group membership, actual sign-in enforcement and PIM eligibility are outside these reads.
+- Privileged built-in roles use the dated badges in the [Microsoft role reference](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/permissions-reference),
+  since [v1.0 role definitions](https://learn.microsoft.com/en-us/graph/api/resources/unifiedroledefinition?view=graph-rest-1.0)
+  do not expose `isPrivileged`. Custom/unknown assignments are separately flagged for review;
+  an absent badge is not proof of safety. Principals can be users, groups or service principals.
+  Role IDs are retained; principal IDs become hashes salted by customer and tenant.
+- Raw users, names, email addresses, registration inventories and policy user targeting are never
+  persisted. Evidence keeps counts/flags and capped redacted role/admin samples. The existing AI
+  boundary receives only status/row/truncation aggregates, excluding even those redacted samples.
+  Credentials and provider error text do not enter evidence, UI, reports or logs.
+
+Synthetic checks (no tenant sign-in or Graph access):
+
+```sh
+uv run pytest -q tests/test_m365.py
+uv run pytest -q
+uv run ruff check .
+uv run ty check ams_assess tests
+```
+
+The real-MSAL mocked-HTTP cases use the SDK installed by `uv sync` and fail if it is
+missing. All other Microsoft contract cases use a synthetic SDK boundary.
+
 ## Bound connectors: GA4 setup and use
 
 GA4 uses only `https://www.googleapis.com/auth/analytics.readonly`. Ask the customer to grant
@@ -493,6 +672,164 @@ Provider contracts: [Admin account listing](https://developers.google.com/analyt
 [Data runReport](https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport),
 [Data dimensions/metrics](https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema),
 [Admin retention](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1beta/properties/getDataRetentionSettings).
+
+### Google Workspace: authorise, bind, test and collect
+
+`workspace` reads the Admin SDK Directory and Reports APIs. It uses exactly these six scopes
+(each prefixed with `https://www.googleapis.com/auth/`):
+
+| Scope suffix | Allowlisted GET endpoint and official reference |
+| --- | --- |
+| `admin.directory.customer.readonly` | [`/admin/directory/v1/customers/{customerKey}`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/customers/get) |
+| `admin.directory.domain.readonly` | [`/admin/directory/v1/customer/{customer}/domains`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/domains/list) |
+| `admin.directory.user.readonly` | [`/admin/directory/v1/users?customer={id}`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/users/list) |
+| `admin.directory.group.readonly` | [`/admin/directory/v1/groups?customer={id}`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/groups/list) |
+| `admin.directory.rolemanagement.readonly` | [`/admin/directory/v1/customer/{customer}/roleassignments`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/roleAssignments/list) |
+| `admin.reports.usage.readonly` | [`/admin/reports/v1/usage/dates/{date}?customerId={id}`](https://developers.google.com/workspace/admin/reports/reference/rest/v1/customerUsageReports/get) |
+
+All API reads use `https://admin.googleapis.com`. The connector refuses all writes, other
+endpoints and redirects. It requests no Gmail, Drive, Calendar, security-management write or
+Groups Settings scopes. Official contracts above and the field references below were checked
+on 2026-10-24. No live customer read was performed during implementation; tests use synthetic HTTP.
+
+**Access David needs from 2EC.** Ask 2EC's existing **Google Workspace Super Admin** to approve
+the assessment and complete the browser OAuth consent for these six read-only scopes on the
+authorised assessment machine. The sign-in must belong to the intended 2EC Workspace customer.
+This avoids assigning David a new Super Admin role or sharing an admin password. Google documents
+that only super admins can view another admin's security settings, and its admin-console role
+assignment review is also restricted to super admins. Full admin security coverage should therefore
+use a customer-controlled super-admin consent session; a general user, Groups Reader, or Users
+Read role alone is not sufficient assurance of full coverage.
+See [administrator privileges](https://knowledge.workspace.google.com/admin/users/administrator-privilege-definitions)
+and [role assignment visibility](https://knowledge.workspace.google.com/admin/users/view-role-assignments-and-privileges).
+
+A delegated account can return partial evidence when granted **Users > Read** across all
+organisational units, **Groups > Read API privilege**, relevant **Domain Settings/Domain Management**
+access, and **Reports**. Do not grant broad write privileges merely to remove a limitation:
+endpoint denials remain `permission_required` with the required privilege, and missing security
+flags remain unknown. Role assignments require role-reading access; ask the super admin if denied.
+Google's [role/privilege mapping](https://developers.google.com/workspace/admin/directory/v1/guides/manage-roles)
+and the privilege definitions above distinguish scopes from the signed-in administrator's rights.
+The connector cannot prove that a delegated administrator sees every organisational unit.
+
+In the OAuth project's Google Cloud console, manually enable **Admin SDK API**, configure the
+[OAuth consent screen](https://developers.google.com/workspace/guides/configure-oauth-consent), and
+create a **Desktop app** OAuth client. If the app is external and in testing, include the consenting
+admin as a test user. If 2EC's API Controls restrict third-party apps, their super admin must allow
+this OAuth client to request the specified six scopes using
+[Specific Google data access](https://knowledge.workspace.google.com/admin/apps/control-which-apps-access-google-workspace-data).
+The connector does not change these controls,
+create users, purchase licences or configure domain-wide delegation. Keep the Desktop client JSON
+and the generated token in `~/.config/ams-assess` (0700 directory, 0600 files).
+
+Run these commands **only after that access and the tenant have been explicitly authorised**:
+
+```sh
+uv run ams-assess connect workspace auth --credential-ref workspace-2ec \
+  --client-secrets ~/.config/ams-assess/google-desktop-client.json
+uv run ams-assess connect workspace list-resources --credential-ref workspace-2ec
+# Replace this synthetic value with the exact id returned above after 2EC confirms it.
+workspace_resource='C01example/primary.example'
+uv run ams-assess connect workspace bind --customer 2ec-traffic \
+  --credential-ref workspace-2ec --resource "$workspace_resource"
+uv run ams-assess connect workspace test --customer 2ec-traffic
+uv run ams-assess connect workspace collect --customer 2ec-traffic --days 28
+uv run ams-assess connectors --customer 2ec-traffic
+uv run ams-assess report --customer 2ec-traffic
+```
+
+Use the existing customer slug if it differs. No 2EC customer ID/domain is guessed or prebound.
+`list-resources` resolves [`my_customer`](https://developers.google.com/workspace/admin/directory/v1/guides/manage-customers)
+to the account's immutable customer ID and primary domain, verifies that domain in its domain list,
+and returns one `<customer-id>/<primary-domain>` selector. It does not collect users or bind anything.
+The `my_customer` GET is allowed only during this explicit unbound discovery operation; test/collect
+allow only concrete customer IDs. Discovery alone does not authorise customer collection.
+Only concrete IDs can be bound; storing `my_customer` would let a credential change silently change
+the tenant. Primary domains are normalised for case, IDNA and a trailing dot. Test/collect verify
+both the customer response and verified primary-domain membership; an ID/domain mismatch or failed
+domain read refuses further collection. Before returning `connected`, they also require a verified
+Workspace domain (primary or secondary) to match a registrable domain from the **saved AMS customer
+profile websites**. Matching normalises IDNA, case, trailing dots, `www` and subdomains using the
+bundled public suffix list, without network lookups. Public suffixes such as `co.uk` and private
+suffixes such as `github.io` do not make unrelated customers match. No saved profile domain or no
+verified match returns a fixed `permission_required` message before inventory collection. Prior run
+targets and fallback websites never substitute for the saved profile. The domain evidence records
+the matched domain and profile evidence reference. Secondary domains are not alternative binding
+selectors. Existing framework isolation rejects sharing that resource
+between customer stores unless `--force --reason 'approved non-secret reason'` records the exception.
+
+Collection records verified/unverified/unknown domain flags; user counts by active, suspended,
+archived or unknown status (archived takes precedence over suspended); super/delegated admin counts;
+separate enrolled/not-enrolled/unknown and enforced/not-enforced/unknown counts; and a customer-scoped
+hashed list of **active** admins explicitly not enrolled. The overall 2SV inventory includes all
+visible user statuses; a separate `active_enforcement` aggregate drives the enforcement finding.
+Active means both suspended and archived are explicitly false; unknown status never counts as active.
+Super/delegated counts are the individual Directory
+flags; `any` is their union. Names, email addresses, phone numbers, addresses, group memberships and
+role descriptions are neither requested nor retained. Raw user/group/assignment IDs are requested
+transiently for duplicate detection and hashing but never persisted. Role IDs are non-personal identifiers;
+role assignment counts are grouped by role ID, assignee type and customer/OU scope. Direct assignments
+to groups are counted, but membership is not expanded. See the
+[User fields](https://developers.google.com/workspace/admin/directory/reference/rest/v1/users),
+[Domain fields](https://developers.google.com/workspace/admin/directory/reference/rest/v1/domains), and
+[RoleAssignment fields](https://developers.google.com/workspace/admin/directory/reference/rest/v1/roleAssignments).
+
+Groups are counted. External sharing is **unavailable**, stored as `null`, never zero or secure:
+[Directory Group](https://developers.google.com/workspace/admin/directory/reference/rest/v1/groups)
+does not expose sharing policy. [Groups Settings GET](https://developers.google.com/workspace/admin/groups-settings/v1/reference/groups/get)
+requires the additional write-capable `apps.groups.settings` scope, which this connector never requests.
+Review that coverage separately with 2EC; it is not an access request to widen this connector.
+
+Directory evidence is a snapshot at collection time. Reports supplies **one snapshot on the selected
+period's end date**, in its documented UTC-08:00 reporting date, not a sum of users over the period.
+Default and explicit periods use complete days in that fixed reporting timezone; today is refused.
+It requests only the six `accounts:num_users_2sv_*` metrics for enrolled/not enrolled,
+enforced/not enforced, and protected/not protected. These are
+[distinct Google-reported metrics](https://developers.google.com/workspace/admin/reports/v1/appendix/usage/customer/accounts).
+Protection is never calculated from the Directory flags, and historic reports never replace current
+enforcement. Missing metrics, warnings, empty report payloads and lag are explicitly partial coverage,
+not zero. If the default end date is too recent, choose an older explicit period, for example
+`--start 2026-09-01 --end 2026-09-28`; there is no silent fallback to a different date.
+
+Users, groups, assignments and usage pagination are limited to five pages and 500 returned rows per
+endpoint; Directory page requests ask for 100 rows. Non-paginated domains retain at most 500 rows.
+Role-assignment `maxResults` is additionally capped at 200 even if the context requests larger pages;
+see the [roleAssignments.list parameters](https://developers.google.com/workspace/admin/directory/reference/rest/v1/roleAssignments/list).
+Workspace declares a 90-second collection budget and 66-request cap: two binding reads plus four
+five-page lists, with up to three attempts per read. Caller budgets can only reduce these limits;
+the UI caps collection at 40 seconds. The shared 2 MB response and 10-second I/O caps also apply.
+Transient 429/5xx/timeouts use shared bounded backoff; exhausted rate limits remain
+`rate_limited`. Disabled APIs and permission/approval failures are classified before retries.
+Successful pages survive a later failure. OAuth uses a separate Workspace token, automatic refresh
+and expiry/revocation status.
+Endpoint evidence records customer/domain binding, collection time, selected period, actual report
+date, status and coverage. AI receives only framework coverage aggregates, never admin identifiers.
+
+Confirmed 2SV findings cover active admins explicitly not enrolled and active users explicitly not
+enforced, excluding suspended and archived users. Suspended accounts still carrying admin flags
+remain a separate finding. Report wording explicitly limits results to the users visible to the
+authorised admin: a delegated admin restricted to some organisational units sees a subset.
+Partial positive observations are lower bounds;
+empty, inaccessible, incomplete or missing-flag results cannot establish a passing security recheck.
+Only a complete nonempty passing Directory recheck of the same returned user population resolves
+those findings through the existing lifecycle. One customer-scoped population digest prevents a
+narrower OU view from clearing earlier findings; no extra user inventory is saved. Changed membership
+leaves the earlier observation not rechecked until equivalent coverage or human review is available.
+Findings appear in report section 7 with connected evidence. No public DNS/email finding
+is recreated or upgraded, and no overall "secure" conclusion follows from these checks.
+Standalone Workspace tests and collections preserve public findings, their lifecycle history and
+recommendations, including on denied or partial reads. Workspace declares the `client_secrets`
+auth flow and a private Desktop-client path in its auth hint. It does not use `ctx.connected_evidence`:
+the customer-ID/domain binding is not a website scope, and these checks need only Admin SDK evidence.
+
+Synthetic verification (no paid services, real credentials or customer configuration changes):
+
+```sh
+uv run pytest -q tests/test_workspace.py
+uv run pytest -q
+uv run ruff check .
+uv run ty check ams_assess tests
+```
 
 ### How to add a connector
 
@@ -703,6 +1040,154 @@ by `GetUserSites`. Otherwise stop at tested code. Do not copy or change the main
 `data/customers/**`. No live read was made during implementation: the key name was absent on
 2026-10-24.
 
+## WordPress WP-CLI over SSH (`wp_cli`)
+
+This connector reads one explicitly configured installation through the existing connector
+framework. It never discovers other installs, requests admin passwords, retrieves `wp-config.php`,
+or runs arbitrary commands. No live SSH was used during implementation or in tests.
+
+David must obtain these details from the hosting administrator:
+
+- SSH **hostname, port and username**, with a dedicated key authorised for this installation.
+  Supply the usable private key as a local 0600 file; passwords and SSH agents are disabled.
+- The **canonical absolute installation path**, for example `/srv/www/example/wordpress`.
+  Use the same canonical hostname/path across references; aliases/symlink paths cannot be resolved
+  safely by this command allowlist. Spaces, traversal, trailing slashes and shell metacharacters
+  are rejected. The customer is explicitly bound to this installation, not all sites on the host.
+- The server's **pinned host public key**, independently verified with the host administrator,
+  in OpenSSH `known_hosts` format. For a non-default port use `[hostname]:port`. Hashed entries
+  are supported by OpenSSH. Do not trust an unverified `ssh-keyscan` result or auto-accept a key.
+
+The local machine needs `/usr/bin/ssh`. The remote POSIX host needs **WP-CLI ≥ 2.6.0**, PHP and GNU `timeout`
+in `/usr/local/bin:/usr/bin:/bin`; no tools are installed by this connector. The SSH identity needs
+file read/traverse access and WordPress database SELECT access through the installation's existing
+configuration. Ask the administrator to enforce least privilege, including filesystem/database
+write restrictions where feasible. The connector does not grant permissions or alter configuration.
+The minimum follows the [official context configuration history](https://make.wordpress.org/cli/handbook/references/config/#context-configuration):
+`--context=cli` was introduced in 2.6.0 and is unavailable in 2.5.x.
+
+Keep the credential JSON, key and pinned-host file directly under `~/.config/ams-assess/`
+(0700 directory, 0600 files; no symlinks or hard links). Example setup, using placeholders only:
+
+```sh
+install -d -m 700 ~/.config/ams-assess
+# Save the authorised private key as wp-2ec-key and verified host entry as wp-2ec-known-hosts.
+chmod 600 ~/.config/ams-assess/wp-2ec-key ~/.config/ams-assess/wp-2ec-known-hosts
+```
+
+Create `~/.config/ams-assess/wp-2ec.json` privately with exactly these fields; substitute the
+administrator-supplied values and your absolute local config-directory paths:
+
+```json
+{
+  "host": "ssh.example.com",
+  "port": 22,
+  "user": "assessor",
+  "key_path": "/Users/david/.config/ams-assess/wp-2ec-key",
+  "known_hosts": "/Users/david/.config/ams-assess/wp-2ec-known-hosts",
+  "install_path": "/srv/www/example/wordpress"
+}
+```
+
+Once hosting access and the bootstrap precautions below are ready, run from this worktree:
+
+```sh
+chmod 600 ~/.config/ams-assess/wp-2ec.json
+uv run ams-assess connect wp_cli auth --credential-ref wp-2ec \
+  --credential-file ~/.config/ams-assess/wp-2ec.json
+uv run ams-assess connect wp_cli list-resources --credential-ref wp-2ec
+# Copy the returned wp-install:<64 hex digits> resource_id into the next command.
+uv run ams-assess connect wp_cli bind --customer 2ec-traffic \
+  --credential-ref wp-2ec --resource 'wp-install:<64 hex digits>'
+uv run ams-assess connect wp_cli test --customer 2ec-traffic
+uv run ams-assess connect wp_cli collect --customer 2ec-traffic --days 28
+uv run ams-assess connectors --customer 2ec-traffic
+uv run ams-assess report --customer 2ec-traffic
+# Collect alongside public checks to reconcile the current run's coverage:
+uv run ams-assess run --customer 2ec-traffic --target https://CUSTOMER-WEBSITE \
+  --connect wp_cli --no-ai
+```
+
+`auth` only registers the private reference. `list-resources` authenticates and reads
+`core is-installed` at the **single configured path**; it never scans the server. Its returned ID
+hashes the canonical host, port and install path, independently of username/key/reference. Only that
+ID and credential reference enter customer bindings. Cross-customer reuse requires the framework's
+`--force --reason 'approved non-secret reason'`; changing the credential's host/path without rebinding
+fails before SSH. Host-key mismatch fails closed; key renewal/revocation requires administrator action.
+
+All reads use strict host-key checking, BatchMode, explicit identity, no agent/X11/port forwarding,
+no password fallback, no SSH user config/proxies/control sockets, a five-second connect timeout and
+at most ten seconds per process. Both stdout and stderr are drained under a **combined 2 MB cap**;
+timeout/overflow kills and reaps the local process. A remote GNU timeout also terminates the WP-CLI
+process (TERM, then KILL after one second). The framework bounds collection to 90 seconds (40 in the
+UI), 40 attempts, and at most three attempts per transient connection/timeout failure. Permission,
+host-key, malformed-output and command errors are not retried. Completed endpoints/pages survive
+later failures and appear as `connected_partial`, with failed endpoint names in CLI/UI/report.
+Exit 255 alone does not establish an SSH failure: remote PHP can return it too. Only recognised SSH
+transport diagnostics are retried; PHP fatals and ambiguous exit-255 failures are not retried.
+
+The fixed WP-CLI command allowlist was checked against the official references below. Every command
+also gets `--path=<validated path> --skip-plugins --skip-themes --skip-packages --context=cli --no-color`.
+Only the page integer (1–5) varies within the fixed post-list operations. No user-supplied extra flags,
+filters, PHP, shell programs, filenames, post types or statuses are accepted.
+
+| Read and official contract | Output and limits |
+| --- | --- |
+| [`wp cli info --format=json`](https://developer.wordpress.org/cli/commands/cli/info/) | Retain CLI PHP and WP-CLI versions only; web PHP may differ. Discard binary, ini, home and config paths. |
+| [`wp core version --extra`](https://developer.wordpress.org/cli/commands/core/version/) | Parse the documented text version. This command has no JSON format option. |
+| [`wp core is-installed`](https://developer.wordpress.org/cli/commands/core/is-installed/) | Exit-code check; success intentionally has no output. It has no JSON format option. |
+| [`wp core verify-checksums`](https://developer.wordpress.org/cli/commands/core/verify-checksums/) | Parse fixed success/warning messages into counts. Official docs mark `--format` as not yet in a stable release, so use the section G text command; never install a nightly release or use `--insecure`. |
+| [`wp plugin list`](https://developer.wordpress.org/cli/commands/plugin/list/) and [`wp theme list`](https://developer.wordpress.org/cli/commands/theme/list/) | `--format=json --fields=name,status,version,update,update_version,auto_update --skip-update-check`; retain at most 1,000 rows each, flag caps. Null/false/missing optional fields become empty strings; bounded version header text and `update=unavailable` are retained. Unparseable rows are counted and excluded individually, preserving valid rows with partial coverage. |
+| [`wp plugin verify-checksums --all --format=json`](https://developer.wordpress.org/cli/commands/plugin/verify-checksums/) | Parse JSON discrepancies and the documented batch summary. A fully passing run may emit only the success message; skipped/unverifiable premium/custom plugins never count as a passing integrity check. |
+| [`wp post list`](https://developer.wordpress.org/cli/commands/post/list/) | `--post_type=post` or `page`, `--post_status=publish --format=json --fields=ID,post_type,post_name,post_modified,url --posts_per_page=100 --paged=1..5 --orderby=ID --order=ASC`. At most 500 records per type; cap or page failure makes counts a lower bound. Persist counts/URLs, not titles, content, author, slugs or modified timestamps. |
+| [`wp option get <name> --format=json`](https://developer.wordpress.org/cli/commands/option/get/) | Only `blog_public`, `siteurl`, `home`, `permalink_structure`, `blogdescription`, `default_comment_status`, `users_can_register`, `default_role`, `WPLANG`, `timezone_string`. Prose/permalink/timezone options become presence flags; no arbitrary option names or secret fields. |
+
+Every command operates on a **current snapshot**, not historical activity within `--days`; the framework
+records that requested reporting period plus actual collection time and a snapshot flag. Only built-in
+public `post`/`page` with `publish` status are enumerated. Custom types would require reviewed additions
+to the fixed allowlist; loading plugins just to discover them is not permitted. Drafts/private posts,
+users, emails, database dumps, `wp eval`, `wp config *`, `wp db *`, `wp shell`, `wp option list` and
+update/install/activate/delete/set operations are forbidden. All remote values are validated and
+`shlex`-quoted into a constant SSH command scaffold; the local subprocess never uses `shell=True`.
+
+Bootstrap precautions: [WP-CLI's global parameters and configuration](https://make.wordpress.org/cli/handbook/references/config/)
+document that `--skip-plugins` **does not skip must-use plugins**. WordPress reads that need bootstrap
+(is-installed, plugin/theme lists, plugin checksums, posts and options) necessarily load WordPress's
+own configuration, must-use plugins and applicable drop-ins. The connector never reads, transmits,
+prints or persists `wp-config.php` or its secret values; normal WordPress bootstrap reads it internally.
+Core version/checksums and CLI info execute before WordPress loads.
+
+The remote environment is cleared, starts in `/`, suppresses global/system YAML via `/dev/null`,
+disables the WP-CLI cache, sets `WP_CLI_DISABLE_AUTO_CHECK_UPDATE=1` and `DISABLE_WP_CRON=1`, and skips
+plugin/theme update checks. Cached update flags can be stale. **An environment variable is not the
+PHP `DISABLE_WP_CRON` constant**: this client cannot prove arbitrary site bootstrap code is side-effect
+free. Before a production read, the administrator must verify cron is disabled for this CLI context,
+that root `/wp-cli.yml` / `/wp-cli.local.yml` cannot add hooks, and that mu-plugins/drop-ins/config/PHP
+and SSH startup hooks do not write, send mail, trigger updates or run background tasks. Use a reviewed read-only
+snapshot if this cannot be guaranteed. No remote configuration changes or injected PHP are used to
+enforce this, and no live access has been attempted.
+
+Findings distinguish **update available — not a confirmed vulnerability**, inactive plugins,
+published-checksum integrity discrepancies (not proof of malware), search discouragement and registration
+with its default role. Unknown/empty diagnostics never imply "secure". No fresh update check is performed,
+so a cached negative update flag cannot resolve an earlier update finding. Inaccessible or partial
+checks cannot resolve findings; an equivalent complete passing recheck can. Existing same-site public
+noindex findings are referenced by ID/evidence rather than duplicated.
+Valid rows within a partial plugin list can still establish update/inactive findings; an incomplete
+list cannot establish absence or resolve an earlier inactive-plugin finding.
+
+During `run --connect wp_cli`, the additive coverage hook consumes only that run's bound inventory
+evidence, revalidates same-origin URLs, retains successful partial pages and marks source **`wp_cli`**.
+It adds **known URLs only**, alongside REST/manual-export inputs, never crawled/browser-tested pages.
+Prior customer evidence and other installations cannot be substituted. A standalone `collect` stores
+inventory evidence and comparisons without claiming to have performed a public crawl. Query secrets,
+URL credentials, personal email paths and absolute server paths are excluded; numeric `?p=`/`?page_id=`
+public permalinks are retained. AI receives the framework's aggregate status/row coverage only.
+URL hosts must be syntactically valid DNS names (including IDNA); address literals are excluded.
+Valid percent-encoded international permalinks are accepted after validating the decoded text.
+C0/DEL/C1 controls and Unicode format/bidi characters, including encoded forms, are rejected before
+evidence is produced. The shared privacy layer may store accepted international paths as Unicode.
+
 ## Outputs and interpretation
 
 ```text
@@ -732,7 +1217,7 @@ Observatory unavailable. GSC, DataForSEO and the SDK path require credentials an
 by the fixture. Platform and listing detection only sees the sampled pages: tags behind consent or
 loaded from unsampled templates, and profiles not linked from the site, are reported as not detected
 or unknown, never as absent. The access checklist never requests passwords; customers keep ownership. `modules` lists future capabilities (Elmo, Houtini, OpenSEO, GBP,
-WP-CLI, Workspace/M365, social SEO, PR, A/B and heatmaps); these future capabilities are not implemented or measured. GA4 is available through explicit binding.
+Site Health, Workspace/M365, social SEO, PR, A/B and heatmaps); these future capabilities are not implemented or measured. GA4 and WP-CLI are available through explicit binding. The legacy combined "WP-CLI / Site Health" opportunity label does not indicate the bound connector's status; use the connector table.
 
 ## Development
 

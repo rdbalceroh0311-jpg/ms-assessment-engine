@@ -20,7 +20,8 @@ from ams_assess import presence_discovery
 from ams_assess.models import Context, ModuleResult
 from ams_assess.modules import dataforseo
 from ams_assess.modules.gsc import AI_REPORT_NOTE
-from ams_assess.profile import phone_key
+from ams_assess.profile import phone_key, tel_number
+from ams_assess.targets import NORMAL_UA
 
 name = "presence"
 categories = {"presence"}
@@ -240,7 +241,8 @@ LOCATION_PAGE = re.compile(
     r"/(?:locations?|service-areas?|areas?(?:-we)?-serve[ds]?|suburbs?|regions?|near-me)(?:[/.-]|$)",
     re.I,
 )
-PHONE = re.compile(r"(?:\+?61|\b0)[\d ()-]{7,14}\d")
+# "(02) 5550 0101" keeps its opening bracket; \b0 alone would display "02) 5550 0101".
+PHONE = re.compile(r"(?:\+?61|\(0|\b0)[\d ()-]{7,14}\d")
 POSTCODE = re.compile(r"\b(?:NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\s+(\d{4})\b")
 READINESS = [
     (
@@ -437,7 +439,7 @@ def nap_check(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
         for contact in page.get("contacts", []):
             href = str(contact.get("href", ""))
             if href.startswith("tel:"):
-                phones.setdefault(phone_key(href), contact.get("text") or href[4:])
+                phones.setdefault(phone_key(href), contact.get("text") or tel_number(href))
         observed = "\n".join(
             [str(page.get("visible_text_summary", ""))]
             + [str(v) for v in page.get("nap_candidates", [])]
@@ -515,7 +517,7 @@ def site_identity(pages: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
         for contact in page.get("contacts", []):
             href = str(contact.get("href", ""))
             if href.startswith("tel:"):
-                phones.setdefault(phone_key(href), str(contact.get("text") or href[4:]))
+                phones.setdefault(phone_key(href), str(contact.get("text") or tel_number(href)))
     return {
         "names": list(dict.fromkeys(names)),
         "phones": {k: v for k, v in phones.items() if len(k) >= 8},
@@ -777,7 +779,9 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
     origin = origin_of(ctx.site_url)
     parts = urlsplit(ctx.site_url)
     base = f"{parts.scheme}://{parts.netloc}"
-    with httpx.Client(follow_redirects=False, transport=transport) as client:
+    # The same plain tool identity as the crawl it now precedes (coverage.seed_inventory).
+    headers = {"User-Agent": NORMAL_UA}
+    with httpx.Client(follow_redirects=False, transport=transport, headers=headers) as client:
         robots = fetch(client, base + "/robots.txt", origin, deadline)
         declared: list[str] | None = None  # None: declarations unknown.
         if robots.get("status") == 200 and robots.get("complete"):
@@ -1179,7 +1183,8 @@ def build(
                     }
                 )
     if siteone and siteone.status == "ok":
-        sitemap = sitemap_check(ctx)
+        # Reuse the pre-crawl fetch (coverage.seed_inventory); never request it twice.
+        sitemap = ctx.inventory.get("sitemap") or sitemap_check(ctx)
         sitemap_eid = result.add_evidence(
             sitemap.get("sitemap_url") or ctx.site_url,
             "Bounded robots.txt and XML sitemap fetch",

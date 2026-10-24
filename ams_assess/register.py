@@ -62,6 +62,32 @@ SECRET = re.compile(
     r"\beyJ[\w-]+\.[\w-]+\.[\w-]+",
     re.I,
 )
+SPACE_SECRET = re.compile(
+    r"\b(?:password|passwd|secret|api[_ -]?key|access[_ -]?token|refresh[_ -]?token|"
+    r"client[_ -]?secret|token)[\"']?\s+([\w./+=-]{8,})(?![\w./+=-])",
+    re.I,
+)
+# Word-shaped product names and versioned identifiers are ordinary register prose.
+PRODUCT_WORD = re.compile(r"(?:[A-Z]+)?[A-Z]?[a-z]{2,}(?:[A-Z][a-z]{2,})+")
+VERSIONED_WORD = re.compile(r"(?:[A-Z]+)?(?:[A-Z][a-z]{2,})+\d+(?:\.\d+)+")
+
+
+def space_secret(value: str) -> bool:
+    for match in SPACE_SECRET.finditer(value):
+        token = match[1].rstrip(".")
+        if (
+            token.isdecimal()
+            or re.fullmatch(r"\d{4}-\d{2}-\d{2}", token)
+            or PRODUCT_WORD.fullmatch(token)
+            or VERSIONED_WORD.fullmatch(token)
+        ):
+            continue
+        opaque = len(token) >= 24 and len(set(token.lower())) >= 10
+        if opaque or not re.fullmatch(r"[A-Z]?[a-z]+(?:-[a-z]+)*", token):
+            return True
+    return False
+
+
 SECRET_KEY = re.compile(
     r"password|passwd|secret|token|credential|authorization|api.?key|signature|^(key|auth|code|sig)$",
     re.I,
@@ -75,7 +101,11 @@ def safe_text(value: str, *, identifier: bool = False) -> str:
     decoded = value
     for _ in range(4):
         decoded = unquote(decoded)
-    if any(ord(c) < 32 and c not in "\n\t" for c in decoded) or SECRET.search(decoded):
+    if (
+        any(ord(c) < 32 and c not in "\n\t" for c in decoded)
+        or SECRET.search(decoded)
+        or space_secret(decoded)
+    ):
         raise ValueError("Secret-looking values are not allowed in the register")
     for candidate in re.findall(r"https?://[^\s<>]+", decoded, re.I):
         try:
@@ -100,10 +130,40 @@ def site_name(value: str) -> str:
     value = safe_text(value)
     if not value:
         return ""
-    parts = urlsplit(value if "://" in value else "https://" + value)
+    invalid = "Site must have a valid host name and an optional numeric port"
+    try:
+        parts = urlsplit(value if "://" in value else "https://" + value)
+    except ValueError:
+        raise ValueError(invalid) from None
     if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username:
         raise ValueError("Site must be an http(s) website without credentials")
-    return f"{parts.scheme}://{parts.netloc.lower()}/"
+    # Rebuild the scope from a validated host and port; never echo an arbitrary netloc such as
+    # "javascript:alert(1)" or "x.test:bad".
+    hostport = parts.netloc.rsplit("@", 1)[-1]
+    ipv6 = hostport.startswith("[")
+    # A single final dot denotes an absolute DNS name; empty labels remain invalid.
+    host = parts.hostname.removesuffix(".").lower()
+    try:
+        port = parts.port
+        ascii_host = host.encode("idna").decode("ascii")
+    except (ValueError, UnicodeError):
+        raise ValueError(invalid) from None
+    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    if ipv6:
+        valid = re.fullmatch(r"[0-9a-f:.]+", ascii_host)
+    else:
+        valid = re.fullmatch(rf"{label}(?:\.{label})*", ascii_host, re.I)
+    explicit = hostport.rsplit("]", 1)[-1] if ipv6 else hostport
+    if (
+        not valid
+        or len(ascii_host) > 253
+        or (":" in explicit and port is None)
+        or ipv6
+        and not re.fullmatch(r"(?::[0-9]+)?", explicit)
+    ):
+        raise ValueError(invalid)
+    netloc = (f"[{host}]" if ipv6 else host) + (f":{port}" if port is not None else "")
+    return f"{parts.scheme}://{netloc}/"
 
 
 def validate_edit(changes: dict[str, Any]) -> dict[str, str]:

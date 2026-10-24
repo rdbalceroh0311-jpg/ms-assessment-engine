@@ -182,7 +182,12 @@ OUTCOMES = re.compile(
 def unsupported_claim(text: str, cited: list[Evidence]) -> bool:
     """Reject new quantities and outcome promises; citations alone are not measurement proof."""
     text = CITATIONS.sub("", text)
-    if OUTCOMES.search(text) or MONEY.search(text) or not figures.supported(text, cited):
+    if (
+        OUTCOMES.search(text)
+        or figures.OUTCOME_FORECAST.search(text)
+        or MONEY.search(text)
+        or not figures.supported(text, cited)
+    ):
         return True
     text = figures.QUANTITY.sub("", text)
     observed: set[Decimal] = set()
@@ -336,6 +341,9 @@ def validate_analysis(
             ):
                 # Platform, listing and readiness statuses are deterministic only.
                 raise ValueError("AI cannot create digital presence findings")
+            elif any(by_evidence[eid].source == "gsc" for eid in finding.evidence_ids):
+                # Connected evidence is analysed deterministically (gsc.connected_findings).
+                raise ValueError("AI cannot create connected-evidence findings")
             else:
                 finding.check_key = finding.id
                 # Provenance is derived from the cited evidence; the model cannot upgrade it.
