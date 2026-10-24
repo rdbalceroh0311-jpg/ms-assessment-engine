@@ -602,8 +602,10 @@ not zero. If the default end date is too recent, choose an older explicit period
 
 Users, groups, assignments and usage pagination are limited to five pages and 500 returned rows per
 endpoint; Directory page requests ask for 100 rows. Non-paginated domains retain at most 500 rows.
-The shared 2 MB response, 80-request, 10-second I/O and 45-second collection budgets (40 in the UI)
-also apply. Transient 429/5xx/timeouts use shared bounded backoff; exhausted rate limits remain
+Workspace declares a 90-second collection budget and 66-request cap: two binding reads plus four
+five-page lists, with up to three attempts per read. Caller budgets can only reduce these limits;
+the UI caps collection at 40 seconds. The shared 2 MB response and 10-second I/O caps also apply.
+Transient 429/5xx/timeouts use shared bounded backoff; exhausted rate limits remain
 `rate_limited`. Disabled APIs and permission/approval failures are classified before retries.
 Successful pages survive a later failure. OAuth uses a separate Workspace token, automatic refresh
 and expiry/revocation status.
@@ -619,6 +621,10 @@ narrower OU view from clearing earlier findings; no extra user inventory is save
 leaves the earlier observation not rechecked until equivalent coverage or human review is available.
 Findings appear in report section 7 with connected evidence. No public DNS/email finding
 is recreated or upgraded, and no overall "secure" conclusion follows from these checks.
+Standalone Workspace tests and collections preserve public findings, their lifecycle history and
+recommendations, including on denied or partial reads. Workspace declares the `client_secrets`
+auth flow and a private Desktop-client path in its auth hint. It does not use `ctx.connected_evidence`:
+the customer-ID/domain binding is not a website scope, and these checks need only Admin SDK evidence.
 
 Synthetic verification (no paid services, real credentials or customer configuration changes):
 

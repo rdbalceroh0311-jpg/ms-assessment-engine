@@ -11,11 +11,13 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from test_lifecycle import merge as public_run
 
 from ams_assess import ai, cli, store
 from ams_assess.connectors import auth, service, workspace
 from ams_assess.connectors.core import AuthMaterial, ConnectorContext, ConnectorError, Period
 from ams_assess.connectors.http import ReadClient
+from ams_assess.lifecycle import observe
 from ams_assess.models import Evidence
 from ams_assess.report import render_customer
 from ams_assess.ui import LocalServer
@@ -405,6 +407,19 @@ def test_oauth_uses_exact_six_readonly_scopes_and_private_storage(env, monkeypat
     assert stat.S_IMODE((env.private / "workspace-new-ref-token.json").stat().st_mode) == 0o600
     assert not current(env).get("connectors")
     assert ACCESS not in capsys.readouterr().out
+
+
+def test_missing_credentials_show_workspace_desktop_auth_hint(env, capsys):
+    bind(env)
+    env.token.unlink()
+    assert cli.main(["connect", "workspace", "test", "--customer", "synthetic"]) == 1
+    assert cli.main(["connectors", "--customer", "synthetic"]) == 0
+    assert workspace.CONNECTOR.auth_flow == "client_secrets"
+    assert workspace.CONNECTOR.auth_hint in capsys.readouterr().out
+    assert "--client-secrets ~/.config/ams-assess/google-desktop-client.json" in (
+        workspace.CONNECTOR.auth_hint
+    )
+    assert not env.provider.calls
 
 
 @pytest.mark.parametrize("change", ["extra", "missing", "wrong_connector"])
@@ -827,6 +842,147 @@ def test_only_complete_nonempty_recheck_resolves_and_recurrence_reopens(env):
     findings = current(env)["findings"]
     assert {f["id"] for f in findings} == original
     assert all(f["lifecycle_status"] == "current" for f in findings)
+
+
+@pytest.mark.parametrize("category", ["security", "domain_email"])
+@pytest.mark.parametrize("entrypoint", ["cli", "ui"])
+@pytest.mark.parametrize("action", ["test", "collect"])
+@pytest.mark.parametrize("failure", [None, "customer", "groups"])
+def test_workspace_operations_preserve_public_findings(env, category, entrypoint, action, failure):
+    public_run(env.root, category=category, failures=("active", "resolved", "unseen"))
+    before = public_run(
+        env.root,
+        run=2,
+        category=category,
+        failures=("active",),
+        outcomes=[
+            observe(
+                "siteone",
+                "missing-title",
+                category,
+                "https://example.test/" + page,
+                status,
+                ["ev-siteone-001"],
+            )
+            for page, status in (("active", "fail"), ("resolved", "pass"))
+        ],
+    )
+    assert {f["lifecycle_status"] for f in before["findings"]} == {
+        "current",
+        "resolved",
+        "not_rechecked",
+    }
+    before["runs"][-1]["ai"] = {
+        "status": "ok",
+        "recommendations": [
+            f["id"] for f in before["findings"] if f["lifecycle_status"] == "current"
+        ],
+    }
+    store.save(env.root, "synthetic", before)
+    recommendations = store.report_data(before)[0]["ai"]["recommendations"]
+    assert recommendations
+    bind(env)
+    env.provider.override = lambda request: (
+        httpx.Response(403, json={"error": {}})
+        if (failure == "customer" and "/customers/" in request.url.path)
+        or (failure == "groups" and request.url.path.endswith("/groups"))
+        else None
+    )
+    expected = (
+        "permission_required"
+        if failure == "customer"
+        else "connected_partial"
+        if failure == "groups" and action == "collect"
+        else "connected"
+    )
+    if entrypoint == "cli":
+        assert cli.main(["connect", "workspace", action, "--customer", "synthetic"]) == (
+            1 if failure == "customer" else 0
+        )
+    else:
+        with ui_server(env.root) as (server, client):
+            response = client.post(
+                server.url("/connect"),
+                headers={"Origin": server.origin},
+                data={
+                    "customer": "synthetic",
+                    "connector": "workspace",
+                    "action": action,
+                    "csrf": server.csrf,
+                },
+            )
+            assert response.status_code == 303
+    after = current(env)
+    assert after["connectors"]["workspace"]["status"] == expected
+    public_ids = {f["id"] for f in before["findings"]}
+    assert [f for f in after["findings"] if f["id"] in public_ids] == before["findings"]
+    assert all(o["module"] == "workspace" for o in after["runs"][-1]["outcomes"])
+    assert store.report_data(after)[0]["ai"]["recommendations"] == recommendations
+    render_customer(env.root, "synthetic", {"md"})
+    report = (env.root / "synthetic/report.md").read_text()
+    assert all(f["title"] in report for f in before["findings"])
+
+
+@pytest.mark.parametrize("seconds", [None, 40, 300])
+def test_admin_sdk_paging_and_retries_fit_budget_and_respect_shorter_deadline(
+    env, monkeypatch, seconds
+):
+    clock = [100.0]
+    monkeypatch.setattr("ams_assess.connectors.http.time.monotonic", lambda: clock[0])
+
+    def advance(duration):
+        clock[0] += duration
+
+    monkeypatch.setattr("ams_assess.connectors.http.time.sleep", advance)
+    attempts = {}
+
+    def paginated(request):
+        advance(1)
+        key = str(request.url)
+        attempts[key] = attempts.get(key, 0) + 1
+        if attempts[key] < 3:
+            return httpx.Response(429 if attempts[key] == 1 else 503, json={})
+        if "/customers/" in request.url.path or request.url.path.endswith("/domains"):
+            return None
+        page = int(request.url.params.get("pageToken", "0"))
+        body: dict[str, object] = {"nextPageToken": str(page + 1)} if page < 4 else {}
+        ids = range(10000 + page * 100, 10100 + page * 100)
+        if request.url.path.endswith("/users"):
+            body["users"] = [user(str(i)) for i in ids]
+        elif request.url.path.endswith("/groups"):
+            body["groups"] = [{"id": str(i)} for i in ids]
+        elif request.url.path.endswith("/roleassignments"):
+            body["items"] = [
+                {"roleAssignmentId": str(i), "roleId": "40001", "scopeType": "CUSTOMER"}
+                for i in ids
+            ]
+        else:
+            metrics = workspace.USAGE_METRICS[page : page + 1 if page < 4 else 6]
+            body["usageReports"] = [
+                {
+                    "date": request.url.path.rsplit("/", 1)[1],
+                    "entity": {"customerId": CID},
+                    "parameters": [{"name": name, "intValue": "500"} for name in metrics],
+                }
+            ]
+        return httpx.Response(200, json=body)
+
+    env.provider.override = paginated
+    bind(env)
+    state = collect(env, seconds=seconds)
+    assert payload(env, "users")["coverage"] == {"rows_returned": 500, "truncated": False}
+    if seconds == 40:
+        assert state["status"] == "connected_partial"
+        assert "Collection deadline reached" in state["detail"]
+        assert len(env.provider.calls) < 66
+    else:
+        assert state["status"] == "connected"
+        assert len(env.provider.calls) == 66 == workspace.CONNECTOR.max_requests
+        assert len(attempts) == 22 and set(attempts.values()) == {3}
+        assert clock[0] - 100 == 82.5 < workspace.CONNECTOR.collection_seconds == 90
+        assert payload(env, "groups")["data"]["count"] == 500
+        assert payload(env, "role_assignments")["data"]["count"] == 500
+        assert payload(env, "usage_2sv")["data"]["unavailable_metrics"] == []
 
 
 def test_missing_credential_unbound_and_invalid_period_never_make_reads(env):

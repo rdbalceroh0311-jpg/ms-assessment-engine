@@ -567,6 +567,15 @@ CONNECTOR = Connector(
     label="Google Workspace",
     provider="google",
     auth_kind="google_oauth",
+    auth_flow="client_secrets",
+    auth_hint=(
+        "uv run ams-assess connect workspace auth --credential-ref <name> "
+        "--client-secrets ~/.config/ams-assess/google-desktop-client.json"
+    ),
+    # Two binding reads and four five-page lists, each with up to three attempts.
+    # Allow ordinary paging plus backoff; the UI can still reduce this to 40 seconds.
+    collection_seconds=90,
+    max_requests=66,
     scopes=SCOPES,
     resource_type="workspace_customer_primary_domain",
     categories=frozenset({"security", "domain_email"}),
