@@ -1,6 +1,7 @@
 """Inspect real persisted/UI/report surfaces and creation permissions with FAKE secrets."""
 
 import base64
+import copy
 import json
 import logging
 import os
@@ -169,12 +170,94 @@ def test_debug_default_hash_and_configurable_retention_are_customer_scoped(tmp_p
     assert digest.exists()
 
 
-@pytest.mark.parametrize("value", ["-1", "forever", "3651", "1.5"])
-def test_invalid_retention_fails_before_writing(tmp_path, value):
+@pytest.mark.parametrize("value", ["-1", "forever", "3651", "1.5", ""])
+def test_invalid_debug_retention_warns_and_keeps_only_a_hash(tmp_path, caplog, value):
     run = create_run_dir(tmp_path, "one")
-    with pytest.raises(ValueError):
+    with caplog.at_level(logging.WARNING):
         ai_debug(run, "ai-prompt.txt", "private", {"AMS_AI_DEBUG_RETENTION_DAYS": value})
-    assert not list((run / "raw").iterdir())
+    assert "AMS_AI_DEBUG_RETENTION_DAYS must be 0-3650 days" in caplog.text
+    assert [p.name for p in (run / "raw").iterdir()] == ["ai-prompt.txt.sha256"]
+    assert "private" not in (run / "raw/ai-prompt.txt.sha256").read_text()
+
+
+def legacy_store(root, customer="one", **fields):
+    store.set_profile(root, customer, {"name": "Synthetic"})
+    path = root / customer / "assessment.json"
+    value = json.loads(path.read_text())
+    value.update(schema_version=2, **fields)
+    path.write_text(json.dumps(value))
+    return path, value
+
+
+def test_legacy_backup_is_valid_faithful_json_with_only_secrets_redacted(tmp_path):
+    urls = ["https://example.test/s?q=%22a%22", "https://maps.googleapis.com/x?key=abc"]
+    path, original = legacy_store(
+        tmp_path,
+        legacy_urls=urls,
+        legacy_notes=["The bearer of this certificate", "Primary key: missing alt text"],
+        legacy_diagnostic=CANARY,
+    )
+    store.load(tmp_path, "one")
+    [backup] = path.parent.glob("assessment.json.backup-*")
+    restored = json.loads(backup.read_text())
+    expected = copy.deepcopy(original)
+    expected["legacy_urls"][1] = "https://maps.googleapis.com/x?key=[redacted]"
+    expected["legacy_diagnostic"] = "[redacted]"
+    assert restored == expected
+    assert CANARY not in backup.read_text()
+
+
+@pytest.mark.parametrize("source", ["environment", "credentials.env", "AMS_ENV_FILE"])
+def test_backup_retention_is_read_from_loaded_config(tmp_path, monkeypatch, source):
+    path, _ = legacy_store(tmp_path / "customers")
+    old_backup = path.with_name("assessment.json.backup-20000101T000000.000000Z")
+    old_backup.write_text("{}")
+    old = time.time() - 3 * 86400
+    os.utime(old_backup, (old, old))
+    setting = "AMS_BACKUP_RETENTION_DAYS=2\n"
+    if source == "environment":
+        monkeypatch.setenv("AMS_BACKUP_RETENTION_DAYS", "2")
+    elif source == "credentials.env":
+        auth.config_dir().mkdir(parents=True)
+        (auth.config_dir() / "credentials.env").write_text(setting)
+    else:
+        (tmp_path / "engine.env").write_text(setting)
+        monkeypatch.setenv("AMS_ENV_FILE", str(tmp_path / "engine.env"))
+    store.load(tmp_path / "customers", "one")
+    assert not old_backup.exists()
+    assert cli.config()["AMS_BACKUP_RETENTION_DAYS"] == "2"
+
+
+@pytest.mark.parametrize("value", ["forever", "-1", "3651", " "])
+def test_invalid_backup_retention_warns_and_never_blocks_load(tmp_path, monkeypatch, caplog, value):
+    path, _ = legacy_store(tmp_path)
+    recent = path.with_name("assessment.json.backup-20000101T000000.000000Z")
+    recent.write_text("{}")
+    expired = time.time() - 31 * 86400
+    monkeypatch.setenv("AMS_BACKUP_RETENTION_DAYS", value)
+    with caplog.at_level(logging.WARNING):
+        migrated = store.load(tmp_path, "one")
+        assert migrated is not None and migrated["schema_version"] == store.SCHEMA_VERSION
+        assert store.load(tmp_path, "one") is not None
+    assert "AMS_BACKUP_RETENTION_DAYS must be 0-3650 days; using the default of 30" in caplog.text
+    # The safe 30-day default still applies.
+    assert recent.exists()
+    os.utime(recent, (expired, expired))
+    store.load(tmp_path, "one")
+    assert not recent.exists()
+
+
+def test_tests_cannot_write_repository_customer_data(tmp_path):
+    import conftest
+
+    assert cli.data_root().is_relative_to(tmp_path)
+    assert conftest._CUSTOMERS == cli.ROOT / "data/customers"
+    watched = tmp_path / "repo-customers"
+    assert conftest._customer_tree(watched) is None
+    watched.mkdir()
+    before = conftest._customer_tree(watched)
+    (watched / "leak").mkdir()
+    assert conftest._customer_tree(watched) != before
 
 
 def test_backup_permissions_redaction_and_expiry(tmp_path, monkeypatch):

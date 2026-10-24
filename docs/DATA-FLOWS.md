@@ -16,7 +16,7 @@ HTML/PDF escaping and the local UI remain separate controls.
 | Search discovery | DataForSEO | Business/profile search terms, location/language, selected keywords and domain; HTTP Basic credentials authenticate requests. Existing explicit paid-call caps apply. |
 | Connected reads | Google Analytics, Search Console, Business Profile, Workspace; Microsoft Graph; Bing Webmaster | Explicitly bound resource IDs, selected date ranges, read operations and pagination; the connector's own OAuth token/API key. Provider responses are reduced/redacted before evidence is saved. |
 | WordPress SSH | Explicitly configured SSH host | Fixed read-only WP-CLI/PHP inventory commands, approved path/resource selectors, SSH authentication. Private key contents are not command arguments or evidence. Local cancellation kills local SSH and its children; remote commands also retain their existing remote timeout. Disconnecting cannot guarantee termination of a remote daemon. |
-| Anthropic AI (explicit choice) | Anthropic API through the SDK | The text projection below, schema and analyst instructions, authenticated by the configured API key. No tools are supplied. |
+| Anthropic AI (explicit choice) | Anthropic API through the SDK | The text projection below, schema and analyst instructions, authenticated by the configured API key. The endpoint is pinned to `https://api.anthropic.com`; `ANTHROPIC_BASE_URL` is ignored. No tools are supplied. |
 | Claude CLI AI (explicit choice) | Providers contacted by the installed Claude CLI/account | The same text projection, schema and instructions via stdin. Uses the CLI's own login; provider/account type is recorded as `claude-cli`/`cli-login`. No claim is made about the installed CLI's internal telemetry or service retention. |
 
 Provider retention/training: **see provider account settings**. AMS has no code-enforced
@@ -93,8 +93,8 @@ operations. These controls do not retroactively scrub arbitrary existing custome
 
 | Setting | Default | Behaviour |
 | --- | --- | --- |
-| `AMS_AI_DEBUG_RETENTION_DAYS` | `0` | Store only SHA-256 of sanitised prompt/response/stderr; no full prompt. Positive 1–3650 retains sanitised text for that many days. Expired debug files in this customer's runs are removed on the next AI debug write. Setting 0 removes retained text then; hashes remain with the run. No background cleanup while AMS is stopped. |
-| `AMS_BACKUP_RETENTION_DAYS` | `30` | Environment setting, 0–3650. Old migration backups are pruned when the customer store is loaded; 0 removes prior backups on access. Newly required migration backups protect the migration until the next access. Backups redact recognisable secrets. |
+| `AMS_AI_DEBUG_RETENTION_DAYS` | `0` | Store only SHA-256 of sanitised prompt/response/stderr; no full prompt. Positive 1–3650 retains sanitised text for that many days. Expired debug files in this customer's runs are removed on the next AI debug write. Setting 0 removes retained text then; hashes remain with the run. No background cleanup while AMS is stopped. An invalid value logs a warning and uses 0. |
+| `AMS_BACKUP_RETENTION_DAYS` | `30` | Environment, `credentials.env` or `AMS_ENV_FILE` setting, 0–3650; an invalid value logs a warning and uses 30. Old migration backups are pruned when the customer store is loaded; 0 removes prior backups on access. Newly required migration backups protect the migration until the next access. Backups are valid JSON copies of the pre-migration store with recognisable secret values redacted. |
 
 `AMS_CONFIG_DIR` selects the private credential/config directory; `AMS_ENV_FILE` selects an
 optional engine dotenv file. Tests replace HOME/config before imports, clear inherited

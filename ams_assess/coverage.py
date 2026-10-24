@@ -266,7 +266,8 @@ def wp_cli_inventory(ctx: Context) -> dict[str, Any] | None:
     """Current-run bound evidence adds known URLs only, including successful partial pages."""
     state = ctx.connector_results.get("wp_cli", {})
     if state.get("operation") != "collect" or state.get("status") not in {
-        "connected", "connected_partial"
+        "connected",
+        "connected_partial",
     }:
         return None
     urls: set[str] = set()
@@ -280,23 +281,34 @@ def wp_cli_inventory(ctx: Context) -> dict[str, Any] | None:
         for evidence in module.evidence:
             item = evidence.data
             if (
-                evidence.source != "wp_cli" or evidence.id not in state.get("evidence_ids", [])
-                or not isinstance(item, dict) or item.get("connector") != "wp_cli"
+                evidence.source != "wp_cli"
+                or evidence.id not in state.get("evidence_ids", [])
+                or not isinstance(item, dict)
+                or item.get("connector") != "wp_cli"
                 or item.get("resource_id") != state.get("resource_id")
                 or item.get("operation") not in {"posts_post", "posts_page"}
             ):
                 continue
             data = item.get("data", {})
             kind = item["operation"].removeprefix("posts_")
-            if (data.get("inventory_source") != "wp_cli" or data.get("post_type") != kind
-                    or data.get("post_status") != "publish"):
+            if (
+                data.get("inventory_source") != "wp_cli"
+                or data.get("post_type") != kind
+                or data.get("post_status") != "publish"
+            ):
                 continue
             operations.add(kind)
             refs.append(evidence.id)
-            counts[kind] = {"publish": data.get("count", 0),
-                            "lower_bound": data.get("count_is_lower_bound", True)}
-            if (item.get("status") != "connected" or item.get("coverage", {}).get("truncated")
-                    or data.get("count_is_lower_bound") or data.get("rejected_urls")):
+            counts[kind] = {
+                "publish": data.get("count", 0),
+                "lower_bound": data.get("count_is_lower_bound", True),
+            }
+            if (
+                item.get("status") != "connected"
+                or item.get("coverage", {}).get("truncated")
+                or data.get("count_is_lower_bound")
+                or data.get("rejected_urls")
+            ):
                 reasons.append("WP-CLI published inventory is partial; retained successful pages")
             for value in data.get("urls", [])[:MAX_URLS]:
                 # Absolute same-origin links only; never turn an invalid relative value into home.
@@ -315,11 +327,14 @@ def wp_cli_inventory(ctx: Context) -> dict[str, Any] | None:
     if operations != {"post", "page"}:
         reasons.append("WP-CLI published post/page inventory incomplete or unavailable")
     return {
-        "source": "wp_cli", "status": "partial" if reasons else "sampled",
-        "urls": sorted(urls), "evidence_ids": refs, "counts": counts,
+        "source": "wp_cli",
+        "status": "partial" if reasons else "sampled",
+        "urls": sorted(urls),
+        "evidence_ids": refs,
+        "counts": counts,
         "stop_reasons": list(dict.fromkeys(reasons)),
         "scope": "Published post/page snapshot only; custom/private types excluded. "
-                 "Known URLs are not crawled or browser-tested pages.",
+        "Known URLs are not crawled or browser-tested pages.",
     }
 
 

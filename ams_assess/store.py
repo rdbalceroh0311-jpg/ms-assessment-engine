@@ -22,7 +22,7 @@ from typing import Any
 from ams_assess import register
 from ams_assess.ai import CITATIONS
 from ams_assess.consolidate import consolidate
-from ams_assess.data_boundary import json_text, prune, retention_days, text
+from ams_assess.data_boundary import json_text, prune, retention_days, sanitise
 from ams_assess.discovery import DISCOVERY_SECTIONS, Notes, slug
 from ams_assess.figures import sentences
 from ams_assess.lifecycle import key as technical_key
@@ -52,6 +52,7 @@ from ams_assess.profile import (
     current_findings,
     merge_profile,
 )
+from ams_assess.settings import load as load_settings
 
 SCHEMA_VERSION = 3
 _HELD: ContextVar[frozenset[str]] = ContextVar("assessment_locks", default=frozenset())
@@ -177,10 +178,11 @@ def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str,
     with guard:
         original = path.read_bytes()
         if migrate_legacy:
+            setting = "AMS_BACKUP_RETENTION_DAYS"
             prune(
                 path.parent,
                 "assessment.json.backup-*",
-                retention_days(os.environ, "AMS_BACKUP_RETENTION_DAYS", 30),
+                retention_days(load_settings((setting,)), setting, 30),
             )
         store = json.loads(original)
         if store.get("customer_id") != customer or store.get("schema_version") not in {1, 2, 3}:
@@ -188,12 +190,15 @@ def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str,
         if store["schema_version"] != SCHEMA_VERSION:
             if not migrate_legacy:
                 raise ValueError("Legacy store: open it with register show in the CLI to migrate")
-            # Preserve the original before migration, removing recognisable credentials.
+            # Preserve the original before migration: its exact bytes, or when it holds
+            # recognisable credentials the parsed store with only those values redacted, so
+            # the backup always stays valid JSON that can be restored.
             stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
             backup = path.with_name(f"assessment.json.backup-{stamp}")
+            redacted = sanitise(store)
             fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "wb") as handle:
-                handle.write(text(original.decode()).encode())
+                handle.write(original if redacted == store else json_text(redacted).encode())
                 handle.flush()
                 os.fsync(handle.fileno())
             migrate(store)

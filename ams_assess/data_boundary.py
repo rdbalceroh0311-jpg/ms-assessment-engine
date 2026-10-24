@@ -4,6 +4,7 @@ import base64
 import contextlib
 import hashlib
 import json
+import logging
 import os
 import re
 import tempfile
@@ -28,24 +29,42 @@ def private_artifacts():
             os.umask(old)
 
 
+# Credential-bearing setting names, including provider/connector variables such as
+# SPAMHAUS_DQS_KEY, BING_WMT_API_KEY, M365_CLIENT_SECRET or GITHUB_TOKEN.
 SECRET_KEY = re.compile(
-    r"password|secret|token|api.?key|authorization|cookie|private.?key|login|credential", re.I
+    r"password|passwd|secret|token|api.?key|access.?key|private.?key|authorization|cookie"
+    r"|login|credential|(?:^|[_.-])(?:key|pass|pwd|pat|auth|sig|signature)(?:[_.-](?:file|path|json))?$",
+    re.I,
 )
+# Token alphabet value that looks like a credential, not a word of prose.
+_CREDENTIAL = r"(?:(?=[A-Za-z0-9._~+/-]*\d)[A-Za-z0-9._~+/-]{8,}|[A-Za-z0-9._~+/-]{20,})=*"
+# After "Bearer" a punctuated value also counts ("Bearer hidden-token", not "bearer of").
+_BEARER_VALUE = (
+    r"(?:(?=[A-Za-z0-9._~+/-]*[\d._~+/-])[A-Za-z0-9._~+/-]{8,}|[A-Za-z0-9._~+/-]{20,})=*"
+)
+# Provider prefixes are case-sensitive, so "canary yellow" or "Sk-" prose stays intact.
 TOKEN = re.compile(
-    r"CANARY[-_.][A-Za-z0-9_./+=:-]+|\bBearer\s+[^\s\"'<>]+"
+    r"CANARY[-_.][A-Za-z0-9_./+=:-]+"
     r"|\b(?:AIza[\w-]{15,}|ya29[.-][\w.-]+|sk-(?:ant-)?[\w-]{16,}"
-    r"|gh[pousr]_[\w]{15,}|github_pat_[\w]+|eyJ[\w-]+\.[\w-]+\.[\w-]+)",
-    re.I,
+    r"|gh[pousr]_[\w]{15,}|github_pat_[\w]+|eyJ[\w-]+\.[\w-]+\.[\w-]+|GOCSPX-[\w-]{10,}"
+    r"|1//[\w-]{20,})"
 )
+BEARER = re.compile(rf"\b(?:Bearer|bearer|BEARER)\s+{_BEARER_VALUE}")
+_NAMES = (
+    r"access_token|refresh_token|id_token|auth_token|client_secret|api[_-]?key|apikey"
+    r"|key|token|sig|signature|password|passwd|secret"
+)
+# "key=..." (query/assignment) is always a secret; "Primary key: missing" is prose unless
+# the value has a credential shape.
 ASSIGNMENT = re.compile(
-    r"\b(?:key|token|access_token|refresh_token|sig|signature|password|secret|api[_-]?key)"
-    r"\s*[=:]\s*[^\s&\"'<>]+",
-    re.I,
+    rf"\b(?P<name>{_NAMES})(?:(?P<eq>=)[^\s&\"'<>]+|(?P<sep>\s*[=:]\s*){_CREDENTIAL})", re.I
 )
 EMAIL = re.compile(r"[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I)
 BASIC = re.compile(r"\bBasic\s+([A-Za-z0-9+/]+={0,2})", re.I)
 BASE64 = re.compile(r"(?<![\w+/-])[A-Za-z0-9+/_-]{16,}={0,2}(?![\w+/=-])")
 URL = re.compile(r"https?://[^\s<>\"']+", re.I)
+PERCENT_RUN = re.compile(r"[^\s\"'<>]*%[0-9A-Fa-f]{2}[^\s\"'<>]*")
+LOG = logging.getLogger(__name__)
 
 
 def configured_secrets(config: Mapping[str, str]) -> tuple[str, ...]:
@@ -60,13 +79,39 @@ def clean_url(value: str) -> str:
         return "[redacted URL]"
 
 
+def _assignment(match: re.Match[str]) -> str:
+    return match["name"] + (match["eq"] or match["sep"]) + "[redacted]"
+
+
+def _secret_in(value: str, secrets: tuple[str, ...]) -> bool:
+    return bool(
+        TOKEN.search(value)
+        or BEARER.search(value)
+        or ASSIGNMENT.search(value)
+        or any(s in value for s in secrets)
+    )
+
+
+def _encoded_spans(value: str, secrets: tuple[str, ...]) -> str:
+    """Decode percent escapes only to inspect; redact just the offending original segment."""
+
+    def segment(part: str) -> str:
+        decoded = part
+        for _ in range(5):
+            decoded = unquote(decoded)
+        if decoded == part or not _secret_in(decoded, secrets):
+            return part
+        name, equals, _ = part.partition("=")
+        return name + "=[redacted]" if equals and "%" not in name else "[redacted]"
+
+    def run(match: re.Match[str]) -> str:
+        return "".join(segment(part) for part in re.split(r"([?&#;])", match[0]) if part)
+
+    return PERCENT_RUN.sub(run, value)
+
+
 def text(value: str, secrets: tuple[str, ...] = (), *, ai: bool = False) -> str:
-    # Decode URL escapes only to inspect for secrets; preserve harmless URL semantics.
-    decoded = value
-    for _ in range(5):
-        decoded = unquote(decoded)
-    if TOKEN.search(decoded) or ASSIGNMENT.search(decoded) or any(s in decoded for s in secrets):
-        value = decoded
+    value = _encoded_spans(value, secrets)
     for secret in sorted((s for s in secrets if s), key=len, reverse=True):
         variants = {
             secret,
@@ -85,13 +130,7 @@ def text(value: str, secrets: tuple[str, ...] = (), *, ai: bool = False) -> str:
         except (ValueError, UnicodeDecodeError):
             return match[0]
         decoded = unquote(candidate)
-        if (
-            TOKEN.search(decoded)
-            or ASSIGNMENT.search(decoded)
-            or any(s in decoded for s in secrets)
-        ):
-            return "[redacted]"
-        return match[0]
+        return "[redacted]" if _secret_in(decoded, secrets) else match[0]
 
     def basic(match: re.Match[str]) -> str:
         try:
@@ -104,11 +143,12 @@ def text(value: str, secrets: tuple[str, ...] = (), *, ai: bool = False) -> str:
     value = BASIC.sub(basic, value)
     value = BASE64.sub(encoded, value)
     value = TOKEN.sub("[redacted]", value)
+    value = BEARER.sub("[redacted]", value)
     # Strip complete URLs first so query secrets cannot leave partial bearer strings behind.
     if ai:
         value = URL.sub(lambda m: clean_url(m[0]), value)
         value = EMAIL.sub("[redacted email]", value)
-    return ASSIGNMENT.sub("[redacted]", value)
+    return ASSIGNMENT.sub(_assignment, value)
 
 
 def sanitise(value: Any, secrets: tuple[str, ...] = (), *, ai: bool = False) -> Any:
@@ -144,9 +184,11 @@ def private_write(path: Path, content: str) -> None:
 
 
 def retention_days(config: Mapping[str, str], key: str, default: int) -> int:
-    value = config.get(key, str(default))
+    """An invalid setting never blocks loading; it falls back to the safe default."""
+    value = str(config.get(key, default)).strip()
     if not re.fullmatch(r"\d{1,4}", value) or int(value) > 3650:
-        raise ValueError(f"{key} must be 0-3650 days")
+        LOG.warning("%s must be 0-3650 days; using the default of %d days", key, default)
+        return default
     return int(value)
 
 

@@ -16,6 +16,7 @@ from ams_assess.data_boundary import ai_debug, configured_secrets, sanitise
 from ams_assess.models import AMS_SERVICES, Context, Evidence, Finding, worst_provenance
 
 LOG = logging.getLogger(__name__)
+ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 # Narratives citing non-technical evidence carry the label of the WEAKEST cited provenance.
 LABELS = {
     "manual_verification": "Manually recorded observation, not technically measured: ",
@@ -510,8 +511,12 @@ mismatches are the deterministic nap-inconsistent finding: enrich it rather than
             from anthropic import Anthropic
 
             with private_logs():
+                # Pinned: ANTHROPIC_BASE_URL in the environment must not redirect the key/prompt.
                 client = Anthropic(
-                    api_key=ctx.config["ANTHROPIC_API_KEY"], timeout=180, max_retries=0
+                    api_key=ctx.config["ANTHROPIC_API_KEY"],
+                    base_url=ANTHROPIC_BASE_URL,
+                    timeout=180,
+                    max_retries=0,
                 )
                 response = client.messages.create(
                     model="claude-sonnet-4-6",

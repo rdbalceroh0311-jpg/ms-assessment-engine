@@ -26,6 +26,20 @@ os.environ.update(
 )
 
 
+_CUSTOMERS = _ROOT / "data/customers"
+
+
+def _customer_tree(root=_CUSTOMERS):
+    """Names and stat metadata only: never read operator customer data."""
+    if not root.exists():
+        return None
+    return {
+        (str(Path(directory) / name), os.lstat(Path(directory) / name).st_mtime_ns)
+        for directory, dirs, files in os.walk(root)
+        for name in dirs + files
+    }
+
+
 def _loopback(host):
     if host in {"localhost", b"localhost", None, "", b""}:
         return
@@ -35,6 +49,26 @@ def _loopback(host):
         raise AssertionError("Tests must mock external DNS/network access") from None
     if not address.is_loopback:
         raise AssertionError("Tests must mock external network access")
+
+
+@pytest.fixture(autouse=True)
+def isolated_customer_root(tmp_path, monkeypatch):
+    """Customer stores go to tmp; fail any test that writes under the repo's data/customers."""
+    from ams_assess import cli
+
+    before = _customer_tree()
+    # Tests that relocate cli.ROOT keep their own <ROOT>/data/customers.
+    monkeypatch.setattr(
+        cli,
+        "data_root",
+        lambda: (
+            (tmp_path / "data/customers")
+            if cli.ROOT.resolve() == _ROOT
+            else cli.ROOT / "data/customers"
+        ),
+    )
+    yield
+    assert _customer_tree() == before, f"Test wrote under {_CUSTOMERS}"
 
 
 @pytest.fixture(autouse=True)
