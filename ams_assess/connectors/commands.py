@@ -20,6 +20,8 @@ def add_parsers(commands) -> None:
     connect.add_argument("--credential-file", type=Path)
     connect.add_argument("--env-var")
     connect.add_argument("--client-secrets", type=Path)
+    connect.add_argument("--tenant-id")
+    connect.add_argument("--client-id")
     connect.add_argument("--force", action="store_true")
     connect.add_argument("--reason", default="")
     connect.add_argument("--days", type=int, default=28)
@@ -57,17 +59,31 @@ def dispatch(args: argparse.Namespace, root: Path) -> int:
     if args.action in {"auth", "list-resources", "bind"} and not args.credential_ref:
         raise ValueError("--credential-ref is required")
     if args.action == "auth":
+        flow = spec.effective_auth_flow
+        if (args.client_secrets and flow != "client_secrets") or (
+            (args.tenant_id or args.client_id) and flow != "device_code"
+        ):
+            raise ConnectorError("not_configured", "Use this auth flow: " + spec.auth_command)
         if args.credential_file or args.env_var:
-            if args.client_secrets:
+            if args.client_secrets or args.tenant_id or args.client_id:
                 raise ValueError("Use a credential reference source or OAuth, not both")
             register_reference(
                 args.credential_ref, spec, file=args.credential_file, env_var=args.env_var or ""
             )
             print("Credential reference registered; run a bound-resource test")
             return 0
-        if not args.client_secrets or spec.authorize is None:
-            raise ValueError("--client-secrets is required for this connector's auth helper")
-        spec.authorize(spec, args.credential_ref, args.client_secrets)
+        if spec.authorize is None or flow == "reference":
+            raise ConnectorError("not_configured", "Register credentials with " + spec.auth_command)
+        if flow == "client_secrets":
+            if not args.client_secrets:
+                raise ConnectorError("not_configured", "Authorise with " + spec.auth_command)
+            spec.authorize(spec, args.credential_ref, args.client_secrets)
+        else:
+            if not args.tenant_id or not args.client_id:
+                raise ConnectorError("not_configured", "Authorise with " + spec.auth_command)
+            spec.authorize(
+                spec, args.credential_ref, tenant_id=args.tenant_id, client_id=args.client_id
+            )
         print(f"Authorised {spec.label}; reference {args.credential_ref}. No resource was bound.")
         return 0
     if args.action == "list-resources":

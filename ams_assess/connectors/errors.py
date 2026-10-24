@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ams_assess.connectors.core import ErrorClassification
-from ams_assess.connectors.privacy import SENSITIVE, redact
+from ams_assess.connectors.privacy import redact, sensitive_key
 
 MAX_ERROR_BODY_BYTES = 16_384
 MAX_ERROR_DETAIL_CHARS = 2_000
@@ -33,7 +33,7 @@ def error_body(value: Any, secrets: tuple[str, ...]) -> dict[str, Any]:
                 remaining -= size(safe_key) + 4  # colon, comma and spacing
                 if remaining < 16:
                     break
-                item = "[redacted]" if SENSITIVE.search(str(key)) else value[key]
+                item = "[redacted]" if sensitive_key(str(key), value[key]) else value[key]
                 clean = bounded(item, remaining, depth + 1)
                 output[safe_key] = clean
                 remaining -= size(clean)
@@ -91,6 +91,8 @@ def default_error_classifier(status_code: int, body: Mapping[str, Any]) -> Error
         )
     if status_code == 401:
         return ErrorClassification("credential_expired")
+    if codes & {"RATELIMITEXCEEDED", "USERRATELIMITEXCEEDED"}:
+        return ErrorClassification("rate_limited", "Provider rate limit reached; retry later")
     if status_code == 403 or codes & {
         "PERMISSION_DENIED",
         "ACCESS_TOKEN_SCOPE_INSUFFICIENT",

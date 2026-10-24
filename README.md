@@ -455,6 +455,10 @@ user is `userEngagementDuration / activeUsers`, not average session duration. La
 and URL credentials/fragments are discarded; emails are reduced to domain-level references.
 No user inventories are collected. AI receives coverage aggregates, not report rows or inventories.
 
+Standalone connector tests/collections update lifecycle only for that connector's findings;
+public and other connected findings retain their state and recommendations. The connected stage
+is recorded only for `connected` or `connected_partial` results, including a successful test.
+
 Each endpoint records resource, collection time, period, status, rows and truncation. Lists/reports
 have at most five 100-row pages; landing pages are the top 100 by sessions. HTTP responses are capped
 at 2 MB, requests at 80 including retries, individual I/O at 10 seconds and the read phase at 45 seconds
@@ -512,6 +516,18 @@ Add one module under `ams_assess/connectors/`, export a `core.Connector` declara
   persistence, register status and UI/report views. Test auth, allowlist, errors, caps, privacy,
   lifecycle and cross-customer isolation with synthetic fixtures.
 
+Optional `Connector` settings keep provider-specific setup and budgets in its module:
+
+- `auth_hint: str = ""` overrides the displayed auth command (never include secrets).
+- `auth_flow: Literal["client_secrets", "device_code", "reference"] | None = None` defaults to
+  `client_secrets` for `google_oauth`, otherwise `reference`. Existing Google callbacks keep
+  `authorize(spec, ref, client_secrets_path)`. Device-code callbacks use
+  `authorize(spec, ref, *, tenant_id, client_id)`; the CLI accepts `--tenant-id` and `--client-id`
+  without a client secret. Reference flows use `--env-var` or `--credential-file`; default hints
+  suggest an environment variable for API keys and private configuration for SSH/app credentials.
+- `collection_seconds: float = 45` and `max_requests: int = 80` bound collection/test/list reads,
+  including retries. Caller limits can only reduce these budgets (the UI additionally caps at 40s).
+
 Both `connect <key> collect` and `run --connect <key>` pass the same `ConnectorContext` to
 `collect(ctx)` and each `analyser(ctx, result)`. It includes:
 
@@ -524,6 +540,15 @@ Both `connect <key> collect` and `run --connect <key>` pass the same `ConnectorC
   latest public samples per source/site. Current-run samples replace the matching stored group;
   other latest stored groups remain. Profile/discovery/other connector records are excluded.
   `EvidenceView` exposes `id`, `source`, `url`, `description`, `data`, `provenance`.
+- `ctx.connected_evidence: tuple[EvidenceView, ...]`: latest collection per other connected
+  source for this customer and explicit bound site, including legacy and framework GSC evidence.
+  URL-prefix properties must match scheme/host/port/path (an empty path means `/`); a GSC domain
+  property can match a root URL with the same host. Broader parent domains/prefixes, other sites,
+  and this connector's own evidence are excluded. An unbound or opaque resource ID yields `()`;
+  profile websites never grant site scope. Current-run evidence replaces matching stored samples.
+  All endpoints from the latest collection remain, including failed/partial results; check their
+  period/status/coverage before comparing. Views retain provenance, redact secrets/emails, and
+  never include credential configuration. No other customer's store is read for this context.
 
 These are detached read-only views: nested mappings are immutable and lists become tuples.
 Connectors do not read the store. Persist selected comparison values and source reference IDs in
