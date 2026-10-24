@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -143,6 +144,7 @@ class ConnectorContext:
     max_pages: int = 5
     page_size: int = 100
     top_n: int = 100
+    connected_evidence: tuple[EvidenceView, ...] = ()
 
     @property
     def public_evidence_refs(self) -> tuple[str, ...]:
@@ -185,6 +187,10 @@ class Connector:
 
     # Return None to use the default classifier. Only transient statuses are retried.
     classify_error: Callable[[int, Mapping[str, Any]], ErrorClassification | None] | None = None
+    auth_hint: str = ""
+    auth_flow: Literal["client_secrets", "device_code", "reference"] | None = None
+    collection_seconds: float = 45
+    max_requests: int = 80
 
     def __post_init__(self) -> None:
         if not re.fullmatch(r"[a-z][a-z0-9_]{0,30}", self.key):
@@ -193,10 +199,29 @@ class Connector:
             op.method not in {"GET", "POST"} for op in self.read_allowlist
         ):
             raise ValueError("Declare explicit GET/read-only POST operations")
+        if (
+            not math.isfinite(self.collection_seconds)
+            or self.collection_seconds <= 0
+            or type(self.max_requests) is not int
+            or self.max_requests <= 0
+        ):
+            raise ValueError("Connector collection limits must be finite and positive")
+
+    @property
+    def effective_auth_flow(self) -> str:
+        return self.auth_flow or (
+            "client_secrets" if self.auth_kind == "google_oauth" else "reference"
+        )
 
     @property
     def auth_command(self) -> str:
-        return (
-            f"ams-assess connect {self.key} auth --credential-ref <name> "
-            "--client-secrets <desktop-client.json>"
-        )
+        if self.auth_hint:
+            return self.auth_hint
+        command = f"ams-assess connect {self.key} auth --credential-ref <name>"
+        if self.effective_auth_flow == "client_secrets":
+            return command + " --client-secrets <desktop-client.json>"
+        if self.effective_auth_flow == "device_code":
+            return command + " --tenant-id <tenant-id> --client-id <client-id>"
+        if self.auth_kind == "api_key":
+            return command + " --env-var <ENV_VAR>"
+        return command + " --credential-file <private-config.json>"
