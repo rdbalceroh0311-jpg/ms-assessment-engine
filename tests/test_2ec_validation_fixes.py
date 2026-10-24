@@ -64,6 +64,7 @@ def test_failed_report_revision_is_removed_and_number_reused(tmp_path, monkeypat
     before = (directory / "assessment.json").read_bytes()
     revisions = sorted((directory / "reports").iterdir())
     originals = {p: p.read_bytes() for p in revisions[0].iterdir()}
+    latest = {p: p.read_bytes() for p in directory.glob("report.*")}
     with monkeypatch.context() as patch:
 
         def fail(*args, **kwargs):
@@ -79,11 +80,13 @@ def test_failed_report_revision_is_removed_and_number_reused(tmp_path, monkeypat
             patch.setattr(report, "write_outputs", partial)
         else:
             patch.setattr(report, "save", fail)
+            patch.setattr(report, "render_markdown", lambda *args: "Changed report content")
         with pytest.raises((TemplateError, OSError)):
             report.render_customer(tmp_path, "synthetic", {"md", "html", "pdf"})
     assert (directory / "assessment.json").read_bytes() == before
     assert sorted((directory / "reports").iterdir()) == revisions
     assert all(p.read_bytes() == contents for p, contents in originals.items())
+    assert {p: p.read_bytes() for p in directory.glob("report.*")} == latest
     report.render_customer(tmp_path, "synthetic", {"md", "html"})
     current = store.load(tmp_path, "synthetic")
     assert current is not None
@@ -142,7 +145,7 @@ def test_domain_rank_estimate_headroom_retains_overcharge_stop(
 
 @pytest.mark.parametrize(
     "site,location",
-    [(None, ""), ("", ""), (None, "Sydney"), ("", "Sydney"), ("https://example.test/", "Sydney")],
+    [(None, ""), ("", ""), ("https://example.test/", "")],
 )
 def test_register_set_reuses_sole_platform_entry(tmp_path, monkeypatch, site, location):
     fixture_run(tmp_path)
@@ -170,6 +173,29 @@ def test_register_set_reuses_sole_platform_entry(tmp_path, monkeypatch, site, lo
     ]
     assert len(rows) == 1 and rows[0]["site"] == "https://example.test/"
     assert rows[0]["location"] == "" and rows[0]["presence"] == "customer_reported"
+
+
+@pytest.mark.parametrize(
+    "site,location,expected_site",
+    [
+        (None, "Melbourne", "https://example.test/"),
+        ("", "Melbourne", ""),
+        ("https://example.test/", "Melbourne", "https://example.test/"),
+        ("https://second.test/", "", "https://second.test/"),
+    ],
+)
+def test_register_explicit_unmatched_selector_creates_scope(
+    tmp_path, site, location, expected_site
+):
+    fixture_run(tmp_path)
+    entry = store.set_register(
+        tmp_path, "synthetic", "google_business_profile", {"note": "New scope"}, site, location
+    )
+    assert (entry["site"], entry["location"]) == (expected_site, location)
+    entries = store.register_store(tmp_path, "synthetic")["systems_register"]["entries"]
+    rows = [e for e in entries if e["platform"] == "google_business_profile"]
+    assert len(rows) == 2
+    assert not rows[0]["human_fields"] and not rows[0]["evidence"]
 
 
 def test_register_scope_selection_and_ambiguity(tmp_path):
@@ -247,6 +273,36 @@ def test_register_remove_exact_duplicate_preserves_history(tmp_path, monkeypatch
         e["site"] == ""
         for e in store.register_store(tmp_path, "synthetic")["systems_register"]["entries"]
     )
+
+
+@pytest.mark.parametrize(
+    "integration,method,basis",
+    [
+        ("failed", "manual", "manual verification"),
+        ("connected", "manual", "manual verification"),
+        ("supported", "automated", "public evidence"),
+        ("supported", "manual", "authorised connection"),
+        ("supported", "manual", "authorised connection attempt"),
+    ],
+)
+def test_register_remove_protects_engine_state(tmp_path, integration, method, basis):
+    fixture_run(tmp_path)
+    with store.locked(tmp_path, "synthetic"):
+        current = store.load(tmp_path, "synthetic")
+        assert current is not None
+        entry = register.manual_edit(
+            current, "gsc", "https://example.test/", "", {"note": "Review"}
+        )
+        entry["integration"] = integration
+        entry["evidence"][-1].update(method=method, basis=basis)
+        store.save(tmp_path, "synthetic", current)
+    path = tmp_path / "synthetic/assessment.json"
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="only purely manual entries"):
+        store.remove_register(tmp_path, "synthetic", "gsc", "https://example.test/")
+    assert path.read_bytes() == before
+    entry = store.set_register(tmp_path, "synthetic", "gsc", {"ams_access": "granted"})
+    assert entry["integration"] == integration
 
 
 @pytest.mark.parametrize(
@@ -373,6 +429,18 @@ def test_historical_axe_conflict_projection_preserves_raw_run(
         "needs_review" if different_audit else "current"
     )
     assert bool(loaded["needs_review"]) is different_audit
+    if not different_audit:
+        old_events = old["findings"][0]["events"]
+        events = loaded["findings"][0]["events"]
+        assert events[:-1] == old_events
+        assert events[-1]["status"] == "review-corrected"
+        assert events[-1]["run_id"] == run["run_id"]
+        assert len([e for e in events if e["status"] == "observed"]) == len(
+            [e for e in old_events if e["status"] == "observed"]
+        )
+        again = copy.deepcopy(loaded)
+        store.repair_axe_reviews(again)
+        assert again == loaded
     assert path.read_bytes() == before  # A UI GET only projects the correction.
     report.render_customer(tmp_path, "synthetic", {"md"})
     after = json.loads(path.read_text())

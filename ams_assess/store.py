@@ -197,6 +197,8 @@ def repair_axe_reviews(store: dict[str, Any]) -> None:
                     run["created_at"],
                 )[0]
                 if updated.lifecycle_status == "current":
+                    # transition verifies the correction, but this is not a new observation.
+                    updated.events[-1]["status"] = "review-corrected"
                     updated.events[-1]["reason"] = (
                         "Axe failing nodes override same-audit passing nodes"
                     )
@@ -1020,6 +1022,21 @@ def remove_register(
         if len(matches) != 1:
             raise ValueError("No unique entry at that exact platform/site/location scope")
         entry = matches[0]
+        default_integration = "supported" if platform == "gsc" else "unsupported"
+        if (
+            entry["integration"] != default_integration
+            or not entry["human_fields"]
+            or not entry["evidence"]
+            or any(
+                e.get("method") not in register.METHODS
+                or e.get("basis") not in {"manual verification", "customer statement"}
+                for e in entry["evidence"]
+            )
+        ):
+            raise ValueError(
+                "Cannot remove engine-observed entries or integration state; "
+                "only purely manual entries can be removed"
+            )
         reg["entries"].remove(entry)
         register.record(current, entry, None, who, "register remove")
         save(root, customer, current)

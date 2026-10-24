@@ -2,17 +2,19 @@
 
 Presence, ownership, delegated AMS access and engine integration are separate. Public observations do not establish an authenticated connection. Access granted never implies connected. Missing tags do not prove no account; unsupported means this engine has no connector. Email-provider clues are not a full software inventory; Microsoft 365 and Google Workspace can coexist. WP-CLI is tooling requiring server access, not an account.
 
-| Platform / website / location | Presence | Ownership | AMS access | Engine integration | Last operational verification | Next action / responsible |
-| --- | --- | --- | --- | --- | --- | --- |
+Unless stated otherwise: ownership **unconfirmed**, AMS access **not_requested**, engine integration **unsupported**, operational verification **Not tested**. Next actions and responsible parties follow in the customer action list.
+
+| Platform / website / location | Presence and exceptions to the defaults above |
+| --- | --- |
 {% for r in data.systems_register %}
-| {{ r.label | text }}<br>{{ r.site | text or 'Customer-wide; website unspecified' }} {{ r.location | text }} | {{ r.presence | text }} | {{ r.ownership | text }} | {{ r.ams_access | text }} | {{ r.integration | text }} | {{ r.operational_verification.get('date', 'Not tested') | text }}<br>{{ r.operational_verification.get('tested', '') | text }} | {{ r.next_action | text }}<br>{{ r.responsible | text }}{% if r.needs_review %}<br>**Needs review: conflicting evidence**{% endif %} |
+| {{ r.label | text }}<br>{{ r.site | text or 'Customer-wide; website unspecified' }} {{ r.location | text }} | Presence: {{ r.presence | text }}{% if r.ownership != 'unconfirmed' %}; ownership: {{ r.ownership | text }}{% endif %}{% if r.ams_access != 'not_requested' %}; AMS access: {{ r.ams_access | text }}{% endif %}{% if r.integration != 'unsupported' %}; integration: {{ r.integration | text }}{% endif %}{% if r.operational_verification %}<br>Verification: {{ r.operational_verification.get('date', 'Not tested') | text }} — {{ r.operational_verification.get('tested', '') | text }}{% endif %}{% if r.needs_review %}<br>**Needs review: conflicting evidence**{% endif %} |
 {% endfor %}
 
 ### Register evidence: public observations and manual/customer records
 
 {% for r in data.systems_register %}
-{% for e in r.evidence if e.basis not in ['authorised connection', 'authorised connection attempt'] %}
-- **{{ r.label | text }}** ({{ r.site | text }} {{ r.location | text }}): {{ e.date | text }}; {{ e.method | text }}; {{ e.reference | text }}. Identifier: {{ e.identifier | text or 'not recorded' }}. {{ e.tested | text }} {{ e.note | text }}
+{% for e in r.evidence | register_observations if e.basis not in ['authorised connection', 'authorised connection attempt'] %}
+- **{{ r.label | text }}** ({{ r.site | text }} {{ r.location | text }}): {{ e.method | text }}. {% for c in e.citations %}{{ c.date | text }}: {{ c.reference | text }}{{ '; ' if not loop.last }}{% endfor %}. Identifier: {{ e.identifier | text or 'not recorded' }}. {{ e.tested | text }} {{ e.note | text }}
 {% endfor %}
 {% for c in r.conflicts %}
 - **Needs review — {{ r.label | text }}**: {{ c.field | text }} retained {{ c.retained | text }}; {{ c.source | text }} observed {{ c.observed | text }} on {{ c.date | text }}.
@@ -31,6 +33,6 @@ Presence, ownership, delegated AMS access and engine integration are separate. P
 
 Find existing accounts → confirm customer control → request named, revocable, least-privilege delegated access. Recovery/claiming or creation needs evidence of the problem or confirmed absence and customer agreement. Keep accounts and recovery methods customer-owned. Never request passwords, tokens or secrets. No automatic registration, publishing, purchasing, installation or migration is authorised by this list.
 
-{% for r in data.systems_register %}
-{{ loop.index }}. **{{ r.label | text }}** ({{ r.site | text }} {{ r.location | text }}): {{ r.next_action | text }} Responsible: {{ r.responsible | text }}.
+{% for group in data.systems_register | register_actions %}
+{{ loop.index }}. {{ group.action | text }} Responsible: {{ group.responsible | text }}. Applies to: {% for scope, labels in group.scopes.items() %}**{{ labels | join('; ') | text }}** ({{ scope[0] | text or 'Customer-wide' }} {{ scope[1] | text }}){{ '; ' if not loop.last }}{% endfor %}.
 {% endfor %}

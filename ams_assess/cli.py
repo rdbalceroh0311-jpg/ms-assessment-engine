@@ -158,7 +158,9 @@ def main(argv: list[str] | None = None) -> int:
     edit.add_argument("--customer", required=True)
     edit.add_argument("--platform", required=True, choices=register.PLATFORMS)
     edit.add_argument("--site", help="Existing website scope; omitted/empty reuses a sole entry")
-    edit.add_argument("--location", default="", help="Select an existing location scope")
+    edit.add_argument(
+        "--location", default="", help="Location scope; a new nonempty value creates it"
+    )
     remove = register_sub.add_parser("remove", help="Remove an exact scoped row; retain history")
     remove.add_argument("--customer", required=True)
     remove.add_argument("--platform", required=True, choices=register.PLATFORMS)

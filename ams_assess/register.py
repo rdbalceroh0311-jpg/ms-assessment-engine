@@ -252,10 +252,8 @@ def edit_scope(store, platform, site, location):
         if site is not None and site_key(e["site"]) == site_key(site) and e["location"] == location
     ]
     located = [e for e in candidates if location and e["location"] == location]
-    if len(entries) > 1 and site and location and not (exact or located):
-        # Multi-scope registers can still add an explicitly named site/location pair.
-        return site, location
-    matches = exact or located or candidates
+    # A supplied location must match or create that location; never silently discard it.
+    matches = exact or located or ([] if location else candidates)
     if len(matches) == 1:
         return matches[0]["site"], matches[0]["location"]
     if len(matches) > 1:
@@ -263,7 +261,9 @@ def edit_scope(store, platform, site, location):
             raise ValueError("Several websites match this platform; specify --site and --location")
         raise ValueError("Several entries match this platform; specify --site and --location")
     if site is None:
-        sites = list(dict.fromkeys(e["site"] for e in registry(store)["entries"] if e["site"]))
+        sites = list(dict.fromkeys(e["site"] for e in entries)) or list(
+            dict.fromkeys(e["site"] for e in registry(store)["entries"] if e["site"])
+        )
         if len(sites) > 1:
             raise ValueError("Several websites are recorded; specify --site")
         site = sites[0] if sites else ""

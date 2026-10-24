@@ -3,7 +3,7 @@
 {% macro infrastructure_section() %}
 {% set latest = namespace(sites={}) %}
 {% for e in evidence if e.source == 'domain_email' and e.data is mapping and e.data.get('infrastructure') %}
-{% set _ = latest.sites.update({e.url: e}) %}
+{% set _ = latest.sites.update({e.url | site_key: e}) %}
 {% endfor %}
 {% for e in latest.sites.values() %}
 #### Infrastructure attribution: {{ e.url | text }}
@@ -21,7 +21,7 @@ Labels in this block: **CONFIRMED** means customer-confirmed; **OBSERVED** means
 {% macro performance_section() %}
 {% set latest = namespace(sites={}) %}
 {% for e in evidence if e.source == 'performance' and e.data is mapping and e.data.get('performance') %}
-{% set _ = latest.sites.update({e.url: e}) %}
+{% set _ = latest.sites.update({e.url | site_key: e}) %}
 {% endfor %}
 {% for e in latest.sites.values() %}
 {% set p = e.data.performance %}
@@ -105,7 +105,7 @@ Comparison evidence: {{ row.before_evidence_id }} → {{ row.after_evidence_id }
 {# Site checks: self-contained additive block; stored evidence survives customer report merges. #}
 {% set site = namespace(rows={}) %}
 {% for e in evidence if e.source == 'site_checks' and e.data is mapping and e.data.get('site_check') %}
-{% set _ = site.rows.update({(e.url, e.data.site_check): e}) %}
+{% set _ = site.rows.update({(e.url | site_key, e.data.site_check): e}) %}
 {% endfor %}
 {% if site.rows %}
 ### Website checks: status and evidence
@@ -114,10 +114,8 @@ Each row describes the sampled evidence. NOT ASSESSED means evidence is unavaila
 
 Checks with findings are described in their finding blocks; the remaining checks are listed here.
 
-| Check / evidence | Status | What was checked | Why it matters | Recommended correction |
-| --- | --- | --- | --- | --- |
 {% for e in site.rows.values() if (e.url, e.data.site_check) not in represented_site_checks %}
-| {{ e.data.area | text }} ({{ e.id }})<br>{{ e.url | text }} | {{ e.data.status }} | {{ e.data.checked | text }} | {{ e.data.why | text }} | {{ e.data.recommendation | text }} |
+- **{{ e.data.area | text }} — {{ e.data.status }}** ({{ e.id }}; {{ e.url | text }}). Checked: {{ e.data.checked | text }} Why it matters: {{ e.data.why | text }} Recommended correction: {{ e.data.recommendation | text }}
 {% endfor %}
 
 Crawler-policy detail (training restrictions are customer choices):
@@ -143,7 +141,16 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 
 **Importance:** {{ finding.severity }} | **Priority:** {{ finding.priority }} | **Urgency:** {{ finding.urgency | text }} | **Type:** {{ finding.kind }}
 
+{% set members = finding_members[finding.id] %}
+{% if members | length > 1 %}
+**Observed / reported:** {{ members | length }} affected page/viewport findings for this rule:
+
+{% for member in members %}
+- {{ member.component | text }} ({{ member.id }}): {% if member.title != finding.title %}{{ member.title | text }} — {% endif %}{{ member.detail | text }} Evidence: {{ member.evidence_ids | join(', ') }}.
+{% endfor %}
+{% else %}
 **Observed / reported:** {{ finding.detail | text }}
+{% endif %}
 
 **Potential business impact (interpretation, not measured):** {{ finding.business_impact | text }}
 
@@ -154,24 +161,18 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 
 {% endif %}
 **AMS service category:** {{ finding.ams_service | text }}
+**Dependencies:** {{ 'Standard requirements (section 2)' if finding.dependencies == standard_dependencies else finding.dependencies | join('; ') | text or 'Confirm dependencies with the system owner' }}.
+**Information still required:** {{ 'Standard requirements (section 2)' if finding.information_required == standard_information else finding.information_required | join('; ') | text or 'Confirm scope and access with the customer' }}.
 
-**Dependencies:** {{ finding.dependencies | join('; ') | text or 'Confirm dependencies with the system owner' }}.
-
-**Information still required:** {{ finding.information_required | join('; ') | text or 'Confirm scope and access with the customer' }}.
-
-{% if finding.urls %}
+{% if finding.urls and members | length == 1 %}
 **Affected URLs:** {{ finding.urls | join('; ') | text }}
 
 {% endif %}
-**Source:** {% for eid in finding.evidence_ids %}{{ sources[eid] | text }} ({{ eid }}){{ '; ' if not loop.last }}{% endfor %}.
-
-**Evidence:** {{ finding.evidence_ids | join(', ') }}
+**Source:** {% if members | length > 1 %}{{ finding.evidence_ids | map('source_name') | unique | join(', ') | text }}; individual evidence references are listed with each component above.{% else %}{% for eid in finding.evidence_ids %}{{ sources[eid] | text }} ({{ eid }}){{ '; ' if not loop.last }}{% endfor %}.{% endif %}
 {% endmacro %}
 {% macro platform_table(rows) %}
-| Platform | Status | Connection readiness | Evidence | Recommended next action |
-| --- | --- | --- | --- | --- |
 {% for r in rows %}
-| {{ r.platform | text }}{% if r.ids %} ({{ r.ids | join(', ') | text }}){% endif %} | {{ r.status | text }} | {{ r.connected | text }} | {{ r.detail | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %} | {{ r.action | text }} |
+- **{{ r.platform | text }} — {{ r.status | text }}**{% if r.ids %} ({{ r.ids | join(', ') | text }}){% endif %}. Connection readiness: {{ r.connected | text }}. {{ r.detail | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %}. Next action: {{ r.action | text }}
 {% endfor %}
 {% endmacro %}
 {% macro category_section(category, title) %}
@@ -188,7 +189,7 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 {{ infrastructure_section() }}
 {% endif %}
 {% if category == 'domain_email' and data.get('domain_email_health') %}
-{% for health in data.get('domain_email_health_sites') or [data.domain_email_health] %}
+{% for health in health_sites %}
 #### Domain, DNS & Email Health summary{% if health.get('target') %}: {{ health.target | text }} (run {{ health.run_id }}){% endif %}
 
 
@@ -251,7 +252,7 @@ This report connects the evidence to practical decisions about your business. A 
 {% if ai.get('executive_summary') %}
 {{ ai.executive_summary | text }}
 {% else %}
-The assessment recorded {{ findings | length }} findings supported by collected evidence or customer statements. The recommendations below prioritise the observed or reported issues. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
+The assessment recorded {{ finding_count }} findings supported by collected evidence or customer statements, presented as {{ findings | length }} issues below. Repeated page/viewport observations of the same rule share one recommendation; their individual IDs and evidence remain listed. Unavailable checks remain listed as limitations and must not be interpreted as a clean bill of health.
 {% endif %}
 
 > No ranking, traffic, lead or revenue guarantees. AI-search readiness is not measured AI visibility. This technical assessment is a limited, point-in-time sample, not a full security, accessibility or operational audit. Potential impacts and likely causes require verification.
@@ -262,6 +263,10 @@ Basis labels: **Confirmed (technical evidence)** means directly observed; **Manu
 
 The table explains what ran and where evidence was unavailable. Results apply only to the website, date and sample shown; they do not establish account ownership or complete coverage.
 
+{% if findings %}
+**Standard requirements:** Where a finding refers to these requirements, its dependencies are {{ standard_dependencies | join('; ') | text or 'confirmation with the system owner' }}. Information still required: {{ standard_information | join('; ') | text or 'confirm scope and access with the customer' }}. Finding-specific exceptions are stated with each issue.
+
+{% endif %}
 {% if data.get('coverage') %}
 | Website / run | Date (UTC) | Successful HTML pages / crawl URL budget | Run outcome |
 | --- | --- | --- | --- |
@@ -282,37 +287,69 @@ The table explains what ran and where evidence was unavailable. Results apply on
 
 Limits: {{ coverage.limits | text }}. Collection stopped: {{ coverage.stop_reasons | join('; ') | text }}.
 
-| Known URL | Discovery source | SiteOne crawled | Browser tested |
-| --- | --- | --- | --- |
-{% for url in coverage.discovered %}
-| {{ url.url | text }} | {{ url.sources | join(', ') | text }} | {{ 'Yes' if url.url in coverage.crawled else 'No' }} | {{ 'Yes' if url.url in coverage.browser_tested else 'No' }} |
+{% for group in coverage | coverage_groups %}
+**Known URLs — Source: {{ group.sources | join(', ') | text }}; SiteOne crawled: {{ 'Yes' if group.crawled else 'No' }}; browser tested: {{ 'Yes' if group.tested else 'No' }}{% if group.untested %}; untested in browser{% endif %}{% if group.unreached %}; sitemap not reached{% endif %}.**
+
+{% for origin, links in (group.urls | url_groups).items() %}
+{{ origin | text }}: {% for path, url in links %}{{ path | link(url) }}{{ '; ' if not loop.last }}{% endfor %}.
+
 {% endfor %}
 
-Untested in browser: {{ coverage.untested | join('; ') | text or 'None among the known URLs' }}.
+{% endfor %}
 
-Sitemap URLs not reached: {{ coverage.sitemap_not_reached | join('; ') | text or 'None among the known sitemap URLs' }}.
+Untested in browser: {{ coverage.untested | length }} URLs (see coverage above){% for url in coverage.untested if url not in coverage.discovered | map(attribute='url') %}; {{ url | text }}{% endfor %}.
+
+Sitemap URLs not reached: {{ coverage.sitemap_not_reached | length }} (marked above){% for url in coverage.sitemap_not_reached if url not in coverage.discovered | map(attribute='url') %}; {{ url | text }}{% endfor %}.
 
 Robots sitemap declarations: {{ coverage.robots_declarations | join('; ') | text or 'None recorded' }}.
 
 Sitemaps: {{ coverage.sitemaps | text }}.
 
-Excluded: {{ coverage.excluded | text }}. Blocked: {{ coverage.blocked | text }}. Failed: {{ coverage.failed | text }}. Redirected: {{ coverage.redirected | text }}.
+Excluded: {% for group in coverage.excluded | counted_rows %}{{ group.count }} × {{ group.row | text }}{{ '; ' if not loop.last }}{% else %}None{% endfor %}. Blocked: {{ coverage.blocked | text }}. Failed: {{ coverage.failed | text }}. Redirected: {{ coverage.redirected | text }}.
 
 WordPress inventory: {{ coverage.wordpress.status | text }} — {{ coverage.wordpress.reason | text }}.
 
 {% endif %}
 {% endfor %}
-{% if lifecycle_findings %}
+{% if earlier_presence or earlier_health %}
+### Earlier website summaries
+
+The detailed presence and domain-health summaries below use the latest run for each website (www/apex aliases share a website). Earlier findings remain in the lifecycle history; all evidence IDs remain in the appendix. Earlier summary coverage and limitations:
+
+{% for p in earlier_presence %}
+- {{ p.target | text }} ({{ p.run_id }}): public presence {{ p.status | text }}; {{ p.pages_sampled | length }} sampled pages. {{ p.get('reason', '') | text }}{% if p.get('discovery') %} Independent discovery: {{ p.discovery.status | text }}. {{ p.discovery.reason | text }}{% endif %}
+{% for note in p.notes if note not in presence_sites | map(attribute='notes') | sum(start=[]) %}
+  {{ note | text }}
+{% endfor %}
+{% if p.get('discovery') %}
+{% for note in p.discovery.notes %}
+  {{ note | text }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% for health in earlier_health %}
+- Domain health: {{ health.target | text }} ({{ health.run_id }}).{% for note in health.limitations if note not in health_sites | map(attribute='limitations') | sum(start=[]) %} {{ note | text }}{% endfor %}
+{% for row in health.rows %}
+{% for check in row.checks if check.status == 'NOT ASSESSED' %}
+  {{ row.area | text }} / {{ check.name | text }}: {{ check.status }} — {{ check.detail | text }}. Evidence: {{ check.evidence_ids | join(', ') }}.
+{% endfor %}
+{% endfor %}
+{% endfor %}
+
+{% endif %}
+{% if technical_count %}
 ### Technical finding lifecycle
 
 **Current** findings are listed in the relevant sections and recommendations below.
 
-| State | Finding / site / component | Last observed | Resolution evidence / date / run |
-| --- | --- | --- | --- |
+{% if lifecycle_findings %}
+| State | Finding / site / component / observation |
+| --- | --- |
 {% for f in lifecycle_findings %}
-| {{ {'current': 'Current', 'resolved': 'Resolved', 'not_rechecked': 'Previously observed — not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | {{ f.title | text }} ({{ f.id }})<br>{{ lifecycle_domains[f.id] | text }} / {{ f.component | text }} | {{ f.last_observed | text or 'This run' }} ({{ f.evidence_ids | join(', ') }}) | {% if f.resolution %}{{ f.resolution.evidence_ids | join(', ') }} / {{ f.resolution.date | text }} / {{ f.resolution.run_id }}{% else %}—{% endif %} |
+| {{ {'resolved': 'Resolved', 'not_rechecked': 'Previously observed — not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | **{{ f.title | text }}**{% for member in lifecycle_members[f.id] %}<br>{{ member.id }}: {{ lifecycle_domains[member.id] | text }} / {{ member.component | text }}{% if member.title != f.title %} — {{ member.title | text }}{% endif %}{% endfor %}<br>Last observed: {% for date, rows in lifecycle_members[f.id] | groupby('last_observed') %}{{ date | text or 'This run' }}: {{ rows | map(attribute='evidence_ids') | sum(start=[]) | unique | join(', ') }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% for member in lifecycle_members[f.id] if member.resolution %}<br>Resolution ({{ member.id }}): {{ member.resolution.evidence_ids | join(', ') }} / {{ member.resolution.date | text }} / {{ member.resolution.run_id }}{% endfor %} |
 {% endfor %}
 
+{% endif %}
 {% endif %}
 | Source / website / date | Status | Coverage or limitation |
 | --- | --- | --- |
@@ -404,10 +441,8 @@ These observations help you confirm where customers can find the business. A lik
 {% if p %}
 ### Business listings linked from the website
 
-| Listing | Status | Source | Evidence URL | Ownership | Evidence |
-| --- | --- | --- | --- | --- | --- |
 {% for r in p.listings %}
-| {{ r.listing | text }} | {{ r.status | text }} | {{ r.sources | join(', ') | text or '-' }} | {{ r.urls | join('; ') | text or '-' }} | {{ r.ownership | text }} | {{ r.evidence_ids | join(', ') or '-' }} |
+- **{{ r.listing | text }} — {{ r.status | text }}**. Source: {{ r.sources | join(', ') | text or '-' }}. Evidence URL: {{ r.urls | join('; ') | text or '-' }}. Ownership: {{ r.ownership | text }}. Evidence: {{ r.evidence_ids | join(', ') or '-' }}.
 {% endfor %}
 
 {% set d = p.get('discovery') %}
@@ -422,10 +457,10 @@ Independent search: **{{ d.status | text }}**{% if d.reason %} ({{ d.reason | te
 > {{ note | text }}
 
 {% endfor %}
-| Relevance | Platform | State | Candidate profiles and match evidence | Detail | Evidence |
-| --- | --- | --- | --- | --- | --- |
+| Platform / relevance / state | Candidate profiles, match evidence and detail |
+| --- | --- |
 {% for r in d.platforms | discovery_rows %}
-| {{ r.relevance | text }} | {{ r.platform | text }} | {{ r.state | text }}{% if r.get('manual') %} (manual verification {{ r.manual.date | text }} by {{ r.manual.verified_by | text }}; automated: {{ r.automated_state | text }}){% endif %} | {% for c in r.candidates %}{{ c.url | text }} [{{ c.matched | join(', ') | text }}{% if c.score is not none %}; score {{ c.score }}{% endif %}]{% if not loop.last %}; {% endif %}{% else %}-{% endfor %} | {{ r.detail | text }}{% if r.get('manual') and r.manual.note %} Manual note: {{ r.manual.note | text }}{% endif %} | {{ r.evidence_ids | join(', ') }} |
+| {{ r.platform | text }} ({{ r.relevance | text }})<br>{{ r.state | text }}{% if r.get('manual') %} (manual verification {{ r.manual.date | text }} by {{ r.manual.verified_by | text }}; automated: {{ r.automated_state | text }}){% endif %} | {% for c in r.candidates %}{{ c.url | text }} [{{ c.matched | join(', ') | text }}{% if c.score is not none %}; score {{ c.score }}{% endif %}]; {% endfor %}{{ r.detail | text }}{% if r.get('manual') and r.manual.note %} Manual note: {{ r.manual.note | text }}{% endif %} Evidence: {{ r.evidence_ids | join(', ') }} |
 {% endfor %}
 
 {% if d.queries %}
@@ -600,7 +635,7 @@ A successful connection means evidence was returned for this sample. Unsupported
 Manual verification tasks (record results with `ams-assess presence-verify`):
 
 {% for t in d.manual_tasks %}
-{{ loop.index }}. **{{ t.platform | text }}** ({{ t.relevance | text }}): {{ t.action | text }}. Search: {{ t.query | text }} ({{ t.url | text }}){% if t.candidates %}; candidates: {{ t.candidates | join('; ') | text }}{% endif %}.
+{{ loop.index }}. **{{ t.platform | text }}** ({{ t.relevance | text }}): {{ t.action | text }}. Search: {{ t.query | link(t.url) }}{% if t.candidates %}; candidates: {{ t.candidates | join('; ') | text }}{% endif %}.
 {% endfor %}
 
 {% endif %}
@@ -637,8 +672,7 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 
 The machine-readable evidence.json retains the observed snippets and links to raw source artefacts. Evidence IDs below are the stable references used throughout this report.
 
-| Evidence ID | Source | Observation | URL |
-| --- | --- | --- | --- |
-{% for e in evidence %}
-| {{ e.id }} | {{ e.source | text }} | {{ e.description | text }}{% if e.provenance != 'technical_evidence' %} ({{ e.provenance | replace('_', ' ') }}){% endif %} | {{ e.url | text }} |
+{% for group in evidence_index %}
+**{{ group.source | text }} — {{ group.description | text }}**{% if group.provenance != 'technical_evidence' %} ({{ group.provenance | replace('_', ' ') }}){% endif %}: {% for url, ids in group.urls.items() %}{{ url | text }}: {{ ids | join(', ') }}{{ '; ' if not loop.last }}{% endfor %}.
+
 {% endfor %}

@@ -688,9 +688,12 @@ def test_customer_status_rows_preserve_separate_target_attribution(tmp_path, mon
     render_customer(tmp_path, "test", {"md"})
     report = (tmp_path / "test/report.md").read_text()
     table = report.split("### Website checks: status and evidence", 1)[1]
-    assert table.count("| Core Web Vitals (field p75)") == 2
-    assert "<br>https://example.com/ |" in table
-    assert "<br>https://second.example.test/ |" in table
+    rows = [line for line in table.splitlines() if line.startswith("- **Core Web Vitals")]
+    assert len(rows) == 2
+    for row, target in zip(
+        rows, ("https://example.com/", "https://second.example.test/"), strict=True
+    ):
+        assert target in row and "ev-site_checks-" in row
 
 
 @pytest.mark.parametrize(
