@@ -15,6 +15,7 @@ from typing import Any
 from ams_assess import register, store
 from ams_assess.connectors import REGISTRY
 from ams_assess.connectors.auth import config_dir, reference_name
+from ams_assess.connectors.connected import connected_evidence
 from ams_assess.connectors.core import (
     ConnectorContext,
     ConnectorError,
@@ -177,7 +178,7 @@ def prepare(
     transport=None,
     public_evidence: list[Evidence] | None = None,
     public_findings: list[dict] | None = None,
-    seconds: float = 45,
+    seconds: float | None = None,
     fallback_websites: list[str] | None = None,
 ) -> tuple[ModuleResult, dict[str, Any]]:
     spec = connector(key)
@@ -208,6 +209,7 @@ def prepare(
         public_evidence=tuple(
             EvidenceView.of(e) for e in latest_public_evidence(current, public_evidence)
         ),
+        connected_evidence=connected_evidence(current, key, {*REGISTRY, "gsc"}, public_evidence),
         public_findings=public_findings
         if public_findings is not None
         else current.get("findings", []),
@@ -405,7 +407,8 @@ def execute(root: Path, customer: str, key: str, **kwargs) -> dict[str, Any]:
         data,
         result.evidence,
         "connector-" + uuid.uuid4().hex,
-        ["connected"],
+        ["connected"] if state["status"] in {"connected", "connected_partial"} else [],
+        lifecycle_sources=frozenset({key}),
     )
     return saved["connectors"][key]
 

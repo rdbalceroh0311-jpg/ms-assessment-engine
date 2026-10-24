@@ -13,13 +13,28 @@ SENSITIVE = re.compile(
 )
 EMAIL = re.compile(r"[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@([A-Z0-9.-]+\.[A-Z]{2,})", re.I)
 TOKEN = re.compile(r"\b(?:ya29\.[\w.-]+|Bearer\s+\S+|eyJ[\w.-]+)", re.I)
+QUOTA_COUNTERS = {"tokensPerDay", "tokensPerHour", "tokensPerMinute", "tokensPerProjectPerHour"}
+
+
+def sensitive_key(key: str, value: Any) -> bool:
+    # Quota counters use the word 'tokens' but contain only consumed/remaining counts.
+    # Never exempt strings, extra fields or an actual secret disguised as a quota counter.
+    if (
+        key in QUOTA_COUNTERS
+        and isinstance(value, Mapping)
+        and bool(value)
+        and value.keys() <= {"consumed", "remaining"}
+        and all(type(count) is int and count >= 0 for count in value.values())
+    ):
+        return False
+    return SENSITIVE.search(key) is not None
 
 
 def redact(value: Any, secrets: tuple[str, ...] = ()) -> Any:
     if isinstance(value, Mapping):
         return {
             str(k): "[redacted]"
-            if SENSITIVE.search(str(k)) and k != "credential_ref"
+            if sensitive_key(str(k), v) and k != "credential_ref"
             else redact(v, secrets)
             for k, v in value.items()
         }

@@ -22,12 +22,21 @@ class ReadClient:
         auth: AuthMaterial,
         *,
         transport=None,
-        seconds: float = 45,
-        max_requests: int = 80,
+        seconds: float | None = None,
+        max_requests: int | None = None,
     ):
         self.connector, self.auth = connector, auth
-        self.deadline = time.monotonic() + seconds
-        self.max_requests, self.requests = max_requests, 0
+        self.deadline = time.monotonic() + (
+            connector.collection_seconds
+            if seconds is None
+            else min(seconds, connector.collection_seconds)
+        )
+        self.max_requests = (
+            connector.max_requests
+            if max_requests is None
+            else min(max_requests, connector.max_requests)
+        )
+        self.requests = 0
         if transport is None and connector.transport_factory:
             transport = connector.transport_factory(auth)
         self.client = httpx.Client(transport=transport, follow_redirects=False, trust_env=False)
@@ -71,7 +80,7 @@ class ReadClient:
             raise ConnectorError("failed", "Read transport options are not allowlisted")
         host = urlsplit(url).hostname or ""
         if host in self.quota_exhausted:
-            raise ConnectorError("provider_unavailable", "Provider quota exhausted; retry later")
+            raise ConnectorError("rate_limited", "Provider quota exhausted; retry later")
         failure = ErrorClassification(
             "provider_unavailable", "Provider unavailable after bounded retries"
         )
