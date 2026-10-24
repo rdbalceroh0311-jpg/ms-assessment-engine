@@ -358,6 +358,7 @@ class Context:
     inventory: dict[str, Any] = field(default_factory=dict)
     # Website redirects must never change the requested domain/store identity.
     resolved_url: str = ""
+    connector_results: dict[str, Any] = field(default_factory=dict)
 
     @property
     def site_url(self) -> str:

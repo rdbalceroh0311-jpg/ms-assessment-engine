@@ -289,7 +289,7 @@ NOTES = [
     "Google Business Profile existence is looked up only through the DataForSEO Google Maps "
     "SERP when a USD cap is set; otherwise its status needs manual verification.",
     "Readiness rows describe what authorised access would add; only existing integrations "
-    "(Search Console) can be connected by this engine.",
+    "(Search Console and GA4) can be connected by this engine.",
 ]
 
 
@@ -549,6 +549,9 @@ def dns_evidence(domain: ModuleResult | None) -> dict[str, tuple[str, dict[str, 
 
 
 def gsc_state(ctx: Context, gsc: ModuleResult | None) -> tuple[str, list[str], str]:
+    if state := ctx.connector_results.get("gsc"):
+        # Framework evidence has its own section-7 schema; do not render it as legacy raw GSC.
+        return state["status"], [], state.get("resource_id", "")
     if gsc and gsc.status == "ok" and gsc.evidence:
         data = gsc.evidence[0].data if isinstance(gsc.evidence[0].data, dict) else {}
         prop = str(data.get("property", ""))
@@ -1313,6 +1316,15 @@ def build(
     }
     if discovery is not None:
         tables["discovery"] = discovery
+    from ams_assess.connectors.service import project_presence, rows
+
+    # Legacy GSC keeps its existing status unless an explicit framework binding was used.
+    connector_rows = [
+        r
+        for r in rows({"connectors": ctx.connector_results})
+        if r["key"] != "gsc" or r["key"] in ctx.connector_results
+    ]
+    project_presence(tables, connector_rows)
     return tables
 
 

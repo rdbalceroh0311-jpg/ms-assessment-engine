@@ -10,6 +10,11 @@ th:nth-child(2),th:nth-child(3),th:nth-child(4),th:nth-child(5){min-width:7rem}
 label{display:inline-block;margin:.5rem}input,select,button{padding:.5rem;max-width:100%}
 details{background:white;padding:.8rem;margin:.7rem 0}summary{cursor:pointer;font-weight:600}
 .scroll{overflow-x:auto}.review{color:#8b3d09}.muted{color:#425867}
+.connector-table{table-layout:fixed;min-width:1200px}
+.connector-table th{min-width:0}.connector-table th:nth-child(1){width:11%}
+.connector-table th:nth-child(2){width:12%}.connector-table th:nth-child(3){width:10%}
+.connector-table th:nth-child(4){width:14%}.connector-table th:nth-child(5){width:15%}
+.connector-table th:nth-child(6){width:23%}.connector-table th:nth-child(7){width:15%}
 </style></head><body><main>
 <h1>AMS customer review</h1>
 <p>Review saved assessments and record manual observations. Run assessments and regenerate reports in the CLI.</p>
@@ -30,6 +35,19 @@ details{background:white;padding:.8rem;margin:.7rem 0}summary{cursor:pointer;fon
 {% for module in run.get('modules', []) %}<p>{{ module.name }}: {{ module.status }} · {{ module.reason }}</p>{% endfor %}
 {% for path in files %}{% if run.get('run_dir') and path.startswith(run.run_dir + '/') and '/report.' in path %}<a href="{{ url('/file', customer=customer, path=path) }}">{{ path }}</a> {% endif %}{% endfor %}
 </details>{% endfor %}
+<h2 id="connectors">Bound connectors</h2>
+<p>Select a credential reference name and resource ID. Authorise in the CLI. Collections read a bounded period and preserve endpoint failures.</p>
+<div class="scroll"><table class="connector-table"><thead><tr><th>Connector</th><th>Selected resource</th><th>Access status</th><th>Connection status</th><th>Last successful collection</th><th>Coverage</th><th>Next action</th></tr></thead><tbody>
+{% for row in connectors %}<tr><td>{{ row.label }}</td><td>{{ row.resource or 'Not bound' }}</td><td>{{ row.access }}</td><td>{{ row.status }}{% if row.detail %}<details><summary>Read details</summary>{{ row.detail }}</details>{% endif %}</td><td>{{ row.last_successful_collection }}<br>Last attempt: {{ row.last_collection }}</td><td>{{ row.coverage_text }}</td><td>{{ row.next_action }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% for row in connectors %}<details><summary>{{ row.label }} controls</summary>
+<form method="post" action="{{ url('/connect') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="customer" value="{{ customer }}"><input type="hidden" name="connector" value="{{ row.key }}">
+<label>Credential reference (name only) <input name="credential_ref" value="{{ row.credential_ref }}" maxlength="48" pattern="[a-z][a-z0-9-]{0,47}"></label>
+<label>Resource ID <input name="resource" value="{{ row.resource }}" maxlength="200"></label>
+<label>Complete days <input type="number" name="days" value="28" min="1" max="366"></label>
+<button name="action" value="reference">Set reference</button><button name="action" value="bind">Bind resource</button><button name="action" value="test">Test connection</button><button name="action" value="collect">Collect</button>
+</form></details>{% endfor %}
 <h2 id="register">Systems, presence and access register</h2>
 <p>Public profiles do not establish account control. Access granted does not mean connected. Missing public tags do not mean no account. Unsupported means no engine connector. Email routing is not a software inventory; Workspace and Microsoft 365 can coexist.</p>
 <div class="scroll"><table><thead><tr><th>Platform / scope</th><th>Presence</th><th>Ownership</th><th>AMS access</th><th>Engine integration</th><th>Last operational check</th><th>Next action</th></tr></thead><tbody>

@@ -546,16 +546,35 @@ These checks concern the technical services behind the website and email. DNS is
 {{ category_section(category, title) }}
 {% endfor %}
 {% endif %}
-{% if connected_evidence %}
+{% if connected_evidence or connector_rows %}
 ## 7. Connected business-system findings
 
-The evidence below came from authorised access, separate from public website checks. It describes the returned sample and reporting period, not a complete account audit.
+Connector status and any returned evidence are separate from public website checks. Failed reads do not establish access or absence of data. Successful reads describe the returned sample and reporting period, not a complete account audit.
+
+{% for row in connector_rows %}
+### {{ row.label | text }} — {{ row.status | text }}
+
+Selected resource: {{ row.resource or 'Not bound' | text }}. Access status: {{ row.access | text }}. Reporting period: {{ row.period.get('start', 'Not collected') | text }} to {{ row.period.get('end', 'Not collected') | text }}. Last successful collection: {{ row.last_successful_collection | text }}.
+
+Coverage: {{ row.coverage_text | text }}. {{ row.detail | text }}. Next action: {{ row.next_action | text }}.
+
+{% for item in row.coverage %}- {{ item.endpoint | text }}: {{ item.status | text }}; {{ item.rows }} rows{% if item.truncated %}; truncated or sampled{% endif %}. Evidence: {{ item.evidence_id }}.
+{% endfor %}
+{% endfor %}
 
 {% for e in connected_evidence %}
 {% set record = e.data if e.data is mapping else {} %}
+{% if record.get('connector') %}
+**{{ e.source | text }} — {{ record.status | text }}:** resource {{ record.resource_id | text }}; {{ record.operation | text }}; {{ record.period.start | text }} to {{ record.period.end | text }}; {{ record.coverage.rows_returned }} rows{% if record.coverage.truncated %}, truncated/sampled{% endif %}. Collected {{ record.collected_at | text }}. Evidence: {{ e.id }}.
+
+{% for comparison in record.get('data', {}).get('public_comparisons', []) %}
+{{ comparison.detail | text }} Measurement ID: {{ comparison.measurement_id | text }}. Public evidence: {{ comparison.evidence_ids | join(', ') }}. Related findings: {{ comparison.related_finding_ids | join(', ') | text }}.
+{% endfor %}
+{% else %}
 **Confirmed (technical evidence) — {{ e.source | text }}:** {{ e.description | text }}. Website: {{ e.url | text }}. Property: {{ record.get('property', 'Not recorded') | text }}. Reporting period: {{ record.get('start_date', 'Not recorded') | text }} to {{ record.get('end_date', 'Not recorded') | text }}. Evidence: {{ e.id }}.
 
-{% if e.source == 'gsc' %}
+{% endif %}
+{% if e.source == 'gsc' and not record.get('connector') %}
 Returned sample: {{ record.get('query', {}).get('rows', []) | length }} query rows; {{ record.get('page', {}).get('rows', []) | length }} page rows; {{ record.get('sitemaps', {}).get('sitemap', []) | length }} submitted sitemap records. Top rows only, with reporting delay and possible omission of low-volume queries. These are not separate AI-visibility measurements.
 
 {% endif %}

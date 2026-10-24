@@ -10,12 +10,14 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import parse_qsl, unquote, urlsplit
 
+from ams_assess.connectors import REGISTRY as CONNECTORS
 from ams_assess.lifecycle import site_key
 from ams_assess.modules.presence import EMAIL_PLATFORMS, SIGNATURES
 from ams_assess.platforms import BY_KEY, NA, prioritised
 
 SIGNAL_KEYS = {k: f"{k}_tag" if k in BY_KEY else k for k in SIGNATURES}
 PLATFORMS = {
+    **{key: spec.label for key, spec in CONNECTORS.items()},
     **{k: p.label for k, p in BY_KEY.items()},
     **{SIGNAL_KEYS[k]: v[0] for k, v in SIGNATURES.items()},
     **{k: v[0] for k, v in EMAIL_PLATFORMS.items()},
@@ -237,6 +239,12 @@ def registry(store: dict[str, Any]) -> dict[str, Any]:
     return store.setdefault("systems_register", {"entries": [], "history": [], "processed": []})
 
 
+def default_integration(platform: str) -> str:
+    if platform == "gsc":
+        return "supported"  # Preserve the legacy, unbound GSC path.
+    return "not_configured" if platform in CONNECTORS else "unsupported"
+
+
 def entry_for(
     store: dict[str, Any], platform: str, site: str, location: str = ""
 ) -> dict[str, Any]:
@@ -260,7 +268,7 @@ def entry_for(
         "presence": "unknown",
         "ownership": "unconfirmed",
         "ams_access": "not_requested",
-        "integration": "supported" if platform == "gsc" else "unsupported",
+        "integration": default_integration(platform),
         "operational_verification": {},
         "evidence": [],
         "identifiers": [],
@@ -446,6 +454,17 @@ def refresh(store: dict[str, Any]) -> bool:
             # Legacy evidence can contain arbitrary notes. Do not copy credential-like text.
             pass
         reg["processed"].append(source)
+    # Connector state is engine-owned; replay it after public observations and manual access.
+    from ams_assess.connectors.service import project_register
+
+    for entry in reg["entries"]:
+        if entry["platform"] in CONNECTORS and entry["integration"] == "unsupported":
+            old = copy.deepcopy(entry)
+            entry["integration"] = default_integration(entry["platform"])
+            record(store, old, entry, "engine", "connector-support")
+    for key, state in store.get("connectors", {}).items():
+        if key in CONNECTORS:
+            project_register(store, key, state)
     return before != reg
 
 
@@ -518,6 +537,10 @@ def snapshot(data, evidence, previous=None):
         {**data, "run_id": "current-run", "register_snapshot": True},
         (data.get("profile") or {}).get("fields", {}),
     )
+    from ams_assess.connectors.service import project_register
+
+    for key, state in data.get("connector_results", {}).items():
+        project_register(current, key, state)
     return registry(current)["entries"]
 
 

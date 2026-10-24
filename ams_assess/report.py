@@ -17,6 +17,8 @@ from markdown.treeprocessors import Treeprocessor
 from playwright.sync_api import sync_playwright
 
 from ams_assess.ai import PHASES
+from ams_assess.connectors import REGISTRY as CONNECTORS
+from ams_assess.connectors.service import project_presence
 from ams_assess.consolidate import consolidate
 from ams_assess.discovery import DISCOVERY_SECTIONS
 from ams_assess.lifecycle import site_key
@@ -61,7 +63,17 @@ def discovery_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
     """Use collected status, with conservative fallbacks for readable pre-v1 runs."""
-    rows = []
+    rows = [
+        {
+            "key": r["key"],
+            "service": r["label"],
+            "target": data.get("target", ""),
+            "status": r["status"],
+            "detail": r["detail"],
+            "evidence_ids": [e["evidence_id"] for e in r["coverage"]],
+        }
+        for r in data.get("connector_rows", [])
+    ]
     for module in data["modules"]:
         target = module.get("target", data.get("target", ""))
         connections = module.get("connections", [])
@@ -91,23 +103,12 @@ def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
             target = p.get("target", data.get("target", ""))
             if any(c["key"] == r["key"] and c["target"] == target for c in rows):
                 continue
-            status = (
-                r["access"]
-                if r["access"]
-                in {
-                    "Connected successfully",
-                    "Permission required",
-                    "Not connected",
-                    "Not assessed",
-                }
-                else "Not assessed"
-            )
             rows.append(
                 {
                     "key": r["key"],
                     "service": r["service"],
                     "target": target,
-                    "status": status if r["key"] == "gsc" else "Unsupported",
+                    "status": r["access"] if r["key"] in {"gsc", *CONNECTORS} else "Unsupported",
                     "detail": r["insights"],
                     "evidence_ids": r["evidence_ids"],
                 }
@@ -621,7 +622,11 @@ def render_markdown(
         for e in evidence
     ):
         shown.add("performance")
-    connected_ids = {e.id for e in evidence if e.source == "gsc"}
+    connected_ids = {
+        e.id
+        for e in evidence
+        if e.source == "gsc" or (isinstance(e.data, dict) and e.data.get("connector"))
+    }
     connected = [f for f in findings if connected_ids.intersection(f.evidence_ids)]
     public = [f for f in findings if f not in connected]
     sources = {e.id: e.source for e in evidence}
@@ -633,6 +638,8 @@ def render_markdown(
         earlier_coverage.setdefault(site_key(row.get("target", "")), []).append(row)
     presence_sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
     presence_sites = [p for p in presence_sites if p]
+    for summary in presence_sites:
+        project_presence(summary, data.get("connector_rows", []))
     presence_sites, earlier_presence = site_summaries(presence_sites)
     health_sites, earlier_health = site_summaries(
         data.get("domain_email_health_sites")
@@ -676,6 +683,7 @@ def render_markdown(
         lifecycle_domains=lifecycle_domains,
         public_findings=public,
         finding_categories={f.category for f in public},
+        connector_rows=data.get("connector_rows", []),
         connected_findings=connected,
         connected_evidence=[e for e in evidence if e.id in connected_ids],
         critical_findings=[f for f in findings if f.severity in {"critical", "high"}],
