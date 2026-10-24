@@ -31,8 +31,9 @@ with the draft human-review banner. Findings use Confirmed / Reported by custome
 assessed basis labels and exactly one of the four AMS service categories. The planning approach is
 to improve processes and integrate existing systems first; there are no ranking, traffic, lead or
 revenue guarantees, and AI-search readiness does not measure AI visibility.
-Repeated accessibility rules share one customer-report block and recommendation, with each affected
-page/viewport, finding ID and evidence reference retained. The lifecycle table shows non-current
+Repeated accessibility rules on the same website share one customer-report block and recommendation
+(www/apex aliases share a website), with each affected page/viewport, finding ID and evidence reference
+retained. The lifecycle table shows non-current
 findings; JSON retains every individual finding. Repeated coverage and evidence are grouped for display.
 Only required modules run; a domain/security/performance-only run has no crawl. Customer IDs must be
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;

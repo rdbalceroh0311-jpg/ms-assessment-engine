@@ -134,6 +134,9 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 
 {% endif %}
 {% endmacro %}
+{% macro finding_label(finding) -%}
+{{ finding.id | text }}{% if finding_members[finding.id] | length > 1 %} + {{ finding_members[finding.id] | length - 1 }} more{% endif %}
+{%- endmacro %}
 {% macro finding_block(finding) %}
 #### {{ finding.id | text }}: {{ finding.title | text }}
 
@@ -146,7 +149,7 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 **Observed / reported:** {{ members | length }} affected page/viewport findings for this rule:
 
 {% for member in members %}
-- {{ member.component | text }} ({{ member.id }}): {% if member.title != finding.title %}{{ member.title | text }} — {% endif %}{{ member.detail | text }} Evidence: {{ member.evidence_ids | join(', ') }}.
+- {{ member.component | text }}{% if member.severity != finding.severity %} (importance: {{ member.severity }}){% endif %} ({{ member.id }}): {% if member.title != finding.title %}{{ member.title | text }} — {% endif %}{{ member.detail | text }} Evidence: {{ member.evidence_ids | join(', ') }}.
 {% endfor %}
 {% else %}
 **Observed / reported:** {{ finding.detail | text }}
@@ -161,7 +164,9 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 
 {% endif %}
 **AMS service category:** {{ finding.ams_service | text }}
+
 **Dependencies:** {{ 'Standard requirements (section 2)' if finding.dependencies == standard_dependencies else finding.dependencies | join('; ') | text or 'Confirm dependencies with the system owner' }}.
+
 **Information still required:** {{ 'Standard requirements (section 2)' if finding.information_required == standard_information else finding.information_required | join('; ') | text or 'Confirm scope and access with the customer' }}.
 
 {% if finding.urls and members | length == 1 %}
@@ -387,7 +392,7 @@ Review these higher-importance observations first. Their business impact is pote
 | Finding | Basis / source | Potential risk | Urgency |
 | --- | --- | --- | --- |
 {% for f in critical_findings %}
-| {{ f.title | text }} ({{ f.id }}) | {{ f.basis }}; {% for eid in f.evidence_ids %}{{ sources[eid] }} ({{ eid }}){{ '; ' if not loop.last }}{% endfor %} | {{ f.business_impact | text }} | {{ f.urgency | text }} |
+| {{ f.title | text }} ({{ finding_label(f) }}) | {{ f.basis }}; {% for eid in f.evidence_ids %}{{ sources[eid] }} ({{ eid }}){{ '; ' if not loop.last }}{% endfor %} | {{ f.business_impact | text }} | {{ f.urgency | text }} |
 {% endfor %}
 
 {% endif %}
@@ -582,7 +587,7 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 ### {{ phase }}
 
 {% for f in items %}
-- **{{ f.priority }} - {{ f.title | text }} ({{ f.id }}):** {{ f.recommendation | text }}{% if f.ams_service in ['Business Systems', 'AI & Automation'] %} Prefer keeping and integrating existing systems before considering replacement.{% endif %} Evidence: {{ f.evidence_ids | join(', ') }}.
+- **{{ f.priority }} - {{ f.title | text }} ({{ finding_label(f) }}):** {{ f.recommendation | text }}{% if f.ams_service in ['Business Systems', 'AI & Automation'] %} Prefer keeping and integrating existing systems before considering replacement.{% endif %} Evidence: {{ f.evidence_ids | join(', ') }}.
 {% endfor %}
 
 {% endfor %}
@@ -658,7 +663,7 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 
 
 {% for f in findings if f.confidence != 'confirmed' %}
-- {{ f.id }}: {{ f.title | text }}. Evidence: {{ f.evidence_ids | join(', ') }}.
+- {{ finding_label(f) }}: {{ f.title | text }}. Evidence: {{ f.evidence_ids | join(', ') }}.
 {% else %}
 - Verify the automated observations in the production environment and with the website owner before implementation.
 {% endfor %}

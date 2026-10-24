@@ -90,7 +90,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Repair internal links and restore or redirect unavailable pages.
 
 **AMS service category:** Managed IT & Technology
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/missing-offer.html
@@ -109,7 +111,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Link directly to the final canonical URL.
 
 **AMS service category:** Managed IT & Technology
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/old-service; http://127.0.0.1:18765/older-service
@@ -131,7 +135,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Add a descriptive, page-specific meta description.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
@@ -150,7 +156,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Add a descriptive, page-specific H1.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
@@ -169,7 +177,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** site\_checks (ev-site_checks-r2-007).
@@ -186,7 +196,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Add a self-referencing rel=canonical to each indexable page.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/
@@ -208,7 +220,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** site\_checks (ev-site_checks-r2-003).
@@ -229,7 +243,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI and verify with keyboard and assistive technology.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
@@ -248,7 +264,9 @@ These checks look at whether customers and search engines can reach and understa
 **Recommended next action:** Apply the guidance at https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI and verify with keyboard and assistive technology.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/quote.html
@@ -320,7 +338,9 @@ These observations help you confirm where customers can find the business. A lik
 **Recommended next action:** Use one canonical name, address and phone number in structured data, the footer, contact page and external listings.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** presence (ev-presence-r2-010).
@@ -337,7 +357,9 @@ These observations help you confirm where customers can find the business. A lik
 **Recommended next action:** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** site\_checks (ev-site_checks-r2-009).
@@ -357,7 +379,9 @@ These observations help you confirm where customers can find the business. A lik
 **Recommended next action:** Add the customer-owned profile URLs to the business sameAs property.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** presence (ev-presence-r2-006); presence (ev-presence-r2-009); presence (ev-presence-r2-010).
@@ -475,7 +499,9 @@ Consent management observed (consent-gated scripts): tags not seen loading are r
 **Recommended next action:** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** presence (ev-presence-r2-014); presence (ev-presence-r2-013).
@@ -492,7 +518,9 @@ Consent management observed (consent-gated scripts): tags not seen loading are r
 **Recommended next action:** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** presence (ev-presence-r2-001); presence (ev-presence-r2-003); presence (ev-presence-r2-004); presence (ev-presence-r2-005).
@@ -515,7 +543,9 @@ These checks concern the technical services behind the website and email. DNS is
 **Recommended next action:** Have the hosting team review the listed policies together, prioritising the higher importance items. Test content loading, embedding and HTTPS compatibility before deployment, then recheck the affected HTML responses and Observatory assessment.
 
 **AMS service category:** Managed IT & Technology
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/
@@ -534,7 +564,9 @@ These checks concern the technical services behind the website and email. DNS is
 **Recommended next action:** Remove unnecessary version detail in the hosting configuration; a version string alone does not establish a vulnerability.
 
 **AMS service category:** Managed IT & Technology
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Affected URLs:** http://127.0.0.1:18765/
@@ -610,7 +642,9 @@ Business discovery: customer-provided information
 **Likely cause (interpretation):** No cover for calls while the office is busy or closed
 
 **AMS service category:** AI & Automation
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** discovery (ev-discovery-r3-005); discovery (ev-discovery-r3-006); discovery (ev-discovery-r3-017).
@@ -627,7 +661,9 @@ Business discovery: customer-provided information
 **Recommended next action:** Assess a job-management system that integrates with Xero, within the stated budget, before considering any automation on top. Review the current process first; prefer keeping and integrating existing systems before considering replacement.
 
 **AMS service category:** Business Systems
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** discovery (ev-discovery-r3-003); discovery (ev-discovery-r3-009); discovery (ev-discovery-r3-010); discovery (ev-discovery-r3-012); discovery (ev-discovery-r3-018).
@@ -644,7 +680,9 @@ Business discovery: customer-provided information
 **Recommended next action:** Confirm the current setup on site, then put managed backup in place for business data.
 
 **AMS service category:** Managed IT & Technology
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** discovery (ev-discovery-r3-014).
@@ -661,7 +699,9 @@ Business discovery: customer-provided information
 **Recommended next action:** Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work.
 
 **AMS service category:** Digital Growth
+
 **Dependencies:** Standard requirements (section 2).
+
 **Information still required:** Standard requirements (section 2).
 
 **Source:** discovery (ev-discovery-r3-002); discovery (ev-discovery-r3-008); discovery (ev-discovery-r3-011).
@@ -688,13 +728,13 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 
 - **P3 - No follow-up on quotes or service reminders (discovery-no-follow-up-on-quotes-or-service-reminders):** Set up owner-approved quote follow-up and automated service reminders to support recurring servicing work. Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.
 - **P3 - Linked profiles missing from structured-data sameAs (presence-004):** Add the customer-owned profile URLs to the business sameAs property. Evidence: ev-presence-r2-006, ev-presence-r2-009, ev-presence-r2-010.
-- **P3 - AI crawler rules by purpose (site_checks-001):** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Evidence: ev-site_checks-r2-003.
-- **P3 - Near-duplicate location pages (site_checks-003):** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.
+- **P3 - AI crawler rules by purpose (site\_checks-001):** Review search/user restrictions with the customer; retain intentional training choices. User-initiated agents may not obey robots rules; verify the journey manually. Evidence: ev-site_checks-r2-003.
+- **P3 - Near-duplicate location pages (site\_checks-003):** Manually compare unique local value and remove shared boilerplate before deciding whether to improve or consolidate pages. Evidence: ev-site_checks-r2-009.
 - **P3 - Priority platforms still need presence verification (presence-001):** Work through the manual verification tasks in priority order and record the results with ams-assess presence-verify. Create or correct only profiles the business genuinely operates. Evidence: ev-presence-r2-014, ev-presence-r2-013.
 - **P3 - Analytics or tracking tags could not be confirmed (presence-003):** Verify with the customer in Google Tag Manager, Tag Assistant or the consent manager which tags run after consent. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
 - **P3 - Recommended security headers missing or need review (security-005):** Have the hosting team review the listed policies together, prioritising the higher importance items. Test content loading, embedding and HTTPS compatibility before deployment, then recheck the affected HTML responses and Observatory assessment. Evidence: ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.
 - **P3 - Server software version disclosed (security-006):** Remove unnecessary version detail in the hosting configuration; a version string alone does not establish a vulnerability. Evidence: ev-security-r2-001.
-- **P3 - Duplicates, headings / internal links (site_checks-002):** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.
+- **P3 - Duplicates, headings / internal links (site\_checks-002):** Use distinct titles/descriptions, fix heading jumps and broken links, link directly to final targets. Retry unavailable links before classifying them. Verify possible orphan pages with a complete link graph. Evidence: ev-site_checks-r2-007.
 - **P3 - Pages without a canonical link (siteone-010):** Add a self-referencing rel=canonical to each indexable page. Evidence: ev-siteone-r2-024.
 - **P3 - Review internal redirects (siteone-001):** Link directly to the final canonical URL. Evidence: ev-siteone-r2-009, ev-siteone-r2-011.
 
@@ -764,8 +804,8 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 - discovery-job-scheduling-and-invoicing-data-live-in-disconne: Job, scheduling and invoicing data live in disconnected tools. Evidence: ev-discovery-r3-003, ev-discovery-r3-009, ev-discovery-r3-010, ev-discovery-r3-012, ev-discovery-r3-018.
 - discovery-job-spreadsheet-has-no-backup: Job spreadsheet has no backup. Evidence: ev-discovery-r3-014.
 - discovery-no-follow-up-on-quotes-or-service-reminders: No follow-up on quotes or service reminders. Evidence: ev-discovery-r3-002, ev-discovery-r3-008, ev-discovery-r3-011.
-- site_checks-001: AI crawler rules by purpose. Evidence: ev-site_checks-r2-003.
-- site_checks-003: Near-duplicate location pages. Evidence: ev-site_checks-r2-009.
+- site\_checks-001: AI crawler rules by purpose. Evidence: ev-site_checks-r2-003.
+- site\_checks-003: Near-duplicate location pages. Evidence: ev-site_checks-r2-009.
 - presence-001: Priority platforms still need presence verification. Evidence: ev-presence-r2-014, ev-presence-r2-013.
 - presence-003: Analytics or tracking tags could not be confirmed. Evidence: ev-presence-r2-001, ev-presence-r2-003, ev-presence-r2-004, ev-presence-r2-005.
 - security-005: Recommended security headers missing or need review. Evidence: ev-security-r2-001, ev-siteone-r2-019, ev-siteone-r2-020, ev-siteone-r2-021, ev-siteone-r2-022.

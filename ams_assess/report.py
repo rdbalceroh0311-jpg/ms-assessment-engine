@@ -122,16 +122,21 @@ def finding_views(findings: list[Finding]) -> tuple[list[Finding], dict[str, lis
     """Group repeated rule observations for display only; every original remains a member."""
     groups: dict[tuple, list[Finding]] = {}
     for f in findings:
+        site = site_key(f.site if "://" in f.site else f"//{f.site}") or site_key(f.component)
+        # Legacy runs may record only URLs. Unknown scopes must not merge unrelated findings.
+        sites = (site,) if site else tuple(sorted({site_key(url) for url in f.urls} - {""}))
         repeated_rule = f.category == "accessibility" or f.check_key in {
             "canonical-mismatch",
             "console-errors",
         }
         identity = (
             (
+                sites or (f.id,),
                 f.category,
                 f.check_key,
                 f.lifecycle_status,
                 f.provenance,
+                () if f.check_key.startswith("axe:") else (f.kind, f.basis, f.ams_service),
             )
             if repeated_rule and f.check_key
             else (f.id,)

@@ -2,10 +2,13 @@
 
 import copy
 import json
+import re
 from typing import Any
 
+import pytest
+
 from ams_assess.models import Evidence, Finding
-from ams_assess.report import markdown_html, mdtext, render_markdown
+from ams_assess.report import finding_views, markdown_html, mdtext, render_markdown
 
 
 def scenario():
@@ -103,6 +106,102 @@ def test_grouped_accessibility_is_one_action_with_all_members_and_no_json_mutati
     assert all(appendix.count(e.id) == 1 for e in evidence)
     assert json.dumps(data, sort_keys=True) == original
     assert [e.model_dump() for e in evidence] == original_evidence
+
+
+def test_two_sites_keep_separate_groups_recommendations_and_lifecycle_rows():
+    data, evidence = scenario()
+    data["findings"] = data["findings"][:5]
+    for n, f in enumerate(data["findings"]):
+        host = "two.test" if n in {2, 4} else "one.test"
+        f.update(
+            site="www.ONE.test" if n == 1 else host,
+            component=f"https://{host}/{n}::desktop",
+            severity="high" if host == "two.test" else "low",
+            recommendation=f"Review contrast on {host}",
+        )
+        evidence[n].url = f"https://{host}/{n}"
+    original = copy.deepcopy(data)
+    text = render_markdown(data, evidence)
+    blocks = re.findall(r"(?ms)^#### .*?(?=^#{1,4} |\Z)", text)
+    assert len(blocks) == 2
+    for fid, host, severity in [("issue-1", "one.test", "low"), ("issue-3", "two.test", "high")]:
+        block = next(b for b in blocks if b.startswith(f"#### {fid}:"))
+        assert f"**Importance:** {severity}" in block
+        assert f"Review contrast on {host}" in block
+        assert ("two.test" if host == "one.test" else "one.test") not in block
+    roadmap = text.split("## 9.")[1].split("## 10.")[0]
+    assert roadmap.count("Review contrast on one.test") == 1
+    assert roadmap.count("Review contrast on two.test") == 1
+    assert "(issue-1 + 1 more)" in roadmap and "(issue-3)" in roadmap
+    manual = text.split("### Manual verification items")[1].split("## Appendix")[0]
+    assert "- issue-1 + 1 more:" in manual and "- issue-3:" in manual
+    lifecycle = text.split("### Technical finding lifecycle")[1].split("| Source /")[0]
+    rows = [r for r in lifecycle.splitlines() if r.startswith("| Previously observed")]
+    assert len(rows) == 2
+    assert any("issue-4" in r and "one.test" in r and "two.test" not in r for r in rows)
+    assert any("issue-5" in r and "two.test" in r and "one.test" not in r for r in rows)
+    assert data == original
+
+
+@pytest.mark.parametrize("scope", ["site", "component", "urls"])
+def test_group_site_identity_normalises_aliases_and_preserves_other_hosts(scope):
+    data, _ = scenario()
+    findings = [Finding.model_validate(f) for f in data["findings"][:3]]
+    for f, host in zip(findings, ("one.test", "www.ONE.test", "two.test"), strict=True):
+        f.site = f"https://{host}/" if scope == "site" else ""
+        f.component = f"https://{host}/page::desktop" if scope == "component" else ""
+        f.urls = [f"https://{host}/page"] if scope == "urls" else []
+    views, members = finding_views(findings)
+    assert len(views) == 2
+    assert [[f.id for f in group] for group in members.values()] == [
+        ["issue-1", "issue-2"],
+        ["issue-3"],
+    ]
+
+
+@pytest.mark.parametrize("check", ["canonical-mismatch", "console-errors"])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("kind", "opportunity"),
+        ("confidence", "confirmed"),
+        ("ams_service", "Business Systems"),
+    ],
+)
+def test_non_axe_groups_keep_different_kind_basis_and_service_separate(check, field, value):
+    data, _ = scenario()
+    findings = [Finding.model_validate(f) for f in data["findings"][:2]]
+    for f in findings:
+        f.category = "technical"
+        f.check_key = check
+    assert len(finding_views(findings)[0]) == 1
+    setattr(findings[1], field, value)
+    if field == "confidence":
+        assert findings[0].basis != findings[1].basis
+    views, members = finding_views(findings)
+    assert len(views) == 2 and all(len(group) == 1 for group in members.values())
+    assert [f.model_dump() for f in views] == [f.model_dump() for f in findings]
+
+
+def test_grouped_member_importance_labels_counts_and_separate_requirement_paragraphs():
+    data, evidence = scenario()
+    data["findings"] = data["findings"][:3]
+    for f, severity in zip(data["findings"], ("high", "low", "medium"), strict=True):
+        f["severity"] = severity
+    text = render_markdown(data, evidence)
+    assert "**Importance:** high" in text
+    for f in data["findings"]:
+        component_label = f["component"]
+        if f["severity"] != "high":
+            component_label += f" (importance: {f['severity']})"
+        assert f"- {component_label} ({f['id']}):" in text
+    roadmap = text.split("## 9.")[1].split("## 10.")[0]
+    assert "(issue-1 + 2 more)" in roadmap
+    manual = text.split("### Manual verification items")[1].split("## Appendix")[0]
+    assert "- issue-1 + 2 more:" in manual
+    body = markdown_html(text)
+    for label in ("AMS service category", "Dependencies", "Information still required"):
+        assert f"<p><strong>{label}:</strong>" in body
 
 
 def test_compact_coverage_keeps_every_url_status_and_exclusion_count():

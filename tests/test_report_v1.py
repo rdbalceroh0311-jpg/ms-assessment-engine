@@ -609,7 +609,7 @@ def test_report_review_basis_and_concise_customer_actions():
         assert ("prefer keeping and integrating existing systems" in block) == (
             f["ams_service"] in {"Business Systems", "AI & Automation"}
         )
-        assert roadmap.count(f"({f['id']})") == 1
+        assert roadmap.count(f"({mdtext(f['id'])})") == 1
         assert mdtext(f["recommendation"]) in roadmap
         if f["check_key"].startswith("site:"):
             assert not re.search(rf"^\| {re.escape(mdtext(f['title']))} \(", text, re.M)
