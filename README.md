@@ -451,13 +451,11 @@ declares the framework's native `device_code` auth flow, auth hint and collectio
 
 ### Local setup, authorisation and explicit tenant binding
 
-Run from this checkout. MSAL is an optional connector dependency so shared package manifests
-remain unchanged; it loads only when Microsoft authentication is requested. Tested with MSAL
-1.39.0. Install it again if recreating the environment or using `uv sync --exact`.
+Run from this checkout. MSAL is a declared dependency installed from `uv.lock` by `uv sync`;
+it loads only when Microsoft authentication is requested.
 
 ```sh
 uv sync
-uv pip install 'msal>=1.34,<2'
 ```
 
 After the customer explicitly authorises assessment, substitute its slug, approved website,
@@ -557,8 +555,8 @@ uv run ruff check .
 uv run ty check ams_assess tests
 ```
 
-The three real-MSAL mocked-HTTP cases require the optional MSAL install above; they skip when it is
-absent. All other Microsoft contract cases use a synthetic SDK boundary and always run.
+The three real-MSAL mocked-HTTP cases use the SDK installed by `uv sync` and fail if it is
+missing. All other Microsoft contract cases use a synthetic SDK boundary.
 
 ## Bound connectors: GA4 setup and use
 

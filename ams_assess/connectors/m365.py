@@ -1,6 +1,6 @@
 """Bound, read-only Microsoft Graph v1.0 snapshots. See README for verified API sources.
 
-MSAL is an optional runtime dependency: uv pip install 'msal>=1.34,<2'.
+MSAL is a declared dependency, loaded lazily when Microsoft authentication is requested.
 Only this module handles Microsoft authentication; all Graph IO uses the shared ReadClient.
 """
 
@@ -138,7 +138,7 @@ def _sdk():
         return importlib.import_module("msal")
     except ImportError:
         raise ConnectorError(
-            "credential_missing", "Install Microsoft auth support: uv pip install 'msal>=1.34,<2'"
+            "credential_missing", "Microsoft auth support is missing; run uv sync"
         ) from None
 
 

@@ -9,6 +9,7 @@ import time
 from types import SimpleNamespace
 
 import httpx
+import msal
 import pytest
 from test_connectors import ui_server
 
@@ -780,8 +781,6 @@ def test_inaccessible_or_empty_report_does_not_resolve_a_finding(env):
 
 @pytest.mark.parametrize("revoked", [False, True])
 def test_real_msal_refresh_with_mocked_oauth_http(env, monkeypatch, caplog, revoked):
-    # Optional SDK is installed by the README setup; core contract tests above need no SDK.
-    msal = pytest.importorskip("msal")
     import requests
 
     monkeypatch.setattr(m365, "_sdk", lambda: msal)
@@ -853,7 +852,6 @@ def test_real_msal_refresh_with_mocked_oauth_http(env, monkeypatch, caplog, revo
 
 
 def test_real_msal_device_code_http_and_cache(env, monkeypatch, capsys, caplog):
-    msal = pytest.importorskip("msal")
     import requests
 
     monkeypatch.setattr(m365, "_sdk", lambda: msal)
