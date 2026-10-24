@@ -78,7 +78,15 @@ def test_page_budget_excludes_assets_and_retains_html_header_evidence(tmp_path):
         server.server_close()
         thread.join()
     assert result.status == "ok" and len(ctx.pages) == 3
-    assert set(requests) == {"/", "/robots.txt", "/one.html", "/two.html"}
+    # The pre-crawl robots/sitemap fetch for crawl seeds is the only addition to the crawl.
+    assert set(requests) == {
+        "/",
+        "/robots.txt",
+        "/sitemap.xml",
+        "/wp-json/wp/v2/types",
+        "/one.html",
+        "/two.html",
+    }
     raw = json.loads((ctx.run_dir / "raw/siteone.json").read_text())
     assert raw["options"]["disableAllAssets"] is True
     assert raw["options"]["workers"] == 2 and raw["options"]["maxReqsPerSec"] == 5

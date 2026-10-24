@@ -11,6 +11,7 @@ import json
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -40,8 +41,14 @@ ADDRESS = re.compile(
 
 
 def phone_key(value: str) -> str:
-    digits = re.sub(r"\D", "", value)
+    # Percent-encoded tel: hrefs ("%20") would otherwise add digits to the key.
+    digits = re.sub(r"\D", "", unquote(value))
     return "0" + digits[2:] if digits.startswith("61") and len(digits) == 11 else digits
+
+
+def tel_number(href: str) -> str:
+    """The number a tel: link dials, decoded: tel:(02)%205550%200101 -> (02) 5550 0101."""
+    return " ".join(unquote(href.removeprefix("tel:")).split())
 
 
 class Location(BaseModel):

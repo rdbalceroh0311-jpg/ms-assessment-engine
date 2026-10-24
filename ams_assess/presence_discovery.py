@@ -12,7 +12,7 @@ import re
 import time
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import parse_qsl, quote_plus, urlsplit
+from urllib.parse import parse_qsl, quote_plus, unquote, urlsplit
 
 from ams_assess.models import Context, ModuleResult
 from ams_assess.modules import dataforseo
@@ -751,6 +751,75 @@ def discover(
     return tables
 
 
+def nap_detail(differs: list[dict[str, Any]]) -> str:
+    """Finding detail for differing NAP rows, exactly as the source shows each value."""
+    parts = []
+    for n in differs:
+        note = ""
+        digits = phone_key(n["observed"]) if n["field"] == "phone" else ""
+        if digits.startswith("0") and len(digits) != 10:
+            # Australian numbers have ten digits; the source itself shows a different count.
+            note = (
+                f"; the source shows {len(digits)} digits where Australian numbers have 10, "
+                "so the listing may show a mistyped number"
+            )
+        parts.append(
+            f"Candidate {n['url']}: {n['field']} {n['observed']} "
+            f"(business: {', '.join(n['reference'])}){note}"
+        )
+    return "; ".join(parts) + ". The candidate may be a different business with a similar name."
+
+
+def repair_nap(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Stored rows from runs that displayed tel: hrefs percent-encoded, keyed on those digits.
+
+    Values are decoded and business references deduplicated by the corrected phone key; the
+    outcome is recomputed from the same values. Rows are never added or removed.
+    """
+    repaired = []
+    for row in rows:
+        if row.get("field") != "phone":
+            repaired.append(row)
+            continue
+        references: dict[str, str] = {}
+        for value in row.get("reference", []):
+            references.setdefault(phone_key(value), " ".join(unquote(value).split()))
+        observed = " ".join(unquote(str(row.get("observed", ""))).split())
+        result = row.get("result")
+        if result in {"match", "differs"}:
+            result = "match" if phone_key(observed) in references else "differs"
+        repaired.append(
+            {**row, "observed": observed, "reference": list(references.values()), "result": result}
+        )
+    return repaired
+
+
+def repair_discovery_nap(tables: dict[str, Any]) -> dict[str, Any]:
+    """Keep the displayed platform state consistent with the decoded comparison rows."""
+    rows = repair_nap(tables["nap"])
+    platforms = []
+    for original in tables.get("platforms", []):
+        platform = {**original}
+        candidates = []
+        for original_candidate in original.get("candidates", []):
+            candidate = {**original_candidate}
+            own = [r for r in rows if r["key"] == platform["key"] and r["url"] == candidate["url"]]
+            if own:
+                candidate["inconsistent"] = any(r["result"] == "differs" for r in own)
+            candidates.append(candidate)
+        platform["candidates"] = candidates
+        if candidates and platform.get("state") == INCONSISTENT:
+            platform["state"] = (
+                INCONSISTENT
+                if any(c.get("inconsistent") for c in candidates)
+                else FOUND_LIKELY
+                if any(c.get("state") == FOUND_LIKELY for c in candidates)
+                else FOUND_VERIFY
+            )
+        platforms.append(platform)
+    return {**tables, "nap": rows, "platforms": platforms}
+
+
 def add_findings(
     result: ModuleResult,
     tables: dict[str, Any],
@@ -786,12 +855,7 @@ def add_findings(
                 f"Business details differ on a {label} profile found in search",
                 "presence",
                 sorted({e for n in differs for e in n["evidence_ids"]}),
-                "; ".join(
-                    f"Candidate {n['url']}: {n['field']} {n['observed']} "
-                    f"(business: {', '.join(n['reference'])})"
-                    for n in differs
-                )
-                + ". The candidate may be a different business with a similar name.",
+                nap_detail(differs),
                 "Confirm the candidate belongs to the business, then correct its name, address "
                 "and phone to match the website.",
                 confidence="needs_verification",
