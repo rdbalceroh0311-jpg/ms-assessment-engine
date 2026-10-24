@@ -34,7 +34,9 @@ from ams_assess.models import (
     Finding,
     customer_path,
 )
+from ams_assess.modules import gsc
 from ams_assess.platforms import BY_KEY
+from ams_assess.presence_discovery import nap_detail, repair_discovery_nap
 from ams_assess.profile import (
     Verification,
     apply_verifications,
@@ -50,6 +52,9 @@ LOCK_TIMEOUT = 30.0
 STAGES = ("public", "connected", "discovery")
 EVIDENCE_ID = re.compile(r"ev-[a-z_]+-\d+")
 LOCAL_ID = re.compile(r"^ev-([a-z_]+)-(\d+)$")
+RUN_EVIDENCE = re.compile(r"^ev-[a-z_]+-(r\d+)-\d+$")
+# Version of the stored-evidence analysis already applied (analyse_stored_connected).
+CONNECTED_ANALYSIS = 1
 NO_AI = {"status": "skipped", "provider": None, "reason": "Discovery notes are not AI-interpreted"}
 
 
@@ -126,6 +131,7 @@ def new_store(customer: str, customer_name: str) -> dict[str, Any]:
         "finding_history": [],
         "needs_review": [],
         "stages_assessed": [],
+        "connected_analysis": CONNECTED_ANALYSIS,
     }
 
 
@@ -159,6 +165,10 @@ def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str,
             save(root, customer, store)
         unique_findings(store)
         repair_axe_reviews(store)
+        findings = [Finding.model_validate(f) for f in store["findings"]]
+        kept = analyse_stored_connected(store, supersede_unscoped(store, findings))
+        if kept != findings:
+            store["findings"] = [f.model_dump(mode="json") for f in kept]
         return store
 
 
@@ -214,6 +224,132 @@ def repair_axe_reviews(store: dict[str, Any]) -> None:
                 and r.get("reason") == "conflicting explicit check outcomes need review"
             )
         ]
+
+
+def run_number(run_id: str) -> int:
+    match = re.fullmatch(r"r(\d+)", run_id or "")
+    return int(match[1]) if match else 0
+
+
+def supersede_unscoped(store: dict[str, Any], findings: list[Finding]) -> list[Finding]:
+    """Retire findings stored without a website once a later per-website equivalent exists.
+
+    Runs before per-module scoping stored some findings (e.g. presence findings citing the
+    customer profile) with no site, so a newer run's scoped finding for the same check never
+    replaced them. The predecessor is retired only when every run it cites targeted one
+    website, exactly one current finding has the same category and check on that website, and
+    that finding was observed in a later run.
+    """
+    runs = {r["run_id"]: r for r in store.get("runs", []) if r.get("kind") == "assessment"}
+    replaced: dict[str, Finding] = {}
+    for legacy in findings:
+        if (
+            legacy.site
+            or legacy.component
+            or legacy.category != "presence"
+            or not legacy.check_key.startswith("platform:")
+        ):
+            continue
+        cited = {m[1] for e in legacy.evidence_ids if (m := RUN_EVIDENCE.match(e))}
+        if not cited or not cited <= runs.keys():
+            continue
+        sites = {site_key(runs[r].get("resolved_url") or runs[r]["target"]) for r in cited}
+        successors = [
+            f
+            for f in findings
+            if f.site
+            and f.site in sites
+            and f.category == legacy.category
+            and (f.check_key or f.id) == (legacy.check_key or legacy.id)
+            and f.lifecycle_status != "needs_review"
+        ]
+        if (
+            len(sites) == 1
+            and len(successors) == 1
+            and run_number(successors[0].last_run_id) > max(map(run_number, cited))
+        ):
+            replaced[legacy.id] = successors[0]
+    for legacy in [f for f in findings if f.id in replaced]:
+        successor = replaced[legacy.id]
+        _retire(store, legacy, "website-less predecessor of a per-website finding", successor.id)
+        successor.events.append(
+            {
+                "status": "identity-predecessor",
+                "finding_id": legacy.id,
+                "evidence_ids": legacy.evidence_ids,
+            }
+        )
+    if replaced:
+        store["needs_review"] = [
+            r for r in store.get("needs_review", []) if r.get("finding_id") not in replaced
+        ]
+    return [f for f in findings if f.id not in replaced]
+
+
+def analyse_stored_connected(store: dict[str, Any], findings: list[Finding]) -> list[Finding]:
+    """Derive connected-evidence findings once for runs stored before GSC analysis existed.
+
+    Only the latest run with GSC evidence per website is analysed, from that run's own stored
+    evidence, and each finding is dated to that run. Only known equivalent legacy checks are
+    retired; citing GSC alone does not make an unrelated finding a duplicate.
+    """
+    if store.get("connected_analysis", 0) >= CONNECTED_ANALYSIS:
+        return findings
+    store["connected_analysis"] = CONNECTED_ANALYSIS
+    evidence = [Evidence.model_validate(e) for e in store.get("evidence", [])]
+    by_run: dict[str, list[Evidence]] = {}
+    for e in evidence:
+        if match := RUN_EVIDENCE.match(e.id):
+            by_run.setdefault(match[1], []).append(e)
+    latest: dict[str, dict[str, Any]] = {}
+    for run in sorted(store.get("runs", []), key=lambda r: run_number(r["run_id"])):
+        if run.get("kind") == "assessment" and any(
+            e.source == gsc.name for e in by_run.get(run["run_id"], [])
+        ):
+            latest[site_key(run.get("resolved_url") or run["target"])] = run
+    result = list(findings)
+    for run in latest.values():
+        own = by_run[run["run_id"]]
+        site_url = run.get("resolved_url") or run["target"]
+        derived, _ = gsc.connected_findings(own, site_url)
+        derived = scoped(consolidate(derived, evidence), site_url, store["customer_id"])
+        known = {technical_key(f) for f in result}
+        added = []
+        for finding in derived:
+            if technical_key(finding) in known:
+                continue
+            finding.first_observed = finding.last_observed = run["created_at"]
+            finding.last_run_id = run["run_id"]
+            finding.events = [
+                {
+                    "status": "observed",
+                    "run_id": run["run_id"],
+                    "date": run["created_at"],
+                    "evidence_ids": finding.evidence_ids,
+                    "reason": "Derived from this run's stored Search Console evidence",
+                }
+            ]
+            added.append(finding)
+        connected = {e.id for e in own if e.source == gsc.name}
+        successors = {f.check_key: f for f in derived}
+        aliases = {"site-index-sample-page-exposed": "gsc:placeholder-impressions"}
+        replaced = [
+            f
+            for f in result
+            if connected & set(f.evidence_ids)
+            and aliases.get(f.check_key) in successors
+            and (not f.site or f.site == site_key(site_url))
+        ]
+        for finding in replaced:
+            successor = successors[aliases[finding.check_key]]
+            _retire(
+                store,
+                finding,
+                "Equivalent legacy finding replaced by deterministic Search Console analysis",
+                successor.id,
+            )
+        result = [f for f in result if f not in replaced] + added
+    return result
 
 
 def deduplicate_technical(findings: list[Finding]) -> list[Finding]:
@@ -660,6 +796,7 @@ def _merge_run(
         if key in data:
             run[key] = remap(data[key], mapping)
     store["runs"].append(run)
+    findings = supersede_unscoped(store, findings)
     _finish(store, findings, all_evidence, stages if data["status"] != "incomplete" else [])
     register.refresh(store)
     save(root, customer, store)
@@ -1042,6 +1179,43 @@ def remove_register(
         save(root, customer, current)
 
 
+def repair_presence_nap(data: dict[str, Any]) -> None:
+    """Display stored NAP rows decoded; rebuild the NAP finding detail from the same rows.
+
+    Only the latest presence summary per website is shown, and only a finding last observed
+    in that run is rebuilt, so the detail always describes the rows printed beside it.
+    """
+    summaries = [data.get("digital_presence"), *data.get("digital_presence_sites", [])]
+    # Copies: the composed report data must never rewrite the stored records.
+    data["findings"] = [dict(f) for f in data["findings"]]
+    for summary in [s for s in summaries if s and s.get("discovery", {}).get("nap")]:
+        summary["discovery"] = repair_discovery_nap(summary["discovery"])
+        for finding in data["findings"]:
+            platform = finding.get("check_key", "").removeprefix(
+                "platform:external-nap-inconsistent:"
+            )
+            if (
+                platform == finding.get("check_key")
+                or finding.get("last_run_id") != summary.get("run_id")
+                or finding.get("site") != site_key(summary.get("target", ""))
+            ):
+                continue
+            differs = [
+                n
+                for n in summary["discovery"]["nap"]
+                if n["key"] == platform and n["result"] == "differs"
+            ]
+            if differs:
+                finding["detail"] = nap_detail(differs)
+            elif any(n["key"] == platform for n in summary["discovery"]["nap"]):
+                # This is a corrected interpretation of stored evidence, not a fresh retest.
+                finding["lifecycle_status"] = "resolved"
+                finding["resolution"] = {
+                    "reason": "Decoded stored phone values match; no NAP difference remains",
+                    "run_id": summary["run_id"],
+                }
+
+
 def report_data(
     store: dict[str, Any],
 ) -> tuple[dict[str, Any], list[Evidence], dict[str, Any] | None]:
@@ -1154,6 +1328,7 @@ def report_data(
         if found is not None:
             data[key] = attributed(found, key)
             data[f"{key}_sites"] = list(sites.values())
+    repair_presence_nap(data)
     verified = store.get("presence_verifications") or {}
     if verified and data.get("digital_presence", {}).get("discovery"):
         # Manual verification supersedes the automated state; the automated state stays shown.

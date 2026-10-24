@@ -59,6 +59,35 @@ def diagnostic(value: Any, ctx: Context) -> str:
     return text[:1000]
 
 
+def crawl_seeds(ctx: Context, result: ModuleResult) -> list[str]:
+    """Known same-site pages from the sitemap/WordPress inventory, crawled besides the links."""
+    from ams_assess import coverage  # coverage reuses this module's response parsing
+
+    try:
+        inventory = coverage.seed_inventory(ctx)
+    except Exception as exc:
+        # Inventory failure must not stop the link crawl; coverage reports the gap.
+        reason = f"Crawl seeds unavailable ({type(exc).__name__}); link crawl only"
+        result.add_evidence(
+            ctx.site_url,
+            "Crawl seeds from sitemap/WordPress inventory",
+            {"urls": [], "reason": reason},
+        )
+        return []
+    result.add_evidence(
+        ctx.site_url,
+        "Crawl seeds from sitemap/WordPress inventory",
+        {
+            "urls": inventory["seeds"],
+            "limit": inventory["seed_limit"],
+            "over_limit": len(inventory["seeds_over_limit"]),
+            "reason": "Same-site HTML pages published in the sitemap or WordPress inventory, "
+            "robots.txt applied; attachments, media and feeds excluded",
+        },
+    )
+    return inventory["seeds"]
+
+
 def run(ctx: Context) -> ModuleResult:
     result = ModuleResult(name=name)
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
@@ -79,6 +108,7 @@ def run(ctx: Context) -> ModuleResult:
         if resolution.get("error")
         else ""
     )
+    seeds = crawl_seeds(ctx, result)
     command = [
         str(binary),
         f"--url={ctx.site_url}",
@@ -99,6 +129,14 @@ def run(ctx: Context) -> ModuleResult:
         "--output-text-file=",
         *(f"--allowed-domain-for-crawling={host}" for host in sorted(hosts)),
     ]
+    if seeds:
+        # SiteOne URL-list seeds bypass its robots check, including the first URL.
+        # Retain the start URL as the crawl base only when robots allows it too.
+        listing = ctx.run_dir / "tmp/siteone-seeds.txt"
+        listing.parent.mkdir(parents=True, exist_ok=True)
+        start = [ctx.site_url] if ctx.inventory.get("target_allowed", True) else []
+        listing.write_text("\n".join([*start, *seeds]) + "\n")
+        command.append(f"--url-list={listing}")
     try:
         process = subprocess.run(
             command,

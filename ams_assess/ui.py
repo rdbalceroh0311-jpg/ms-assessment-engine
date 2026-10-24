@@ -2,7 +2,9 @@
 
 import hmac
 import mimetypes
+import os
 import secrets
+import stat
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
@@ -27,13 +29,20 @@ MAX_BODY = 32_768
 
 
 def output_files(root: Path, customer: str, current: dict[str, Any]) -> dict[str, Path]:
+    return {name: path for name, (path, _) in checked_outputs(root, customer, current).items()}
+
+
+def checked_outputs(
+    root: Path, customer: str, current: dict[str, Any]
+) -> dict[str, tuple[Path, os.stat_result]]:
     """Exact per-customer output allowlist, never raw/credentials or arbitrary JSON files.
 
     Reject every symlink component (also within the customer). A stored directory name
-    must be a simple relative path with the expected shape, never an arbitrary path.
+    must be a simple relative path with the expected shape, never an arbitrary path. Each
+    entry keeps the identity of the file that passed the checks, for read_checked().
     """
     directory = customer_path(root, customer)
-    allowed: dict[str, Path] = {}
+    allowed: dict[str, tuple[Path, os.stat_result]] = {}
 
     def add(relative: str):
         path = PurePosixPath(relative)
@@ -42,11 +51,18 @@ def output_files(root: Path, customer: str, current: dict[str, Any]) -> dict[str
         target = directory / relative
         if target.suffix not in EXTENSIONS:
             return
-        if any(p.is_symlink() for p in [target, *target.parents] if p != directory.parent):
-            return
-        resolved = target.resolve()
-        if resolved.is_relative_to(directory.resolve()) and resolved.is_file():
-            allowed[relative] = resolved
+        try:
+            # Capture identity BEFORE the path checks, never stat a replacement afterwards.
+            checked = target.lstat()
+            if not stat.S_ISREG(checked.st_mode):
+                return
+            if any(p.is_symlink() for p in [target, *target.parents] if p != directory.parent):
+                return
+            resolved = target.resolve()
+            if resolved.is_relative_to(directory.resolve()):
+                allowed[relative] = (resolved, checked)
+        except (OSError, RuntimeError):
+            return  # A disappearing file or symlink loop is not an allowed output.
 
     for revision in current.get("report_revisions", []):
         path = PurePosixPath(revision["directory"])
@@ -65,6 +81,26 @@ def output_files(root: Path, customer: str, current: dict[str, Any]) -> dict[str
             for screenshot in screenshots.glob("*.png"):
                 add(f"{name}/screenshots/{screenshot.name}")
     return allowed
+
+
+def read_checked(path: Path, checked: os.stat_result) -> bytes | None:
+    """Read the file the allowlist checked, or nothing if it was swapped since (TOCTOU).
+
+    O_NOFOLLOW refuses a final-component symlink; comparing the open descriptor's identity
+    with the checked one refuses any other replacement, including a swapped parent directory.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0))
+    except OSError:
+        return None
+    with os.fdopen(fd, "rb") as handle:
+        opened = os.fstat(handle.fileno())
+        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
+            checked.st_dev,
+            checked.st_ino,
+        ):
+            return None
+        return handle.read()
 
 
 def finding_groups(current):
@@ -194,15 +230,15 @@ class Handler(BaseHTTPRequestHandler):
             if current:
                 register.refresh(current)
             if path == "/file":
-                allowed = output_files(self.app.root, customer, current) if current else {}
-                target = allowed.get(params.get("path", ""))
-                if target is None:
+                allowed = checked_outputs(self.app.root, customer, current) if current else {}
+                entry = allowed.get(params.get("path", ""))
+                # Rebuild the allowlist on every request; symlink changes are never cached.
+                body = read_checked(*entry) if entry else None
+                if entry is None or body is None:
                     self.reply(403, b"Output is not allowed for this customer")
                     return
-                # Rebuild the allowlist on every request; symlink changes are never cached.
-                self.reply(
-                    200, target.read_bytes(), mimetypes.guess_type(target.name)[0] or "text/plain"
-                )
+                target = entry[0]
+                self.reply(200, body, mimetypes.guess_type(target.name)[0] or "text/plain")
                 return
             customers = []
             if self.app.root.is_dir():

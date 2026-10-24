@@ -33,8 +33,13 @@ to improve processes and integrate existing systems first; there are no ranking,
 revenue guarantees, and AI-search readiness does not measure AI visibility.
 Repeated accessibility rules on the same website share one customer-report block and recommendation
 (www/apex aliases share a website), with each affected page/viewport, finding ID and evidence reference
-retained. The lifecycle table shows non-current
-findings; JSON retains every individual finding. Repeated coverage and evidence are grouped for display.
+retained. Per-page mobile/desktop lab-performance findings group the same way, listing each page
+and its score. The lifecycle table shows non-current
+findings; JSON retains every individual finding. Repeated coverage and evidence are grouped for display;
+website coverage shows the latest run per website with earlier runs summarised in one line.
+Same-site HTML pages published in the sitemap or public WordPress inventory are seeded into the crawl
+(robots.txt applied; media, attachments and feeds excluded; at most half of `--max-pages`), and up to a
+third of the `--browser-pages` sample is reserved for crawled seeds the key-page order would skip.
 Only required modules run; a domain/security/performance-only run has no crawl. Customer IDs must be
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
@@ -65,7 +70,10 @@ Unsupported (no connector) and Not assessed. GSC unverified users and HTTP 403 r
 The [documented GSC API](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)
 does not expose a separate generative-AI performance report/filter (checked 2026-10-23); review a
 customer-provided [Search Console UI export](https://support.google.com/webmasters/answer/16984139)
-manually. No new business-system connectors are implemented.
+manually. No new business-system connectors are implemented. Returned GSC rows are analysed
+deterministically into section-7 findings (confirmed from GSC; recommendations need verification):
+http/www variants of the website with impressions, no submitted sitemap while the website publishes
+one, and default WordPress placeholder pages with impressions. AI cannot write findings on GSC evidence.
 
 ### Progressive assessment: one customer, one evolving assessment
 

@@ -354,6 +354,8 @@ class Context:
     dataforseo_failure: dict[str, Any] = field(default_factory=dict)
     # Results of modules that already ran, so later modules reuse evidence instead of refetching.
     results: list[ModuleResult] = field(default_factory=list)
+    # Pre-crawl robots/sitemap/WordPress inventory and crawl seeds (coverage.seed_inventory).
+    inventory: dict[str, Any] = field(default_factory=dict)
     # Website redirects must never change the requested domain/store identity.
     resolved_url: str = ""
 

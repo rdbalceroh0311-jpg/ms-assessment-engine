@@ -371,7 +371,13 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     evidence = json.loads((directory / "evidence.json").read_text())
     known = {e["id"] for e in evidence}
     assert len(known) == len(evidence)
-    assert len(results["pages"]) == 7
+    # /unlinked.html is only in the sitemap: seeded into the crawl and the browser sample.
+    assert len(results["pages"]) == 8
+    unlinked = f"http://127.0.0.1:{server.server_port}/unlinked.html"
+    assert unlinked in results["pages"]
+    coverage = results["website_coverage"]
+    assert unlinked in coverage["seeded"] and unlinked in coverage["browser_tested"]
+    assert unlinked not in coverage["sitemap_not_reached"]
     assert len(list((directory / "screenshots").glob("*.png"))) == 12
     keys = {f["check_key"] for f in results["findings"]}
     assert {
@@ -384,7 +390,7 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert set(results["selected_categories"]) == set(CATEGORIES)
     report = (directory / "report.md").read_text()
     report_html = (directory / "report.html").read_text()
-    assert "Crawl coverage: 7 successful HTML pages" in report
+    assert "Crawl coverage: 8 successful HTML pages" in report
     assert "Browser coverage: 12 page/viewport observations" in report
     assert all(f["priority"] == "P1" for f in results["findings"] if f["severity"] == "high")
     assert all(f["priority"] == "P3" for f in results["findings"] if f["severity"] == "low")

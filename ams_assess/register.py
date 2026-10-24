@@ -55,6 +55,11 @@ SECRET = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY|\bBearer\s+\S+|"
     r"\b(?:password|passwd|secret|api[_ -]?key|access[_ -]?token|refresh[_ -]?token|"
     r"client[_ -]?secret|authorization|credential|token)[\"']?\s*[=:]\s*\S+|"
+    # Space-separated "api-key ABCDEFGH": the value must look like a key (8+ key characters,
+    # not a plain or capitalised word, not a date), so prose such as "password reset" passes.
+    r"\b(?:password|passwd|secret|api[_ -]?key|access[_ -]?token|refresh[_ -]?token|"
+    r"client[_ -]?secret|token)[\"']?\s+(?!(?-i:[A-Z]?[a-z]+(?:-[a-z]+)*)\b)"
+    r"(?!\d{4}-\d{2}-\d{2}\b)[\w./+=-]{8,}(?![\w./+=-])|"
     r"\b(?:sk-[A-Za-z0-9_-]{12,}|AIza[A-Za-z0-9_-]{20,}|"
     r"gh[pousr]_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|ya29\.[\w.-]+)|"
     r"\beyJ[\w-]+\.[\w-]+\.[\w-]+",
@@ -98,10 +103,39 @@ def site_name(value: str) -> str:
     value = safe_text(value)
     if not value:
         return ""
-    parts = urlsplit(value if "://" in value else "https://" + value)
+    invalid = "Site must have a valid host name and an optional numeric port"
+    try:
+        parts = urlsplit(value if "://" in value else "https://" + value)
+    except ValueError:
+        raise ValueError(invalid) from None
     if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username:
         raise ValueError("Site must be an http(s) website without credentials")
-    return f"{parts.scheme}://{parts.netloc.lower()}/"
+    # Rebuild the scope from a validated host and port; never echo an arbitrary netloc such as
+    # "javascript:alert(1)" or "x.test:bad".
+    hostport = parts.netloc.rsplit("@", 1)[-1]
+    ipv6 = hostport.startswith("[")
+    try:
+        port = parts.port
+        ascii_host = parts.hostname.encode("idna").decode("ascii")
+    except (ValueError, UnicodeError):
+        raise ValueError(invalid) from None
+    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    if ipv6:
+        valid = re.fullmatch(r"[0-9a-f:.]+", ascii_host)
+    else:
+        valid = re.fullmatch(rf"{label}(?:\.{label})*", ascii_host, re.I)
+    explicit = hostport.rsplit("]", 1)[-1] if ipv6 else hostport
+    if (
+        not valid
+        or len(ascii_host) > 253
+        or (":" in explicit and port is None)
+        or ipv6
+        and not re.fullmatch(r"(?::[0-9]+)?", explicit)
+    ):
+        raise ValueError(invalid)
+    host = parts.hostname.lower()
+    netloc = (f"[{host}]" if ipv6 else host) + (f":{port}" if port is not None else "")
+    return f"{parts.scheme}://{netloc}/"
 
 
 def validate_edit(changes: dict[str, Any]) -> dict[str, str]:

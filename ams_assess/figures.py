@@ -56,6 +56,27 @@ OUTCOME_OR_DIRECTION = re.compile(
     re.I,
 )
 
+# A forecast is a future marker + direction verb with an outcome noun as its subject or
+# object ("Enquiries are going to soar", "Bookings are set to climb", "The fix should lift
+# leads"). Instructions ("You should test the form") have no direction verb, so they pass.
+OUTCOME_NOUN = rf"(?:{UNIT_PATTERN}|revenue|results|rankings?|sign-?ups|orders|quotes|profits?)"
+FUTURE_MARKER = (
+    r"(?:will|would|could|should|may|might|shall|can|\w+['’]ll"
+    r"|(?:going|set|expected|likely|poised|bound|due|projected|forecast)\s+to)"
+)
+DIRECTION = (
+    r"(?:ris(?:e|es|ing)|increas(?:e|es|ing)|grow(?:s|ing)?|soar(?:s|ing)?|climb(?:s|ing)?|"
+    r"jump(?:s|ing)?|doubl(?:e|es|ing)|tripl(?:e|es|ing)|surg(?:e|es|ing)|spik(?:e|es|ing)|"
+    r"(?:sky)?rocket(?:s|ing)?|improv(?:e|es|ing)|lift(?:s|ing)?|boost(?:s|ing)?|"
+    r"rebound(?:s|ing)?|recover(?:s|ing)?|multipl(?:y|ies|ying)|explod(?:e|es|ing))"
+)
+OUTCOME_FORECAST = re.compile(
+    rf"\b{OUTCOME_NOUN}\b(?:\s+\S+){{0,4}}?\s+{FUTURE_MARKER}\s+(?:\w+\s+){{0,2}}?{DIRECTION}\b"
+    rf"|\b{OUTCOME_NOUN}['’]ll\s+(?:\w+\s+){{0,2}}?{DIRECTION}\b"
+    rf"|\b{FUTURE_MARKER}\s+(?:\w+\s+){{0,2}}?{DIRECTION}\s+(?:\S+\s+){{0,3}}?{OUTCOME_NOUN}\b",
+    re.I,
+)
+
 
 def followup_promise(sentence: str) -> bool:
     """A modal/causal instruction alone is not a promised effect on the recorded figure."""
@@ -63,6 +84,7 @@ def followup_promise(sentence: str) -> bool:
     return bool(
         GAIN.search(sentence)
         or FORECAST.search(sentence)
+        or OUTCOME_FORECAST.search(sentence)
         or (PROMISSORY.search(sentence) and FIGURE_REFERENCE.search(reference))
         or (FUTURE.search(sentence) and OUTCOME_OR_DIRECTION.search(sentence))
     )
