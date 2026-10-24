@@ -24,6 +24,7 @@ from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 
+from ams_assess import subproc
 from ams_assess.connectors.auth import config_dir, load_reference, private_file
 from ams_assess.connectors.core import (
     AuthMaterial,
@@ -263,18 +264,21 @@ def ssh_argv(config: SSHConfig, operation: str, page: int | None, seconds: float
 
 def run_bounded(argv: list[str], seconds: float) -> tuple[int, str, str]:
     """Drain both pipes incrementally; neither subprocess buffers nor remote time are unbounded."""
-    started = time.monotonic()
     try:
-        process = subprocess.Popen(
+        with subproc.process(
             argv,
+            kind="ssh",
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            shell=False,
-            env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
-        )
+        ) as process:
+            return _drain(process, seconds)
     except OSError:
         raise ConnectorError("not_found", "Local OpenSSH executable is unavailable") from None
+
+
+def _drain(process: subprocess.Popen, seconds: float) -> tuple[int, str, str]:
+    started = time.monotonic()
     outputs = [bytearray(), bytearray()]
     try:
         with selectors.DefaultSelector() as selector:
@@ -301,13 +305,6 @@ def run_bounded(argv: list[str], seconds: float) -> tuple[int, str, str]:
         return code, outputs[0].decode("utf-8", "replace"), outputs[1].decode("utf-8", "replace")
     except subprocess.TimeoutExpired:
         raise httpx.ReadTimeout("SSH command deadline reached") from None
-    finally:
-        if process.poll() is None:
-            process.kill()
-        process.wait()
-        for pipe in (process.stdout, process.stderr):
-            if pipe:
-                pipe.close()
 
 
 def check_failure(code: int, stdout: str, stderr: str, operation: str) -> None:

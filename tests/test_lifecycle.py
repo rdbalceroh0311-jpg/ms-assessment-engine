@@ -233,7 +233,7 @@ def test_real_siteone_outcomes_drive_runner_store_and_report(tmp_path, monkeypat
     target = "https://example.test/"
     for title in ("", "Restored title"):
         monkeypatch.setattr(
-            siteone.subprocess,
+            siteone.subproc,
             "run",
             lambda *a, title=title, **kw: SimpleNamespace(
                 returncode=0,

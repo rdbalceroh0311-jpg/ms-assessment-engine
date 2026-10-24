@@ -26,7 +26,7 @@ def mock_domain(monkeypatch, ns=None, mx=None, headers=None, rdap_body=None):
         dns.resolver, "zone_for_name", lambda *a, **k: dns.name.from_text("example.com")
     )
     monkeypatch.setattr(
-        domain_email.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout="{}")
+        domain_email.subproc, "run", lambda *a, **k: SimpleNamespace(stdout="{}")
     )
     calls = []
 

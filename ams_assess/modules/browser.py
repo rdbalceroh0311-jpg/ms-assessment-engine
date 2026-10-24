@@ -2,13 +2,15 @@ import re
 from urllib.parse import urlsplit
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import sync_playwright
 
 from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
+from ams_assess.data_boundary import private_artifacts
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult, site_authority
 from ams_assess.modules.siteone import diagnostic
 from ams_assess.network import validate_public_url
+from ams_assess.subproc import environment
+from ams_assess.subproc import playwright as sync_playwright
 
 name = "browser"
 categories = {"accessibility", "geo", "local_seo", "entity", "cro_ux", "copywriting", "presence"}
@@ -98,6 +100,7 @@ def axe_outcomes(audit, component, evidence_id):
     ]
 
 
+@private_artifacts()
 def run(ctx: Context) -> ModuleResult:
     result = ModuleResult(name=name)
     axe = ctx.tools_dir / "axe.min.js"
@@ -109,7 +112,7 @@ def run(ctx: Context) -> ModuleResult:
         )
     records, errors = [], []
     with sync_playwright() as p:
-        browser = p.chromium.launch(**LAUNCH_OPTIONS)
+        browser = p.chromium.launch(**LAUNCH_OPTIONS, env=environment("browser"))
         try:
             for viewport, width, height in [("desktop", 1440, 1000), ("mobile", 390, 844)]:
                 session = isolate_context(

@@ -59,7 +59,7 @@ def mock_crawler(monkeypatch, ctx, rows=None, exit_code=0, error=None):
             ),
         )
 
-    monkeypatch.setattr(siteone.subprocess, "run", process)
+    monkeypatch.setattr(siteone.subproc, "run", process)
     return commands
 
 
@@ -232,7 +232,7 @@ def test_redirected_website_does_not_change_email_domain(tmp_path, monkeypatch, 
         checked.append(command[-1])
         return SimpleNamespace(stdout='{"spf":{"valid":true},"dmarc":{"valid":true}}')
 
-    monkeypatch.setattr(domain_email.subprocess, "run", checkdmarc)
+    monkeypatch.setattr(domain_email.subproc, "run", checkdmarc)
 
     def rdap(url, **kwargs):
         registrations.append(url)
@@ -318,7 +318,8 @@ def test_qualified_profile_summary_survives_failed_crawl(tmp_path, monkeypatch, 
         )
 
     monkeypatch.setattr(ai.shutil, "which", lambda _: "claude")
-    monkeypatch.setattr(ai.subprocess, "run", claude)
+    monkeypatch.setattr(ai.subproc, "run", claude)
+    ctx.config["AMS_AI_PROVIDER"] = "claude-cli"
     result, _ = ai.analyse(ctx, [], [profile, *crawl.evidence], False)
     assert result["status"] == "ok"
     assert (

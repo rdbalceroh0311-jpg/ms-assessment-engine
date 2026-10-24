@@ -16,19 +16,21 @@ import markdown
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from markdown.inlinepatterns import InlineProcessor
 from markdown.treeprocessors import Treeprocessor
-from playwright.sync_api import sync_playwright
 
 from ams_assess.ai import PHASES
 from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
 from ams_assess.connectors import REGISTRY as CONNECTORS
 from ams_assess.connectors.service import project_presence
 from ams_assess.consolidate import consolidate
+from ams_assess.data_boundary import private_artifacts
 from ams_assess.discovery import DISCOVERY_SECTIONS
 from ams_assess.lifecycle import site_key
 from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding, customer_path
 from ams_assess.modules.gsc import AI_REPORT_NOTE
 from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
 from ams_assess.store import load, locked, now, report_data, save
+from ams_assess.subproc import environment
+from ams_assess.subproc import playwright as sync_playwright
 
 LOCAL = {"local_seo", "entity", "presence"}
 MAX_MARKDOWN_BYTES = 5_000_000
@@ -426,6 +428,7 @@ def output_path(directory: Path, name: str) -> Path:
     return target
 
 
+@private_artifacts()
 def render_customer(
     root: Path,
     customer: str,
@@ -762,6 +765,7 @@ def render_markdown(
     return content.rstrip() + "\n"
 
 
+@private_artifacts()
 def write_outputs(run_dir: Path, content: str, formats: set[str]) -> list[str]:
     written = []
     targets = {ext: output_path(run_dir, f"report.{ext}") for ext in formats}
@@ -787,8 +791,8 @@ def write_outputs(run_dir: Path, content: str, formats: set[str]) -> list[str]:
         targets["html"].write_text(document)
         written.append("report.html")
     if "pdf" in formats:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(**LAUNCH_OPTIONS)
+        with sync_playwright(kind="pdf") as p:
+            browser = p.chromium.launch(**LAUNCH_OPTIONS, env=environment("pdf"))
             try:
                 session = isolate_context(browser, offline=True)
                 page = session.new_page()

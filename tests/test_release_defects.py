@@ -479,7 +479,7 @@ def test_d5_siteone_receives_seeds_and_browser_reserves_slots_for_them(tmp_path,
         rows = [{"url": u, "status": "200", "type": 1} for u in [ctx.site_url, *seeds]]
         return SimpleNamespace(returncode=0, stderr="", stdout=json.dumps({"results": rows}))
 
-    monkeypatch.setattr(siteone.subprocess, "run", process)
+    monkeypatch.setattr(siteone.subproc, "run", process)
     result = siteone.run(ctx)
     listing = next(c for c in commands[0] if c.startswith("--url-list="))
     assert Path(listing.split("=", 1)[1]).read_text().split() == [ctx.site_url, *seeds]
@@ -1274,7 +1274,7 @@ def test_d5_seed_list_never_bypasses_a_disallowed_start_page(tmp_path, monkeypat
             ),
         )
 
-    monkeypatch.setattr(siteone.subprocess, "run", process)
+    monkeypatch.setattr(siteone.subproc, "run", process)
     assert siteone.run(ctx).status == "ok"
     assert ctx.target not in ctx.pages
 

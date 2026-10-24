@@ -22,6 +22,7 @@ from typing import Any
 from ams_assess import register
 from ams_assess.ai import CITATIONS
 from ams_assess.consolidate import consolidate
+from ams_assess.data_boundary import json_text, prune, retention_days, text
 from ams_assess.discovery import DISCOVERY_SECTIONS, Notes, slug
 from ams_assess.figures import sentences
 from ams_assess.lifecycle import key as technical_key
@@ -175,18 +176,24 @@ def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str,
     )
     with guard:
         original = path.read_bytes()
+        if migrate_legacy:
+            prune(
+                path.parent,
+                "assessment.json.backup-*",
+                retention_days(os.environ, "AMS_BACKUP_RETENTION_DAYS", 30),
+            )
         store = json.loads(original)
         if store.get("customer_id") != customer or store.get("schema_version") not in {1, 2, 3}:
             raise ValueError("Unsupported or mismatched customer store")
         if store["schema_version"] != SCHEMA_VERSION:
             if not migrate_legacy:
                 raise ValueError("Legacy store: open it with register show in the CLI to migrate")
-            # Backup the exact original bytes before ANY schema conversion or saved change.
+            # Preserve the original before migration, removing recognisable credentials.
             stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
             backup = path.with_name(f"assessment.json.backup-{stamp}")
             fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "wb") as handle:
-                handle.write(original)
+                handle.write(text(original.decode()).encode())
                 handle.flush()
                 os.fsync(handle.fileno())
             migrate(store)
@@ -507,7 +514,7 @@ def save(root: Path, customer: str, store: dict[str, Any]) -> None:
     fd, temp = tempfile.mkstemp(dir=path.parent, prefix=".assessment-", suffix=".tmp")  # 0600
     try:
         with os.fdopen(fd, "w") as handle:
-            handle.write(json.dumps(store, indent=2, ensure_ascii=False, default=str) + "\n")
+            handle.write(json_text(store))
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temp, path)

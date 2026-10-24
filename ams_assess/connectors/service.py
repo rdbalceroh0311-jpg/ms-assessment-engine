@@ -300,7 +300,7 @@ def prepare(
             state["last_successful_collection"] = state["last_collection"]
     result.status = "ok" if tested_ok else "error" if state["status"] == "failed" else "skipped"
     result.reason = state["detail"]
-    return result, redact(state, secrets)
+    return ModuleResult.model_validate(redact(result.model_dump(), secrets)), redact(state, secrets)
 
 
 def endpoint_evidence(key: str, ctx: ConnectorContext, endpoint: Endpoint) -> dict[str, Any]:

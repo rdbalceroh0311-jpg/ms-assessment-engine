@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
-from ams_assess import register, store
+from ams_assess import register, store, subproc
 from ams_assess.connectors import REGISTRY as CONNECTORS
 from ams_assess.connectors.auth import google_desktop_flow
 from ams_assess.connectors.commands import add_parsers, safe_dispatch
@@ -22,6 +22,8 @@ from ams_assess.runner import run
 
 ROOT = Path(__file__).resolve().parent.parent
 ENV_KEYS = [
+    "AMS_AI_PROVIDER",
+    "AMS_AI_DEBUG_RETENTION_DAYS",
     "ANTHROPIC_API_KEY",
     "PAGESPEED_API_KEY",
     "CRUX_API_KEY",
@@ -45,7 +47,11 @@ def data_root() -> Path:
 
 def config() -> dict[str, str]:
     loaded = {}
-    for file in [Path.home() / ".config/ams-assess/credentials.env", ROOT / ".env"]:
+    directory = Path(os.environ.get("AMS_CONFIG_DIR", Path.home() / ".config/ams-assess"))
+    for file in [
+        directory / "credentials.env",
+        Path(os.environ.get("AMS_ENV_FILE", ROOT / ".env")),
+    ]:
         if file.is_file():
             loaded.update(
                 {
@@ -136,6 +142,7 @@ def profile_changes(args: argparse.Namespace) -> dict:
     return changes
 
 
+@subproc.cancellation()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="ams-assess", description="AMS evidence-backed assessment"

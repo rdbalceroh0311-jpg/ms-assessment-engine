@@ -1,8 +1,9 @@
-"""Hermetic tests: isolated operator state, synthetic DNS, local sockets only."""
+"""Every test starts without operator credentials; network is fixture/loopback only."""
 
 import ipaddress
 import os
 import socket
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
@@ -10,62 +11,86 @@ from types import SimpleNamespace
 
 import pytest
 
-from ams_assess import network
+# Do this before collection imports application modules (some calculate default paths).
+_ROOT = Path(__file__).resolve().parents[1]
+(_ROOT / "tmp").mkdir(exist_ok=True)
+_HOME = tempfile.TemporaryDirectory(prefix="test-home-", dir=_ROOT / "tmp")
+_SAFE = {key: os.environ[key] for key in ("PATH", "LANG", "SYSTEMROOT") if key in os.environ}
+os.environ.clear()
+os.environ.update(_SAFE)
+os.environ.update(
+    HOME=_HOME.name,
+    XDG_CONFIG_HOME=str(Path(_HOME.name) / "config"),
+    AMS_CONFIG_DIR=str(Path(_HOME.name) / "config/ams-assess"),
+    AMS_ENV_FILE=str(Path(_HOME.name) / "absent.env"),
+    AMS_AI_PROVIDER="none",
+    AMS_LIVE_SMOKE="0",
+    PLAYWRIGHT_BROWSERS_PATH=str(_ROOT / "tools/playwright"),
+)
 
-TEST_ROOT = Path(__file__).resolve().parents[1] / ".security-test"
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(TEST_ROOT / "browsers")
-os.environ.pop("AMS_LIVE_SMOKE", None)
+from ams_assess import network  # noqa: E402  (after the environment is isolated)
+
+# Synthetic public answer for external names. Any connection to it is still refused below,
+# so public-guard tests can exercise hostname validation without live DNS.
+SYNTHETIC_PUBLIC_IP = "93.184.216.34"
+
+
+def _loopback(host):
+    if host in {"localhost", b"localhost", None, "", b""}:
+        return
+    try:
+        address = ipaddress.ip_address(host.decode() if isinstance(host, bytes) else host)
+    except ValueError:
+        raise AssertionError("Tests must mock external DNS/network access") from None
+    if not address.is_loopback:
+        raise AssertionError("Tests must mock external network access")
 
 
 @pytest.fixture(autouse=True)
-def isolated_operator(tmp_path, monkeypatch):
-    home = tmp_path / "operator-home"
-    home.mkdir()
+def isolated_operator_and_network(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir(mode=0o700)
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
-    for key in tuple(os.environ):
-        if key.startswith(("AMS_", "ANTHROPIC_", "OPENAI_", "GOOGLE_", "CRUX_", "DATAFORSEO_")):
-            monkeypatch.delenv(key)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / "config"))
+    monkeypatch.setenv("AMS_CONFIG_DIR", str(home / "config/ams-assess"))
+    monkeypatch.setenv("AMS_ENV_FILE", str(home / "absent.env"))
+    original_lookup = socket.getaddrinfo
+    original_connect = socket.socket.connect
+    original_connect_ex = socket.socket.connect_ex
+    original_sendto = socket.socket.sendto
 
-
-@pytest.fixture(autouse=True)
-def no_external_network(monkeypatch):
-    getaddrinfo = socket.getaddrinfo
-    connect = socket.socket.connect
-    connect_ex = socket.socket.connect_ex
-    sendto = socket.socket.sendto
-
-    def local(address):
-        if isinstance(address, tuple):
-            try:
-                assert ipaddress.ip_address(address[0]).is_loopback, "Live network forbidden"
-            except ValueError:
-                assert address[0] == "localhost", "Live hostname connection forbidden"
-
-    def guarded_connect(sock, address):
-        local(address)
-        return connect(sock, address)
-
-    def guarded_connect_ex(sock, address):
-        local(address)
-        return connect_ex(sock, address)
-
-    def guarded_sendto(sock, data, *args):
-        local(args[-1])
-        return sendto(sock, data, *args)
-
-    def synthetic_dns(host, port, *args, **kwargs):
+    def lookup(host, *args, **kwargs):
+        name = host.decode() if isinstance(host, bytes) else host
         try:
-            ipaddress.ip_address(host)
-            numeric = host
-        except ValueError:
-            numeric = "127.0.0.1" if host == "localhost" else "93.184.216.34"
-        return getaddrinfo(numeric, port, *args, **kwargs)
+            _loopback(name)
+        except AssertionError:
+            try:
+                ipaddress.ip_address(name)
+            except ValueError:
+                # Never ask a real resolver; the answer below is unreachable in tests.
+                return original_lookup(SYNTHETIC_PUBLIC_IP, *args, **kwargs)
+            # Numeric non-loopback literals need no resolver; connect() still refuses them.
+        return original_lookup(host, *args, **kwargs)
 
-    monkeypatch.setattr(socket, "getaddrinfo", synthetic_dns)
-    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
-    monkeypatch.setattr(socket.socket, "connect_ex", guarded_connect_ex)
-    monkeypatch.setattr(socket.socket, "sendto", guarded_sendto)
+    def connect(sock, address):
+        if sock.family in {socket.AF_INET, socket.AF_INET6}:
+            _loopback(address[0])
+        return original_connect(sock, address)
+
+    def connect_ex(sock, address):
+        if sock.family in {socket.AF_INET, socket.AF_INET6}:
+            _loopback(address[0])
+        return original_connect_ex(sock, address)
+
+    def sendto(sock, data, *args):
+        if sock.family in {socket.AF_INET, socket.AF_INET6}:
+            _loopback(args[-1][0])
+        return original_sendto(sock, data, *args)
+
+    monkeypatch.setattr(socket, "getaddrinfo", lookup)
+    monkeypatch.setattr(socket.socket, "connect", connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)
+    monkeypatch.setattr(socket.socket, "sendto", sendto)
 
 
 @pytest.fixture
@@ -111,7 +136,7 @@ def http_server():
                 if self.command != "HEAD":
                     self.wfile.write(body)
 
-            do_POST = do_HEAD = do_GET
+            do_POST = do_HEAD = do_PUT = do_DELETE = do_GET
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         if tls:

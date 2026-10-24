@@ -200,7 +200,7 @@ def test_dataforseo_market_default_config_and_cli(
     assert cli.main(args) == 0
 
 
-def test_claude_json_transport_and_auth_failure_fallback(tmp_path, monkeypatch):
+def test_claude_json_transport_and_auth_failure_without_fallback(tmp_path, monkeypatch):
     calls = []
     output = {
         "structured_output": {
@@ -216,16 +216,16 @@ def test_claude_json_transport_and_auth_failure_fallback(tmp_path, monkeypatch):
         return SimpleNamespace(returncode=0, stdout=json.dumps(output), stderr="")
 
     monkeypatch.setattr(ai.shutil, "which", lambda _: "/fake/claude")
-    monkeypatch.setattr(ai.subprocess, "run", fake_claude)
-    ctx = context(tmp_path, categories={"seo"})
+    monkeypatch.setattr(ai.subproc, "run", fake_claude)
+    ctx = context(tmp_path, categories={"seo"}, config={"AMS_AI_PROVIDER": "claude-cli"})
     state, findings = ai.analyse(ctx, [], [sample_evidence()], no_ai=False)
-    assert state["status"] == "ok" and state["provider"] == "claude"
+    assert state["status"] == "ok" and state["provider"] == "claude-cli"
     assert len(findings) == 1 and state["recommendations"] == ["ai-001"]
     command, kwargs = calls[0]
     assert command[1] == "-p" and command[command.index("--tools") + 1] == ""
     assert "ev-source-001" in kwargs["input"] and kwargs["timeout"] == 300
-    assert (ctx.run_dir / "raw/ai-prompt.txt").is_file()
-    assert (ctx.run_dir / "raw/ai-claude.json").is_file()
+    assert (ctx.run_dir / "raw/ai-prompt.txt.sha256").is_file()
+    assert (ctx.run_dir / "raw/ai-claude.json.sha256").is_file()
     output.clear()
     output.update(is_error=True, result="Not logged in · Please run /login")
     state, findings = ai.analyse(ctx, [sample_finding()], [sample_evidence()], no_ai=False)

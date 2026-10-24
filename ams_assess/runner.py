@@ -4,8 +4,10 @@ from typing import Any
 from ams_assess import coverage, outcomes, store
 from ams_assess.ai import analyse
 from ams_assess.connectors import REGISTRY as CONNECTORS
+from ams_assess.connectors.privacy import private_logs
 from ams_assess.connectors.service import rows as connector_rows
 from ams_assess.consolidate import consolidate, consolidate_security_headers
+from ams_assess.data_boundary import configured_secrets, sanitise
 from ams_assess.lifecycle import scoped
 from ams_assess.models import (
     CATEGORIES,
@@ -31,7 +33,11 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             continue
         print(f"[{name}] collecting", flush=True)
         try:
-            result = module.run(ctx)
+            with private_logs():
+                result = module.run(ctx)
+            result = ModuleResult.model_validate(
+                sanitise(result.model_dump(), configured_secrets(ctx.config))
+            )
             if result.name != name or len({e.id for e in result.evidence}) != len(result.evidence):
                 raise ValueError("Invalid module identity or duplicate evidence")
             if any(e.source != name or not e.id.startswith(f"ev-{name}-") for e in result.evidence):
@@ -83,7 +89,12 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         consolidate_security_headers(findings, evidence), ctx.site_url, ctx.customer_id
     )
     write_json(ctx.run_dir / "evidence.json", [e.model_dump() for e in evidence])
-    print("[ai] analysing" if not no_ai else "[ai] disabled", flush=True)
+    ai_disabled = (
+        no_ai
+        or (ctx.profile or {}).get("no_ai", False)
+        or (ctx.config.get("AMS_AI_PROVIDER", "none") == "none")
+    )
+    print("[ai] disabled" if ai_disabled else "[ai] analysing", flush=True)
     ai, findings = analyse(ctx, findings, evidence, no_ai)
     findings = consolidate(findings, evidence)
     assessed = sorted(
@@ -187,6 +198,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         },
         include_unconfigured=False,
     )
+    data = sanitise(data, configured_secrets(ctx.config))
     write_json(ctx.run_dir / "findings.json", data["findings"])
     write_json(ctx.run_dir / "results.json", data)
     try:

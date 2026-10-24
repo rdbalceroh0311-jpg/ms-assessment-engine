@@ -219,7 +219,9 @@ def test_browser_canonical_check_handles_dns_root_dot(tmp_path, monkeypatch, can
     monkeypatch.setattr(
         browser,
         "sync_playwright",
-        lambda: nullcontext(SimpleNamespace(chromium=SimpleNamespace(launch=lambda **kw: engine))),
+        lambda: nullcontext(
+            SimpleNamespace(chromium=SimpleNamespace(launch=lambda **kwargs: engine))
+        ),
     )
     result = browser.run(ctx)
     assert result.status == "ok" and not result.reason
