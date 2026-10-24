@@ -362,6 +362,8 @@ def test_per_endpoint_availability_preserves_success(env, status):
         if status == 401
         else "permission_required"
         if status == 403
+        else "rate_limited"
+        if status == 429
         else "provider_unavailable"
     )
     assert failed["status"] == expected
