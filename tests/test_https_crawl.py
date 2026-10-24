@@ -92,7 +92,8 @@ def test_plain_tool_identity_is_shared_by_siteone_preflight_and_probes(tmp_path,
     assert "--ignore-robots-txt" not in commands[0]
     assert "--workers=2" in commands[0] and "--max-reqs-per-sec=5" in commands[0]
     assert site_checks.collect_probes(ctx)["normal"]["status"] == 200
-    assert agents == ["AMSAssessment/1.0", "AMSAssessment/1.0"]
+    # Preflight, robots.txt, sitemap, public WordPress types, and the probe.
+    assert agents == ["AMSAssessment/1.0"] * 5
 
 
 @pytest.mark.parametrize("failure", [403, 503, "timeout", "connect", "deadline", "location"])
