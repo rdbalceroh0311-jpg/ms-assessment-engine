@@ -137,7 +137,7 @@ def test_auto_population_reuses_fixture_signals_and_infrastructure(tmp_path):
         assert row(current, key)["presence"] == "publicly_observed", key
         assert row(current, key)["ownership"] == "unconfirmed"
         assert row(current, key)["integration"] == (
-            "not_configured" if key == "ga4" else "unsupported"
+            "not_configured" if key in register.CONNECTORS else "unsupported"
         )
     assert row(current, "ga4")["identifiers"] == ["G-ABCDEF1234"]
     assert row(current, "dns_provider")["identifiers"] == ["Example DNS"]
