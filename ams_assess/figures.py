@@ -16,7 +16,35 @@ QUANTITY = re.compile(
     r"(?P<period>\s+(?:per|a|each)\s+(?:day|week|month|year)|\s*/\s*(?:day|week|month|year))?",
     re.I,
 )
-GAIN = re.compile(r"\b(?:increase|boost|gain|generate|deliver)\b", re.I)
+# Evaluate the figure's sentence, including framing after the quantity. A matching
+# historic number never supports a forecast, intervention effect or conditional gain.
+PROMISSORY = re.compile(
+    r"\b(?:will|could|would|can|should|may|might|shall)\s+\w+"
+    r"|\b\w+['’](?:ll|d)\s+\w+|\b(?:won['’]t|can['’]t|cannot)\s+\w+"
+    r"|\b(?:by|after|through|from)\s+(?:\w+ly\s+)*\w+ing\b"
+    r"|\b(?:leads?|leading|results?|resulting|translates?|translating)\s+(?:to|in|into)\b"
+    r"|\b(?:because|therefore|so that|as a result|in order to|if)\b",
+    re.I,
+)
+GAIN = re.compile(
+    r"\b(?:increas(?:e|es|ed|ing)|boost(?:s|ed|ing)?|gain(?:s|ed|ing)?|"
+    r"generat(?:e|es|ed|ing)|deliver(?:s|ed|ing)?|add(?:s|ed|ing)?|win(?:s|ning)?|"
+    r"driv(?:e|es|ing)|bring(?:s|ing)?)\b|^\s*get\b",
+    re.I,
+)
+
+
+def sentences(text: str) -> list[str]:
+    """Keep trailing citations with their sentence and decimal quantities intact."""
+    return [
+        part.strip()
+        for part in re.findall(
+            r".+?(?:[.!?](?=\s|$)(?:\s*[(\[]ev-[^\]\n)]+[)\]]\.?)*|\n|$)",
+            re.sub(r"\bapprox\.\s+", "approx ", text, flags=re.I),
+            re.S,
+        )
+        if part.strip()
+    ]
 
 
 @dataclass(frozen=True)
@@ -55,7 +83,11 @@ def records(evidence: Evidence) -> list[tuple[Figure, str]]:
             period = {"daily": "day", "weekly": "week", "monthly": "month", "yearly": "year"}
             if frequency.lower() in period:
                 statement += " per " + period[frequency.lower()]
-        return [(figure(m), statement) for m in QUANTITY.finditer(statement)]
+        return [
+            (figure(m), sentence)
+            for sentence in sentences(statement)
+            for m in QUANTITY.finditer(sentence)
+        ]
     if evidence.provenance != "technical_evidence":
         return []
     # Only explicitly labelled measurements, never a coincidentally equal score or identifier.
@@ -74,54 +106,56 @@ def records(evidence: Evidence) -> list[tuple[Figure, str]]:
 
 
 def supported(text: str, cited: list[Evidence]) -> bool:
-    for match in QUANTITY.finditer(text):
-        wanted = figure(match)
-        if not any(wanted == recorded for e in cited for recorded, _ in records(e)):
+    for sentence in sentences(text):
+        matches = list(QUANTITY.finditer(sentence))
+        if matches and (PROMISSORY.search(sentence) or GAIN.search(sentence)):
             return False
-        # Turning a recorded workload into a gain is a different claim.
-        if GAIN.search(text[max(0, match.start() - 30) : match.start()]):
-            return False
+        for match in matches:
+            if not any(figure(match) == value for e in cited for value, _ in records(e)):
+                return False
     return True
 
 
 def render(text: str, cited: list[Evidence]) -> str:
-    """Render matched quantities from the original record so no context is silently lost."""
-    matches = list(QUANTITY.finditer(text))
-    if not matches:
+    """Replace only figure-bearing sentences, retaining other validated prose."""
+    if not QUANTITY.search(text):
         return text
-    rows = []
-    for match in matches:
-        for evidence in cited:
-            found = next(
-                (phrase for value, phrase in records(evidence) if value == figure(match)), None
-            )
-            if found is None:
-                continue
-            if evidence.provenance == "customer_statement":
-                found = (
-                    re.sub(
-                        r"^(?:the customer reports?|customer reports?|we (?:receive|get))\s+",
-                        "",
+    output = []
+    for sentence in sentences(text):
+        rows = []
+        for match in QUANTITY.finditer(sentence):
+            for evidence in cited:
+                found = next(
+                    (phrase for value, phrase in records(evidence) if value == figure(match)), None
+                )
+                if found is None:
+                    continue
+                if evidence.provenance == "customer_statement":
+                    found = (
+                        re.sub(
+                            r"^(?:the customer reports?|customer reports?|we (?:receive|get))\s+",
+                            "",
+                            found,
+                            flags=re.I,
+                        )
+                        .strip()
+                        .rstrip(".")
+                    )
+                    found = re.sub(
+                        r"^(?:~\s*|approx\.?\s+|about\s+|around\s+)",
+                        "approximately ",
                         found,
                         flags=re.I,
                     )
-                    .strip()
-                    .rstrip(".")
-                )
-                found = re.sub(
-                    r"^(?:~\s*|approx\.?\s+|about\s+|around\s+)",
-                    "approximately ",
-                    found,
-                    flags=re.I,
-                )
-                found = found[:1].lower() + found[1:]
-                rows.append(
-                    f"Customer reports {found}; not independently verified. ({evidence.id})"
-                )
-            else:
-                rows.append(f"Measured evidence records {found.rstrip('.')}. ({evidence.id})")
-            break
-    return " ".join(dict.fromkeys(rows))
+                    found = found[:1].lower() + found[1:]
+                    rows.append(
+                        f"Customer reports {found}; not independently verified. ({evidence.id})"
+                    )
+                else:
+                    rows.append(f"Measured evidence records {found.rstrip('.')}. ({evidence.id})")
+                break
+        output.append(" ".join(dict.fromkeys(rows)) if rows else sentence)
+    return " ".join(output)
 
 
 def customer_statement(value: Any) -> str:

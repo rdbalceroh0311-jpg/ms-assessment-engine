@@ -153,17 +153,22 @@ rechecked**, with their last-observed dates. Resolution records its evidence, da
 reopens the identity and preserves its events and observations. Current severity follows the latest
 observation. Resolved and superseded findings are excluded from recommendations and the roadmap;
 conflicts remain **needs review**. Discovery supersession and conflict rules below are unchanged.
+Current citations refer to the current observation; older citations remain in finding events.
+Historical AI prose is removed only when its cited basis belongs solely to resolved or superseded
+findings, preserving sentences with a current or mixed basis.
 
 Page identities normalise the www/apex alias while preserving other subdomains and page/test scope;
 evidence keeps the URL actually observed. Legacy `lighthouse-mobile` / `lighthouse-desktop` keys
 are predecessors only of the equivalent homepage per-page checks, retaining identity and history
-through resolution and recurrence.
+through resolution and recurrence. Legacy per-header findings become predecessors of the matching
+`security-headers` aggregate, with their original records retained in history.
 
 Schema 1/2 stores migrate under the existing customer lock. Before conversion, the exact original
 `assessment.json` bytes are fsynced to `assessment.json.backup-<UTC timestamp>` beside the store,
 mode 0600. Migration is then saved atomically. Legacy findings have no inferred pass: they start as
 not rechecked, and ambiguous legacy components require review or an equivalent explicit retest.
-Evidence, runs and immutable report revisions are retained.
+Evidence, runs and immutable report revisions are retained. Migration deduplicates normalized
+identities; loading or saving a store with duplicate active finding IDs is rejected.
 
 **Finding versions.** A finding whose cited statements have all been superseded is retired to
 `finding_history` (kept, never recommended); re-importing a discovery finding with a changed claim
@@ -224,13 +229,17 @@ be a list of URLs, a list of `{"url": "..."}` objects, or `{"urls": [...]}`; CSV
 column. Maximum 2 MB / 5000 rows; URLs outside the assessed origin and credential-bearing URLs are
 excluded. Export URLs have their own discovery source and do not count as crawled or browser-tested.
 No inventory collection claims complete coverage.
+If coverage accounting fails, the run retains its completed checks and report, records coverage
+as unavailable, and marks the run partial.
 
 Supported business figures are matched to discovery statements or structured measurements by value,
 unit, period and qualifier. Customer statements render from the original source and retain context,
 for example: **Customer reports approximately 20 enquiries per week; not independently verified.**
 Citations remain attached; matching a bare number or score does not authorise an enquiry count.
 Invented quantities, upgrades to measured claims, lost-revenue/ROI claims and promised gains remain
-blocked. This processing does not send discovery notes to an AI provider.
+blocked, including future/modal and causal framing in finding titles. Only figure-bearing sentences
+are replaced; other validated sentences remain intact. This processing does not send discovery
+notes to an AI provider.
 
 ### Business identity and platform presence discovery
 

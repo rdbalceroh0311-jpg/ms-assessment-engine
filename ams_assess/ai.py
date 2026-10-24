@@ -307,18 +307,17 @@ def validate_analysis(
             finding = Finding.model_validate(item)
             if not set(finding.evidence_ids) <= known or finding.category not in categories:
                 raise ValueError("unknown evidence or unselected category")
-            interpretation = " ".join([finding.likely_cause, finding.business_impact])
+            fields = ["title", "likely_cause", "business_impact"]
             if finding.id not in existing:
-                interpretation += (
-                    " " + finding.title + " " + finding.detail + " " + finding.recommendation
-                )
-            if unsupported_claim(interpretation, [by_evidence[i] for i in finding.evidence_ids]):
-                raise ValueError("unsupported quantity or promised outcome")
+                fields += ["detail", "recommendation"]
+            interpretation = " ".join(getattr(finding, field) for field in fields)
             cited = [by_evidence[i] for i in finding.evidence_ids]
+            if any(unsupported_claim(getattr(finding, field), cited) for field in fields):
+                raise ValueError("unsupported quantity or promised outcome")
             if any(e.provenance != "technical_evidence" for e in cited):
                 if claims_verification(interpretation):
                     raise ValueError("customer statement upgraded to measured evidence")
-            for field in ("likely_cause", "business_impact", "detail", "recommendation"):
+            for field in ("title", "likely_cause", "business_impact", "detail", "recommendation"):
                 setattr(finding, field, figures.render(getattr(finding, field), cited))
             if finding.id in existing:
                 base = existing[finding.id]

@@ -275,6 +275,9 @@ The table explains what ran and where evidence was unavailable. Results apply on
 {% for coverage in data.get('website_coverage_runs', []) or ([data.website_coverage] if data.get('website_coverage') else []) %}
 ### Website coverage{% if coverage.get('run_id') %}: {{ coverage.target | text }} ({{ coverage.run_id }}){% endif %}
 
+{% if coverage.get('status') == 'unavailable' %}
+{{ coverage.reason | text }}.
+{% else %}
 {{ coverage.summary | text }}
 
 Limits: {{ coverage.limits | text }}. Collection stopped: {{ coverage.stop_reasons | join('; ') | text }}.
@@ -297,16 +300,17 @@ Excluded: {{ coverage.excluded | text }}. Blocked: {{ coverage.blocked | text }}
 
 WordPress inventory: {{ coverage.wordpress.status | text }} — {{ coverage.wordpress.reason | text }}.
 
+{% endif %}
 {% endfor %}
-{% if lifecycle_findings | selectattr('site') | list %}
+{% if lifecycle_findings %}
 ### Technical finding lifecycle
 
 **Current** findings are listed in the relevant sections and recommendations below.
 
 | State | Finding / site / component | Last observed | Resolution evidence / date / run |
 | --- | --- | --- | --- |
-{% for f in lifecycle_findings if f.site %}
-| {{ {'current': 'Current', 'resolved': 'Resolved', 'not_rechecked': 'Not rechecked — previously observed — not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | {{ f.title | text }} ({{ f.id }})<br>{{ f.site | text }} / {{ f.component | text }} | {{ f.last_observed | text or 'This run' }} ({{ f.evidence_ids | join(', ') }}) | {% if f.resolution %}{{ f.resolution.evidence_ids | join(', ') }} / {{ f.resolution.date | text }} / {{ f.resolution.run_id }}{% else %}—{% endif %} |
+{% for f in lifecycle_findings %}
+| {{ {'current': 'Current', 'resolved': 'Resolved', 'not_rechecked': 'Not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | {{ f.title | text }} ({{ f.id }})<br>{{ lifecycle_domains[f.id] | text }} / {{ f.component | text }} | {{ f.last_observed | text or 'This run' }} ({{ f.evidence_ids | join(', ') }}) | {% if f.resolution %}{{ f.resolution.evidence_ids | join(', ') }} / {{ f.resolution.date | text }} / {{ f.resolution.run_id }}{% else %}—{% endif %} |
 {% endfor %}
 
 {% endif %}

@@ -22,10 +22,12 @@ from typing import Any
 from ams_assess.ai import CITATIONS
 from ams_assess.consolidate import consolidate
 from ams_assess.discovery import DISCOVERY_SECTIONS, Notes, slug
+from ams_assess.figures import sentences
 from ams_assess.lifecycle import key as technical_key
 from ams_assess.lifecycle import observe, scoped, site_key, transition
 from ams_assess.models import (
     DISCOVERY_CATEGORY,
+    SEVERITIES,
     CheckOutcome,
     Evidence,
     Finding,
@@ -152,13 +154,63 @@ def load(root: Path, customer: str) -> dict[str, Any] | None:
                 os.fsync(handle.fileno())
             migrate(store)
             save(root, customer, store)
+        unique_findings(store)
         return store
+
+
+def unique_findings(store: dict[str, Any]) -> None:
+    ids = [f["id"] for f in store.get("findings", [])]
+    if len(ids) != len(set(ids)):
+        raise ValueError("Duplicate finding IDs in customer store")
+
+
+def deduplicate_technical(findings: list[Finding]) -> list[Finding]:
+    """Migration/predecessor aliases share one identity; preserve their original observations."""
+    merged: dict[tuple[str, str, str], Finding] = {}
+    for finding in findings:
+        identity = technical_key(finding)
+        if identity not in merged:
+            merged[identity] = finding
+            continue
+        current = merged[identity]
+        current.evidence_ids = list(dict.fromkeys(current.evidence_ids + finding.evidence_ids))
+        current.coverage = list(dict.fromkeys(current.coverage + finding.coverage))
+        current.urls = list(dict.fromkeys(current.urls + finding.urls))
+        current.severity = min((current.severity, finding.severity), key=SEVERITIES.__getitem__)
+        current.priority = min(current.priority, finding.priority)
+        current.events.extend(event for event in finding.events if event not in current.events)
+        current.events.append(
+            {
+                "status": "identity-predecessor",
+                "observation": finding.model_dump(exclude={"events"}),
+            }
+        )
+        if finding.detail not in current.detail:
+            current.detail += " " + finding.detail
+    return list(merged.values())
+
+
+def header_predecessors(store: dict[str, Any], findings: list[Finding]) -> list[Finding]:
+    result = []
+    for finding in findings:
+        if finding.check_key.startswith("header-missing:"):
+            original = finding.model_copy(deep=True)
+            finding.check_key = "security-headers"
+            finding = scoped([finding], "", store["customer_id"])[0]
+            _retire(
+                store,
+                original,
+                "per-header predecessor of consolidated security-headers",
+                finding.id,
+            )
+        result.append(finding)
+    return deduplicate_technical(result)
 
 
 def migrate(store: dict[str, Any]) -> None:
     runs = [r for r in store.get("runs", []) if r.get("kind") == "assessment"]
     evidence = {e["id"]: e for e in store.get("evidence", [])}
-    findings = []
+    findings, technical = [], []
     checked_evidence = [Evidence.model_validate(e) for e in evidence.values()]
     for raw in store.get("findings", []):
         finding = consolidate([Finding.model_validate(raw)], checked_evidence)[0]
@@ -192,8 +244,13 @@ def migrate(store: dict[str, Any]) -> None:
                     "evidence_ids": part.evidence_ids,
                 }
             ]
-            findings.append(part.model_dump(mode="json"))
-    store["findings"] = findings
+            if finding.check_key.startswith("header-missing:"):
+                # Retire the original record ID when its aggregate successor is created.
+                part.id = finding.id
+            technical.append(part)
+    store["findings"] = findings + [
+        f.model_dump(mode="json") for f in header_predecessors(store, technical)
+    ]
     store.setdefault("finding_history", [])
     store.setdefault("needs_review", [])
     store.setdefault("report_revisions", [])
@@ -202,6 +259,7 @@ def migrate(store: dict[str, Any]) -> None:
 
 def save(root: Path, customer: str, store: dict[str, Any]) -> None:
     """Atomic write: a crash leaves either the old or the new store, never a partial file."""
+    unique_findings(store)
     path = store_file(root, customer)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Customer statements are private: keep the customer directory owner-only.
@@ -437,8 +495,8 @@ def _merge_run(
         customer,
     )
     previous = [Finding.model_validate(f) for f in store["findings"]]
-    technical = [f for f in previous if f.site or f.component]
-    incoming_technical = [f for f in incoming if f.site or f.component]
+    technical = header_predecessors(store, [f for f in previous if f.site or f.component])
+    incoming_technical = header_predecessors(store, [f for f in incoming if f.site or f.component])
     other_store = {
         **store,
         "findings": [f.model_dump() for f in previous if not (f.site or f.component)],
@@ -942,15 +1000,31 @@ def report_data(
         for fid in [row.get("finding_id"), *row.get("finding_ids", [])]
     }
     actionable -= review_ids
-    inactive_eids = {
-        eid for f in data["findings"] if f["id"] not in actionable for eid in f["evidence_ids"]
+    active_eids = {
+        eid for f in data["findings"] if f["id"] in actionable for eid in f["evidence_ids"]
     }
-    if inactive_eids & set(CITATIONS.findall(ai.get("executive_summary", ""))):
-        ai["executive_summary"] = ""
+    inactive_eids = {
+        eid
+        for f in [*data["findings"], *data["finding_history"]]
+        if f.get("lifecycle_status") == "resolved" or f.get("status") == "superseded"
+        for eid in f["evidence_ids"]
+    } - active_eids
+
+    def retain_supported(text: str) -> str:
+        refs = set(CITATIONS.findall(text))
+        if refs and refs <= inactive_eids:
+            return ""
+        return " ".join(
+            sentence
+            for sentence in sentences(text)
+            if not ((refs := set(CITATIONS.findall(sentence))) and refs <= inactive_eids)
+        )
+
+    ai["executive_summary"] = retain_supported(ai.get("executive_summary", ""))
     ai["sections"] = {
-        key: text
+        key: retained
         for key, text in ai.get("sections", {}).items()
-        if not inactive_eids & set(CITATIONS.findall(text))
+        if (retained := retain_supported(text))
     }
     ai["recommendations"] = [i for i in ai.get("recommendations", []) if i in actionable]
     ai["roadmap"] = {

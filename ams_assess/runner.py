@@ -105,7 +105,13 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         for n, d, req, cats in FUTURE
         if cats & ctx.categories
     ]
-    website_coverage = coverage.collect(ctx)
+    try:
+        website_coverage = coverage.collect(ctx)
+    except Exception as exc:
+        # Inventory failure must not discard completed checks, or echo secret-bearing errors.
+        reason = f"Website coverage unavailable ({type(exc).__name__}); collected checks retained"
+        website_coverage = {"status": "unavailable", "reason": reason}
+        limitations.append(reason)
     data = {
         "schema_version": 1,
         "customer_id": ctx.customer_id,
@@ -135,7 +141,11 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         data["domain_email_health"] = domain_email.health_summary(results, ctx.categories)
     if "presence" in ctx.categories:
         data["digital_presence"] = presence.summary(results, ctx)
-    if any(r.status != "ok" or r.reason for r in results) or ai["status"] == "error":
+    if (
+        any(r.status != "ok" or r.reason for r in results)
+        or ai["status"] == "error"
+        or website_coverage.get("status") == "unavailable"
+    ):
         data["status"] = "partial" if evidence else "incomplete"
     write_json(ctx.run_dir / "findings.json", data["findings"])
     write_json(ctx.run_dir / "results.json", data)

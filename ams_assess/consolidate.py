@@ -54,7 +54,7 @@ def consolidate_security_headers(
         "confirmed" if all(f.confidence == "confirmed" for f in headers) else "needs_verification"
     )
     # An aggregate grade supports the review; it cannot prove which header failed.
-    for e in evidence:
+    for e in {e.id: e for e in evidence}.values():
         if (
             e.source == "observatory"
             and isinstance(e.data, dict)

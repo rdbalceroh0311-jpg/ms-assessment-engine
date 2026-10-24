@@ -11,7 +11,16 @@ from ams_assess.models import Evidence, Finding
 from ams_assess.report import render_markdown
 
 
-def merge(root, *, run=1, target="https://example.test/", failures=("a",), outcomes=None):
+def merge(
+    root,
+    *,
+    run=1,
+    target="https://example.test/",
+    failures=("a",),
+    outcomes=None,
+    check="missing-title",
+    category="seo",
+):
     evidence = [
         Evidence(
             id="ev-siteone-001",
@@ -25,8 +34,8 @@ def merge(root, *, run=1, target="https://example.test/", failures=("a",), outco
         Finding(
             id=f"issue-{i}",
             title="Missing title " + page,
-            category="seo",
-            check_key="missing-title",
+            category=category,
+            check_key=check,
             evidence_ids=[evidence[0].id],
             detail="Missing title",
             recommendation="Add title",
@@ -38,7 +47,7 @@ def merge(root, *, run=1, target="https://example.test/", failures=("a",), outco
         outcomes
         if outcomes is not None
         else [
-            observe("siteone", "missing-title", "seo", target + page, "fail", [evidence[0].id])
+            observe("siteone", check, category, target + page, "fail", [evidence[0].id])
             for page in failures
         ]
     )
@@ -46,8 +55,8 @@ def merge(root, *, run=1, target="https://example.test/", failures=("a",), outco
         "target": target,
         "created_at": f"2026-10-{run:02d}T00:00:00Z",
         "status": "complete",
-        "selected_categories": ["seo"],
-        "assessed_categories": ["seo"],
+        "selected_categories": [category],
+        "assessed_categories": [category],
         "findings": [f.model_dump() for f in findings],
         "outcomes": [o.model_dump() for o in rows],
         "ai": {"status": "skipped", "recommendations": [f.id for f in findings]},
@@ -118,7 +127,7 @@ def test_partial_coverage_resolves_only_retested_page(tmp_path):
     }
     data, evidence, _ = store.report_data(after)
     text = render_markdown(data, evidence)
-    assert "previously observed — not rechecked" in text and "2026-10-01" in text
+    assert "| Not rechecked |" in text and "2026-10-01" in text
 
 
 def test_recurrence_reopens_stable_identity_and_preserves_resolution_history(tmp_path):
@@ -560,7 +569,7 @@ def test_legacy_lighthouse_homepage_resolves_with_per_page_check_and_preserves_h
         finding = next(f for f in updated["findings"] if f["id"] == old_id)
         assert finding["lifecycle_status"] == expected
         assert finding["events"][: len(old_events)] == old_events
-        assert eid in finding["evidence_ids"]
+        assert eid in finding["evidence_ids"] or eid in json.dumps(finding["events"])
         assert len([f for f in updated["findings"] if strategy in f["check_key"]]) == 1
         if expected == "resolved":
             assert finding["resolution"]["evidence_ids"]
@@ -642,3 +651,188 @@ def test_lighthouse_redirect_pass_requires_equivalent_page(final_path, expected,
     outcomes.record(ctx, result)
     assert result.outcomes[0].status == expected
     assert bool(result.outcomes[0].coverage) == (expected == "pass")
+
+
+@pytest.mark.parametrize("legacy_records", [1, 2])
+def test_migration_deduplicates_www_apex_lighthouse_identity(tmp_path, legacy_records):
+    saved = merge(tmp_path, failures=("",), check="lighthouse-mobile", category="performance")
+    saved["schema_version"] = 2
+    first = {**saved["evidence"][0], "id": "ev-performance-r1-001", "source": "performance"}
+    second = {**first, "id": "ev-performance-r1-002", "url": "https://www.example.test/"}
+    saved["evidence"] = [first, second]
+    saved["findings"] = [
+        {
+            **saved["findings"][0],
+            "id": f"legacy-{i}",
+            "urls": [],
+            "site": "",
+            "component": "",
+            "coverage": [],
+            "evidence_ids": [first["id"], second["id"]],
+        }
+        for i in range(legacy_records)
+    ]
+    path = store.store_file(tmp_path, "synthetic")
+    path.write_text(json.dumps(saved))
+    original = path.read_bytes()
+    loaded = store.load(tmp_path, "synthetic")
+    assert loaded is not None and len(loaded["findings"]) == 1
+    finding = loaded["findings"][0]
+    assert finding["site"] == "example.test" and finding["component"] == "https://example.test/"
+    assert finding["check_key"] == "lighthouse-mobile:https://example.test/"
+    assert set(finding["evidence_ids"]) == {first["id"], second["id"]}
+    assert next(path.parent.glob("assessment.json.backup-*")).read_bytes() == original
+    assert store.load(tmp_path, "synthetic") == loaded
+
+
+def test_store_rejects_duplicate_finding_ids_on_load_and_save(tmp_path):
+    saved = merge(tmp_path)
+    saved["findings"].append(dict(saved["findings"][0]))
+    path = store.store_file(tmp_path, "synthetic")
+    previous = path.read_bytes()
+    with pytest.raises(ValueError, match="Duplicate finding IDs"):
+        store.save(tmp_path, "synthetic", saved)
+    assert path.read_bytes() == previous
+    path.write_text(json.dumps(saved))
+    duplicate_bytes = path.read_bytes()
+    with pytest.raises(ValueError, match="Duplicate finding IDs"):
+        store.load(tmp_path, "synthetic")
+    assert path.read_bytes() == duplicate_bytes
+
+
+def test_domain_scoped_legacy_finding_is_visible_with_clean_state_and_date(tmp_path):
+    saved = merge(tmp_path)
+    saved["schema_version"] = 2
+    saved["evidence"][0]["url"] = "dns:example.test"
+    saved["findings"][0].update(
+        title="Public resolvers disagree on A records",
+        category="domain_email",
+        check_key="resolver-consistency",
+        site="",
+        component="",
+        coverage=[],
+        urls=[],
+    )
+    store.save(tmp_path, "synthetic", saved)
+    loaded = store.load(tmp_path, "synthetic")
+    assert loaded is not None
+    data, evidence, _ = store.report_data(loaded)
+    report = render_markdown(data, evidence)
+    table = report.split("### Technical finding lifecycle", 1)[1].split("| Source /", 1)[0]
+    assert "Public resolvers disagree on A records" in table and "example.test" in table
+    assert "| Not rechecked |" in table and "2026-10-01" in table
+    assert "previously observed — not rechecked" not in table
+
+
+def test_current_findings_cite_current_observation_and_keep_history_separate(tmp_path):
+    first = merge(tmp_path)
+    again = merge(tmp_path, run=2)
+    finding = again["findings"][0]
+    assert finding["evidence_ids"] == ["ev-siteone-r2-001"]
+    assert finding["events"][0]["evidence_ids"] == first["findings"][0]["evidence_ids"]
+    assert finding["events"][-1]["evidence_ids"] == finding["evidence_ids"]
+
+
+@pytest.mark.parametrize("historical_state", ["resolved", "not_rechecked"])
+def test_ai_history_filter_preserves_shared_current_and_mixed_evidence_sentences(
+    tmp_path, historical_state
+):
+    merge(tmp_path, failures=("a", "b"))
+    saved = merge(tmp_path, run=2, failures=("b",), outcomes=[outcome(), outcome("fail", "b")])
+    old = next(f for f in saved["findings"] if f["component"].endswith("/a"))
+    old.update(
+        lifecycle_status=historical_state, evidence_ids=["ev-siteone-r1-001", "ev-siteone-r2-001"]
+    )
+    saved["finding_history"].append(
+        {**old, "id": "superseded-copy", "status": "superseded", "evidence_ids": ["ev-history-001"]}
+    )
+    saved["evidence"].append(
+        Evidence(
+            id="ev-history-001",
+            source="history",
+            url="https://example.test/",
+            description="Superseded",
+            data={},
+        ).model_dump()
+    )
+    current = "Current evidence supports review. (ev-siteone-r2-001)"
+    stale = "Historical title failure. (ev-siteone-r1-001)"
+    mixed = "Mixed evidence supports this review (ev-siteone-r1-001, ev-siteone-r2-001)."
+    superseded = "Superseded claim. Evidence: ev-history-001"
+    saved["runs"][-1]["ai"] = {
+        "status": "ok",
+        "executive_summary": " ".join([current, stale, mixed, superseded]),
+        "sections": {"seo": " ".join([current, stale, mixed]), "security": superseded},
+    }
+    data, _, _ = store.report_data(saved)
+    summary = data["ai"]["executive_summary"]
+    assert current in summary and mixed in summary and superseded not in summary
+    assert (stale in summary) is (historical_state == "not_rechecked")
+    assert current in data["ai"]["sections"]["seo"] and "security" not in data["ai"]["sections"]
+
+
+@pytest.mark.parametrize("schema", [2, 3])
+@pytest.mark.parametrize("status", ["fail", "pass"])
+def test_legacy_header_findings_have_one_consolidated_successor(tmp_path, schema, status):
+    saved = merge(tmp_path, failures=("",), category="security", check="header-missing:csp")
+    saved["schema_version"] = schema
+    saved["findings"][0]["check_key"] = "header-missing:csp"
+    saved["findings"][0]["id"] = "legacy-csp"
+    second = {**saved["findings"][0], "id": "legacy-hsts", "check_key": "header-missing:hsts"}
+    saved["findings"].append(second)
+    original_ids = {f["id"] for f in saved["findings"]}
+    store.save(tmp_path, "synthetic", saved)
+    after = merge(
+        tmp_path,
+        run=2,
+        failures=("",) if status == "fail" else (),
+        category="security",
+        check="security-headers",
+        outcomes=[
+            observe(
+                "siteone",
+                "security-headers",
+                "security",
+                "https://example.test/",
+                status,
+                ["ev-siteone-001"],
+            )
+        ],
+    )
+    assert len(after["findings"]) == 1
+    finding = after["findings"][0]
+    assert finding["check_key"] == "security-headers"
+    assert finding["lifecycle_status"] == ("current" if status == "fail" else "resolved")
+    assert original_ids <= {f["id"] for f in after["finding_history"]}
+    data, evidence, _ = store.report_data(after)
+    report = render_markdown(data, evidence)
+    assert (
+        "header-missing:"
+        not in report.split("### Technical finding lifecycle", 1)[1].split("| Source /", 1)[0]
+    )
+    assert len(data["findings"]) == 1
+
+
+@pytest.mark.parametrize("cited", [True, False])
+def test_outcome_only_recurrence_preserves_prior_basis_and_requires_current_citation(
+    tmp_path, cited
+):
+    saved = merge(tmp_path)
+    saved["findings"][0]["events"] = [{"status": "legacy-observed"}]
+    store.save(tmp_path, "synthetic", saved)
+    after = merge(
+        tmp_path,
+        run=2,
+        failures=(),
+        outcomes=[
+            outcome("fail", evidence_ids=["ev-siteone-001"] if cited else []),
+        ],
+    )
+    finding = after["findings"][0]
+    if cited:
+        assert finding["evidence_ids"] == ["ev-siteone-r2-001"]
+        assert "ev-siteone-r1-001" in json.dumps(finding["events"])
+        assert finding["lifecycle_status"] == "current"
+    else:
+        assert finding["lifecycle_status"] == "not_rechecked"
+        assert finding["evidence_ids"] == ["ev-siteone-r1-001"]

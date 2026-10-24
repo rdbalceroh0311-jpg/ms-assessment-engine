@@ -85,6 +85,17 @@ def test_customer_figure_preserves_period_qualifiers_and_context():
         "ROI from approximately 20 enquiries per week",
         "Approximately 20 new enquiries per week",
         "Approximately 20 more enquiries per week",
+        "Form fixes will add approximately 20 enquiries per week",
+        "Fixing the forms will add approximately 20 enquiries per week",
+        "AMS could win approximately 20 enquiries per week for you",
+        "You would get approximately 20 enquiries per week",
+        "Approximately 20 enquiries per week can be brought in by fixing forms",
+        "The forms should bring approximately 20 enquiries per week",
+        "By fixing the forms, approximately 20 enquiries per week are possible",
+        "Fixing forms leads to approximately 20 enquiries per week",
+        "You get approximately 20 enquiries per week by fixing the forms",
+        "Forms drive approximately 20 enquiries per week",
+        "Approximately 20 enquiries per week will follow the changes",
     ],
 )
 def test_invented_upgraded_or_promised_customer_figures_are_rejected(claim):
@@ -136,6 +147,7 @@ def test_observatory_supporting_evidence_is_deduplicated():
     )
     result = consolidate_security_headers([finding], [evidence, evidence])
     assert result[0].evidence_ids == [evidence.id]
+    assert result[0].detail.count("aggregate supporting evidence") == 1
 
 
 @pytest.mark.parametrize("state", ["not-selected", "skipped", "error", "started"])
@@ -199,3 +211,129 @@ def test_customer_figure_modifiers_must_match_recorded_context():
     assert ai.unsupported_claim("Approximately 20 enquiries per week", [evidence])
     rendered = figures.render("Approximately 20 new enquiries per week", [evidence])
     assert rendered.startswith("Customer reports approximately 20 new enquiries per week;")
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_ai_finding_titles_reject_promises_and_render_customer_figures(existing):
+    evidence = customer_evidence()
+    base = Finding(
+        id="customer-load",
+        title="Customer reports approximately 20 enquiries per week",
+        category="cro_ux",
+        evidence_ids=[evidence.id],
+        detail="Review the enquiry workflow.",
+        recommendation="Review the forms.",
+    )
+    bad = base.model_copy(
+        update={"title": "Form fixes will add approximately 20 enquiries per week"}
+    )
+    _, findings, warnings = ai.validate_analysis(
+        {"findings": [bad.model_dump()]},
+        [evidence],
+        {"cro_ux"},
+        [base] if existing else [],
+    )
+    assert any("unsupported quantity or promised outcome" in warning for warning in warnings)
+    assert not any(f.title == bad.title for f in findings)
+    if not existing:
+        _, findings, _ = ai.validate_analysis(
+            {"findings": [base.model_dump()]},
+            [evidence],
+            {"cro_ux"},
+            [],
+        )
+        assert findings[0].title == (
+            "Customer reports approximately 20 enquiries per week; not independently verified. "
+            "(ev-discovery-001)"
+        )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "Forms could add 20 enquiries per week",
+        "20 enquiries per week will result from this work",
+        "By fixing forms, 20 enquiries per week are possible",
+        "Form changes lead to 20 enquiries per week",
+    ],
+)
+def test_measured_history_does_not_authorise_future_or_causal_figures(claim):
+    evidence = Evidence(
+        id="ev-metrics-001",
+        source="metrics",
+        url="https://example.test/",
+        description="Historic sample",
+        data={
+            "measurements": [
+                {"value": 20, "unit": "enquiries", "period": "week"},
+            ]
+        },
+    )
+    assert ai.unsupported_claim(claim, [evidence])
+
+
+def test_figure_rendering_preserves_other_valid_sentences_and_their_citations():
+    evidence = customer_evidence()
+    before = "The team reports that forms need review. (ev-discovery-001)"
+    after = "Staff report that the inbox is shared. (ev-discovery-001)"
+    text = (
+        before
+        + " Customer reports approximately 20 enquiries per week. (ev-discovery-001) "
+        + after
+    )
+    rendered = figures.render(text, [evidence])
+    assert rendered.startswith(before) and rendered.endswith(after)
+    assert (
+        rendered.count(
+            "Customer reports approximately 20 enquiries per week; not independently verified."
+        )
+        == 1
+    )
+    validated, _, warnings = ai.validate_analysis(
+        {"executive_summary": text}, [evidence], set(), []
+    )
+    assert (
+        not warnings
+        and before in validated["executive_summary"]
+        and after in validated["executive_summary"]
+    )
+
+
+def test_siteone_diagnostics_preserve_prose_question_marks(tmp_path):
+    prose = "Did collection finish? Why? Review the response."
+    result = siteone.diagnostic(
+        prose + " URL: example.test/path?token=synthetic-secret", context(tmp_path)
+    )
+    assert result.startswith(prose) and result.endswith("URL: example.test/path")
+    assert "synthetic-secret" not in result
+
+
+def test_coverage_failure_retains_completed_run_and_records_unavailable(tmp_path, monkeypatch):
+    from ams_assess import store
+
+    ctx = context(tmp_path)
+    ctx.store_root = tmp_path / "customers"
+    module = ModuleResult(name="security")
+    eid = module.add_evidence(ctx.target, "Synthetic check", {})
+    module.finding(
+        "header-review:server", "Review server header", "security", [eid], "Observed", "Review"
+    )
+    monkeypatch.setattr(
+        runner,
+        "REGISTRY",
+        {"security": SimpleNamespace(categories={"security"}, run=lambda ctx: module)},
+    )
+
+    def fail(ctx):
+        raise ValueError("synthetic-secret")
+
+    monkeypatch.setattr(runner.coverage, "collect", fail)
+    result = runner.run(ctx, no_ai=True, formats={"md"})
+    assert result["status"] == "partial" and result["findings"]
+    assert result["website_coverage"]["status"] == "unavailable"
+    assert "ValueError" in result["website_coverage"]["reason"]
+    report = (ctx.run_dir / "report.md").read_text()
+    assert "Website coverage unavailable" in report and "Review server header" in report
+    assert "synthetic-secret" not in report + json.dumps(result)
+    saved = store.load(ctx.store_root, ctx.customer_id)
+    assert saved and saved["runs"][-1]["website_coverage"]["status"] == "unavailable"
