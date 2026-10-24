@@ -487,6 +487,139 @@ Provider contracts: [Admin account listing](https://developers.google.com/analyt
 [Data dimensions/metrics](https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema),
 [Admin retention](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1beta/properties/getDataRetentionSettings).
 
+### Google Workspace: authorise, bind, test and collect
+
+`workspace` reads the Admin SDK Directory and Reports APIs. It uses exactly these six scopes
+(each prefixed with `https://www.googleapis.com/auth/`):
+
+| Scope suffix | Allowlisted GET endpoint and official reference |
+| --- | --- |
+| `admin.directory.customer.readonly` | [`/admin/directory/v1/customers/{customerKey}`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/customers/get) |
+| `admin.directory.domain.readonly` | [`/admin/directory/v1/customer/{customer}/domains`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/domains/list) |
+| `admin.directory.user.readonly` | [`/admin/directory/v1/users?customer={id}`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/users/list) |
+| `admin.directory.group.readonly` | [`/admin/directory/v1/groups?customer={id}`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/groups/list) |
+| `admin.directory.rolemanagement.readonly` | [`/admin/directory/v1/customer/{customer}/roleassignments`](https://developers.google.com/workspace/admin/directory/reference/rest/v1/roleAssignments/list) |
+| `admin.reports.usage.readonly` | [`/admin/reports/v1/usage/dates/{date}?customerId={id}`](https://developers.google.com/workspace/admin/reports/reference/rest/v1/customerUsageReports/get) |
+
+All API reads use `https://admin.googleapis.com`. The connector refuses all writes, other
+endpoints and redirects. It requests no Gmail, Drive, Calendar, security-management write or
+Groups Settings scopes. Official contracts above and the field references below were checked
+on 2026-10-24. No live customer read was performed during implementation; tests use synthetic HTTP.
+
+**Access David needs from 2EC.** Ask 2EC's existing **Google Workspace Super Admin** to approve
+the assessment and complete the browser OAuth consent for these six read-only scopes on the
+authorised assessment machine. The sign-in must belong to the intended 2EC Workspace customer.
+This avoids assigning David a new Super Admin role or sharing an admin password. Google documents
+that only super admins can view another admin's security settings, and its admin-console role
+assignment review is also restricted to super admins. Full admin security coverage should therefore
+use a customer-controlled super-admin consent session; a general user, Groups Reader, or Users
+Read role alone is not sufficient assurance of full coverage.
+See [administrator privileges](https://knowledge.workspace.google.com/admin/users/administrator-privilege-definitions)
+and [role assignment visibility](https://knowledge.workspace.google.com/admin/users/view-role-assignments-and-privileges).
+
+A delegated account can return partial evidence when granted **Users > Read** across all
+organisational units, **Groups > Read API privilege**, relevant **Domain Settings/Domain Management**
+access, and **Reports**. Do not grant broad write privileges merely to remove a limitation:
+endpoint denials remain `permission_required` with the required privilege, and missing security
+flags remain unknown. Role assignments require role-reading access; ask the super admin if denied.
+Google's [role/privilege mapping](https://developers.google.com/workspace/admin/directory/v1/guides/manage-roles)
+and the privilege definitions above distinguish scopes from the signed-in administrator's rights.
+The connector cannot prove that a delegated administrator sees every organisational unit.
+
+In the OAuth project's Google Cloud console, manually enable **Admin SDK API**, configure the
+[OAuth consent screen](https://developers.google.com/workspace/guides/configure-oauth-consent), and
+create a **Desktop app** OAuth client. If the app is external and in testing, include the consenting
+admin as a test user. If 2EC's API Controls restrict third-party apps, their super admin must allow
+this OAuth client to request the specified six scopes using
+[Specific Google data access](https://knowledge.workspace.google.com/admin/apps/control-which-apps-access-google-workspace-data).
+The connector does not change these controls,
+create users, purchase licences or configure domain-wide delegation. Keep the Desktop client JSON
+and the generated token in `~/.config/ams-assess` (0700 directory, 0600 files).
+
+Run these commands **only after that access and the tenant have been explicitly authorised**:
+
+```sh
+uv run ams-assess connect workspace auth --credential-ref workspace-2ec \
+  --client-secrets ~/.config/ams-assess/google-desktop-client.json
+uv run ams-assess connect workspace list-resources --credential-ref workspace-2ec
+# Replace this synthetic value with the exact id returned above after 2EC confirms it.
+workspace_resource='C01example/primary.example'
+uv run ams-assess connect workspace bind --customer 2ec-traffic \
+  --credential-ref workspace-2ec --resource "$workspace_resource"
+uv run ams-assess connect workspace test --customer 2ec-traffic
+uv run ams-assess connect workspace collect --customer 2ec-traffic --days 28
+uv run ams-assess connectors --customer 2ec-traffic
+uv run ams-assess report --customer 2ec-traffic
+```
+
+Use the existing customer slug if it differs. No 2EC customer ID/domain is guessed or prebound.
+`list-resources` resolves [`my_customer`](https://developers.google.com/workspace/admin/directory/v1/guides/manage-customers)
+to the account's immutable customer ID and primary domain, verifies that domain in its domain list,
+and returns one `<customer-id>/<primary-domain>` selector. It does not collect users or bind anything.
+Only concrete IDs can be bound; storing `my_customer` would let a credential change silently change
+the tenant. Primary domains are normalised for case, IDNA and a trailing dot. Test/collect verify
+both the customer response and verified primary-domain membership; an ID/domain mismatch or failed
+domain read refuses further collection. Secondary domains are included as domain evidence but are
+not alternative binding selectors. Existing framework isolation rejects sharing that resource
+between customer stores unless `--force --reason 'approved non-secret reason'` records the exception.
+
+Collection records verified/unverified/unknown domain flags; user counts by active, suspended,
+archived or unknown status (archived takes precedence over suspended); super/delegated admin counts;
+separate enrolled/not-enrolled/unknown and enforced/not-enforced/unknown counts; and a customer-scoped
+hashed list of admins explicitly not enrolled. Super/delegated counts are the individual Directory
+flags; `any` is their union. Names, email addresses, phone numbers, addresses, group memberships and
+role descriptions are neither requested nor retained. Raw user/group/assignment IDs are requested
+transiently for duplicate detection and hashing but never persisted. Role IDs are non-personal identifiers;
+role assignment counts are grouped by role ID, assignee type and customer/OU scope. Direct assignments
+to groups are counted, but membership is not expanded. See the
+[User fields](https://developers.google.com/workspace/admin/directory/reference/rest/v1/users),
+[Domain fields](https://developers.google.com/workspace/admin/directory/reference/rest/v1/domains), and
+[RoleAssignment fields](https://developers.google.com/workspace/admin/directory/reference/rest/v1/roleAssignments).
+
+Groups are counted. External sharing is **unavailable**, stored as `null`, never zero or secure:
+[Directory Group](https://developers.google.com/workspace/admin/directory/reference/rest/v1/groups)
+does not expose sharing policy. [Groups Settings GET](https://developers.google.com/workspace/admin/groups-settings/v1/reference/groups/get)
+requires the additional write-capable `apps.groups.settings` scope, which this connector never requests.
+Review that coverage separately with 2EC; it is not an access request to widen this connector.
+
+Directory evidence is a snapshot at collection time. Reports supplies **one snapshot on the selected
+period's end date**, in its documented UTC-08:00 reporting date, not a sum of users over the period.
+Default and explicit periods use complete days in that fixed reporting timezone; today is refused.
+It requests only the six `accounts:num_users_2sv_*` metrics for enrolled/not enrolled,
+enforced/not enforced, and protected/not protected. These are
+[distinct Google-reported metrics](https://developers.google.com/workspace/admin/reports/v1/appendix/usage/customer/accounts).
+Protection is never calculated from the Directory flags, and historic reports never replace current
+enforcement. Missing metrics, warnings, empty report payloads and lag are explicitly partial coverage,
+not zero. If the default end date is too recent, choose an older explicit period, for example
+`--start 2026-09-01 --end 2026-09-28`; there is no silent fallback to a different date.
+
+Users, groups, assignments and usage pagination are limited to five pages and 500 returned rows per
+endpoint; Directory page requests ask for 100 rows. Non-paginated domains retain at most 500 rows.
+The shared 2 MB response, 80-request, 10-second I/O and 45-second collection budgets (40 in the UI)
+also apply. 429/5xx/timeouts use the shared bounded backoff, and successful pages survive a later
+failure. OAuth uses a separate Workspace token, automatic refresh and expiry/revocation status.
+Endpoint evidence records customer/domain binding, collection time, selected period, actual report
+date, status and coverage. AI receives only framework coverage aggregates, never admin identifiers.
+
+Confirmed findings cover admins explicitly not enrolled, users explicitly not enforced, and
+suspended accounts still carrying admin flags. Partial positive observations are lower bounds;
+empty, inaccessible, incomplete or missing-flag results cannot establish a passing security recheck.
+Only a complete nonempty passing Directory recheck of the same returned user population resolves
+those findings through the existing lifecycle. One customer-scoped population digest prevents a
+narrower OU view from clearing earlier findings; no extra user inventory is saved. Changed membership
+leaves the earlier observation not rechecked until equivalent coverage or human review is available.
+Findings appear in report section 7 with connected evidence. No public DNS/email finding
+is recreated or upgraded, and no overall "secure" conclusion follows from these checks.
+
+Synthetic verification (no paid services, real credentials or customer configuration changes):
+
+```sh
+uv run pytest -q tests/test_workspace.py
+uv run pytest -q
+uv run ruff check .
+uv run ty check ams_assess tests
+```
+
 ### How to add a connector
 
 Add one module under `ams_assess/connectors/`, export a `core.Connector` declaration, and add it to
