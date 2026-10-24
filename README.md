@@ -599,8 +599,10 @@ not zero. If the default end date is too recent, choose an older explicit period
 Users, groups, assignments and usage pagination are limited to five pages and 500 returned rows per
 endpoint; Directory page requests ask for 100 rows. Non-paginated domains retain at most 500 rows.
 The shared 2 MB response, 80-request, 10-second I/O and 45-second collection budgets (40 in the UI)
-also apply. 429/5xx/timeouts use the shared bounded backoff, and successful pages survive a later
-failure. OAuth uses a separate Workspace token, automatic refresh and expiry/revocation status.
+also apply. Transient 429/5xx/timeouts use shared bounded backoff; exhausted rate limits remain
+`rate_limited`. Disabled APIs and permission/approval failures are classified before retries.
+Successful pages survive a later failure. OAuth uses a separate Workspace token, automatic refresh
+and expiry/revocation status.
 Endpoint evidence records customer/domain binding, collection time, selected period, actual report
 date, status and coverage. AI receives only framework coverage aggregates, never admin identifiers.
 

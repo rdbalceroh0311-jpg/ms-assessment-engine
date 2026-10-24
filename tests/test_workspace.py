@@ -470,7 +470,7 @@ def test_expired_credentials_use_mocked_oauth_refresh(env, monkeypatch, revoked)
         (403, "API_NOT_APPROVED", "approval_required"),
         (404, "", "not_found"),
         (400, "", "failed"),
-        (429, "", "provider_unavailable"),
+        (429, "", "rate_limited"),
         (503, "", "provider_unavailable"),
     ],
 )
@@ -676,7 +676,9 @@ def test_retry_recovers_then_preserves_independent_endpoints_on_outage(env, fail
     assert count == 2
     assert collect(env)["status"] == "connected_partial"
     assert count == 5
-    assert payload(env, "groups")["status"] == "provider_unavailable"
+    assert payload(env, "groups")["status"] == (
+        "rate_limited" if failure == 429 else "provider_unavailable"
+    )
     assert payload(env, "users")["status"] == "connected"
 
 
@@ -713,12 +715,15 @@ def test_read_allowlist_refuses_before_http(method, url):
 
 
 @pytest.mark.parametrize(
-    "status", ["connected", "permission_required", "connected_partial", "api_not_enabled"]
+    "status",
+    ["connected", "permission_required", "connected_partial", "api_not_enabled", "rate_limited"],
 )
 def test_cli_ui_report_and_register_status_consistency(env, capsys, status):
     def override(request):
         if status == "connected":
             return None
+        if status == "rate_limited":
+            return httpx.Response(429, json={})
         if status == "connected_partial" and not request.url.path.endswith("/groups"):
             return None
         return httpx.Response(
