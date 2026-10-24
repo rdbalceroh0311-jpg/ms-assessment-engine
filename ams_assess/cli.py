@@ -8,7 +8,7 @@ from pathlib import Path
 from dotenv import dotenv_values
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-from ams_assess import store
+from ams_assess import register, store
 from ams_assess.discovery import load_notes
 from ams_assess.models import CATEGORIES, Context, create_run_dir, normalize_target
 from ams_assess.modules import FUTURE, REGISTRY, gsc, performance
@@ -148,6 +148,33 @@ def main(argv: list[str] | None = None) -> int:
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("modules", help="List available, connected and future capabilities")
+    interface = commands.add_parser("ui", help="Local customer review interface (Ctrl-C to stop)")
+    interface.add_argument("--port", type=int, default=8765)
+    register_cmd = commands.add_parser("register", help="Customer systems and presence register")
+    register_sub = register_cmd.add_subparsers(dest="register_command", required=True)
+    show = register_sub.add_parser("show")
+    show.add_argument("--customer", required=True)
+    edit = register_sub.add_parser("set")
+    edit.add_argument("--customer", required=True)
+    edit.add_argument("--platform", required=True, choices=register.PLATFORMS)
+    edit.add_argument("--site", help="Website scope; use an empty string for customer-wide")
+    edit.add_argument("--location", default="")
+    for field, choices in register.CHOICES.items():
+        edit.add_argument(
+            "--access" if field == "ams_access" else "--" + field, dest=field, choices=choices
+        )
+    for field in (
+        "evidence_url",
+        "identifier",
+        "method",
+        "note",
+        "next_action",
+        "responsible",
+        "tested",
+        "who",
+        "date",
+    ):
+        edit.add_argument("--" + field.replace("_", "-"))
     auth = commands.add_parser(
         "gsc-auth", help="Authorize or verify read-only Search Console access"
     )
@@ -248,6 +275,36 @@ def main(argv: list[str] | None = None) -> int:
         "reports/<revision>/ directory, or recorded as unknown)",
     )
     args = parser.parse_args(argv)
+    if args.command == "ui":
+        from ams_assess.ui import serve
+
+        try:
+            serve(data_root(), args.port)
+        except (OSError, ValueError):
+            parser.error("Cannot start local interface; check the port and local data directory")
+        return 0
+    if args.command == "register":
+        try:
+            if args.register_command == "show":
+                result = store.register_store(data_root(), args.customer)["systems_register"]
+            else:
+                fields = register.EDIT_FIELDS | {
+                    "evidence_url",
+                    "identifier",
+                    "method",
+                    "note",
+                    "tested",
+                    "who",
+                    "date",
+                }
+                changes = {k: getattr(args, k) for k in fields if getattr(args, k) is not None}
+                result = store.set_register(
+                    data_root(), args.customer, args.platform, changes, args.site, args.location
+                )
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
     if args.command == "gsc-auth":
         return gsc_auth(args, parser)
     if args.command == "modules":

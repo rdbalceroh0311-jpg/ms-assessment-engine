@@ -556,6 +556,9 @@ Agree the process, owner and desired outcome before selecting products. Timing i
 
 Resolve these uncertainties before approving changes. Confirm business priorities and the existing systems to retain; access should be named, limited and revocable.
 
+{% if data.get('systems_register') %}
+{% include 'register.md.j2' %}
+{% endif %}
 {% if 'browser' in collected_sources or 'site_checks' in collected_sources %}
 **Form submissions: NOT TESTED.** Arrange an owner-approved test of enquiry, booking and payment journeys; this assessment submitted no forms.
 

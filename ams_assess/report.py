@@ -212,6 +212,9 @@ def render_customer(
         store = load(root, customer)
         if store is None:
             raise ValueError("No assessment store for this customer")
+        from ams_assess import register
+
+        register.refresh(store)
         directory = customer_path(root, customer)
         for ext in formats:  # refuse unsafe latest-copy targets before writing anything
             output_path(directory, f"report.{ext}")
@@ -445,6 +448,7 @@ def render_markdown(
         ),
         show_verification=bool(
             connections
+            or data.get("systems_register")
             or discovery
             or data.get("needs_review")
             or data.get("finding_history")

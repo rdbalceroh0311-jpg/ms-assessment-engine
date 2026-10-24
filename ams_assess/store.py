@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ams_assess import register
 from ams_assess.ai import CITATIONS
 from ams_assess.consolidate import consolidate
 from ams_assess.discovery import DISCOVERY_SECTIONS, Notes, slug
@@ -128,7 +129,7 @@ def new_store(customer: str, customer_name: str) -> dict[str, Any]:
     }
 
 
-def load(root: Path, customer: str) -> dict[str, Any] | None:
+def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str, Any] | None:
     """Read only this customer's store; None when it does not exist yet."""
     path = store_file(root, customer)
     if not path.is_file():
@@ -144,6 +145,8 @@ def load(root: Path, customer: str) -> dict[str, Any] | None:
         if store.get("customer_id") != customer or store.get("schema_version") not in {1, 2, 3}:
             raise ValueError("Unsupported or mismatched customer store")
         if store["schema_version"] != SCHEMA_VERSION:
+            if not migrate_legacy:
+                raise ValueError("Legacy store: open it with register show in the CLI to migrate")
             # Backup the exact original bytes before ANY schema conversion or saved change.
             stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
             backup = path.with_name(f"assessment.json.backup-{stamp}")
@@ -609,6 +612,7 @@ def _merge_run(
             run[key] = remap(data[key], mapping)
     store["runs"].append(run)
     _finish(store, findings, all_evidence, stages if data["status"] != "incomplete" else [])
+    register.refresh(store)
     save(root, customer, store)
     return store
 
@@ -776,6 +780,7 @@ def _add_discovery(
         }
     )
     _finish(store, findings, evidence, ["discovery"])
+    register.refresh(store)
     save(root, customer, store)
     return store, {"statements": statements, "new": added, "findings": len(incoming)}
 
@@ -834,6 +839,7 @@ def _set_profile(
     if profile["name"] and profile["name"] != (current.get("fields") or {}).get("name"):
         store["customer_name"] = profile["name"]
     _record(store, run_id, "profile", {"evidence": 1})
+    register.refresh(store)
     save(root, customer, store)
     return profile, eid, True
 
@@ -885,8 +891,63 @@ def _add_presence_verifications(
         }
     if added:
         _record(store, run_id, "presence_verification", {"evidence": added})
+        register.refresh(store)
         save(root, customer, store)
     return {"entries": len(records), "new": added, "unchanged": len(records) - added}
+
+
+def register_store(root: Path, customer: str) -> dict[str, Any]:
+    """Load and backfill existing evidence under the same lock as every other writer."""
+    with locked(root, customer, create=False):
+        current = load(root, customer)
+        if current is None:
+            raise ValueError("No assessment store for this customer")
+        if register.refresh(current):
+            save(root, customer, current)
+        return current
+
+
+def set_register(
+    root: Path,
+    customer: str,
+    platform: str,
+    changes: dict[str, Any],
+    site: str | None = None,
+    location: str = "",
+) -> dict[str, Any]:
+    """Shared CLI/UI validation, history and atomic persistence boundary."""
+    checked = register.validate_edit(changes)
+    with locked(root, customer, create=False):
+        current = load(root, customer)
+        if current is None:
+            raise ValueError("No assessment store for this customer")
+        register.refresh(current)
+        if site is None:
+            sites = list(
+                dict.fromkeys(e["site"] for e in register.registry(current)["entries"] if e["site"])
+            )
+            if len(sites) > 1:
+                raise ValueError("Several websites are recorded; specify --site")
+            site = sites[0] if sites else ""
+        entry = register.manual_edit(current, platform, site, location, checked)
+        # Manual register evidence also supports reports before any technical run.
+        run_id = f"r{max((int(r['run_id'][1:]) for r in current['runs']), default=0) + 1}"
+        eid = f"ev-register-{run_id}-001"
+        current["evidence"].append(
+            Evidence(
+                id=eid,
+                source="register",
+                url=checked.get("evidence_url") or "manual-register-update",
+                description=f"Register update: {entry['label']}",
+                data=checked,
+                provenance="customer_statement"
+                if checked.get("method") == "customer statement"
+                else "manual_verification",
+            ).model_dump(mode="json")
+        )
+        _record(current, run_id, "register", {"evidence": 1})
+        save(root, customer, current)
+        return entry
 
 
 def report_data(
@@ -947,6 +1008,7 @@ def report_data(
     data: dict[str, Any] = {
         "customer_name": store["customer_name"],
         "profile": store.get("profile"),
+        "systems_register": store.get("systems_register", {}).get("entries", []),
         "reported_sources": [
             {"source": r["kind"], "created_at": r["created_at"], "run_id": r["run_id"]}
             for r in store["runs"]
