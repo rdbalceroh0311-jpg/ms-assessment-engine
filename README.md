@@ -1188,6 +1188,143 @@ Valid percent-encoded international permalinks are accepted after validating the
 C0/DEL/C1 controls and Unicode format/bidi characters, including encoded forms, are rejected before
 evidence is produced. The shared privacy layer may store accepted international paths as Unicode.
 
+## Bound connector: Google Business Profile (`gbp`)
+
+GBP uses `https://www.googleapis.com/auth/business.manage`. Google provides no narrower read scope
+for these endpoints. The connector permits only the six documented GET routes below; all POST,
+PUT, PATCH, DELETE and unlisted routes are refused before HTTP. OAuth consent/token refresh use
+the shared Google authentication helper. The connector never edits a profile, replies to a review,
+enables an API, requests approval, or calls a paid service.
+
+External prerequisites are manual and must be completed before a live read:
+
+- **Project approval:** apply for Basic API Access using the project's number and an email listed
+  as a GBP owner/manager. Google's current eligibility requirements include managing a verified
+  profile active for at least 60 days and a business website on that profile. A zero QPM allocation
+  means approval has not been granted; apply for access rather than requesting a quota increase.
+  See [prerequisites](https://developers.google.com/my-business/content/prereqs) and
+  [quota limits](https://developers.google.com/my-business/content/limits).
+- **API enablement:** these reads use **My Business Account Management API**, **My Business Business
+  Information API**, **Google My Business API** (legacy v4 reviews), and **Business Profile Performance
+  API**. Google's [general setup](https://developers.google.com/my-business/content/basic-setup)
+  additionally lists Lodging, Place Actions, Notifications and Verifications among its setup APIs;
+  this connector does not call them. The legacy Google My Business API is visible after access
+  approval. If using a Workspace account, Google Business Profile must also be enabled for that user.
+- **Profile access:** the OAuth user needs **Manager** access to the explicitly selected profile;
+  existing Owner access also works, but ownership transfer is unnecessary. Reviews require a
+  verified location. [Role capabilities](https://support.google.com/business/answer/3403100)
+  include reading insights and reviews. A Google Cloud IAM project role alone is not GBP access.
+- **OAuth:** configure the consent screen/test user and a Desktop app client in the approved project.
+  Keep the client JSON and generated token in `~/.config/ams-assess` (directory 0700, files 0600).
+  Authorisation is separate from approval and from location binding.
+
+No live GBP read has been performed for this implementation; credentials, project approval/API
+enablement and verified resource access have not been established. All GBP tests use synthetic
+HTTP responses. These commands are for David to run only after those prerequisites and explicit
+resource authorisation are satisfied:
+
+```sh
+cd /Users/david/dev/builds/p1-ai-automation/ams-assessment-engine-worktrees/conn-gbp
+uv run ams-assess connect gbp auth --credential-ref gbp-2ec \
+  --client-secrets ~/.config/ams-assess/google-desktop-client.json
+uv run ams-assess connect gbp list-resources --credential-ref gbp-2ec
+# Inspect the returned id, label, address and metadata before binding.
+# Replace the placeholder with the actual API location ID returned by Google.
+GBP_LOCATION='locations/REPLACE_WITH_API_LOCATION_ID'
+uv run ams-assess connect gbp bind --customer 2ec-traffic \
+  --credential-ref gbp-2ec --resource "$GBP_LOCATION"
+uv run ams-assess connect gbp test --customer 2ec-traffic
+uv run ams-assess connect gbp collect --customer 2ec-traffic \
+  --start 2026-09-01 --end 2026-09-30
+uv run ams-assess connectors --customer 2ec-traffic
+uv run ams-assess report --customer 2ec-traffic
+```
+
+For the authorised Kirrawee location, verify the API-returned `metadata.placeId` against
+`ChIJ2SXszLy5EmsR6egdy8Tm97U` and, when supplied in `mapsUri`, `metadata.maps_cid` against
+`13112202573008201961`, along with the location title/address. Those identifiers come from the task
+specification; they have **not** been verified live. Neither is the API location ID. Never substitute
+a CID/place ID, guess an API ID, or bind based only on a similar business name. If metadata cannot
+establish the match, stop for verification. `test` checks the exact bound API identity and records its
+metadata again. Listing discovers choices and does not assess or bind them.
+
+One canonical `locations/<API ID>` is bound per customer. Another location requires an explicit rebind;
+earlier evidence is retained. Canonical IDs prevent the same location bypassing customer isolation
+through a different account parent. Cross-customer reuse requires `--force --reason '...'`. During
+collection, bounded account/location-name discovery resolves the parent needed by the reviews API;
+only the selected location receives profile, review and performance analysis. Missing or incomplete
+discovery is recorded and does not become a claim of no account or no reviews.
+
+The connector declares `auth_flow='client_secrets'` and a GBP authorisation hint pointing to the
+private Desktop client JSON. It uses the framework's immutable current profile/evidence context
+for both standalone collection and `run --connect gbp`. Website comparisons use the latest scoped
+`ctx.public_evidence` NAP observations. `ctx.connected_evidence` is empty for the opaque
+`locations/<id>` binding: a profile website does not authorise comparisons with another connector's
+site data. GBP test/collect preserves public findings, their lifecycle history, evidence and AI
+recommendations; only GBP findings are rechecked by the connector operation.
+
+The error hook reports `approval_required` for a specific approval reason or a 403/429 with an
+explicit zero quota, with the Basic API Access application as the next
+action. Ordinary throttling remains `rate_limited` after bounded retries; an ambiguous 403 remains
+`permission_required` with the Manager role and scope requirements. Disabled APIs, expired/revoked
+credentials and missing resources retain distinct statuses. An inaccessible endpoint never becomes
+an absence finding. No live approval check or access application is performed automatically.
+
+The usual period is 28 complete UTC days (`--days 1..366` or explicit `--start`/`--end`). Daily metrics
+cover impressions by Search/Maps and desktop/mobile, call-button clicks, website clicks, direction
+requests and Reserve with Google bookings where returned. Call clicks are not completed calls or
+leads. Missing metrics/dates are unavailable, not zeros. An explicitly returned zero is retained.
+Monthly keywords use only complete calendar months inside that daily period. A period with no full
+month produces an explicit coverage limitation and no keyword request; select a full month as above.
+Keyword thresholds remain upper bounds, separate from exact counts. Profile fields and reviews are
+current snapshots, not historical data filtered by the performance period; evidence says so.
+
+Account lists use at most five 20-row pages, location lists five 100-row pages per account, reviews
+five 50-row pages and monthly keywords five 100-row pages. Resource listing additionally caps its
+output at 500 locations. GBP explicitly sets `max_requests=80` and `collection_seconds=45`, sharing
+that budget across discovery, reviews and performance, including retries. The UI caps it at 40 seconds;
+caller limits can only reduce it. Requests have 10-second I/O timeouts and 2 MB response caps.
+Repeated page tokens stop pagination. Completed pages/endpoints survive subsequent failures;
+truncation and unavailable
+endpoints are shown in CLI, UI and report section 7. Review stars/reply counts describe only the
+retrieved sample, while Google's total count/average rating are separately identified.
+
+Only review aggregates are retained: no reviewer name, photo, review ID, review text or reply text.
+Keyword emails are hashed, URL credentials and arbitrary queries are removed, and Maps CID is kept
+only as a numeric identity value. The shared AI projection exposes coverage aggregates only.
+Profile comparisons confirm differences against the supplied profile; they do not verify that the
+customer-supplied value is correct. Area labels may describe overlapping geography and require human
+interpretation. Public website observations retain references to their existing findings instead of
+duplicating them. Missing evidence cannot resolve an earlier finding.
+
+Official endpoint and scope contracts (checked 2026-10-24):
+
+| Read | Official reference |
+| --- | --- |
+| `GET mybusinessaccountmanagement.googleapis.com/v1/accounts` | [accounts.list](https://developers.google.com/my-business/reference/accountmanagement/rest/v1/accounts/list) |
+| `GET mybusinessbusinessinformation.googleapis.com/v1/accounts/{id}/locations` | [locations.list](https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations/list) |
+| `GET mybusinessbusinessinformation.googleapis.com/v1/locations/{id}` | [locations.get](https://developers.google.com/my-business/reference/businessinformation/rest/v1/locations/get) |
+| `GET mybusiness.googleapis.com/v4/accounts/{id}/locations/{id}/reviews` | [reviews.list](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list) |
+| `GET businessprofileperformance.googleapis.com/v1/locations/{id}:fetchMultiDailyMetricsTimeSeries` | [daily metrics](https://developers.google.com/my-business/reference/performance/rest/v1/locations/fetchMultiDailyMetricsTimeSeries) |
+| `GET businessprofileperformance.googleapis.com/v1/locations/{id}/searchkeywords/impressions/monthly` | [monthly keywords](https://developers.google.com/my-business/reference/performance/rest/v1/locations.searchkeywords.impressions.monthly/list) |
+
+Business Information uses `readMask=name,title,categories,regularHours,specialHours,websiteUri,
+phoneNumbers,storefrontAddress,serviceArea,profile.description,metadata`; review-parent discovery
+requests `name` only. See [location fields and metadata](https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations)
+and [daily metric definitions](https://developers.google.com/my-business/reference/performance/rest/v1/DailyMetric).
+Google's [time-series contract](https://developers.google.com/my-business/reference/performance/rest/v1/TimeSeries)
+defines an omitted numeric value on an explicitly returned date as zero; an absent date is not zero.
+Each endpoint reference specifies `business.manage`; no legacy `plus.business.manage` scope is requested.
+
+Synthetic verification, from this worktree:
+
+```sh
+uv run pytest -q tests/test_gbp.py
+uv run pytest -q
+uv run ruff check .
+uv run ty check ams_assess tests
+```
+
 ## Outputs and interpretation
 
 ```text
