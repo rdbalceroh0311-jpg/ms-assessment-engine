@@ -310,6 +310,8 @@ def validate_analysis(
             fields = ["title", "likely_cause", "business_impact"]
             if finding.id not in existing:
                 fields += ["detail", "recommendation"]
+            for field in fields:
+                setattr(finding, field, figures.without_followup_promises(getattr(finding, field)))
             interpretation = " ".join(getattr(finding, field) for field in fields)
             cited = [by_evidence[i] for i in finding.evidence_ids]
             if any(unsupported_claim(getattr(finding, field), cited) for field in fields):
@@ -355,6 +357,8 @@ def validate_analysis(
     sections = {k: str(v) for k, v in data.get("sections", {}).items() if k in categories}
     for key, value in [("summary", summary), *sections.items()]:
         refs = set(CITATIONS.findall(value))
+        if refs and refs <= known:
+            value = figures.without_followup_promises(value)
         reason = ""
         if not refs or not refs <= known:
             reason = "uncited or invalid"

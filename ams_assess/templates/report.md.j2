@@ -310,7 +310,7 @@ WordPress inventory: {{ coverage.wordpress.status | text }} — {{ coverage.word
 | State | Finding / site / component | Last observed | Resolution evidence / date / run |
 | --- | --- | --- | --- |
 {% for f in lifecycle_findings %}
-| {{ {'current': 'Current', 'resolved': 'Resolved', 'not_rechecked': 'Not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | {{ f.title | text }} ({{ f.id }})<br>{{ lifecycle_domains[f.id] | text }} / {{ f.component | text }} | {{ f.last_observed | text or 'This run' }} ({{ f.evidence_ids | join(', ') }}) | {% if f.resolution %}{{ f.resolution.evidence_ids | join(', ') }} / {{ f.resolution.date | text }} / {{ f.resolution.run_id }}{% else %}—{% endif %} |
+| {{ {'current': 'Current', 'resolved': 'Resolved', 'not_rechecked': 'Previously observed — not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | {{ f.title | text }} ({{ f.id }})<br>{{ lifecycle_domains[f.id] | text }} / {{ f.component | text }} | {{ f.last_observed | text or 'This run' }} ({{ f.evidence_ids | join(', ') }}) | {% if f.resolution %}{{ f.resolution.evidence_ids | join(', ') }} / {{ f.resolution.date | text }} / {{ f.resolution.run_id }}{% else %}—{% endif %} |
 {% endfor %}
 
 {% endif %}

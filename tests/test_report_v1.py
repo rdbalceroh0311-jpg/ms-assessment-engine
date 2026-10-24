@@ -302,7 +302,7 @@ def test_progressive_customer_scenario(local_fixture, tmp_path, monkeypatch):
         assert required in text
     # The subsequent GSC run did not recheck the website's P1 technical failures.
     # They remain visible with dates, but must not appear as current roadmap actions.
-    assert "| Not rechecked |" in text
+    assert "| Previously observed — not rechecked |" in text
     assert "### 0-30 days" not in text
     assert all(f["ams_service"] in AMS_SERVICES for f in saved(root, "alpha")["findings"])
     assert re.findall(r"^## (\d+)\.", text, re.M) == [str(i) for i in range(1, 11) if i != 3]

@@ -7,22 +7,27 @@ from typing import Any
 
 from ams_assess.models import Evidence
 
+UNIT_PATTERN = (
+    r"leads?|sales|conversions?|enquir(?:y|ies)|calls?|bookings?|jobs?|customers?|"
+    r"visitors?|traffic|clicks"
+)
 QUANTITY = re.compile(
     r"(?P<qualifier>approximately\s+|approx\.?\s+|about\s+|around\s+|~\s*|up to\s+|at least\s+)?"
     r"(?P<value>\d+(?:,\d{3})*(?:\.\d+)?)\s+"
     r"(?P<modifier>(?:new|more|additional)\s+)?"
-    r"(?P<unit>leads?|sales|conversions?|enquir(?:y|ies)|calls?|bookings?|jobs?|customers?|"
-    r"visitors?|traffic|clicks)\b"
+    rf"(?P<unit>{UNIT_PATTERN})\b"
     r"(?P<period>\s+(?:per|a|each)\s+(?:day|week|month|year)|\s*/\s*(?:day|week|month|year))?",
     re.I,
 )
-# Evaluate the figure's sentence, including framing after the quantity. A matching
+# Evaluate the whole field, including sentences referring back to the quantity. A matching
 # historic number never supports a forecast, intervention effect or conditional gain.
 PROMISSORY = re.compile(
     r"\b(?:will|could|would|can|should|may|might|shall)\s+\w+"
     r"|\b\w+['’](?:ll|d)\s+\w+|\b(?:won['’]t|can['’]t|cannot)\s+\w+"
     r"|\b(?:by|after|through|from)\s+(?:\w+ly\s+)*\w+ing\b"
     r"|\b(?:leads?|leading|results?|resulting|translates?|translating)\s+(?:to|in|into)\b"
+    r"|\b(?:expected|recoverable)\s+(?:after|with|once|when|from|through)\b"
+    r"|\bexpect\b.*\b(?:once|after|when|with)\b"
     r"|\b(?:because|therefore|so that|as a result|in order to|if)\b",
     re.I,
 )
@@ -32,6 +37,35 @@ GAIN = re.compile(
     r"driv(?:e|es|ing)|bring(?:s|ing)?)\b|^\s*get\b",
     re.I,
 )
+FORECAST = re.compile(
+    r"\b(?:doubl(?:e[sd]?|ing)|recover(?:s|ed|ing|able)?|grow(?:s|ing|n)?|grew|expect(?:s|ed|ing)?)\b",
+    re.I,
+)
+FIGURE_REFERENCE = re.compile(
+    r"\b(?:that|this|these|those|it|them|the\s+(?:number|figure|count|total|volume))\b", re.I
+)
+FUTURE = re.compile(
+    r"\b(?:will|would|could|can|should|may|might|shall|expect(?:s|ed|ing)?|likely)\b"
+    r"|\b\w+['’](?:ll|d)\b",
+    re.I,
+)
+OUTCOME_OR_DIRECTION = re.compile(
+    rf"\b(?:{UNIT_PATTERN}|revenue|more|higher|ris(?:e[sd]?|ing)|"
+    r"(?:lift|climb|jump)(?:s|ed|ing)?|tripl(?:e[sd]?|ing)|"
+    r"improv(?:e[sd]?|ing)|increas(?:e[sd]?|ing))\b",
+    re.I,
+)
+
+
+def followup_promise(sentence: str) -> bool:
+    """A modal/causal instruction alone is not a promised effect on the recorded figure."""
+    reference = re.sub(r"\b(?:check|ensure|confirm|verify)\s+that\b", "", sentence, flags=re.I)
+    return bool(
+        GAIN.search(sentence)
+        or FORECAST.search(sentence)
+        or (PROMISSORY.search(sentence) and FIGURE_REFERENCE.search(reference))
+        or (FUTURE.search(sentence) and OUTCOME_OR_DIRECTION.search(sentence))
+    )
 
 
 def sentences(text: str) -> list[str]:
@@ -106,9 +140,12 @@ def records(evidence: Evidence) -> list[tuple[Figure, str]]:
 
 
 def supported(text: str, cited: list[Evidence]) -> bool:
+    has_figure = bool(QUANTITY.search(text))
     for sentence in sentences(text):
         matches = list(QUANTITY.finditer(sentence))
-        if matches and (PROMISSORY.search(sentence) or GAIN.search(sentence)):
+        if (matches and (PROMISSORY.search(sentence) or GAIN.search(sentence))) or (
+            has_figure and not matches and followup_promise(sentence)
+        ):
             return False
         for match in matches:
             if not any(figure(match) == value for e in cited for value, _ in records(e)):
@@ -116,12 +153,25 @@ def supported(text: str, cited: list[Evidence]) -> bool:
     return True
 
 
+def without_followup_promises(text: str) -> str:
+    """Drop separate promises; leave figure-bearing claims for evidence validation to reject."""
+    if not QUANTITY.search(text):
+        return text
+    parts = sentences(text)
+    retained = [
+        sentence
+        for sentence in parts
+        if QUANTITY.search(sentence) or not followup_promise(sentence)
+    ]
+    return " ".join(retained) if len(retained) != len(parts) else text
+
+
 def render(text: str, cited: list[Evidence]) -> str:
     """Replace only figure-bearing sentences, retaining other validated prose."""
     if not QUANTITY.search(text):
         return text
     output = []
-    for sentence in sentences(text):
+    for sentence in sentences(without_followup_promises(text)):
         rows = []
         for match in QUANTITY.finditer(sentence):
             for evidence in cited:

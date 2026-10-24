@@ -127,7 +127,7 @@ def test_partial_coverage_resolves_only_retested_page(tmp_path):
     }
     data, evidence, _ = store.report_data(after)
     text = render_markdown(data, evidence)
-    assert "| Not rechecked |" in text and "2026-10-01" in text
+    assert "| Previously observed — not rechecked |" in text and "2026-10-01" in text
 
 
 def test_recurrence_reopens_stable_identity_and_preserves_resolution_history(tmp_path):
@@ -720,8 +720,8 @@ def test_domain_scoped_legacy_finding_is_visible_with_clean_state_and_date(tmp_p
     report = render_markdown(data, evidence)
     table = report.split("### Technical finding lifecycle", 1)[1].split("| Source /", 1)[0]
     assert "Public resolvers disagree on A records" in table and "example.test" in table
-    assert "| Not rechecked |" in table and "2026-10-01" in table
-    assert "previously observed — not rechecked" not in table
+    assert "| Previously observed — not rechecked |" in table and "2026-10-01" in table
+    assert table.lower().count("not rechecked") == 1
 
 
 def test_current_findings_cite_current_observation_and_keep_history_separate(tmp_path):
@@ -773,10 +773,13 @@ def test_ai_history_filter_preserves_shared_current_and_mixed_evidence_sentences
 
 @pytest.mark.parametrize("schema", [2, 3])
 @pytest.mark.parametrize("status", ["fail", "pass"])
-def test_legacy_header_findings_have_one_consolidated_successor(tmp_path, schema, status):
-    saved = merge(tmp_path, failures=("",), category="security", check="header-missing:csp")
+@pytest.mark.parametrize("predecessor", ["header-missing:csp", "framing-policy"])
+def test_legacy_header_findings_have_one_consolidated_successor(
+    tmp_path, schema, status, predecessor
+):
+    saved = merge(tmp_path, failures=("",), category="security", check=predecessor)
     saved["schema_version"] = schema
-    saved["findings"][0]["check_key"] = "header-missing:csp"
+    saved["findings"][0]["check_key"] = predecessor
     saved["findings"][0]["id"] = "legacy-csp"
     second = {**saved["findings"][0], "id": "legacy-hsts", "check_key": "header-missing:hsts"}
     saved["findings"].append(second)
@@ -811,6 +814,74 @@ def test_legacy_header_findings_have_one_consolidated_successor(tmp_path, schema
         not in report.split("### Technical finding lifecycle", 1)[1].split("| Source /", 1)[0]
     )
     assert len(data["findings"]) == 1
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_deduplicate_technical_preserves_observation_date_bounds(reverse):
+    findings = [
+        Finding(
+            id=f"legacy-{run}",
+            title="Header review",
+            category="security",
+            check_key="security-headers",
+            site="example.test",
+            component="https://example.test/",
+            evidence_ids=[f"ev-headers-{run:03d}"],
+            detail="Observed",
+            recommendation="Review",
+            first_observed=first,
+            last_observed=last,
+            last_run_id=f"r{run}",
+        )
+        for run, first, last in [
+            (1, "2026-10-01T00:00:00Z", "2026-10-20T00:00:00Z"),
+            (2, "2026-10-03T00:00:00Z", "2026-10-23T00:00:00Z"),
+            (3, "unknown", "unknown"),
+        ]
+    ]
+    merged = store.deduplicate_technical(findings[::-1] if reverse else findings)
+    assert len(merged) == 1
+    assert merged[0].first_observed == "2026-10-01T00:00:00Z"
+    assert merged[0].last_observed == "2026-10-23T00:00:00Z"
+    assert merged[0].last_run_id == "r2"
+
+
+@pytest.mark.parametrize("missing_date", [False, True])
+def test_restored_ai_narratives_identify_their_generating_run_and_date(tmp_path, missing_date):
+    merge(tmp_path)
+    merge(tmp_path, run=2, failures=("b",), category="security")
+    saved = merge(tmp_path, run=3, failures=(), outcomes=[])
+    assert all(f["lifecycle_status"] == "not_rechecked" for f in saved["findings"])
+    seo = "Titles need review. (ev-siteone-r1-001)"
+    security = "Security needs review. (ev-siteone-r2-001)"
+    summary = "Review the observed findings. (ev-siteone-r2-001)"
+    saved["runs"][0]["ai"] = {
+        "status": "ok",
+        "executive_summary": seo,
+        "sections": {"seo": seo},
+    }
+    saved["runs"][1]["ai"] = {
+        "status": "ok",
+        "executive_summary": summary,
+        "sections": {"security": security},
+    }
+    if missing_date:
+        saved["runs"][1].pop("created_at")
+    run2_date = "(date not recorded)" if missing_date else "on 2026-10-02"
+    original = json.dumps(saved)
+    for _ in range(2):
+        data, evidence, _ = store.report_data(saved)
+        narratives = [
+            (data["ai"]["executive_summary"], summary, "r2", run2_date),
+            (data["ai"]["sections"]["seo"], seo, "r1", "on 2026-10-01"),
+            (data["ai"]["sections"]["security"], security, "r2", run2_date),
+        ]
+        report = render_markdown(data, evidence)
+        for text, body, run, date in narratives:
+            assert text.startswith(f"As observed in run {run} {date}.")
+            assert text.count("As observed in run") == 1 and body in text
+            assert text in report
+        assert json.dumps(saved) == original
 
 
 @pytest.mark.parametrize("cited", [True, False])
