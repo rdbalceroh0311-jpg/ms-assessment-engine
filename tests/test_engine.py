@@ -424,7 +424,7 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
     assert "### Platform presence discovery" in report and "Manual verification tasks" in report
     assert "platform:priority-verification" in keys
     sitemap = next(r for r in presence["signals"] if r["signal"] == "XML sitemap")
-    assert sitemap["status"] == "PASS" and "lists 7 URLs" in sitemap["detail"]
+    assert sitemap["status"] == "PASS" and "lists 8 URLs" in sitemap["detail"]
     assert {
         "nap-inconsistent",
         "canonical-missing",

@@ -272,6 +272,48 @@ The table explains what ran and where evidence was unavailable. Results apply on
 {% endif %}
 
 
+{% for coverage in data.get('website_coverage_runs', []) or ([data.website_coverage] if data.get('website_coverage') else []) %}
+### Website coverage{% if coverage.get('run_id') %}: {{ coverage.target | text }} ({{ coverage.run_id }}){% endif %}
+
+{% if coverage.get('status') == 'unavailable' %}
+{{ coverage.reason | text }}.
+{% else %}
+{{ coverage.summary | text }}
+
+Limits: {{ coverage.limits | text }}. Collection stopped: {{ coverage.stop_reasons | join('; ') | text }}.
+
+| Known URL | Discovery source | SiteOne crawled | Browser tested |
+| --- | --- | --- | --- |
+{% for url in coverage.discovered %}
+| {{ url.url | text }} | {{ url.sources | join(', ') | text }} | {{ 'Yes' if url.url in coverage.crawled else 'No' }} | {{ 'Yes' if url.url in coverage.browser_tested else 'No' }} |
+{% endfor %}
+
+Untested in browser: {{ coverage.untested | join('; ') | text or 'None among the known URLs' }}.
+
+Sitemap URLs not reached: {{ coverage.sitemap_not_reached | join('; ') | text or 'None among the known sitemap URLs' }}.
+
+Robots sitemap declarations: {{ coverage.robots_declarations | join('; ') | text or 'None recorded' }}.
+
+Sitemaps: {{ coverage.sitemaps | text }}.
+
+Excluded: {{ coverage.excluded | text }}. Blocked: {{ coverage.blocked | text }}. Failed: {{ coverage.failed | text }}. Redirected: {{ coverage.redirected | text }}.
+
+WordPress inventory: {{ coverage.wordpress.status | text }} — {{ coverage.wordpress.reason | text }}.
+
+{% endif %}
+{% endfor %}
+{% if lifecycle_findings %}
+### Technical finding lifecycle
+
+**Current** findings are listed in the relevant sections and recommendations below.
+
+| State | Finding / site / component | Last observed | Resolution evidence / date / run |
+| --- | --- | --- | --- |
+{% for f in lifecycle_findings %}
+| {{ {'current': 'Current', 'resolved': 'Resolved', 'not_rechecked': 'Previously observed — not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | {{ f.title | text }} ({{ f.id }})<br>{{ lifecycle_domains[f.id] | text }} / {{ f.component | text }} | {{ f.last_observed | text or 'This run' }} ({{ f.evidence_ids | join(', ') }}) | {% if f.resolution %}{{ f.resolution.evidence_ids | join(', ') }} / {{ f.resolution.date | text }} / {{ f.resolution.run_id }}{% else %}—{% endif %} |
+{% endfor %}
+
+{% endif %}
 | Source / website / date | Status | Coverage or limitation |
 | --- | --- | --- |
 {% for module in data.modules %}
@@ -285,7 +327,7 @@ The table explains what ran and where evidence was unavailable. Results apply on
 - Crawl coverage{% if data.get('pages_target') %} ({{ data.pages_target | text }}){% endif %}: {{ data.pages | length }} successful HTML pages within a crawl budget of {{ data.max_pages }} URLs ({{ 'static assets excluded; redirects and failed/non-HTML responses can consume slots' if data.get('crawl_assets_excluded') else 'including assets' }}).
 {% endif %}
 {% if 'browser' in collected_sources %}
-- Browser coverage: {{ browser_observations }} page/viewport observations across the included runs, with at most six key pages per run at desktop and mobile sizes. Form structure was inspected. Automated accessibility checks are not a full accessibility audit.
+- Browser coverage: {{ browser_observations }} page/viewport observations across the included runs, with {{ 'the configured page limit' if data.get('website_coverage') or data.get('website_coverage_runs') else 'at most six key pages' }} per run at desktop and mobile sizes. {{ 'Form structure was inspected.' if browser_observations else 'No successful rendered page observations were collected.' }} Automated accessibility checks are not a full accessibility audit.
 {% endif %}
 - Observations are a point-in-time sample. Form submission, booking, payment and account journeys were not exercised.
 - AI search visibility was **NOT measured**. GEO findings concern content structure, answer readiness and crawlability only. No A/B testing or behavioural data was collected.
@@ -487,7 +529,7 @@ Business discovery: customer-provided information
 ### {{ section.title | discovery_heading }}
 
 {% for s in section.statements %}
-- {{ s.statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %}{% if s.get('staff_time') %} Staff time: {{ s.staff_time | text }}.{% endif %}{% if s.get('errors_rework') %} Errors/rework: {{ s.errors_rework | text }}.{% endif %}{% if s.get('cost') %} Cost (as stated): {{ s.cost | text }}.{% endif %}{% if s.get('workaround') %} Current workaround: {{ s.workaround | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
+- {{ s.statement | customer_statement | text }}{% if s.frequency %} Frequency: {{ s.frequency | text }}.{% endif %}{% if s.systems %} Systems: {{ s.systems | join(', ') | text }}.{% endif %}{% if s.owner %} Owner: {{ s.owner | text }}.{% endif %}{% if s.impact %} Impact: {{ s.impact | text }}.{% endif %}{% if s.get('staff_time') %} Staff time: {{ s.staff_time | text }}.{% endif %}{% if s.get('errors_rework') %} Errors/rework: {{ s.errors_rework | text }}.{% endif %}{% if s.get('cost') %} Cost (as stated): {{ s.cost | text }}.{% endif %}{% if s.get('workaround') %} Current workaround: {{ s.workaround | text }}.{% endif %} Evidence: {{ s.evidence_id }}.
 {% endfor %}
 
 {% endfor %}

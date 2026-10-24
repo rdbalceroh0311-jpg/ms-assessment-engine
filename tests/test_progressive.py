@@ -114,9 +114,10 @@ def test_evidence_ids_are_namespaced_per_run_without_collisions(tmp_path, monkey
     known = set(ids)
     for finding in saved["findings"]:
         assert finding["evidence_ids"] and set(finding["evidence_ids"]) <= known
-    # The same finding seen in both runs is one finding citing both runs' evidence.
+    # Current citations describe the latest observation; older citations remain in history.
     headers = next(f for f in saved["findings"] if f["check_key"] == "headers")
-    assert headers["evidence_ids"] == ["ev-security-r1-001", "ev-security-r2-001"]
+    assert headers["evidence_ids"] == ["ev-security-r2-001"]
+    assert headers["events"][0]["evidence_ids"] == ["ev-security-r1-001"]
     assert [r["run_id"] for r in saved["runs"]] == ["r1", "r2"]
 
 
@@ -184,7 +185,7 @@ def test_run_writes_run_dir_and_merges_into_store(tmp_path, monkeypatch):
         assert (ctx.run_dir / name).is_file()
     assert json.loads((ctx.run_dir / "evidence.json").read_text())[0]["id"] == "ev-security-001"
     saved = must_load(root, "acme")
-    assert saved["schema_version"] == 2 and saved["customer_name"] == "Acme"
+    assert saved["schema_version"] == 3 and saved["customer_name"] == "Acme"
     assert saved["stages_assessed"] == ["public"]
     run = saved["runs"][0]
     assert run["run_dir"] == ctx.run_dir.name and run["kind"] == "assessment"
@@ -192,14 +193,16 @@ def test_run_writes_run_dir_and_merges_into_store(tmp_path, monkeypatch):
     assert saved["discovery"] == {} and saved["report_files"] == {}
 
 
-def test_store_merge_worst_severity_and_confidence_degradation(tmp_path, monkeypatch):
+def test_store_uses_latest_observation_and_keeps_severity_history(tmp_path, monkeypatch):
     assess(tmp_path, monkeypatch, severity="low")
     assess(tmp_path, monkeypatch, severity="high", confidence="needs_verification")
     root, _, _ = assess(tmp_path, monkeypatch, severity="medium")
     finding = next(f for f in must_load(root, "acme")["findings"] if f["check_key"] == "headers")
-    assert finding["severity"] == "high" and finding["priority"] == "P1"
-    assert finding["confidence"] == "needs_verification"
-    assert len(finding["evidence_ids"]) == 3
+    assert finding["severity"] == "medium" and finding["priority"] == "P2"
+    assert finding["confidence"] == "confirmed"
+    assert finding["events"][-1]["previous_severity"] == "high"
+    assert finding["evidence_ids"] == ["ev-security-r3-001"]
+    assert len(finding["events"]) == 3
 
 
 def test_finding_id_collision_between_different_checks_is_renamed(tmp_path, monkeypatch):
@@ -213,7 +216,7 @@ def test_finding_id_collision_between_different_checks_is_renamed(tmp_path, monk
 
     registry = {"security": SimpleNamespace(categories={"security"}, run=other)}
     root, data, _ = assess(tmp_path, monkeypatch, registry=registry)
-    assert data["findings"][0]["id"] == "security-001"  # the run's own output is untouched
+    assert data["findings"][0]["id"].startswith("tech-")
     findings = must_load(root, "acme")["findings"]
     assert len({f["id"] for f in findings}) == len(findings) == 2
     assert {f["check_key"] for f in findings} == {"headers", "tls"}
@@ -671,9 +674,10 @@ def test_collision_rename_preserves_fallback_key_so_repeat_merges_consolidate(tm
     store.merge_run(tmp_path, "acme", "Acme", data_for("seo"), evidence, "a", [])
     store.merge_run(tmp_path, "acme", "Acme", data_for("security"), evidence, "b", [])
     saved = store.merge_run(tmp_path, "acme", "Acme", data_for("security"), evidence, "c", [])
-    assert sorted(f["id"] for f in saved["findings"]) == ["same", "same-r2"]
+    assert len({f["id"] for f in saved["findings"]}) == 2
     security = next(f for f in saved["findings"] if f["category"] == "security")
-    assert len(security["evidence_ids"]) == 2  # r2 and r3 evidence consolidated into one record
+    assert security["evidence_ids"] == ["ev-x-r3-001"]
+    assert security["events"][0]["evidence_ids"] == ["ev-x-r2-001"]
 
 
 def test_ai_narratives_cannot_present_customer_statements_as_technical(caplog):

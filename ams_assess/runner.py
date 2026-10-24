@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from ams_assess import store
+from ams_assess import coverage, outcomes, store
 from ams_assess.ai import analyse
 from ams_assess.consolidate import consolidate, consolidate_security_headers
+from ams_assess.lifecycle import scoped
 from ams_assess.models import (
     CATEGORIES,
     DISCOVERY_CATEGORY,
@@ -28,6 +29,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
                 raise ValueError("Invalid module identity or duplicate evidence")
             if any(e.source != name or not e.id.startswith(f"ev-{name}-") for e in result.evidence):
                 raise ValueError("Evidence must belong to its source module")
+            outcomes.record(ctx, result)
             result.findings = consolidate(result.findings, result.evidence)
         except Exception as exc:
             # Exception messages may embed credentials/URLs. Keep raw secrets out of reports/logs.
@@ -39,6 +41,8 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             existing_raw = ctx.run_dir / f"raw/{name}.json"
             result.raw_paths = [f"raw/{name}.json"] if existing_raw.exists() else []
             result.raw_paths.append(ctx.raw(f"{name}-error", {"reason": result.reason}))
+        if not result.outcomes:
+            outcomes.record(ctx, result)
         if not result.raw_paths:
             result.raw_paths = [ctx.raw(name, {"status": result.status, "reason": result.reason})]
         if name == "siteone" and result.status != "ok":
@@ -61,7 +65,9 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         )
     evidence = [e for result in results for e in result.evidence]
     findings = consolidate([f for result in results for f in result.findings], evidence)
-    findings = consolidate_security_headers(findings, evidence)
+    findings = scoped(
+        consolidate_security_headers(findings, evidence), ctx.site_url, ctx.customer_id
+    )
     write_json(ctx.run_dir / "evidence.json", [e.model_dump() for e in evidence])
     print("[ai] analysing" if not no_ai else "[ai] disabled", flush=True)
     ai, findings = analyse(ctx, findings, evidence, no_ai)
@@ -99,6 +105,13 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         for n, d, req, cats in FUTURE
         if cats & ctx.categories
     ]
+    try:
+        website_coverage = coverage.collect(ctx)
+    except Exception as exc:
+        # Inventory failure must not discard completed checks, or echo secret-bearing errors.
+        reason = f"Website coverage unavailable ({type(exc).__name__}); collected checks retained"
+        website_coverage = {"status": "unavailable", "reason": reason}
+        limitations.append(reason)
     data = {
         "schema_version": 1,
         "customer_id": ctx.customer_id,
@@ -110,7 +123,11 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         "selected_categories": sorted(ctx.categories),
         "assessed_categories": assessed,
         "max_pages": ctx.max_pages,
-        "crawl_assets_excluded": True,
+        "website_coverage": website_coverage,
+        "crawl_assets_excluded": any(r.name == "siteone" and r.collection_started for r in results),
+        "outcomes": [
+            o.model_dump() for r in results for o in r.outcomes if o.category in ctx.categories
+        ],
         "pages": ctx.pages,
         "modules": [r.model_dump() for r in results],
         "ai": ai,
@@ -124,7 +141,11 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         data["domain_email_health"] = domain_email.health_summary(results, ctx.categories)
     if "presence" in ctx.categories:
         data["digital_presence"] = presence.summary(results, ctx)
-    if any(r.status != "ok" or r.reason for r in results) or ai["status"] == "error":
+    if (
+        any(r.status != "ok" or r.reason for r in results)
+        or ai["status"] == "error"
+        or website_coverage.get("status") == "unavailable"
+    ):
         data["status"] = "partial" if evidence else "incomplete"
     write_json(ctx.run_dir / "findings.json", data["findings"])
     write_json(ctx.run_dir / "results.json", data)

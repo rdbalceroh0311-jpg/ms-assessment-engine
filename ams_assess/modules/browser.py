@@ -4,7 +4,9 @@ from urllib.parse import urlsplit
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
+from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
+from ams_assess.modules.siteone import diagnostic
 
 name = "browser"
 categories = {"accessibility", "geo", "local_seo", "entity", "cro_ux", "copywriting", "presence"}
@@ -57,7 +59,7 @@ EXTRACT = r"""() => {
 }"""
 
 
-def select_pages(pages: list[str], target: str) -> list[str]:
+def select_pages(pages: list[str], target: str, limit: int = 6) -> list[str]:
     # Only reuse successfully crawled pages. No independent link discovery.
     ordered = sorted(
         pages,
@@ -68,7 +70,7 @@ def select_pages(pages: list[str], target: str) -> list[str]:
             u,
         ),
     )
-    return ordered[:6]
+    return list(dict.fromkeys(ordered))[:limit]
 
 
 def run(ctx: Context) -> ModuleResult:
@@ -101,7 +103,9 @@ def run(ctx: Context) -> ModuleResult:
                         else route.abort()
                     ),
                 )
-                for index, url in enumerate(select_pages(ctx.pages, ctx.site_url)):
+                for index, url in enumerate(
+                    select_pages(ctx.pages, ctx.site_url, ctx.browser_pages)
+                ):
                     page = session.new_page()
                     console, requested = [], []
                     page.on(
@@ -121,10 +125,36 @@ def run(ctx: Context) -> ModuleResult:
                     )
                     try:
                         try:
-                            page.goto(url, wait_until="networkidle", timeout=25000)
+                            response = page.goto(url, wait_until="networkidle", timeout=25000)
                         except PlaywrightTimeoutError:
                             # Persistent polling can prevent network idle; check the loaded page.
-                            page.goto(url, wait_until="load", timeout=25000)
+                            response = page.goto(url, wait_until="load", timeout=25000)
+                        if response is None or not 200 <= response.status < 300 or page.url != url:
+                            # Error/redirect destinations are not an equivalent test of this URL.
+                            detail = "Page failed or redirected; no equivalent test"
+                            eid = result.add_evidence(
+                                url,
+                                "Browser page load unavailable",
+                                {
+                                    "status": response.status if response else None,
+                                    "final_url": diagnostic(page.url, ctx),
+                                    "redirected": page.url != url,
+                                    "viewport": viewport,
+                                },
+                            )
+                            errors.append(f"{viewport} {diagnostic(url, ctx)}: {detail}")
+                            result.outcomes.append(
+                                observe(
+                                    name,
+                                    "page-load",
+                                    "technical",
+                                    url + "::" + viewport,
+                                    "unavailable",
+                                    [eid],
+                                    reason=detail,
+                                )
+                            )
+                            continue
                         record = {
                             "url": page.url,
                             "viewport": viewport,
@@ -145,11 +175,31 @@ def run(ctx: Context) -> ModuleResult:
                             "version": audit["testEngine"]["version"],
                             "violations": audit["violations"],
                             "incomplete": audit["incomplete"],
+                            "passes": audit.get("passes", []),
+                            "inapplicable": audit.get("inapplicable", []),
                         }
                         records.append(record)
                         eid = result.add_evidence(
                             url, f"Rendered page evidence ({viewport})", record
                         )
+                        component = url + "::" + viewport
+                        for group, status in [
+                            ("passes", "pass"),
+                            ("violations", "fail"),
+                            ("incomplete", "unavailable"),
+                            ("inapplicable", "out-of-scope"),
+                        ]:
+                            for rule in audit.get(group, []):
+                                result.outcomes.append(
+                                    observe(
+                                        name,
+                                        "axe:" + rule["id"],
+                                        "accessibility",
+                                        component,
+                                        status,
+                                        [eid],
+                                    )
+                                )
                         for violation in audit["violations"]:
                             severity = (
                                 "high"
@@ -167,10 +217,29 @@ def run(ctx: Context) -> ModuleResult:
                                 "verify with keyboard and assistive technology.",
                                 severity=severity,
                                 urls=[url],
+                                component=component,
                             )
                         canonical = record["page"].get("canonical", "")
                         actual = urlsplit(record["url"])
                         target = urlsplit(canonical)
+                        mismatch = bool(
+                            canonical
+                            and (target.scheme, target.netloc) != (actual.scheme, actual.netloc)
+                        )
+                        for check, category, failed in [
+                            ("canonical-mismatch", "seo", mismatch),
+                            ("console-errors", "technical", bool(console)),
+                        ]:
+                            result.outcomes.append(
+                                observe(
+                                    name,
+                                    check,
+                                    category,
+                                    component,
+                                    "fail" if failed else "pass",
+                                    [eid],
+                                )
+                            )
                         if canonical and (target.scheme, target.netloc) != (
                             actual.scheme,
                             actual.netloc,
@@ -184,6 +253,7 @@ def run(ctx: Context) -> ModuleResult:
                                 "Point canonical links at the preferred public HTTPS host.",
                                 confidence="needs_verification",
                                 urls=[url],
+                                component=component,
                             )
                         if console:
                             result.finding(
@@ -195,9 +265,27 @@ def run(ctx: Context) -> ModuleResult:
                                 "Investigate browser errors and retest key journeys.",
                                 confidence="needs_verification",
                                 urls=[url],
+                                component=component,
                             )
                     except Exception as exc:
-                        errors.append(f"{viewport} {url}: {type(exc).__name__}")
+                        detail = type(exc).__name__
+                        errors.append(f"{viewport} {diagnostic(url, ctx)}: {detail}")
+                        eid = result.add_evidence(
+                            url,
+                            "Browser page load unavailable",
+                            {"viewport": viewport, "error": detail},
+                        )
+                        result.outcomes.append(
+                            observe(
+                                name,
+                                "page-load",
+                                "technical",
+                                url + "::" + viewport,
+                                "failed-to-run",
+                                [eid],
+                                reason=detail,
+                            )
+                        )
                     finally:
                         page.close()
                 session.close()

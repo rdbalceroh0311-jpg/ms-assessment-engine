@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
+from ams_assess import figures
 from ams_assess.models import AMS_SERVICES, Context, Evidence, Finding, worst_provenance
 
 LOG = logging.getLogger(__name__)
@@ -172,8 +173,7 @@ SCORE_QUANTITY = re.compile(rf"(?<![\w.-])({NUMBER})\s*(?:/|out of)\s*100\b", re
 MONEY = re.compile(r"[$£€]|\b(?:USD|AUD|GBP|EUR|dollars?|pounds?|euros?)\b", re.I)
 OUTCOMES = re.compile(
     r"\b(?:guarantee[ds]?|will (?:increase|boost|generate|deliver|improve|rank)|"
-    r"lost[- ]leads?|revenue loss|return on investment|ROI)\b|"
-    r"\b\d+(?:\.\d+)?%?\s+(?:(?:new|more|additional)\s+)?(?:leads?|sales|conversions|enquiries|calls|bookings|jobs|customers|visitors|traffic|clicks)\b|"
+    r"lost[- ](?:leads?|revenue)|revenue loss|return on investment|ROI)\b|"
     r"\b(?:ranked|ranking|rank|position)\s+(?:(?:of|at|is)\s+)?#?\d+\b",
     re.I,
 )
@@ -182,8 +182,9 @@ OUTCOMES = re.compile(
 def unsupported_claim(text: str, cited: list[Evidence]) -> bool:
     """Reject new quantities and outcome promises; citations alone are not measurement proof."""
     text = CITATIONS.sub("", text)
-    if OUTCOMES.search(text) or MONEY.search(text):
+    if OUTCOMES.search(text) or MONEY.search(text) or not figures.supported(text, cited):
         return True
+    text = figures.QUANTITY.sub("", text)
     observed: set[Decimal] = set()
     scores: set[Decimal] = set()
     seconds: set[Decimal] = set()
@@ -306,11 +307,20 @@ def validate_analysis(
             finding = Finding.model_validate(item)
             if not set(finding.evidence_ids) <= known or finding.category not in categories:
                 raise ValueError("unknown evidence or unselected category")
-            interpretation = " ".join([finding.likely_cause, finding.business_impact])
+            fields = ["title", "likely_cause", "business_impact"]
             if finding.id not in existing:
-                interpretation += " " + finding.detail + " " + finding.recommendation
-            if unsupported_claim(interpretation, [by_evidence[i] for i in finding.evidence_ids]):
+                fields += ["detail", "recommendation"]
+            for field in fields:
+                setattr(finding, field, figures.without_followup_promises(getattr(finding, field)))
+            interpretation = " ".join(getattr(finding, field) for field in fields)
+            cited = [by_evidence[i] for i in finding.evidence_ids]
+            if any(unsupported_claim(getattr(finding, field), cited) for field in fields):
                 raise ValueError("unsupported quantity or promised outcome")
+            if any(e.provenance != "technical_evidence" for e in cited):
+                if claims_verification(interpretation):
+                    raise ValueError("customer statement upgraded to measured evidence")
+            for field in ("title", "likely_cause", "business_impact", "detail", "recommendation"):
+                setattr(finding, field, figures.render(getattr(finding, field), cited))
             if finding.id in existing:
                 base = existing[finding.id]
                 # Preserve observed facts, citations and provenance; enrich interpretation only.
@@ -347,6 +357,8 @@ def validate_analysis(
     sections = {k: str(v) for k, v in data.get("sections", {}).items() if k in categories}
     for key, value in [("summary", summary), *sections.items()]:
         refs = set(CITATIONS.findall(value))
+        if refs and refs <= known:
+            value = figures.without_followup_promises(value)
         reason = ""
         if not refs or not refs <= known:
             reason = "uncited or invalid"
@@ -356,7 +368,11 @@ def validate_analysis(
             # Same guard as findings: customer statements and assumptions are never technical fact.
             label = LABELS[weakest]
             body = value.removeprefix(label)
-            qualified = body != value or QUALIFIERS[weakest].search(value)
+            qualified = (
+                body != value
+                or QUALIFIERS[weakest].search(value)
+                or (weakest == "customer_statement" and figures.QUANTITY.search(value))
+            )
             if claims_verification(body) or not qualified:
                 reason = "unqualified customer statement"
             elif body == value:
@@ -365,6 +381,12 @@ def validate_analysis(
                     summary = value
                 else:
                     sections[key] = value
+        if not reason and refs:
+            value = figures.render(value, [by_evidence[i] for i in sorted(refs)])
+            if key == "summary":
+                summary = value
+            else:
+                sections[key] = value
         if reason:
             warnings.append(f"Dropped {reason} AI narrative: {key}")
             if key == "summary":

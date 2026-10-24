@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
 
 name = "security"
@@ -66,7 +67,7 @@ def run(ctx: Context) -> ModuleResult:
                 urls=[str(response.url)],
             )
         # Only specific cookie flag observations are actionable; never retain cookie values.
-        cookie_issues = []
+        cookie_issues, checked_cookies = [], []
         for value in response.headers.get_list("set-cookie"):
             cookie = SimpleCookie()
             try:
@@ -80,8 +81,25 @@ def run(ctx: Context) -> ModuleResult:
                     if not morsel[flag.lower()]
                     and (flag != "Secure" or response.url.scheme == "https")
                 ]
+                checked_cookies.append({"name": key, "missing_flags": missing})
                 if missing:
                     cookie_issues.append({"name": key, "missing_flags": missing})
+        cookie_eid = result.add_evidence(
+            str(response.url), "Cookie flag check coverage (values omitted)", checked_cookies
+        )
+        result.outcomes.append(
+            observe(
+                name,
+                "header-review:set-cookie",
+                "security",
+                str(response.url),
+                ("fail" if cookie_issues else "pass")
+                if checked_cookies and 200 <= response.status_code < 300
+                else "unavailable",
+                [cookie_eid],
+                coverage=[str(response.url) + "::cookie=" + c["name"] for c in checked_cookies],
+            )
+        )
         if cookie_issues:
             cookie_eid = result.add_evidence(
                 str(response.url), "Cookie flag observations (values omitted)", cookie_issues
@@ -99,10 +117,24 @@ def run(ctx: Context) -> ModuleResult:
                 "client-side JavaScript does not need access; test before deployment.",
                 severity="low",
                 confidence="needs_verification",
+                coverage=[str(response.url) + "::cookie=" + c["name"] for c in cookie_issues],
                 urls=[str(response.url)],
             )
         server = headers.get("server", "")
-        if re.search(r"\b[A-Za-z][\w.-]*/\d+\.\d+[\w.-]*", server):
+        disclosed = bool(re.search(r"\b[A-Za-z][\w.-]*/\d+\.\d+[\w.-]*", server))
+        result.outcomes.append(
+            observe(
+                name,
+                "header-review:server",
+                "security",
+                str(response.url),
+                ("fail" if disclosed else "pass")
+                if 200 <= response.status_code < 300
+                else "unavailable",
+                [eid],
+            )
+        )
+        if disclosed:
             result.finding(
                 "header-review:server",
                 "Server software version disclosed",

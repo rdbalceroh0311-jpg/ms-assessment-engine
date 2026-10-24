@@ -4,6 +4,7 @@ import subprocess
 from typing import Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
+from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
 from ams_assess.targets import NORMAL_UA, REQUEST_SECONDS, crawl_hosts, resolve_target
 
@@ -43,6 +44,15 @@ def diagnostic(value: Any, ctx: Context) -> str:
             return "[invalid URL]"
 
     text = re.sub(r"https?://\S+", safe_url, text)
+    # Scheme-less paths/hosts can carry the same credentials, query and fragment secrets.
+    text = re.sub(
+        r"(?<![\w])(?:(?://)?(?:[^\s/@<>\"']+@)?"
+        r"(?:localhost|(?:[\w-]+\.)+[\w-]+|\[[0-9a-fA-F:]+\])(?::\d+)?"
+        r"(?:/[^\s<>\"'?#]*)?|(?:/|\./|\.\./|[\w.-]+/)[^\s<>\"'?#]+)"
+        r"[?#][^\s<>\"']*",
+        lambda m: m.group().split("?", 1)[0].split("#", 1)[0].rsplit("@", 1)[-1],
+        text,
+    )
     for secret in ctx.config.values():
         if len(secret) >= 4:
             text = text.replace(secret, "[redacted]")
@@ -97,7 +107,9 @@ def run(ctx: Context) -> ModuleResult:
             text=True,
             timeout=max(120, min(ctx.max_pages * 10, 1800)),
         )
+        result.collection_started = True
     except (OSError, subprocess.TimeoutExpired) as exc:
+        result.collection_started = isinstance(exc, subprocess.TimeoutExpired)
         result.status = "error"
         result.reason = f"SiteOne could not crawl {ctx.site_url}: {type(exc).__name__}"
         result.add_evidence(ctx.site_url, "SiteOne process failure", {"reason": result.reason})
@@ -152,6 +164,13 @@ def run(ctx: Context) -> ModuleResult:
             if urlsplit(url).hostname in hosts:
                 ctx.pages.append(url)
         eid = result.add_evidence(url, "SiteOne HTTP response", row)
+        for check, failed in [
+            ("unavailable-urls", status <= 0 or status == 429 or status >= 500),
+            ("broken-links", 400 <= status < 500 and status != 429),
+            ("redirects", 300 <= status < 400),
+        ]:
+            outcome = "fail" if failed else ("pass" if 200 <= status < 300 else "unavailable")
+            result.outcomes.append(observe(name, check, "technical", url, outcome, [eid]))
         if status <= 0 or status == 429 or status >= 500:
             # No response, throttling or server errors may be transient; recheck before repair.
             result.finding(
@@ -194,6 +213,18 @@ def run(ctx: Context) -> ModuleResult:
         url = urljoin(ctx.site_url, row.get("urlPathAndQuery", "/"))
         eid = result.add_evidence(url, "SiteOne SEO metadata", row)
         for field, label in [("description", "meta description"), ("h1", "H1"), ("title", "title")]:
+            result.outcomes.append(
+                observe(
+                    name,
+                    f"missing-{field}",
+                    "seo",
+                    url,
+                    ("fail" if not str(row[field]).strip() else "pass")
+                    if field in row
+                    else "unavailable",
+                    [eid],
+                )
+            )
             if not str(row.get(field, "")).strip():
                 result.finding(
                     f"missing-{field}",
@@ -204,6 +235,17 @@ def run(ctx: Context) -> ModuleResult:
                     f"Add a descriptive, page-specific {label}.",
                     urls=[url],
                 )
+        restricted = str(row.get("robotsIndex")) == "0" or row.get("deniedByRobotsTxt") == "true"
+        result.outcomes.append(
+            observe(
+                name,
+                "indexing-restricted",
+                "seo",
+                url,
+                "fail" if restricted else ("pass" if "robotsIndex" in row else "unavailable"),
+                [eid],
+            )
+        )
         if str(row.get("robotsIndex")) == "0" or row.get("deniedByRobotsTxt") == "true":
             result.finding(
                 "indexing-restricted",
@@ -238,16 +280,76 @@ def run(ctx: Context) -> ModuleResult:
             row.get("recommendation", "Header policy needs review."),
             "Review and test the header policy for the affected responses.",
             confidence="needs_verification",
+            coverage=list(ctx.pages),
             severity="low"
             if ctx.local or header in {"referrer-policy", "permissions-policy"}
             else "medium",
             urls=[ctx.site_url],
+        )
+    header_rows = tables.get("security", {}).get("rows", [])
+    header_ids = []
+    healthy = set()
+    for row in header_rows:
+        header = str(row.get("header", "")).lower()
+        if "critical" not in row or "warning" not in row:
+            continue
+        eid = result.add_evidence(ctx.site_url, "SiteOne header outcome (crawl aggregate)", row)
+        header_ids.append(eid)
+        passed = int(row["critical"]) + int(row["warning"]) == 0
+        if passed:
+            healthy.add(header)
+        for prefix in ("header-missing:", "header-review:"):
+            # Failure type is represented by the finding. A non-missing header is not
+            # automatically a pass for every policy rule.
+            if passed:
+                result.outcomes.append(
+                    observe(
+                        name,
+                        prefix + header,
+                        "security",
+                        ctx.site_url,
+                        "pass",
+                        [eid],
+                        coverage=list(ctx.pages),
+                    )
+                )
+    required = {
+        "content-security-policy",
+        "x-content-type-options",
+        "referrer-policy",
+        "permissions-policy",
+        "x-frame-options",
+    }
+    if ctx.site_url.startswith("https:"):
+        required.add("strict-transport-security")
+    if required <= healthy:
+        result.outcomes.append(
+            observe(
+                name,
+                "security-headers",
+                "security",
+                ctx.site_url,
+                "pass",
+                header_ids,
+                coverage=list(ctx.pages),
+            )
         )
     for item in data.get("summary", {}).get("items", []):
         code, text = str(item.get("aplCode", "")), str(item.get("text", ""))
         if code.startswith("robots-txt-"):
             eid = result.add_evidence(ctx.site_url, "SiteOne robots.txt load", item)
             status = re.search(r"status code (\d+)", text)
+            if status:
+                result.outcomes.append(
+                    observe(
+                        name,
+                        "robots-txt-missing",
+                        "seo",
+                        ctx.site_url,
+                        "pass" if status.group(1) == "200" else "fail",
+                        [eid],
+                    )
+                )
             if status and status.group(1) != "200":
                 result.finding(
                     "robots-txt-missing",
@@ -262,6 +364,17 @@ def run(ctx: Context) -> ModuleResult:
                 )
         elif code == "seo-canonical-missing":
             eid = result.add_evidence(ctx.site_url, "SiteOne canonical link summary", item)
+            result.outcomes.append(
+                observe(
+                    name,
+                    "canonical-missing",
+                    "seo",
+                    ctx.site_url + "::crawl-canonicals",
+                    "pass" if item.get("status") == "OK" else "fail",
+                    [eid],
+                    coverage=list(ctx.pages),
+                )
+            )
             if item.get("status") != "OK":
                 result.finding(
                     "canonical-missing",
@@ -272,6 +385,8 @@ def run(ctx: Context) -> ModuleResult:
                     "Add a self-referencing rel=canonical to each indexable page.",
                     severity="low",
                     kind="opportunity",
+                    component=ctx.site_url + "::crawl-canonicals",
+                    coverage=list(ctx.pages),
                     urls=[ctx.site_url],
                 )
     for table in [

@@ -103,7 +103,7 @@ def test_preflight_failure_crawls_last_safe_url(tmp_path, monkeypatch, failure):
 
     def handler(request):
         calls.append(request)
-        assert request.headers["user-agent"] == site_checks.NORMAL_UA
+        assert request.headers["user-agent"] == "AMSAssessment/1.0"
         assert request.extensions["timeout"]["read"] == targets.REQUEST_SECONDS
         if request.url.host == "example.com":
             return httpx.Response(301, headers={"location": "https://www.example.com/"})
@@ -125,7 +125,7 @@ def test_preflight_failure_crawls_last_safe_url(tmp_path, monkeypatch, failure):
     assert result.status == "ok" and "preflight limitation" in result.reason
     assert ctx.target == "https://example.com/" and ctx.site_url == "https://www.example.com/"
     assert "--url=https://www.example.com/" in commands[0]
-    assert f"--user-agent={site_checks.NORMAL_UA}!" in commands[0]
+    assert "--user-agent=AMSAssessment/1.0!" in commands[0]
     assert f"--timeout={targets.REQUEST_SECONDS}" in commands[0]
     assert "--allowed-domain-for-crawling=example.com" in commands[0]
     assert "--allowed-domain-for-crawling=www.example.com" in commands[0]
@@ -428,7 +428,7 @@ def test_website_measurements_use_resolved_host(tmp_path, monkeypatch):
         for evidence in result.evidence:
             if "performance" in evidence.data:
                 assert evidence.url == ctx.target  # summary retains the requested site identity
-            elif evidence.data.get("scope") == "origin":
+            elif isinstance(evidence.data, dict) and evidence.data.get("scope") == "origin":
                 assert evidence.url == "https://www.example.com"
             else:
                 assert evidence.url == ctx.site_url
