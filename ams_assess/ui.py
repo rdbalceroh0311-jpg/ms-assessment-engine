@@ -1,4 +1,4 @@
-"""Loopback-only review UI. No collectors, credentials, subprocesses or general file server."""
+"""Loopback review UI with explicit, bounded connector reads; no secret input or shell."""
 
 import hmac
 import mimetypes
@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateError
 
 from ams_assess import register, store
+from ams_assess.connectors import service as connectors
 from ams_assess.models import CUSTOMER_RE, customer_path
 
 EXTENSIONS = {".html", ".pdf", ".md", ".png", ".json"}
@@ -219,6 +220,7 @@ class Handler(BaseHTTPRequestHandler):
                 customer=customer,
                 current=current,
                 entries=current.get("systems_register", {}).get("entries", []) if current else [],
+                connectors=connectors.rows(current) if current else [],
                 groups=finding_groups(current) if current else {},
                 files=files,
                 url=self.app.url,
@@ -238,7 +240,7 @@ class Handler(BaseHTTPRequestHandler):
             path, params = self.parameters()
             if (
                 not self.authenticated(params)
-                or path != "/update"
+                or path not in {"/update", "/connect"}
                 or self.headers.get_all("Origin", []) != [self.app.origin]
             ):
                 self.reply(403, b"Forbidden")
@@ -262,6 +264,29 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(403, b"CSRF verification failed")
                 return
             customer = values.pop("customer")
+            if path == "/connect":
+                key, action = values.pop("connector"), values.pop("action")
+                if action in {"reference", "bind"}:
+                    resource = values.pop("resource", "") if action == "bind" else ""
+                    if action == "bind" and not resource:
+                        raise ValueError
+                    connectors.set_binding(
+                        self.app.root, customer, key, values.pop("credential_ref"), resource
+                    )
+                elif action in {"test", "collect"}:
+                    connectors.execute(
+                        self.app.root,
+                        customer,
+                        key,
+                        collect=action == "collect",
+                        days=int(values.pop("days", "28")),
+                        seconds=40,
+                    )
+                else:
+                    raise ValueError
+                self.reply(303, location=self.app.url(customer=customer))
+                return
+
             platform, site = values.pop("platform"), values.pop("site", "")
             location = values.pop("location", "")
             changes = {k: v for k, v in values.items() if v}
@@ -269,10 +294,12 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(303, location=self.app.url(customer=customer))
         except TemplateError:
             self.reply(500, b"Unable to render local interface")
+        except connectors.BindingError as exc:
+            self.reply(409, str(exc).encode())
         except (ValueError, UnicodeError, OSError, KeyError):
             # Do not echo rejected secrets, filesystem paths or untrusted values.
             self.reply(
-                400, b"Invalid register update; check statuses, evidence and non-secret identifiers"
+                400, b"Invalid update; check statuses, binding, evidence and non-secret identifiers"
             )
 
 

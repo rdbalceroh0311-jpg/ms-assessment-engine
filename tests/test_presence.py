@@ -187,7 +187,7 @@ def test_readiness_and_checklist_follow_detections(tmp_path):
     assert readiness["m365"]["status"] == DETECTED
     assert "google_workspace" not in readiness
     assert readiness["gsc"]["access"] == "Connected successfully"
-    assert readiness["ga4"]["access"] == "Unsupported"
+    assert readiness["ga4"]["access"] == "not_configured"
     assert readiness["wordpress"]["status"] == NOT_DETECTED
     checklist = {item["service"]: item for item in tables["checklist"]}
     assert not any("WordPress" in service for service in checklist)
@@ -217,7 +217,7 @@ def test_report_renders_presence_sections_not_assessed_without_inputs(tmp_path, 
     assert "## 7. Connected business-system findings" not in report
     assert "## 10. Items requiring customer verification" in report
     assert f"| Google Search Console<br>{ctx.target} | Not connected |" in report
-    assert f"| Google Analytics 4<br>{ctx.target} | Unsupported |" in report
+    assert f"| Google Analytics 4<br>{ctx.target} | not_configured |" in report
     assert "set AMS\\_ACCESS\\_EMAIL" in report
     assert re.findall(r"^## (\d+)\.", report, re.M) == ["1", "2", "10"]
     other = context(tmp_path, categories={"security"})

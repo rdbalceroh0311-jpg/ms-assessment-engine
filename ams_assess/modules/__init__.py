@@ -1,3 +1,7 @@
+from types import ModuleType
+
+from ams_assess.connectors import REGISTRY as CONNECTORS
+from ams_assess.connectors.adapter import ConnectorModule
 from ams_assess.modules import (
     browser,
     dataforseo,
@@ -13,7 +17,7 @@ from ams_assess.modules import (
 
 # Order is intentional: downstream browser evidence reuses the one crawler's page list, and
 # domain_email, presence and site_checks reuse evidence the earlier modules collected.
-REGISTRY = {
+REGISTRY: dict[str, ModuleType | ConnectorModule] = {
     module.name: module
     for module in [
         siteone,
@@ -28,6 +32,10 @@ REGISTRY = {
         site_checks,
     ]
 }
+
+REGISTRY.update(
+    {key: ConnectorModule(spec) for key, spec in CONNECTORS.items() if key not in REGISTRY}
+)
 
 FUTURE = [
     (
@@ -44,7 +52,6 @@ FUTURE = [
         "OAuth and listing access",
         {"local_seo", "entity"},
     ),
-    ("GA4", "Analytics", "Read-only property access", {"cro_ux", "performance"}),
     (
         "WP-CLI / Site Health",
         "WordPress configuration",

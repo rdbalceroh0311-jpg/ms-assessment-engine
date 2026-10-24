@@ -21,7 +21,7 @@ uv run ams-assess report data/customers/acme/<timestamp>
 ```
 
 Options: `--browser-pages 6` (1-50), `--wp-inventory /path/to/authorised-export.json` (JSON or CSV URLs), `--max-pages 100` (a page-crawl URL budget excluding static assets; redirects and failed/non-HTML responses can consume slots), `--formats md,html,pdf`,
-`--no-ai`, `--connect gsc`, `--dataforseo-max-usd X`, `--keywords 'k1,k2'`, `--dkim-selectors a,b`, `--mail-tls-check`. Default categories: technical, seo, geo,
+`--no-ai`, `--connect gsc`, `--connect ga4`, `--dataforseo-max-usd X`, `--keywords 'k1,k2'`, `--dkim-selectors a,b`, `--mail-tls-check`. Default categories: technical, seo, geo,
 performance, accessibility, cro_ux, copywriting, security, domain_email, local_seo, entity, presence.
 The report follows ten sections: context; scope and limitations; critical risks; website checks;
 digital presence; domain/email/security; connected systems; operational discovery; opportunities and
@@ -65,7 +65,7 @@ Unsupported (no connector) and Not assessed. GSC unverified users and HTTP 403 r
 The [documented GSC API](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)
 does not expose a separate generative-AI performance report/filter (checked 2026-10-23); review a
 customer-provided [Search Console UI export](https://support.google.com/webmasters/answer/16984139)
-manually. No new business-system connectors are implemented.
+manually. GA4 and explicitly bound GSC reads use the connector framework below.
 
 ### Progressive assessment: one customer, one evolving assessment
 
@@ -350,7 +350,7 @@ Removal requires an exact scope (no auto-resolution), records the complete remov
 and retains all prior history and evidence. Only purely manual rows can be removed; engine evidence
 and nondefault integration states are protected. It does not merge fields into another row. Regenerate
 reports afterwards; existing report revisions remain immutable.
-Only an engine-recorded successful GSC connection with property evidence sets `connected`.
+Only an engine-recorded successful bound-resource read with permission evidence sets `connected`.
 Access granted never does. Missing tags are unknown, unsupported does not mean absent, and
 Workspace and Microsoft 365 can coexist. WP-CLI is server tooling, not an account.
 Use public property/account identifiers and evidence references only. Secret-looking inputs,
@@ -369,10 +369,10 @@ Open the `http://127.0.0.1:8765/?token=...` URL printed once at startup. The int
 to `127.0.0.1`; all requests require that per-start token. POST forms additionally require a separate
 CSRF token and matching Origin/Host. Keep the startup URL private. **Stop: press `Ctrl-C` in that
 terminal.** Restart with the same start command; a fresh token is generated and saved edits remain.
-No credentials/config files are loaded by this command. The UI lists customers, runs, coverage,
+Opening the UI does not load credentials. Explicit connector Test/Collect POST actions resolve the selected credential reference privately. The UI lists customers, runs, coverage,
 register evidence, Current / Resolved / Not rechecked / Needs review findings and saved reports.
 Manual verification and access updates use the same validated, locked store functions as the CLI.
-It cannot execute commands or run assessments. File serving is limited to recorded customer output
+Connector POST controls run bounded read-only tests/collections through the same service as the CLI; public website assessments remain in the CLI. It cannot execute arbitrary commands. File serving is limited to recorded customer output
 directories and known report/results/evidence/findings files or PNG screenshots; traversal, symlinks,
 raw files and credential files are excluded. Saved HTML is sandboxed with scripts disabled.
 
@@ -395,6 +395,119 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | Google Search Console | Explicit `--connect gsc`, service-account `GOOGLE_APPLICATION_CREDENTIALS` or OAuth `AMS_GSC_TOKEN_FILE`, and an accessible matching property. Optional `AMS_GSC_PROPERTY`. Read-only: top 100 queries/pages over 28 complete days with 3-day lag, plus sitemaps. OAuth requires an authorized-user JSON file created by `gsc-auth`. |
 | Digital presence (`presence`) | Reuses browser DOM (meta tags, script URLs, inline tag snippets, `<link>` URLs, anchors, JSON-LD, request URLs), SiteOne headers/external URLs/robots.txt/canonical summary, domain_email MX/TXT and the GSC connection state. Its only requests, and only after a SiteOne crawl, are one `robots.txt` GET and one GET of the first same-origin `Sitemap:` URL (else `/sitemap.xml`), each with at most one redirect that keeps scheme, host and port, all within one 10-second deadline (passed as each request's timeout) and a 2 MB cap; no recursion. The complete body is parsed with ElementTree. Sitemap PASS (sitemaps.org `urlset`/`sitemapindex` with at least one `<loc>`) / WARNING (404, or fully retrieved but invalid; needs verification when robots.txt could not be read) / NOT ASSESSED (fetch failed, incomplete or declared on another origin). Detects Search Console/Bing verification, GA4, legacy UA, GTM, Clarity, Hotjar, Google Ads, Meta, LinkedIn, Bing UET, TikTok, WordPress/Shopify/Wix/Squarespace/Webflow/Joomla/Drupal and Google Workspace/Microsoft 365, with IDs as evidence. IDs count only in tag context (gtag calls, tag URLs, the GTM loader), never as bare strings. Listings (Google Business Profile, Bing, Apple Maps, Facebook, Instagram, LinkedIn and AU directories) only when the website links to them. Produces platform, listing, search/local signal (NAP, location pages, robots.txt, sitemap, canonicals), connected-readiness and customer access checklist tables. Statuses: Detected / Not detected (no public signal on sampled pages, never "no account") / Unknown (GTM present but GA4 not seen, or a consent manager / consent-gated tags present and the tag not seen loading) / NOT ASSESSED. NAP is a confirmed mismatch only on one page with one business entity, untruncated text and exactly one different phone or postcode shown; several entities or values, truncation, absence or values from different pages give a manual verification item. AI cannot create presence findings or findings cited only by presence evidence; GSC data appears only under "Connected business-system findings". Listings always need ownership confirmation; platform pages are never fetched, and search happens only through the DataForSEO SERP under the cap (see above). `AMS_ACCESS_EMAIL` names the AMS account in the checklist (placeholder if unset). |
 | AI | `ANTHROPIC_API_KEY` selects Anthropic SDK (billable; no retries); otherwise authenticated `claude -p --output-format json` with strict schema, tools/hooks/MCP disabled and 300-second timeout; otherwise deterministic fallback. `--no-ai` disables both. Prompt/raw responses stay in the run directory. |
+
+## Bound connectors: GA4 setup and use
+
+GA4 uses only `https://www.googleapis.com/auth/analytics.readonly`. Ask the customer to grant
+Viewer access to the specific property; customers retain ownership and recovery methods. In your
+Google Cloud OAuth project, enable **Google Analytics Admin API** and **Google Analytics Data API**,
+configure the consent screen (and test users if the app is in testing), and create a **Desktop app**
+OAuth client. Save its JSON outside Git, preferably `~/.config/ams-assess/google-desktop-client.json`
+with mode 0600. These project/access setup steps are manual; the connector never changes settings.
+No paid service is used. No live access is exercised by the tests.
+
+From this worktree, David can authorise GA4 and explicitly bind 2EC Traffic's property as follows
+(use the customer's existing slug if it differs from `2ec-traffic`):
+
+```sh
+uv run ams-assess connect ga4 auth --credential-ref ga4-2ec \
+  --client-secrets ~/.config/ams-assess/google-desktop-client.json
+uv run ams-assess connect ga4 list-resources --credential-ref ga4-2ec
+uv run ams-assess connect ga4 bind --customer 2ec-traffic \
+  --credential-ref ga4-2ec --resource properties/278830925
+uv run ams-assess connect ga4 test --customer 2ec-traffic
+uv run ams-assess connect ga4 collect --customer 2ec-traffic --days 28
+uv run ams-assess connectors --customer 2ec-traffic
+uv run ams-assess report --customer 2ec-traffic
+```
+
+The browser consent flow has a three-minute timeout. It requests only the selected connector's
+scopes, disables scope combination, and writes a separate token; it never widens a GSC token.
+References live in `~/.config/ams-assess/connectors.json`, mapping a short name to provider,
+connector, auth kind, and a private file path or environment-variable name. OAuth tokens live in
+`~/.config/ams-assess/<connector>-<reference>-token.json`. The directory is 0700; files are 0600
+and atomically replaced. Refresh is automatic. A revoked/expired credential gives a re-authorisation
+command. Only the reference name is stored with the customer's binding in `assessment.json`.
+Never put tokens, client secrets, passwords or credential JSON into UI forms, notes or evidence.
+For a module with an API-key/app/SSH auth adapter, `connect <key> auth --credential-ref <name>
+--credential-file <private-json>` or `--env-var <VARIABLE_NAME>` registers a source; environment
+variables override `credentials.env`. It does not test access or mark the integration connected.
+
+`list-resources` uses Admin `accountSummaries.list` and **does not bind or assess** anything.
+`bind` selects exactly one resource. A resource bound to another customer is refused across
+credential references; an exceptional shared-property binding requires `--force --reason '...'`,
+recorded in binding history. Rebinding resets connection/collection state, retains old evidence,
+and rejects stale in-flight results. Customer updates use the existing store locks.
+
+`collect` first tests the bound resource. The default is the last 28 complete days in the property's
+time zone. `--days 1..366` or `--start YYYY-MM-DD --end YYYY-MM-DD` selects a bounded period;
+today/future dates are refused. Example combined run:
+
+```sh
+uv run ams-assess run --customer acme --target https://example.com --connect ga4 --no-ai
+uv run ams-assess connect ga4 collect --customer acme --start 2026-09-01 --end 2026-09-28
+```
+
+The Admin sample includes property metadata, web streams, key events, custom-dimension count,
+retention and Ads-link count. Data reports cover daily sessions/users/engagement, acquisition,
+top landing paths, events and configured key-event counts. Average engagement seconds per active
+user is `userEngagementDuration / activeUsers`, not average session duration. Landing query strings
+and URL credentials/fragments are discarded; emails are reduced to domain-level references.
+No user inventories are collected. AI receives coverage aggregates, not report rows or inventories.
+
+Each endpoint records resource, collection time, period, status, rows and truncation. Lists/reports
+have at most five 100-row pages; landing pages are the top 100 by sessions. HTTP responses are capped
+at 2 MB, requests at 80 including retries, individual I/O at 10 seconds and the read phase at 45 seconds
+(40 in the UI). 429/5xx/timeouts receive at most three attempts with bounded backoff. OAuth refresh
+has a separate bounded transport timeout. Quota responses stop further Data API calls when exhausted.
+Successful pages/endpoints survive subsequent failures. Sampling/thresholding/caps are explicit
+partial coverage and cannot support zero-event findings. Only allowlisted GETs and the exact
+read-only Data `runReport` POST are permitted; redirects and all write endpoints are refused.
+
+CLI, UI and report use the same statuses: `not_configured`, `credential_missing`,
+`credential_expired`, `permission_required`, `not_found`, `provider_unavailable`, `api_not_enabled`,
+`approval_required`, `failed`, `connected`, `connected_partial`. The register's integration field is
+engine-controlled; human `ams_access=granted` remains separate. The UI shows each endpoint's coverage
+and offers reference, bind, test and bounded collect POST controls under its existing token/CSRF rules.
+Only configured/attempted connectors appear in report section 7; public-only reports stay public.
+
+Findings distinguish confirmed zero events from unavailable data, and configured-but-unrecorded key
+events from recorded events. Enquiry-name matching is an inferred heuristic needing verification:
+clicks and `form_start` never establish completed enquiries. Stream URI comparisons and public tag
+cross-references retain their evidence; public missing-tag findings are referenced, not duplicated.
+Stable resource/check identities use the existing lifecycle: only an equivalent complete passing
+recheck resolves a finding; unavailable/partial checks do not. Evidence and history are retained.
+
+GSC also has an explicit framework binding (`connect gsc ...`, `sc-domain:example.com` or a URL
+property) with its own `webmasters.readonly` token. Existing `gsc-auth` and unbound legacy
+`run --connect gsc` remain supported; the legacy flow keeps its prior matching-property behaviour.
+
+Provider contracts: [Admin account listing](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1beta/accountSummaries/list),
+[Data runReport](https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport),
+[Data dimensions/metrics](https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema),
+[Admin retention](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1beta/properties/getDataRetentionSettings).
+
+### How to add a connector
+
+Add one module under `ams_assess/connectors/`, export a `core.Connector` declaration, and add it to
+`connectors.REGISTRY`. Add mocked-provider tests. No shared CLI/UI/report/store changes are needed.
+
+- Declare `key`, `label`, `provider`, `auth_kind`, least-privilege `scopes`, `resource_type`,
+  `categories` and exact `ReadOperation(method, url_pattern)` allowlist entries.
+- Supply `normalize_resource`, `list_resources(ctx) -> Endpoint`, `test(ctx) -> Endpoint`,
+  `collect(ctx) -> None`, and `analysers` that append findings plus explicit pass/fail outcomes.
+  `test` must verify the requested resource identity with an authenticated read.
+- Supply `authenticate(spec, ref, directory=...) -> AuthMaterial`; optionally `authorize` for OAuth.
+  Reuse `google_authenticate`/`google_authorize` for Google, or `auth.load_reference` for private JSON,
+  env names and `credentials.env`. Never return secrets in exceptions or evidence. An optional
+  `transport_factory(AuthMaterial)` can map allowlisted routes to a provider SDK/SSH read transport.
+- All provider operations go through `ctx.http.request`. Use `ctx.capture` and update endpoint
+  payload/row coverage after each page so partial successes survive. Enforce row/page bounds, minimise
+  fields, and cite generated endpoint evidence IDs. Emit explicit complete passing outcomes only
+  for checks actually rechecked, using resource/check/component identities; missing data is no pass.
+- The shared service handles binding isolation, secret redaction, aggregate-only AI projection,
+  persistence, register status and UI/report views. Test auth, allowlist, errors, caps, privacy,
+  lifecycle and cross-customer isolation with synthetic fixtures.
 
 ## Outputs and interpretation
 
@@ -425,7 +538,7 @@ Observatory unavailable. GSC, DataForSEO and the SDK path require credentials an
 by the fixture. Platform and listing detection only sees the sampled pages: tags behind consent or
 loaded from unsampled templates, and profiles not linked from the site, are reported as not detected
 or unknown, never as absent. The access checklist never requests passwords; customers keep ownership. `modules` lists future capabilities (Elmo, Houtini, OpenSEO, GBP,
-GA4, WP-CLI, Workspace/M365, social SEO, PR, A/B and heatmaps); none is implemented or measured.
+WP-CLI, Workspace/M365, social SEO, PR, A/B and heatmaps); these future capabilities are not implemented or measured. GA4 is available through explicit binding.
 
 ## Development
 

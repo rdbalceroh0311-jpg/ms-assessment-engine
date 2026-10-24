@@ -48,8 +48,8 @@ STORE_FILE = "assessment.json"
 LOCK_FILE = ".assessment.lock"
 LOCK_TIMEOUT = 30.0
 STAGES = ("public", "connected", "discovery")
-EVIDENCE_ID = re.compile(r"ev-[a-z_]+-\d+")
-LOCAL_ID = re.compile(r"^ev-([a-z_]+)-(\d+)$")
+EVIDENCE_ID = re.compile(r"ev-[a-z][a-z0-9_]*-\d+")
+LOCAL_ID = re.compile(r"^ev-([a-z][a-z0-9_]*)-(\d+)$")
 NO_AI = {"status": "skipped", "provider": None, "reason": "Discovery notes are not AI-interpreted"}
 
 
@@ -661,6 +661,9 @@ def _merge_run(
             run[key] = remap(data[key], mapping)
     store["runs"].append(run)
     _finish(store, findings, all_evidence, stages if data["status"] != "incomplete" else [])
+    from ams_assess.connectors.service import merge_states
+
+    merge_states(store, data.get("connector_results", {}), mapping)
     register.refresh(store)
     save(root, customer, store)
     return store
@@ -1022,7 +1025,7 @@ def remove_register(
         if len(matches) != 1:
             raise ValueError("No unique entry at that exact platform/site/location scope")
         entry = matches[0]
-        default_integration = "supported" if platform == "gsc" else "unsupported"
+        default_integration = register.default_integration(platform)
         if (
             entry["integration"] != default_integration
             or not entry["human_fields"]
@@ -1098,7 +1101,10 @@ def report_data(
         "connected": "connected evidence",
         "discovery": "business discovery",
     }
+    from ams_assess.connectors.service import rows as connector_rows
+
     data: dict[str, Any] = {
+        "connector_rows": connector_rows(store, include_unconfigured=False),
         "customer_name": store["customer_name"],
         "profile": store.get("profile"),
         "systems_register": store.get("systems_register", {}).get("entries", []),

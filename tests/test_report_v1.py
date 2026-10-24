@@ -148,7 +148,7 @@ def test_progressive_customer_scenario(local_fixture, tmp_path, monkeypatch):
     for service, status in (
         ("DataForSEO", "Not connected"),
         ("PageSpeed Insights", "Not assessed"),
-        ("Google Analytics 4", "Unsupported"),
+        ("Google Analytics 4", "not_configured"),
         ("Google Search Console", "Not connected"),
     ):
         assert f"| {service}<br>{target} | {status} |" in public_text
@@ -275,7 +275,7 @@ def test_progressive_customer_scenario(local_fixture, tmp_path, monkeypatch):
         ("Google Search Console", target, "Not connected"),
         ("DataForSEO", target, "Not connected"),
         ("PageSpeed Insights", target, "Not assessed"),
-        ("Google Analytics 4", target, "Unsupported"),
+        ("Google Analytics 4", target, "not_configured"),
     ):
         assert f"| {service}<br>{website} | {status} |" in text
     assert "## 7. Connected business-system findings" in text

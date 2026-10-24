@@ -3,6 +3,8 @@ from typing import Any
 
 from ams_assess import coverage, outcomes, store
 from ams_assess.ai import analyse
+from ams_assess.connectors import REGISTRY as CONNECTORS
+from ams_assess.connectors.service import rows as connector_rows
 from ams_assess.consolidate import consolidate, consolidate_security_headers
 from ams_assess.lifecycle import scoped
 from ams_assess.models import (
@@ -19,8 +21,13 @@ from ams_assess.report import render
 
 def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> dict[str, Any]:
     results = ctx.results = []
+    ctx.connector_results = {}
     for name, module in REGISTRY.items():
-        if not ctx.categories & module.categories:
+        if name in CONNECTORS and name in ctx.connections:
+            pass  # Explicit connected reads are independent of public website categories.
+        elif name in CONNECTORS and name != "gsc":
+            continue
+        elif not ctx.categories & module.categories:
             continue
         print(f"[{name}] collecting", flush=True)
         try:
@@ -57,7 +64,8 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
                     "successful_html_pages": len(ctx.pages),
                 },
             )
-        result.findings = [f for f in result.findings if f.category in ctx.categories]
+        if name not in CONNECTORS:
+            result.findings = [f for f in result.findings if f.category in ctx.categories]
         results.append(result)
         print(
             f"[{name}] {result.status}" + (f": {result.reason}" if result.reason else ""),
@@ -78,7 +86,7 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
             for r in results
             if r.evidence and r.status == "ok"
             for category in REGISTRY[r.name].categories
-            if category in ctx.categories
+            if category in ctx.categories or r.name in CONNECTORS
         }
     )
     # Findings from unassessed categories must not reach recommendations or the roadmap.
@@ -114,6 +122,10 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         limitations.append(reason)
     data = {
         "schema_version": 1,
+        "connector_results": ctx.connector_results,
+        "connector_rows": connector_rows(
+            {"connectors": ctx.connector_results}, include_unconfigured=False
+        ),
         "customer_id": ctx.customer_id,
         "customer_name": ctx.customer_name,
         "profile": {"fields": ctx.profile} if ctx.profile else None,
@@ -126,7 +138,10 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
         "website_coverage": website_coverage,
         "crawl_assets_excluded": any(r.name == "siteone" and r.collection_started for r in results),
         "outcomes": [
-            o.model_dump() for r in results for o in r.outcomes if o.category in ctx.categories
+            o.model_dump()
+            for r in results
+            for o in r.outcomes
+            if o.category in ctx.categories or r.name in CONNECTORS
         ],
         "pages": ctx.pages,
         "modules": [r.model_dump() for r in results],
@@ -158,6 +173,14 @@ def run(ctx: Context, no_ai: bool = False, formats: set[str] | None = None) -> d
     if previous:
         register.refresh(previous)
     data["systems_register"] = register.snapshot(data, evidence, previous)
+    # The run table shares the same separate human access field as the saved customer view.
+    data["connector_rows"] = connector_rows(
+        {
+            "connectors": ctx.connector_results,
+            "systems_register": {"entries": data["systems_register"]},
+        },
+        include_unconfigured=False,
+    )
     write_json(ctx.run_dir / "findings.json", data["findings"])
     write_json(ctx.run_dir / "results.json", data)
     try:
@@ -188,7 +211,10 @@ def merge_into_store(
     ok = {r.name for r in results if r.status == "ok" and r.evidence}
     stages = [
         stage
-        for stage, present in (("public", bool(ok - {"gsc"})), ("connected", "gsc" in ok))
+        for stage, present in (
+            ("public", bool(ok - {"gsc", *CONNECTORS})),
+            ("connected", bool(ok & {"gsc", *CONNECTORS})),
+        )
         if present
     ]
     try:
