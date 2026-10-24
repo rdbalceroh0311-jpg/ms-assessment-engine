@@ -550,6 +550,74 @@ def test_odata_nextlink_all_collections(env, key):
     assert "opaque" not in json.dumps(current(env))
 
 
+@pytest.mark.parametrize("fallback_page", [0, 1])
+def test_role_expansion_fallback_preserves_pagination_and_redaction(env, fallback_page):
+    path = "/v1.0" + m365.PATHS["role_assignments"]
+    nested = "roleDefinition($select=templateId,isBuiltIn)"
+
+    def pages(request):
+        if request.url.path != path:
+            return None
+        params = dict(request.url.params)
+        page = int("$skiptoken" in params)
+        if page == fallback_page and params["$expand"] == nested:
+            return httpx.Response(400, json=error("Request_BadRequest"))
+        assert params["$select"] == "principalId,roleDefinitionId"
+        body = copy.deepcopy(env.graph.payloads["role_assignments"])
+        body["value"][0]["roleDefinition"].update(
+            displayName="private-role-name", description="private-role-description"
+        )
+        if page == 0:
+            body["@odata.nextLink"] = str(
+                httpx.URL(
+                    m365.GRAPH + m365.PATHS["role_assignments"],
+                    params={**params, "$skiptoken": "second"},
+                )
+            )
+        return httpx.Response(200, json=body)
+
+    env.graph.override = pages
+    bind(env)
+    assert collect(env)["status"] == "connected"
+    requests = [r for r in env.graph.calls if r.url.path == path]
+    assert [r.url.params["$expand"] for r in requests] == (
+        [nested, "roleDefinition", "roleDefinition"]
+        if fallback_page == 0
+        else [nested, nested, "roleDefinition"]
+    )
+    roles = payloads(env)["role_assignments"]
+    assert roles["coverage"]["rows_returned"] == 2
+    assert roles["data"]["holder_count"] == 1
+    assert roles["data"]["privileged_assignments"] == 2
+    snapshot = json.dumps(current(env))
+    for private in [USER, "private-role-name", "private-role-description"]:
+        assert private not in snapshot
+
+
+@pytest.mark.parametrize(
+    "status_code, code, status, attempts",
+    [
+        (400, "Request_BadRequest", "failed", 2),
+        (400, "TenantNotLicensed", "licence_required", 1),
+        (400, "ACCESS_TOKEN_SCOPE_INSUFFICIENT", "permission_required", 1),
+        (403, "Authorization_RequestDenied", "permission_required", 1),
+    ],
+)
+def test_role_expansion_fallback_is_bounded_and_preserves_other_evidence(
+    env, status_code, code, status, attempts
+):
+    path = "/v1.0" + m365.PATHS["role_assignments"]
+    env.graph.override = lambda r: (
+        httpx.Response(status_code, json=error(code)) if r.url.path == path else None
+    )
+    bind(env)
+    assert collect(env)["status"] == "connected_partial"
+    assert payloads(env)["role_assignments"]["status"] == status
+    assert len([r for r in env.graph.calls if r.url.path == path]) == attempts
+    assert payloads(env)["users"]["status"] == "connected"
+    assert payloads(env)["mfa_registration"]["status"] == "connected"
+
+
 @pytest.mark.parametrize(
     "link",
     [
@@ -851,7 +919,8 @@ def test_real_msal_refresh_with_mocked_oauth_http(env, monkeypatch, caplog, revo
     assert ACCESS not in caplog.text and REFRESH not in caplog.text
 
 
-def test_real_msal_device_code_http_and_cache(env, monkeypatch, capsys, caplog):
+@pytest.fixture
+def real_msal_device_cache(env, monkeypatch, capsys, caplog):
     import requests
 
     monkeypatch.setattr(m365, "_sdk", lambda: msal)
@@ -915,14 +984,122 @@ def test_real_msal_device_code_http_and_cache(env, monkeypatch, capsys, caplog):
     m365.authorize(
         m365.CONNECTOR, "native", tenant_id=TENANT, client_id=CLIENT, directory=env.private
     )
+    return SimpleNamespace(calls=calls, output=capsys.readouterr().out + caplog.text)
+
+
+def test_real_msal_device_code_http_and_cache(env, real_msal_device_cache, capsys, caplog):
+    calls = real_msal_device_cache.calls
     stored = json.loads((env.private / "m365-native-token.json").read_text())
     assert stored["tenant_id"] == TENANT and stored["client_id"] == CLIENT
     assert REFRESH in stored["cache"] and ACCESS in stored["cache"]
     assert [r.method for r in calls] == ["GET", "POST", "POST"]
-    output = capsys.readouterr().out + caplog.text
+    material = m365.authenticate(m365.CONNECTOR, "native", directory=env.private)
+    assert material.headers == {"Authorization": "Bearer " + ACCESS}
+    assert material.private_data["tenant_id"] == TENANT
+    # Construction does discovery; silent cache hits must not redeem/refresh a token.
+    assert [r.method for r in calls] == ["GET", "POST", "POST", "GET"]
+    assert not env.graph.calls
+    output = real_msal_device_cache.output + capsys.readouterr().out + caplog.text
     for secret in [ACCESS, REFRESH, "private-device-code", USER]:
         assert secret not in output
     assert "ABCD12345" in output
+
+
+@pytest.mark.parametrize("extra_scope", ["Mail.Read", "Files.Read"])
+def test_real_msal_cache_hit_refuses_extra_scopes(env, real_msal_device_cache, caplog, extra_scope):
+    path = env.private / "m365-native-token.json"
+    stored = json.loads(path.read_text())
+    cache = msal.SerializableTokenCache()
+    cache.deserialize(stored["cache"])
+    (entry,) = cache.search(cache.CredentialType.ACCESS_TOKEN)
+    cache.modify(
+        cache.CredentialType.ACCESS_TOKEN, entry, {"target": entry["target"] + " " + extra_scope}
+    )
+    auth.atomic_private(path, {**stored, "cache": cache.serialize()})
+    with pytest.raises(ConnectorError) as exc:
+        m365.authenticate(m365.CONNECTOR, "native", directory=env.private)
+    assert exc.value.status == "permission_required"
+    assert "exactly these Graph scopes" in exc.value.detail
+    assert [r.method for r in real_msal_device_cache.calls] == ["GET", "POST", "POST", "GET"]
+    assert not env.graph.calls
+    assert ACCESS not in caplog.text and REFRESH not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "missing_entry",
+        "missing_target",
+        "empty_target",
+        "ambiguous",
+        "secret",
+        "home_account_id",
+        "realm",
+        "client_id",
+        "environment",
+    ],
+)
+def test_cache_hit_requires_scopes_for_the_returned_token_and_identity(
+    env, real_msal_device_cache, monkeypatch, change
+):
+    stored = json.loads((env.private / "m365-native-token.json").read_text())
+    serialized = json.loads(stored["cache"])
+    entries = serialized["AccessToken"]
+    (entry,) = entries.values()
+    if change == "missing_entry":
+        entries.clear()
+    elif change == "missing_target":
+        entry.pop("target")
+    elif change == "empty_target":
+        entry["target"] = ""
+    elif change == "ambiguous":
+        entries["second-entry-for-same-token"] = {**entry, "target": entry["target"] + " Mail.Read"}
+    else:
+        entry[change] = "different"
+    cache = msal.SerializableTokenCache()
+    cache.deserialize(json.dumps(serialized))
+    # Model a cache result whose corresponding entry cannot be safely identified.
+    app = SimpleNamespace(
+        get_accounts=lambda: [{"home_account_id": stored["account_id"], "realm": TENANT}],
+        acquire_token_silent_with_error=lambda *args: {
+            "access_token": ACCESS,
+            "token_source": "cache",
+            "token_type": "Bearer",
+        },
+    )
+    monkeypatch.setattr(m365, "_application", lambda *args: (app, cache))
+    with pytest.raises(ConnectorError) as exc:
+        m365.authenticate(m365.CONNECTOR, "native", directory=env.private)
+    assert exc.value.status == "permission_required"
+    assert not env.graph.calls
+
+
+@pytest.mark.parametrize(
+    "result, accepted",
+    [
+        ({"access_token": ACCESS}, True),
+        ({"access_token": ACCESS, "token_source": "identity_provider"}, False),
+        ({"access_token": ACCESS, "scope": " ".join(m365.SCOPES) + " Mail.Read"}, False),
+    ],
+)
+def test_cache_scope_fallback_does_not_replace_network_scope_validation(
+    env, real_msal_device_cache, monkeypatch, result, accepted
+):
+    stored = json.loads((env.private / "m365-native-token.json").read_text())
+    cache = msal.SerializableTokenCache()
+    cache.deserialize(stored["cache"])
+    app = SimpleNamespace(
+        get_accounts=lambda: [{"home_account_id": stored["account_id"], "realm": TENANT}],
+        acquire_token_silent_with_error=lambda *args: result,
+    )
+    monkeypatch.setattr(m365, "_application", lambda *args: (app, cache))
+    if accepted:
+        material = m365.authenticate(m365.CONNECTOR, "native", directory=env.private)
+        assert material.headers == {"Authorization": "Bearer " + ACCESS}
+    else:
+        with pytest.raises(ConnectorError) as exc:
+            m365.authenticate(m365.CONNECTOR, "native", directory=env.private)
+        assert exc.value.status == "permission_required"
 
 
 def test_native_auth_flags_and_expired_device_challenge(env, capsys):

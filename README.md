@@ -492,6 +492,10 @@ selected account and MSAL refresh cache stay in `~/.config/ams-assess/m365-<refe
 reference name and resource ID only. Silent MSAL authentication refreshes expired access tokens;
 revoked tokens require repeating `auth` with the same reference, tenant ID and client ID. Changing tenant
 or application requires a new reference, preventing old customer bindings from being retargeted.
+For cached access tokens, the connector uses [MSAL's token-cache search](https://learn.microsoft.com/en-us/python/api/msal/msal.token_cache.tokencache?view=msal-py-latest#msal-token-cache-tokencache-search)
+to verify the exact scopes of the returned token for the selected account, tenant and app.
+Missing, ambiguous or extra cached scopes are refused; network token responses still require
+the exact delegated scope set.
 
 ### Verified Graph v1.0 reads and delegated permissions
 
@@ -510,6 +514,11 @@ against the configured tenant's Microsoft identity authority; they do not write 
 | [`/reports/authenticationMethods/userRegistrationDetails`](https://learn.microsoft.com/en-us/graph/api/authenticationmethodsroot-list-userregistrationdetails?view=graph-rest-1.0) | `AuditLog.Read.All` | MFA registered/capable counts, administrator count and redacted administrators without registration; Security Reader (Reports Reader also works for this endpoint). Disabled users are excluded. Only `$filter` is documented, so no `$select`/`$top` is assumed: each received page is immediately reduced. |
 | [`/policies/identitySecurityDefaultsEnforcementPolicy`](https://learn.microsoft.com/en-us/graph/api/identitysecuritydefaultsenforcementpolicy-get?view=graph-rest-1.0) | `Policy.Read.All` | Security defaults `isEnabled`; the API page specifies this delegated permission without an additional role list. |
 | [`/identity/conditionalAccess/policies`](https://learn.microsoft.com/en-us/graph/api/conditionalaccessroot-list-policies?view=graph-rest-1.0) | `Policy.Read.All` | Enabled/disabled/report-only counts and enabled policies with an MFA requirement; Security Reader. |
+
+If Graph rejects the nested `roleDefinition($select=templateId,isBuiltIn)` projection with
+HTTP 400, the connector retries that page once with `$expand=roleDefinition`, retaining the
+assignment `$select` and pagination limits. The broader role definition is reduced to the same
+counts and redacted assignments; extra fields are discarded.
 
 ### Evidence meaning, bounds and privacy
 
@@ -555,7 +564,7 @@ uv run ruff check .
 uv run ty check ams_assess tests
 ```
 
-The three real-MSAL mocked-HTTP cases use the SDK installed by `uv sync` and fail if it is
+The real-MSAL mocked-HTTP cases use the SDK installed by `uv sync` and fail if it is
 missing. All other Microsoft contract cases use a synthetic SDK boundary.
 
 ## Bound connectors: GA4 setup and use

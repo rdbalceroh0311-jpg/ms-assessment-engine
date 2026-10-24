@@ -36,11 +36,13 @@ from ams_assess.connectors.core import (
     ErrorClassification,
     ReadOperation,
 )
+from ams_assess.connectors.errors import default_error_classifier
 from ams_assess.connectors.privacy import private_logs
 from ams_assess.lifecycle import observe
 from ams_assess.models import ModuleResult
 
 GRAPH = "https://graph.microsoft.com/v1.0"
+BAD_QUERY = "Microsoft Graph rejected query (HTTP 400)"
 SCOPES = (
     "Organization.Read.All",
     "Domain.Read.All",
@@ -168,8 +170,10 @@ def _validate_token(result: Any, tenant: str, *, interactive: bool = False) -> s
         if error in {"invalid_scope", "consent_required", "access_denied"}:
             raise ConnectorError("permission_required", "Consent required: " + ", ".join(SCOPES))
         raise ConnectorError("credential_expired", REAUTHORIZE)
+    scope = result.get("scope")
     scopes = {
-        s.removeprefix("https://graph.microsoft.com/") for s in result.get("scope", "").split()
+        s.removeprefix("https://graph.microsoft.com/")
+        for s in (scope.split() if isinstance(scope, str) else [])
     } - {"openid", "profile", "offline_access"}
     if scopes != set(SCOPES):
         raise ConnectorError(
@@ -182,6 +186,28 @@ def _validate_token(result: Any, tenant: str, *, interactive: bool = False) -> s
             "permission_required", "Sign-in tenant does not match app configuration"
         )
     return result["access_token"]
+
+
+def _cached_scopes(cache: Any, token: str, config: dict[str, str], account_id: str) -> str:
+    # MSAL can return a scope superset and omits scope from cache-hit results.
+    # Check the actual returned token, not merely any token for the requested scopes.
+    entries = list(
+        cache.search(
+            cache.CredentialType.ACCESS_TOKEN,
+            query={
+                "secret": token,
+                "home_account_id": account_id,
+                "realm": config["tenant_id"],
+                "client_id": config["client_id"],
+                "environment": "login.microsoftonline.com",
+            },
+        )
+    )
+    if len(entries) != 1 or not isinstance(entries[0].get("target"), str):
+        raise ConnectorError(
+            "permission_required", "Cannot determine cached Microsoft token scopes; re-authorise"
+        )
+    return entries[0]["target"]
 
 
 def _entry(connector: Connector, path: Path) -> dict[str, str]:
@@ -304,6 +330,22 @@ def authenticate(
             # Persist refresh/revocation cache changes even if fresh consent is necessary.
             if cache.has_state_changed:
                 atomic_private(path, {**data, "cache": cache.serialize()})
+            # Known network responses must supply their own scopes. Older unlabelled
+            # cache results can use the cache only when the response omits scope.
+            if (
+                isinstance(result, dict)
+                and result.get("access_token")
+                and (
+                    result.get("token_source") == "cache"
+                    or (not result.get("token_source") and "scope" not in result)
+                )
+            ):
+                result = {
+                    **result,
+                    "scope": _cached_scopes(
+                        cache, result["access_token"], config, data["account_id"]
+                    ),
+                }
             token = _validate_token(result, config["tenant_id"])
             return AuthMaterial(
                 {"Authorization": "Bearer " + token},
@@ -367,6 +409,9 @@ def classify_error(status_code: int, body: Mapping[str, Any]) -> ErrorClassifica
         return ErrorClassification(
             "rate_limited", "Graph rate limit; retry this bounded read later"
         )
+    if status_code == 400 and default_error_classifier(status_code, body).status == "failed":
+        # Preserve a fixed 400 marker through the framework for the role-query fallback.
+        return ErrorClassification("failed", BAD_QUERY)
     return None
 
 
@@ -483,9 +528,24 @@ def _listing(
 
     def read(out: Endpoint) -> None:
         out.data = {"time_basis": "Current snapshot; period does not filter these APIs", **initial}
-        query, seen = params, set()
+        projection = params.copy()
+        query, seen = projection, set()
         for _ in range(ctx.max_pages):
-            body = _request(ctx, key, query)
+            try:
+                body = _request(ctx, key, query)
+            except ConnectorError as exc:
+                if not (
+                    key == "role_assignments"
+                    and query.get("$expand") == "roleDefinition($select=templateId,isBuiltIn)"
+                    and exc.status == "failed"
+                    and exc.detail == BAD_QUERY
+                ):
+                    raise
+                # Some Graph tenants reject nested projections. Retry this page once,
+                # then validate pagination against the simpler expansion.
+                projection = {**projection, "$expand": "roleDefinition"}
+                query = {**query, "$expand": "roleDefinition"}
+                body = _request(ctx, key, query)
             rows = body["value"]
             if not isinstance(rows, list):
                 raise ValueError
@@ -502,7 +562,7 @@ def _listing(
             if not isinstance(next_link, str) or next_link in seen:
                 raise ConnectorError("failed", "Invalid or repeated Graph pagination link")
             seen.add(next_link)
-            query = _next_params(next_link, endpoint, params)
+            query = _next_params(next_link, endpoint, projection)
         out.truncated = True
 
     return ctx.capture(key, endpoint, read)
