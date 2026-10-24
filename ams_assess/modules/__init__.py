@@ -12,14 +12,14 @@ from ams_assess.modules import (
 )
 
 # Order is intentional: downstream browser evidence reuses the one crawler's page list, and
-# presence and site_checks reuse evidence the earlier modules collected.
+# domain_email, presence and site_checks reuse evidence the earlier modules collected.
 REGISTRY = {
     module.name: module
     for module in [
         siteone,
         browser,
-        domain_email,
         security,
+        domain_email,
         performance,
         observatory,
         dataforseo,
