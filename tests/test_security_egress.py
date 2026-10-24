@@ -260,3 +260,21 @@ def test_msal_discovered_token_endpoint_is_validated_before_canary_egress(
         app.acquire_token_by_refresh_token(CANARY, scopes=["https://graph.microsoft.com/User.Read"])
     assert len(provider.received) == 1
     assert attacker.received == []
+
+
+def test_gsc_module_client_never_forwards_bearer_off_official_host(http_server, provider_wire):
+    from ams_assess.modules import gsc as gsc_module
+
+    attacker = http_server()
+    provider = http_server(lambda r: (302, {"Location": attacker.origin + "/steal"}, b""))
+    provider_wire["www.googleapis.com"] = provider
+    headers = {"Authorization": "Bearer " + CANARY}
+    with egress.api_client("gsc", headers=headers, timeout=5) as client:
+        with pytest.raises(httpx.HTTPStatusError):
+            gsc_module.list_sites(client)
+        for hostile in (attacker.origin, "http://www.googleapis.com/", "https://evil.test/"):
+            with pytest.raises(ValueError, match="destination refused"):
+                client.get(hostile)
+    assert len(provider.received) == 1
+    assert provider.received[0]["headers"]["Authorization"] == "Bearer " + CANARY
+    assert attacker.received == []

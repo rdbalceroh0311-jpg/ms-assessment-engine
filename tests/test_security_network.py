@@ -63,6 +63,19 @@ BLOCKED = [
     "http://%31%32%37.0.0.1/",
     "http://[fe80::1%25en0]/",
     "http://example.com/\r\nHost:127.0.0.1",
+    "http://0/",
+    "http://017700000001/",
+    "http://0x7f.1/",
+    "http://[::ffff:7f00:1]/",
+    "http://[0:0:0:0:0:ffff:a9fe:a9fe]/",
+    "http://[2002:7f00:1::]/",
+    "http://\u24dbocalhost/",
+    "http://LOCALHOST/",
+    "HTTP://127.0.0.1/",
+    "http://example.com:0/",
+    "javascript:alert(1)",
+    "ws://example.com/",
+    "http:///127.0.0.1/",
 ]
 
 
@@ -121,6 +134,24 @@ def test_checked_ip_is_the_connected_ip_with_original_host_and_tls_name(monkeypa
     assert calls == ["public.example"]
 
 
+def test_ipv6_answer_is_pinned_bracketed_and_keeps_tls_name(monkeypatch):
+    def dns(host, port, **kwargs):
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2606:2800:220:1::1", port, 0, 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", dns)
+    transport = network.PublicTransport()
+
+    def wire(request):
+        assert request.url.netloc == b"[2606:2800:220:1::1]"
+        assert request.headers["Host"] == "v6.example"
+        assert request.extensions["sni_hostname"] == "v6.example"
+        return httpx.Response(200)
+
+    monkeypatch.setattr(transport.inner, "handle_request", wire)
+    with httpx.Client(transport=transport) as client:
+        assert client.get("https://v6.example/").status_code == 200
+
+
 @pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
 def test_redirect_hops_cannot_reach_private_peer(status, http_server, monkeypatch):
     attacker = http_server()
@@ -174,7 +205,7 @@ def test_all_public_entrypoints_refuse_private_target(tmp_path, http_server, mon
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
     binary.parent.mkdir(parents=True)
     binary.touch()
-    monkeypatch.setattr(siteone.subprocess, "run", lambda *a, **k: pytest.fail("Unsafe crawl"))
+    monkeypatch.setattr(siteone.subproc, "run", lambda *a, **k: pytest.fail("Unsafe crawl"))
     assert siteone.run(ctx).status == "error"
     assert attacker.received == []
 

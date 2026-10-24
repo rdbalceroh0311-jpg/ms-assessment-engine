@@ -108,7 +108,7 @@ def test_siteone_filters_seeds_pins_domain_scope_and_records_residual_limit(tmp_
             ),
         )
 
-    monkeypatch.setattr(siteone.subprocess, "run", crawler)
+    monkeypatch.setattr(siteone.subproc, "run", crawler)
     result = siteone.run(ctx)
     assert result.status == "ok"
     assert "cannot pin every request IP" in result.reason
@@ -123,16 +123,17 @@ def test_siteone_filters_seeds_pins_domain_scope_and_records_residual_limit(tmp_
 
 def test_no_tls_or_ssh_verification_bypasses_in_product():
     root = Path(__file__).resolve().parents[1]
-    # Do not inspect track A internals; this check covers the network/connector product surface.
     import re
 
     forbidden = re.compile(
         r"verify\s*=\s*False|CERT_NONE|check_hostname\s*=\s*False|"
-        r"StrictHostKeyChecking\s*=\s*no"
+        r"ignore_https_errors[\"']?\s*[:=]\s*True|"
+        r"StrictHostKeyChecking\s*=\s*no|ssl\._create_unverified_context|PYTHONHTTPSVERIFY"
     )
-    for path in (root / "ams_assess").rglob("*.py"):
-        if path.name != "ai.py":
+    for path in (root / "ams_assess").rglob("*"):
+        if path.is_file() and path.suffix in {".py", ".j2", ".sh"}:
             assert not forbidden.search(path.read_text()), path.name
+    assert not forbidden.search((root / "scripts/setup.sh").read_text())
     assert "StrictHostKeyChecking=yes" in (root / "ams_assess/connectors/wp_cli.py").read_text()
 
 

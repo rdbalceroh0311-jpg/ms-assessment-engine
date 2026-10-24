@@ -50,13 +50,15 @@ def validate_public_url(url: str) -> Destination:
             raise ValueError
         parts = urlsplit(url)
         host = (parts.hostname or "").encode("idna").decode("ascii").lower().rstrip(".")
+        default = 443 if parts.scheme == "https" else 80
+        port = default if parts.port is None else parts.port  # an explicit :0 is refused
         if (
             parts.scheme not in {"http", "https"}
             or not host
             or parts.username is not None
             or parts.password is not None
             or "%" in parts.netloc
-            or not 0 < (parts.port or 443) < 65536
+            or not 0 < port < 65536
         ):
             raise ValueError
         fixture = f"{parts.scheme}://{parts.netloc}" in _fixture_origins
@@ -86,11 +88,7 @@ def validate_public_url(url: str) -> Destination:
             else tuple(
                 dict.fromkeys(
                     str(row[4][0])
-                    for row in socket.getaddrinfo(
-                        host,
-                        parts.port or (443 if parts.scheme == "https" else 80),
-                        type=socket.SOCK_STREAM,
-                    )
+                    for row in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
                 )
             )
         )

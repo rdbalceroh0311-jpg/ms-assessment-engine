@@ -309,7 +309,12 @@ def test_rejected_speculative_https_upgrade_crawls_explicit_http(tmp_path, monke
     result = siteone.run(ctx)
     assert result.status == "ok" and ctx.site_url == ctx.target == "http://example.com/"
     assert calls[:2] == ["https://example.com/", "http://example.com/"]
-    assert all(url.startswith("http://example.com/") for url in calls[2:])
+    # Seed inventory now also uses the mocked public client; it stays on the HTTP target.
+    assert calls[2:] == [
+        "http://example.com/robots.txt",
+        "http://example.com/sitemap.xml",
+        "http://example.com/wp-json/wp/v2/types",
+    ]
     assert "--url=http://example.com/" in commands[0]
     assert (
         result.evidence[0].data["upgrade_limitation"] == f"Preferred HTTPS returned HTTP {status}"

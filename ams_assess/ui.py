@@ -5,6 +5,7 @@ import mimetypes
 import os
 import secrets
 import stat
+import tempfile
 import webbrowser
 from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
@@ -417,9 +418,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(root: Path, port: int = 8765):
-    with LocalServer(root, port) as server:
-        webbrowser.open(server.bootstrap_url())
-        print("Local review interface: " + server.origin + " (opened in your browser)", flush=True)
+    with LocalServer(root, port) as server, ExitStack() as stack:
+        if webbrowser.open(server.bootstrap_url()):
+            where = " (opened in your browser)"
+        else:
+            # Never print the token: hand it over in an owner-only file removed at shutdown.
+            fd, handoff = tempfile.mkstemp(prefix="ams-ui-", suffix=".url")
+            stack.callback(os.unlink, handoff)
+            with os.fdopen(fd, "w") as handle:
+                handle.write(server.bootstrap_url() + "\n")
+            where = f"; open the one-time startup URL saved in {handoff}"
+        print("Local review interface: " + server.origin + where, flush=True)
         print("Stop with Ctrl-C. Assessments remain in the CLI.", flush=True)
         try:
             server.serve_forever()

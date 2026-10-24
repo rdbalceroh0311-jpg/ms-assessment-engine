@@ -377,6 +377,10 @@ The token is never printed or put in page links/forms. Every route requires the 
 Bearer header. Host must be `127.0.0.1:port` or `localhost:port`; POST forms also require a separate
 CSRF token and same-origin checks. Responses use `Referrer-Policy: no-referrer`. Chromium native
 forms with an opaque Origin must additionally supply same-origin Fetch Metadata and the cookie.
+If no browser can be opened (headless shell), the one-time startup URL is written to an
+owner-only (0600) temporary file whose path is printed; the file is removed at shutdown.
+Residual limit: browsers scope cookies by host, not port, so another service you open on
+`127.0.0.1` could receive the session cookie; the startup URL also remains in browser history.
 **Stop: press `Ctrl-C` in that terminal.** Restarting generates a fresh token; saved edits remain.
 Opening the UI does not load credentials. Explicit connector Test/Collect POST actions resolve the selected credential reference privately. The UI lists customers, runs, coverage,
 register evidence, Current / Resolved / Not rechecked / Needs review findings and saved reports.

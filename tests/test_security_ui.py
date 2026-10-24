@@ -1,6 +1,10 @@
 """Track B UI regressions exercise HTTP parsing, browser forms and outbound referrers."""
 
+import os
+import re
 import socket
+import stat
+from pathlib import Path
 
 import pytest
 from playwright.sync_api import sync_playwright
@@ -45,7 +49,7 @@ def test_bootstrap_exchanges_url_for_httponly_cookie_and_token_free_links(custom
 
 def test_startup_opens_browser_without_logging_bootstrap_token(customer, monkeypatch, capsys):
     opened = []
-    monkeypatch.setattr(ui.webbrowser, "open", opened.append)
+    monkeypatch.setattr(ui.webbrowser, "open", lambda url: opened.append(url) or True)
 
     def stop(server):
         raise KeyboardInterrupt
@@ -126,3 +130,43 @@ def test_saved_report_outbound_link_sends_no_token_or_referrer(customer, http_se
             assert server.token not in repr(attacker.received)
         finally:
             browser.close()
+
+
+def test_headless_startup_hands_token_over_in_owner_only_file(customer, monkeypatch, capsys):
+    monkeypatch.setattr(ui.webbrowser, "open", lambda url: False)
+    seen = {}
+
+    def stop(server):
+        match = re.search(r"saved in (\S+)", capsys.readouterr().out)
+        assert match
+        path = Path(match[1])
+        seen.update(mode=stat.S_IMODE(path.stat().st_mode), url=path.read_text().strip(), path=path)
+        seen["token"] = server.token
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(ui.LocalServer, "serve_forever", stop)
+    ui.serve(customer, port=0)
+    assert seen["mode"] == 0o600
+    assert seen["url"].endswith("?token=" + seen["token"])
+    assert not seen["path"].exists()  # removed at shutdown
+    captured = capsys.readouterr()
+    assert seen["token"] not in captured.out + captured.err
+
+
+def test_hardlinked_output_is_refused(customer):
+    directory = customer / "synthetic/reports/001-fixture"
+    directory.mkdir(parents=True)
+    secret = customer / "synthetic/raw-canary.txt"
+    secret.write_text("FAKE-HARDLINK-CANARY")
+    os.link(secret, directory / "report.md")
+    current = store.load(customer, "synthetic")
+    assert current is not None
+    current["report_revisions"] = [{"directory": "reports/001-fixture", "files": ["report.md"]}]
+    with store.locked(customer, "synthetic"):
+        store.save(customer, "synthetic", current)
+    with running(customer) as (server, client):
+        response = client.get(
+            server.url("/file", customer="synthetic", path="reports/001-fixture/report.md")
+        )
+        assert response.status_code == 403
+        assert "FAKE-HARDLINK-CANARY" not in response.text
