@@ -76,6 +76,41 @@ BLOCKED = [
     "javascript:alert(1)",
     "ws://example.com/",
     "http:///127.0.0.1/",
+    # Unusual IPv6 forms that embed, translate or are not globally routable.
+    "http://[::ffff:0:a00:1]/",
+    "http://[::ffff:0:7f00:1]/",
+    "http://[::ffff:0:808:808]/",
+    "http://[64:ff9b::c0a8:101]/",
+    "http://[64:ff9b:1::808:808]/",
+    "http://[2002:a00:1::1]/",
+    "http://[2002:c0a8:101::1]/",
+    "http://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/",
+    "http://[fec0::1]/",
+    "http://[feff::1]/",
+    "http://[100::1]/",
+    "http://[2001:db8::1]/",
+    "http://[3fff::1]/",
+    "http://[2001:20::1]/",
+    "http://[5f00::1]/",
+    "http://192.88.99.1/",
+    "http://192.0.2.1/",
+    "http://198.51.100.1/",
+    "http://203.0.113.1/",
+    # Local-network names.
+    "http://router.localdomain/",
+    "http://localhost.localdomain/",
+    "http://nas.lan/",
+    "http://printer.home/",
+    "http://printer.home.arpa/",
+    "http://home.arpa/",
+    "http://svc.internal/",
+    "http://wiki.intranet/",
+    "http://dc.corp/",
+    "http://x.invalid/",
+    "http://x.local./",
+    "http://X.LAN/",
+    "http://intranet/",
+    "http://intranet./",
 ]
 
 
@@ -110,6 +145,43 @@ def test_every_dns_answer_is_checked_and_rebinding_never_connects(http_server, m
         network.public_get(f"http://rebind.example:{port}/")
     assert responses == []  # hook approved public IP, transport rejected changed answer
     assert attacker.received == []
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        "::ffff:0:a00:1",
+        "64:ff9b::a9fe:a9fe",
+        "64:ff9b:1::a00:1",
+        "2002:a9fe:a9fe::1",
+        "2001:0:4136:e378:8000:63bf:3fff:fdd2",
+        "fec0::1",
+        "2001:db8::1",
+        "100::1",
+        "5f00::1",
+    ],
+)
+def test_unusual_ipv6_dns_answer_is_refused(address, monkeypatch):
+    def dns(host, port, **kwargs):
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", (address, port, 0, 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", dns)
+    with pytest.raises(network.UnsafeURL):
+        network.validate_public_url("https://public.example/")
+
+
+@pytest.mark.parametrize(
+    "address", ["2606:2800:220:1::1", "64:ff9b::5db8:d822", "2620:fe::fe", "93.184.216.34"]
+)
+def test_public_addresses_including_nat64_of_public_ipv4_remain_allowed(address):
+    assert network.public_address(address)
+
+
+@pytest.mark.parametrize(
+    "host", ["example.com", "lan.example.com", "home.example.org", "localhost-shop.com.au"]
+)
+def test_public_names_resembling_local_suffixes_remain_allowed(host):
+    assert not network.local_name(host)
 
 
 def test_checked_ip_is_the_connected_ip_with_original_host_and_tls_name(monkeypatch):
