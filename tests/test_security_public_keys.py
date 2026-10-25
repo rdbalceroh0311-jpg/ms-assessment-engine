@@ -23,7 +23,7 @@ from playwright.sync_api import sync_playwright
 from test_customer_isolation import ui
 from test_security_ai import RecordingAI
 
-from ams_assess import cli, report, store
+from ams_assess import cli, data_boundary, report, store
 from ams_assess.data_boundary import sanitise, text, unescape_html
 
 pytestmark = pytest.mark.usefixtures("allow_local_fixture")
@@ -207,25 +207,119 @@ def test_js_line_continuations_decode_to_nothing(continuation):
     assert text(f'maps = "{split}";') == f'maps = "{FINGERPRINT}";'
 
 
-@pytest.mark.parametrize(
-    "unit",
-    [FAKE_KEY.replace("S", "&#83;") + " ", FINGERPRINT + "&amp; "],
-    ids=["escaped-keys", "fingerprints-then-entity"],
-)
-def test_redaction_cost_grows_linearly_with_the_number_of_secrets(unit):
-    def seconds(count):
-        value = unit * count
-        best = float("inf")
-        for _ in range(2):
-            started = time.perf_counter()
-            cleaned = text(value)
-            best = min(best, time.perf_counter() - started)
-        assert cleaned.count(FINGERPRINT) == count and not leaks(cleaned)
-        return best
+def per_call(function, value):
+    """Best per-call time over repeated calls lasting at least 0.2 s (stable at any size)."""
+    calls, best, spent = 0, float("inf"), 0.0
+    while spent < 0.2 or calls < 2:
+        started = time.perf_counter()
+        function(value)
+        elapsed = time.perf_counter() - started
+        best, spent, calls = min(best, elapsed), spent + elapsed, calls + 1
+    return best
 
-    small, large = seconds(1000), seconds(4000)
-    # 4x the input: linear is ~4x; the earlier per-finding span scan was ~16x.
-    assert large / small < 8, (small, large)
+
+def b64_chunks(count):
+    generator = random.Random(4)
+    return " ".join(base64.b64encode(generator.randbytes(6)).decode() for _ in range(count))
+
+
+# Sizes large enough that quadratic work dominates: 4x the input must stay well under 8x.
+SCALING = {
+    "escaped-keys": (lambda n: (FAKE_KEY.replace("S", "&#83;") + " ") * n, 5_000),
+    "fingerprints-then-entity": (lambda n: (FINGERPRINT + "&amp; ") * n, 5_000),
+    "data-scheme-repeated": (lambda n: "data:" * n, 20_000),
+    "data-uris-with-payloads": (lambda n: ("data:;base64," + b64_chunks(4) + '" ') * n, 5_000),
+    "long-base64-group": (b64_chunks, 20_000),
+    "whitespace-runs": (lambda n: ("a" + " " * 1000 + "\u00e9") * n, 100),
+}
+
+
+@pytest.mark.parametrize("make, small", SCALING.values(), ids=SCALING)
+def test_redaction_cost_grows_linearly_with_input_size(make, small):
+    sample = text(make(small))
+    if "AIza" in make(1):
+        assert sample.count(FINGERPRINT) == small and not leaks(sample)
+    ratio = per_call(text, make(4 * small)) / per_call(text, make(small))
+    assert ratio < 8, ratio
+
+
+def test_span_bookkeeping_is_linear_for_interleaved_detectors():
+    """Eight detectors whose spans interleave across the whole value (the access pattern
+    that made sorted-list insertion quadratic)."""
+
+    def claim_all(count):
+        covered = []
+        for group in range(8):
+            spans = [(i * 80 + group * 10, i * 80 + group * 10 + 5) for i in range(count // 8)]
+            _, covered = data_boundary._claim(covered, spans)
+        assert len(covered) == count // 8 * 8
+        return covered
+
+    ratio = per_call(claim_all, 160_000) / per_call(claim_all, 40_000)
+    assert ratio < 8, ratio
+
+
+OPERATOR_SECRET = "OPERATOR-demo-1234567890"  # FAKE configured credential
+
+
+def recovered(cleaned, secret):
+    """Whether any base64 decode of the output (whole, per token, after padding, at any
+    alignment, ignoring whitespace and markup as a lenient decoder does) yields the secret."""
+    if secret in cleaned:
+        return True
+    remaining = cleaned.replace("[redacted]", " ")
+    tokens = re.split(r"[^A-Za-z0-9+/_=-]+", remaining)
+    candidates = ["".join(tokens), *tokens, *re.split(r"[^A-Za-z0-9+/_-]+", remaining)]
+    for candidate in filter(None, (c.replace("=", "") for c in candidates)):
+        for offset in range(4):
+            part = candidate[offset:]
+            part = part[: len(part) - (len(part) % 4 == 1)]  # a lone 6-bit tail decodes nothing
+            if secret.encode() in base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)):
+                return True
+    return False
+
+
+def test_review_configured_secret_beside_a_matching_base64_run_is_redacted():
+    run = base64.b64encode(("sk-" + "a" * 24).encode()).decode()
+    encoded = base64.b64encode(OPERATOR_SECRET.encode()).decode()
+    spaced = " ".join(encoded[i : i + 8] for i in range(0, len(encoded), 8))
+    assert recovered(spaced, OPERATOR_SECRET)
+    for source in (f"{run} {spaced}", f"{spaced} {run}"):
+        cleaned = text(source, (OPERATOR_SECRET,))
+        assert cleaned == "[redacted]", cleaned
+
+
+def test_no_decode_recovers_a_configured_secret_split_beside_matching_runs():
+    """Property: a matching base64 run and a whitespace-split configured secret, in either
+    order, with random widths, separators, padding and surrounding prose."""
+    generator = random.Random(2604)
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    matching = [
+        "sk-" + "a" * 24,
+        "ghp_" + "F" * 30,
+        FAKE_KEY,
+        "prefix" + FAKE_KEY,
+        "token=FAKEfixture1234",
+    ]
+
+    def separator():
+        return "".join(generator.choices(" \t\n\r\f", k=generator.randint(1, 3)))
+
+    for _ in range(300):
+        secret = "".join(generator.choice(alphabet) for _ in range(generator.randint(12, 40)))
+        encode = generator.choice([base64.b64encode, base64.urlsafe_b64encode])
+        run = encode(generator.choice(matching).encode()).decode()
+        encoded = encode(secret.encode()).decode()
+        width = generator.randint(2, 12)
+        spaced = "".join(
+            encoded[i : i + width] + separator() for i in range(0, len(encoded), width)
+        ).rstrip()
+        parts = [run, spaced] if generator.random() < 0.5 else [spaced, run]
+        prose = generator.choice(["", "Header value: ", "<pre>"])
+        source = prose + separator().join(parts) + generator.choice(["", " end", "</pre>"])
+        assert recovered(source, secret), source
+        cleaned = text(source, (secret,))
+        assert not recovered(cleaned, secret), (source, cleaned)
 
 
 ESCAPED_SECRETS = [

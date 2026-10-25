@@ -78,8 +78,9 @@ runs on the decoded view; only the matching source span is replaced (browser key
 fingerprint, everything else by `[redacted]`). Anything still decoding after 64 nested
 levels is withheld with its whole token. Base64 and base64url are decoded as `atob()` does,
 ignoring ASCII whitespace: a `data:` URI payload is inspected whole, and base64 runs
-separated only by whitespace are joined first; a payload hiding any secret or browser key
-is redacted over its full encoded span, without a fingerprint. Redaction cost grows
+separated only by whitespace are joined first; each whole group is always inspected, even
+when a run inside it already matched; a payload hiding any secret or browser key is
+redacted over its full encoded span, without a fingerprint. Redaction cost grows
 linearly with the number of secrets found. Sanitisation never raises: an undecodable
 escape is left as written and inspected as such, and a value that cannot be inspected at
 all is withheld. Report rendering unescapes HTML entities for display and sanitises the

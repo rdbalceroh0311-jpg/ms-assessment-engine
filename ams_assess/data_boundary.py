@@ -4,6 +4,7 @@ import base64
 import bisect
 import contextlib
 import hashlib
+import heapq
 import html
 import json
 import logging
@@ -89,8 +90,9 @@ BASE64 = re.compile(r"(?<![\w+/-])[A-Za-z0-9+/_-]{16,}={0,2}(?![\w+/=-])")
 # atob() ignores ASCII whitespace: a data: URI payload, and base64 split by whitespace,
 # are inspected whole.
 _B64_SPACE = "\t\n\f\r "
+# The media type excludes ":", so a scan from one "data:" stops at the next one: linear.
 DATA_URI = re.compile(
-    r"data:[^,\s\"'<>]*;base64,(?P<payload>[A-Za-z0-9+/=_\t\n\f\r -]*[A-Za-z0-9+/=_-])", re.I
+    r"data:[^,:\s\"'<>]*;base64,(?P<payload>[A-Za-z0-9+/=_\t\n\f\r -]*[A-Za-z0-9+/=_-])", re.I
 )
 BASE64_GROUP = re.compile(
     r"(?<![\w+/=-])[A-Za-z0-9+/_-]+={0,2}(?:[\t\n\f\r ]+[A-Za-z0-9+/_-]+={0,2})+(?![\w+/=-])"
@@ -223,101 +225,125 @@ def _basic_credentials(encoded: str) -> bool:
     return b":" in credentials
 
 
-def _findings(value: str, secrets: tuple[str, ...]) -> list[tuple[int, int, int, str | None]]:
-    """Every detector's (match start, redact start, end, replacement), by priority.
+Finding = tuple[int, int, int, str | None]
+
+
+def _findings(value: str, secrets: tuple[str, ...]) -> list[list[Finding]]:
+    """Every detector's (match start, redact start, end, replacement), grouped by detector in
+    priority order, each group in position order.
 
     A replacement of None marks an existing fingerprint, which is kept as it is.
     """
-    found: list[tuple[int, int, int, str | None]] = [
-        (m.start(), m.start(), m.end(), "[redacted]")
-        for secret in secrets
-        if secret
-        for m in re.finditer(re.escape(secret), value)
+    groups: list[list[Finding]] = [
+        [(m.start(), m.start(), m.end(), "[redacted]") for m in re.finditer(re.escape(s), value)]
+        for s in secrets
+        if s
     ]
-    found += [(m.start(), m.start(), m.end(), None) for m in PUBLIC_KEY_MARK.finditer(value)]
-    found += [
-        (m.start(), m.start(), m.end(), public_key_fingerprint(m))
-        for m in PUBLIC_KEY.finditer(value)
-    ]
+    groups.append([(m.start(), m.start(), m.end(), None) for m in PUBLIC_KEY_MARK.finditer(value)])
+    groups.append(
+        [
+            (m.start(), m.start(), m.end(), public_key_fingerprint(m))
+            for m in PUBLIC_KEY.finditer(value)
+        ]
+    )
     for pattern in (TOKEN, BEARER):
-        found += [(m.start(), m.start(), m.end(), "[redacted]") for m in pattern.finditer(value)]
-    found += [
-        (m.start(), m.start(1), m.end(), "[redacted]")
-        for m in BASIC.finditer(value)
-        if _basic_credentials(m[1])
-    ]
-    found += [
-        (m.start(), m.start() + len(m["name"] + (m["eq"] or m["sep"])), m.end(), "[redacted]")
-        for m in ASSIGNMENT.finditer(value)
-    ]
-    return found
+        groups.append(
+            [(m.start(), m.start(), m.end(), "[redacted]") for m in pattern.finditer(value)]
+        )
+    groups.append(
+        [
+            (m.start(), m.start(1), m.end(), "[redacted]")
+            for m in BASIC.finditer(value)
+            if _basic_credentials(m[1])
+        ]
+    )
+    groups.append(
+        [
+            (m.start(), m.start() + len(m["name"] + (m["eq"] or m["sep"])), m.end(), "[redacted]")
+            for m in ASSIGNMENT.finditer(value)
+        ]
+    )
+    return groups
+
+
+def _found(groups: list[list[Finding]]) -> bool:
+    return any(f[3] is not None for group in groups for f in group)
 
 
 def _secret_in(value: str, secrets: tuple[str, ...]) -> bool:
     """Any secret detector, public browser keys included, on the value or its decoded view."""
-    if any(f[3] is not None for f in _findings(value, secrets)):
+    if _found(_findings(value, secrets)):
         return True
     decoded, levels, unresolved = _decode(value)
-    return bool(unresolved) or (
-        bool(levels) and any(f[3] is not None for f in _findings(decoded, secrets))
-    )
+    return bool(unresolved) or (bool(levels) and _found(_findings(decoded, secrets)))
 
 
 def _base64_secret(payload: str, secrets: tuple[str, ...]) -> bool:
     """Decode as atob() would (whitespace ignored), at each 4-character alignment so that a
-    secret after a non-base64 prefix in the same run is still found."""
+    secret after a non-base64 prefix is still found; text after inner padding separately."""
     payload = "".join(payload.split())
-    for offset in range(4):
-        part = payload[offset:].rstrip("=")
-        try:
-            raw = base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
-        except ValueError:
-            continue
-        if _secret_in(unquote(raw.decode("utf-8", "replace")), secrets):
-            return True
+    candidates = [payload] + ([c for c in re.split(r"=+", payload) if c] if "=" in payload else [])
+    for candidate in candidates:
+        for offset in range(4):
+            part = candidate[offset:].rstrip("=")
+            try:
+                raw = base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+            except ValueError:
+                continue
+            if _secret_in(unquote(raw.decode("utf-8", "replace")), secrets):
+                return True
     return False
 
 
 def _base64_spans(value: str, secrets: tuple[str, ...]) -> list[tuple[int, int]]:
-    """Spans of data: URI payloads, base64 runs and whitespace-split base64 hiding a secret."""
+    """Spans of data: URI payloads, base64 runs and whitespace-split base64 hiding a secret.
+
+    Every whitespace-joined group is inspected whole, even when a run inside it already
+    matched: a match never stops inspection of the rest of the group.
+    """
     hits = [
         m.span("payload") for m in DATA_URI.finditer(value) if _base64_secret(m["payload"], secrets)
     ]
     hits += [m.span() for m in BASE64.finditer(value) if _base64_secret(m[0], secrets)]
-    hit = sorted(hits)
     for match in BASE64_GROUP.finditer(value):
-        start, end = match.span()
-        i = bisect.bisect_left(hit, (start, -1))
-        inside = i < len(hit) and hit[i][0] < end
         joined = "".join(match[0].split())
-        if not inside and len(joined) >= 16 and _base64_secret(joined, secrets):
-            hits.append((start, end))
+        if len(joined) >= 16 and _base64_secret(joined, secrets):
+            hits.append(match.span())
     return hits
 
 
-class _Covered:
-    """Disjoint covered intervals, kept sorted: claiming a span costs O(log n) amortised."""
+def _claim(
+    covered: list[tuple[int, int]], spans: list[tuple[int, int]]
+) -> tuple[list[list[tuple[int, int]]], list[tuple[int, int]]]:
+    """Claim one detector's spans, in position order, against earlier detectors' coverage.
 
-    def __init__(self) -> None:
-        self.starts: list[int] = []
-        self.ends: list[int] = []
-
-    def claim(self, start: int, end: int) -> list[tuple[int, int]]:
-        """Cover [start, end); return the pieces of it that were not covered before."""
-        i = j = bisect.bisect_right(self.ends, start)
-        pieces, position = [], start
-        while j < len(self.starts) and self.starts[j] < end:
-            if self.starts[j] > position:
-                pieces.append((position, self.starts[j]))
-            position = max(position, self.ends[j])
+    `covered` is sorted, disjoint and merged. Returns, per span, its pieces not already
+    covered (by an earlier detector or an earlier span of this one) and the new merged
+    coverage. Each pass is a linear sweep plus one merge: O(n) per detector.
+    """
+    pieces_per_span: list[list[tuple[int, int]]] = []
+    j, reach = 0, -1
+    for start, end in spans:
+        position, pieces = max(start, reach), []
+        while j < len(covered) and covered[j][1] <= position:
             j += 1
+        k = j
+        while position < end and k < len(covered) and covered[k][0] < end:
+            if covered[k][0] > position:
+                pieces.append((position, covered[k][0]))
+            position = max(position, covered[k][1])
+            k += 1
         if position < end:
             pieces.append((position, end))
-        if pieces:
-            low = min(start, self.starts[i]) if i < j else start
-            high = max(end, self.ends[j - 1]) if i < j else end
-            self.starts[i:j], self.ends[i:j] = [low], [high]
-        return pieces
+        reach = max(reach, end)
+        pieces_per_span.append(pieces)
+    merged: list[tuple[int, int]] = []
+    for start, end in heapq.merge(covered, spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return pieces_per_span, merged
 
 
 def _apply(value: str, edits: list[tuple[int, int, str]]) -> str:
@@ -344,7 +370,6 @@ def _decoded_secrets(value: str, secrets: tuple[str, ...]) -> str:
     decoded, levels, unresolved = _decode(value)
     if not levels:
         return value
-    taken = _Covered()
     # Fail closed past the bound: withhold the whole token around each still-encoded escape.
     breaks = [m.start() for m in _TOKEN_BREAK.finditer(value)] if unresolved else []
     edits = []
@@ -358,17 +383,26 @@ def _decoded_secrets(value: str, secrets: tuple[str, ...]) -> str:
                 "[redacted]",
             )
         )
-    findings = _findings(decoded, secrets) + [
-        (start, start, end, "[redacted]") for start, end in _base64_spans(decoded, secrets)
-    ]
-    for match_start, start, end, replacement in findings:
-        source_start, source_end = _source(levels, match_start, end)
-        literal = value[source_start:source_end]
-        is_key = replacement is not None and replacement.startswith("[redacted:google-key")
-        if replacement is not None and not is_key and literal == decoded[match_start:end]:
-            continue  # spelt without escapes: the ordinary pass below handles it
-        for a, b in taken.claim(start, end):
-            if replacement is not None:
+    groups = _findings(decoded, secrets)
+    groups.append(sorted((a, a, b, "[redacted]") for a, b in _base64_spans(decoded, secrets)))
+    covered: list[tuple[int, int]] = []
+    for group in groups:
+        claimed = []
+        for match_start, start, end, replacement in group:
+            source_start, source_end = _source(levels, match_start, end)
+            literal = value[source_start:source_end]
+            is_key = replacement is not None and replacement.startswith("[redacted:google-key")
+            if replacement is not None and not is_key and literal == decoded[match_start:end]:
+                continue  # spelt without escapes: the ordinary pass below handles it
+            claimed.append((start, end, replacement))
+        if not claimed:
+            continue
+        claimed.sort(key=lambda c: c[:2])
+        pieces, covered = _claim(covered, [(start, end) for start, end, _ in claimed])
+        for (start, end, replacement), uncovered in zip(claimed, pieces, strict=True):
+            if replacement is None:
+                continue
+            for a, b in uncovered:
                 whole = (a, b) == (start, end)
                 edits.append((*_source(levels, a, b), replacement if whole else "[redacted]"))
     return _apply(value, edits)
