@@ -25,6 +25,7 @@ from ams_assess.modules.site_rules import (
     structured_data,
     tool_signals,
 )
+from ams_assess.network import public_client, validate_public_url
 from ams_assess.targets import NORMAL_UA
 
 name = "site_checks"
@@ -57,6 +58,7 @@ def probe(client: httpx.Client, url: str, ua: str, deadline: float) -> dict[str,
     if remaining <= 0:
         return {"url": url, "error": "DeadlineExceeded"}
     try:
+        validate_public_url(url)
         with client.stream(
             "GET",
             url,
@@ -98,7 +100,7 @@ def collect_probes(ctx: Context, transport: httpx.BaseTransport | None = None) -
     deadline = time.monotonic() + PROBE_SECONDS
     home = urljoin(ctx.site_url, "/")
     out = {}
-    with httpx.Client(transport=transport, follow_redirects=False) as client:
+    with public_client(transport=transport, follow_redirects=False) as client:
         if ctx.categories & (categories - {"performance"}):
             out["normal"] = probe(client, home, NORMAL_UA, deadline)
         if ctx.categories & {"technical", "geo"}:

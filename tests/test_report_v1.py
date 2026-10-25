@@ -26,6 +26,9 @@ from ams_assess.report import (
     render_markdown,
 )
 
+pytestmark = pytest.mark.usefixtures("allow_local_fixture")
+
+
 REPO = Path(__file__).resolve().parents[1]
 NOTES = REPO / "examples/discovery/notes.example.json"
 
@@ -349,7 +352,9 @@ def connect_gsc(monkeypatch, permission, status=200):
         )
 
     monkeypatch.setattr(
-        httpx, "Client", lambda **kwargs: client(transport=httpx.MockTransport(handler), **kwargs)
+        httpx,
+        "Client",
+        lambda transport=None, **kwargs: client(transport=httpx.MockTransport(handler), **kwargs),
     )
     return calls
 

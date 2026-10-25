@@ -15,6 +15,9 @@ from ams_assess.models import Context, create_run_dir
 from ams_assess.modules import observatory, performance, security, siteone
 from ams_assess.report import markdown_html, mdtext, render_markdown, write_outputs
 
+pytestmark = pytest.mark.usefixtures("allow_local_fixture")
+
+
 REPO = Path(__file__).resolve().parents[1]
 
 
@@ -124,8 +127,8 @@ def test_headers_framing_and_observatory_form_one_cited_action(tmp_path, monkeyp
         ),
     )
     monkeypatch.setattr(
-        httpx,
-        "get",
+        security,
+        "public_get",
         lambda url, **kw: httpx.Response(
             200,
             request=httpx.Request("GET", url),
@@ -133,8 +136,8 @@ def test_headers_framing_and_observatory_form_one_cited_action(tmp_path, monkeyp
         ),
     )
     monkeypatch.setattr(
-        httpx,
-        "post",
+        observatory,
+        "public_post",
         lambda url, **kw: httpx.Response(
             200,
             request=httpx.Request("POST", url),
@@ -184,8 +187,8 @@ def test_cookie_and_server_findings_require_specific_response_values(
         "set-cookie": "session=private-value" + ("" if concrete else "; HttpOnly; Secure"),
     }
     monkeypatch.setattr(
-        httpx,
-        "get",
+        security,
+        "public_get",
         lambda url, **kw: httpx.Response(
             200,
             request=httpx.Request("GET", url),
@@ -289,7 +292,9 @@ def test_rejected_speculative_https_upgrade_crawls_explicit_http(tmp_path, monke
         return httpx.Response(status if req.url.scheme == "https" else 200)
 
     monkeypatch.setattr(
-        httpx, "Client", lambda **kw: client(transport=httpx.MockTransport(request), **kw)
+        httpx,
+        "Client",
+        lambda transport=None, **kw: client(transport=httpx.MockTransport(request), **kw),
     )
 
     def process(command, **kwargs):
@@ -303,7 +308,13 @@ def test_rejected_speculative_https_upgrade_crawls_explicit_http(tmp_path, monke
     monkeypatch.setattr(siteone.subproc, "run", process)
     result = siteone.run(ctx)
     assert result.status == "ok" and ctx.site_url == ctx.target == "http://example.com/"
-    assert calls == ["https://example.com/", "http://example.com/"]
+    assert calls[:2] == ["https://example.com/", "http://example.com/"]
+    # Seed inventory now also uses the mocked public client; it stays on the HTTP target.
+    assert calls[2:] == [
+        "http://example.com/robots.txt",
+        "http://example.com/sitemap.xml",
+        "http://example.com/wp-json/wp/v2/types",
+    ]
     assert "--url=http://example.com/" in commands[0]
     assert (
         result.evidence[0].data["upgrade_limitation"] == f"Preferred HTTPS returned HTTP {status}"

@@ -1,6 +1,7 @@
 import httpx
 
 from ams_assess.models import Context, ModuleResult
+from ams_assess.network import public_post, validate_public_url
 
 name = "observatory"
 categories = {"security"}
@@ -14,7 +15,8 @@ def run(ctx: Context) -> ModuleResult:
         )
     result = ModuleResult(name=name)
     try:
-        response = httpx.post(
+        validate_public_url(ctx.site_url)
+        response = public_post(
             "https://observatory-api.mdn.mozilla.net/api/v2/scan",
             params={"host": ctx.site_host},
             timeout=45,

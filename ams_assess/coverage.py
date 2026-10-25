@@ -15,6 +15,7 @@ import httpx
 
 from ams_assess.models import Context
 from ams_assess.modules import presence, siteone
+from ams_assess.network import public_client
 from ams_assess.targets import NORMAL_UA
 
 MAX_SITEMAPS = 10
@@ -120,7 +121,7 @@ def inventory_client(transport: httpx.BaseTransport | None) -> httpx.Client:
     }
     if transport is not None:
         options["transport"] = transport
-    return httpx.Client(**options)
+    return public_client(**options)
 
 
 def wp_inventory(

@@ -19,7 +19,6 @@ details{background:white;padding:.8rem;margin:.7rem 0}summary{cursor:pointer;fon
 <h1>AMS customer review</h1>
 <p>Review saved assessments and record manual observations. Run assessments and regenerate reports in the CLI.</p>
 <form method="get" action="/">
-<input type="hidden" name="token" value="{{ token }}">
 <label>Customer <select name="customer"><option value="">Choose a customer</option>
 {% for id in customers %}<option value="{{ id }}" {% if id == customer %}selected{% endif %}>{{ id }}</option>{% endfor %}
 </select></label><button>Open</button></form>

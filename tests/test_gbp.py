@@ -248,6 +248,8 @@ def test_auth_scope_and_private_storage(env, monkeypatch, capsys):
     seen = {}
 
     class Flow:
+        oauth2session = auth.PinnedSession("google_auth")
+
         @staticmethod
         def from_client_secrets_file(path, scopes):
             seen["scopes"] = scopes
@@ -604,7 +606,8 @@ def ui_server(root):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            with httpx.Client(base_url=server.origin, trust_env=False) as client:
+            with httpx.Client(base_url=server.origin, trust_env=False,
+                              headers={"Authorization": "Bearer " + server.token}) as client:
                 yield server, client
         finally:
             server.shutdown()

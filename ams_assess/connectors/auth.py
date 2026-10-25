@@ -18,6 +18,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 from ams_assess.connectors.core import AuthMaterial, Connector, ConnectorError
 from ams_assess.connectors.privacy import private_logs
+from ams_assess.egress import PinnedSession, pin_session
 
 REF = re.compile(r"[a-z][a-z0-9-]{0,47}")
 
@@ -125,6 +126,9 @@ def register_reference(
 
 
 class BoundedRequest(Request):
+    def __init__(self):
+        super().__init__(session=PinnedSession("google_auth"))
+
     def __call__(self, *args, **kwargs):
         kwargs["timeout"] = 10
         return super().__call__(*args, **kwargs)
@@ -141,6 +145,7 @@ def google_desktop_flow(client_secrets: Path, scopes: tuple[str, ...]) -> Creden
     ):
         raise ValueError
     flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets), scopes=list(scopes))
+    pin_session(flow.oauth2session, "google_auth")
     creds = flow.run_local_server(
         host="127.0.0.1",
         port=0,

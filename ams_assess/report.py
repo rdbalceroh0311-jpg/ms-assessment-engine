@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import html
 import json
 import re
@@ -7,7 +9,7 @@ from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from xml.etree import ElementTree
 
 import markdown
@@ -16,6 +18,7 @@ from markdown.inlinepatterns import InlineProcessor
 from markdown.treeprocessors import Treeprocessor
 
 from ams_assess.ai import PHASES
+from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
 from ams_assess.connectors import REGISTRY as CONNECTORS
 from ams_assess.connectors.service import project_presence
 from ams_assess.consolidate import consolidate
@@ -370,6 +373,32 @@ class ReportTableLayout(Treeprocessor):
                 table.set("class", layouts[header.text])
 
 
+class SafeReportContent(Treeprocessor):
+    def run(self, root):
+        for node in root.iter():
+            if node.tag == "img":
+                node.tag = "span"
+                node.text = node.get("alt", "")
+                node.attrib.clear()
+            elif node.tag == "a":
+                value = node.get("href", "")
+                for _ in range(3):
+                    value = html.unescape(unquote(value))
+                try:
+                    safe = (
+                        not re.search(r"[\x00-\x20\x7f\\]", node.get("href", ""))
+                        and not value.startswith("//")
+                        and urlsplit(value).scheme.lower() in {"", "http", "https", "mailto"}
+                    )
+                except ValueError:
+                    safe = False
+                if not safe:
+                    node.tag = "span"
+                    node.attrib.clear()
+                else:
+                    node.set("rel", "noreferrer noopener")
+
+
 def markdown_html(content: str) -> str:
     # HTML escaping belongs here, not in the editable Markdown master. Disable raw HTML
     # (including in edited reports); retain only the template's attribute-free line breaks.
@@ -379,6 +408,7 @@ def markdown_html(content: str) -> str:
     renderer.ESCAPED_CHARS = [*renderer.ESCAPED_CHARS, "<", ">"]
     renderer.inlinePatterns.register(ReportLineBreak(r"<br\s*/?>"), "report-br", 175)
     renderer.treeprocessors.register(ReportTableLayout(renderer), "report-tables", 5)
+    renderer.treeprocessors.register(SafeReportContent(renderer), "report-safe", 0)
     return renderer.convert(content)
 
 
@@ -743,10 +773,14 @@ def write_outputs(run_dir: Path, content: str, formats: set[str]) -> list[str]:
         targets["md"].write_text(content)
         written.append("report.md")
     body = markdown_html(content)
+    style_hash = base64.b64encode(hashlib.sha256(CSS.encode()).digest()).decode("ascii")
     document = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta http-equiv="Content-Security-Policy" '
-        "content=\"default-src 'none'; style-src 'unsafe-inline'\">"
+        f"content=\"default-src 'none'; style-src 'sha256-{style_hash}'; img-src 'none'; "
+        "script-src 'none'; frame-src 'none'; connect-src 'none'; font-src 'none'; "
+        "object-src 'none'; base-uri 'none'; form-action 'none'\">"
+        '<meta name="referrer" content="no-referrer">'
         "<title>AMS Assessment Report</title><style>"
         + CSS
         + "</style></head><body>"
@@ -758,10 +792,10 @@ def write_outputs(run_dir: Path, content: str, formats: set[str]) -> list[str]:
         written.append("report.html")
     if "pdf" in formats:
         with sync_playwright(kind="pdf") as p:
-            browser = p.chromium.launch(env=environment("pdf"))
+            browser = p.chromium.launch(**LAUNCH_OPTIONS, env=environment("pdf"))
             try:
-                page = browser.new_page()
-                page.route("**/*", lambda route: route.abort())
+                session = isolate_context(browser, offline=True)
+                page = session.new_page()
                 page.set_content(document, wait_until="load")
                 page.pdf(
                     path=str(targets["pdf"]),

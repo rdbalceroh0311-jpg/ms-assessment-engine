@@ -10,11 +10,20 @@ from pathlib import Path
 import httpx
 import pytest
 
-from ams_assess import coverage
+from ams_assess import coverage, network
 from ams_assess.models import Context, ModuleResult, create_run_dir
 from ams_assess.modules import browser, presence, siteone
 
+pytestmark = pytest.mark.usefixtures("allow_local_fixture")
+
+
 REPO = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def mock_loopback_origin(monkeypatch):
+    # This module also uses MockTransport fixtures at the exact port-80 loopback origin.
+    monkeypatch.setattr(network, "_fixture_origins", frozenset({"http://127.0.0.1"}))
 
 
 def context(tmp_path, **kwargs):

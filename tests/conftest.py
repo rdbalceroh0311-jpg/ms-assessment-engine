@@ -4,7 +4,10 @@ import ipaddress
 import os
 import socket
 import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -24,6 +27,12 @@ os.environ.update(
     AMS_LIVE_SMOKE="0",
     PLAYWRIGHT_BROWSERS_PATH=str(_ROOT / "tools/playwright"),
 )
+
+from ams_assess import network  # noqa: E402  (after the environment is isolated)
+
+# Synthetic public answer for external names. Any connection to it is still refused below,
+# so public-guard tests can exercise hostname validation without live DNS.
+SYNTHETIC_PUBLIC_IP = "93.184.216.34"
 
 
 _CUSTOMERS = _ROOT / "data/customers"
@@ -81,16 +90,31 @@ def isolated_operator_and_network(tmp_path, monkeypatch):
     monkeypatch.setenv("AMS_ENV_FILE", str(home / "absent.env"))
     original_lookup = socket.getaddrinfo
     original_connect = socket.socket.connect
+    original_connect_ex = socket.socket.connect_ex
     original_sendto = socket.socket.sendto
 
     def lookup(host, *args, **kwargs):
-        _loopback(host)
+        name = host.decode() if isinstance(host, bytes) else host
+        try:
+            _loopback(name)
+        except AssertionError:
+            try:
+                ipaddress.ip_address(name)
+            except ValueError:
+                # Never ask a real resolver; the answer below is unreachable in tests.
+                return original_lookup(SYNTHETIC_PUBLIC_IP, *args, **kwargs)
+            # Numeric non-loopback literals need no resolver; connect() still refuses them.
         return original_lookup(host, *args, **kwargs)
 
     def connect(sock, address):
         if sock.family in {socket.AF_INET, socket.AF_INET6}:
             _loopback(address[0])
         return original_connect(sock, address)
+
+    def connect_ex(sock, address):
+        if sock.family in {socket.AF_INET, socket.AF_INET6}:
+            _loopback(address[0])
+        return original_connect_ex(sock, address)
 
     def sendto(sock, data, *args):
         if sock.family in {socket.AF_INET, socket.AF_INET6}:
@@ -99,4 +123,69 @@ def isolated_operator_and_network(tmp_path, monkeypatch):
 
     monkeypatch.setattr(socket, "getaddrinfo", lookup)
     monkeypatch.setattr(socket.socket, "connect", connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)
     monkeypatch.setattr(socket.socket, "sendto", sendto)
+
+
+@pytest.fixture
+def allow_local_fixture(monkeypatch):
+    """Explicit opt-in: only exact origins of HTTP servers created by this test."""
+    bind = HTTPServer.server_bind
+
+    def register(server):
+        bind(server)
+        assert server.server_address[0] == "127.0.0.1"
+        origins = {f"http://{host}:{server.server_port}" for host in ("127.0.0.1", "localhost")}
+        monkeypatch.setattr(network, "_fixture_origins", network._fixture_origins | origins)
+
+    monkeypatch.setattr(HTTPServer, "server_bind", register)
+
+
+@pytest.fixture
+def http_server():
+    """Actual receiving server; no public-guard exception is granted by this fixture."""
+    servers = []
+
+    def create(respond=lambda request: (200, {}, b"OK"), *, tls=None):
+        received = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass
+
+            def do_GET(self):
+                record = {
+                    "method": self.command,
+                    "path": self.path,
+                    "headers": dict(self.headers),
+                    "body": self.rfile.read(int(self.headers.get("Content-Length", "0"))),
+                }
+                received.append(record)
+                status, headers, body = respond(record)
+                self.send_response(status)
+                for key, value in headers.items():
+                    self.send_header(key, value)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(body)
+
+            do_POST = do_HEAD = do_PUT = do_DELETE = do_GET
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        if tls:
+            server.socket = tls.wrap_socket(server.socket, server_side=True)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        servers.append((server, thread))
+        return SimpleNamespace(
+            server=server,
+            received=received,
+            origin=f"{'https' if tls else 'http'}://127.0.0.1:{server.server_port}",
+        )
+
+    yield create
+    for server, thread in servers:
+        server.shutdown()
+        server.server_close()
+        thread.join(5)

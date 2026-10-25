@@ -20,6 +20,7 @@ from ams_assess import presence_discovery
 from ams_assess.models import Context, ModuleResult
 from ams_assess.modules import dataforseo
 from ams_assess.modules.gsc import AI_REPORT_NOTE
+from ams_assess.network import public_client, validate_public_url
 from ams_assess.profile import phone_key, tel_number
 from ams_assess.targets import NORMAL_UA
 
@@ -694,6 +695,7 @@ def fetch(client: httpx.Client, url: str, origin: tuple, deadline: float) -> dic
         if remaining <= 0:
             return {"url": url, "error": "DeadlineExceeded"}
         try:
+            validate_public_url(url)
             with client.stream("GET", url, timeout=httpx.Timeout(remaining)) as response:
                 if response.is_redirect:
                     target = urljoin(url, response.headers.get("location", ""))
@@ -781,7 +783,7 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
     base = f"{parts.scheme}://{parts.netloc}"
     # The same plain tool identity as the crawl it now precedes (coverage.seed_inventory).
     headers = {"User-Agent": NORMAL_UA}
-    with httpx.Client(follow_redirects=False, transport=transport, headers=headers) as client:
+    with public_client(follow_redirects=False, transport=transport, headers=headers) as client:
         robots = fetch(client, base + "/robots.txt", origin, deadline)
         declared: list[str] | None = None  # None: declarations unknown.
         if robots.get("status") == 200 and robots.get("complete"):

@@ -8,7 +8,7 @@ import pytest
 from test_connectors import ACCESS
 from test_connectors import env as env
 
-from ams_assess import cli, register, runner, store
+from ams_assess import cli, egress, register, runner, store
 from ams_assess.connectors import ga4, service
 from ams_assess.connectors.adapter import ConnectorModule
 from ams_assess.connectors.core import AuthMaterial, Period, ReadOperation
@@ -59,6 +59,7 @@ def save_evidence(env, items, customer="synthetic"):
 
 @pytest.fixture
 def reader(env, monkeypatch):
+    monkeypatch.setitem(egress.HOSTS, KEY, frozenset({"reader.test"}))
     seen = []
 
     def test(ctx):

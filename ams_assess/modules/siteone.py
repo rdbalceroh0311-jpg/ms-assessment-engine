@@ -9,7 +9,8 @@ from ams_assess.data_boundary import configured_secrets, private_write
 from ams_assess.data_boundary import text as clean_text
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
-from ams_assess.targets import NORMAL_UA, REQUEST_SECONDS, crawl_hosts, resolve_target
+from ams_assess.network import UnsafeURL, validate_public_url
+from ams_assess.targets import NORMAL_UA, REQUEST_SECONDS, crawl_hosts, resolve_target, same_site
 
 name = "siteone"
 categories = {
@@ -88,7 +89,15 @@ def crawl_seeds(ctx: Context, result: ModuleResult) -> list[str]:
             "robots.txt applied; attachments, media and feeds excluded",
         },
     )
-    return inventory["seeds"]
+    safe = []
+    for seed in inventory["seeds"]:
+        try:
+            validate_public_url(seed)
+            if same_site(ctx.site_url, seed):
+                safe.append(seed)
+        except UnsafeURL:
+            continue
+    return safe
 
 
 def run(ctx: Context) -> ModuleResult:
@@ -105,13 +114,28 @@ def run(ctx: Context) -> ModuleResult:
         result.status, result.reason = "error", resolution["error"]
         return result
     ctx.site_url = resolution["resolved"] or resolution.get("last_safe_url", ctx.target)
+    try:
+        validate_public_url(ctx.site_url)
+    except UnsafeURL:
+        result.status, result.reason = "error", "Unsafe crawl destination"
+        return result
     hosts = crawl_hosts(ctx.target, ctx.site_url)
     limitation = (
         f"Redirect preflight limitation: {resolution['error']}; crawling the last safe URL"
         if resolution.get("error")
         else ""
     )
+    limitation = (limitation + "; " if limitation else "") + (
+        "SiteOne restricts crawl domains and pre-validates targets/seeds; its external "
+        "HTTP stack cannot pin every request IP. DNS changes during crawling remain a limitation."
+    )
     seeds = crawl_seeds(ctx, result)
+    authorities = "|".join(
+        re.escape(f"[{host}]" if ":" in host else host) + (r"\.?" if ":" not in host else "")
+        for host in sorted(hosts)
+    )
+    port = urlsplit(ctx.site_url).port
+    authority_port = f":{port}" if port not in {None, 80, 443} else "(?::80|:443)?"
     command = [
         str(binary),
         f"--url={ctx.site_url}",
@@ -131,6 +155,7 @@ def run(ctx: Context) -> ModuleResult:
         "--output-json-file=",
         "--output-text-file=",
         *(f"--allowed-domain-for-crawling={host}" for host in sorted(hosts)),
+        f"--include-regex=~^https?://(?:{authorities}){authority_port}/~i",
     ]
     if seeds:
         # SiteOne URL-list seeds bypass its robots check, including the first URL.

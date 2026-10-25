@@ -209,7 +209,8 @@ def ui_server(root):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            with httpx.Client(base_url=server.origin, trust_env=False) as client:
+            with httpx.Client(base_url=server.origin, trust_env=False,
+                              headers={"Authorization": "Bearer " + server.token}) as client:
                 yield server, client
         finally:
             server.shutdown()
@@ -526,6 +527,8 @@ def test_oauth_uses_exact_six_readonly_scopes_and_private_storage(env, monkeypat
     observed = {}
 
     class Flow:
+        oauth2session = auth.PinnedSession("google_auth")
+
         def run_local_server(self, **kwargs):
             observed.update(kwargs)
             return Credentials(

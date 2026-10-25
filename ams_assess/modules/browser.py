@@ -3,10 +3,12 @@ from urllib.parse import urlsplit
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
 from ams_assess.data_boundary import private_artifacts
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult, site_authority
 from ams_assess.modules.siteone import diagnostic
+from ams_assess.network import validate_public_url
 from ams_assess.subproc import environment
 from ams_assess.subproc import playwright as sync_playwright
 
@@ -110,24 +112,15 @@ def run(ctx: Context) -> ModuleResult:
         )
     records, errors = [], []
     with sync_playwright() as p:
-        browser = p.chromium.launch(env=environment("browser"))
+        browser = p.chromium.launch(**LAUNCH_OPTIONS, env=environment("browser"))
         try:
             for viewport, width, height in [("desktop", 1440, 1000), ("mobile", 390, 844)]:
-                session = browser.new_context(
+                session = isolate_context(
+                    browser,
                     viewport={"width": width, "height": height},
                     is_mobile=viewport == "mobile",
-                    service_workers="block",
                     # Strict CSPs would otherwise block the injected axe-core script.
                     bypass_csp=True,
-                )
-                # Observational only: no form submissions or background writes from page scripts.
-                session.route(
-                    "**/*",
-                    lambda route: (
-                        route.continue_()
-                        if route.request.method in {"GET", "HEAD"}
-                        else route.abort()
-                    ),
                 )
                 for index, url in enumerate(
                     select_pages(
@@ -152,12 +145,19 @@ def run(ctx: Context) -> ModuleResult:
                         ),
                     )
                     try:
+                        validate_public_url(url)
                         try:
                             response = page.goto(url, wait_until="networkidle", timeout=25000)
                         except PlaywrightTimeoutError:
                             # Persistent polling can prevent network idle; check the loaded page.
                             response = page.goto(url, wait_until="load", timeout=25000)
-                        if response is None or not 200 <= response.status < 300 or page.url != url:
+                        final_url = (
+                            getattr(response, "headers", {}).get("x-ams-resolved-url", page.url)
+                            if response
+                            else page.url
+                        )
+                        redirected = page.url != url or final_url != url
+                        if response is None or not 200 <= response.status < 300 or redirected:
                             # Error/redirect destinations are not an equivalent test of this URL.
                             detail = "Page failed or redirected; no equivalent test"
                             eid = result.add_evidence(
@@ -165,8 +165,8 @@ def run(ctx: Context) -> ModuleResult:
                                 "Browser page load unavailable",
                                 {
                                     "status": response.status if response else None,
-                                    "final_url": diagnostic(page.url, ctx),
-                                    "redirected": page.url != url,
+                                    "final_url": diagnostic(final_url, ctx),
+                                    "redirected": redirected,
                                     "viewport": viewport,
                                 },
                             )

@@ -7,6 +7,7 @@ from urllib.parse import quote, quote_plus, unquote
 
 import httpx
 
+from ams_assess.egress import api_request
 from ams_assess.models import Connection, ConnectionStatus, Context, ModuleResult
 
 name = "dataforseo"
@@ -110,13 +111,13 @@ def paid_request(
     """Book once; stop on definitive rejection; retain uncertain charges on timeout/5xx."""
     ctx.dataforseo_spent_usd += estimate
     try:
-        response = httpx.post(
-            endpoint,
+        response = api_request(
+            "dataforseo", "POST", endpoint,
             auth=(ctx.config["DATAFORSEO_LOGIN"], ctx.config["DATAFORSEO_PASSWORD"]),
             json=[task],
             timeout=timeout,
         )
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, ValueError) as exc:
         return {"status": "error", "reason": f"DataForSEO request failed ({type(exc).__name__})"}
     try:
         data = response.json()

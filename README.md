@@ -201,14 +201,12 @@ discovery section appears in the report only when discovery notes exist.
 
 ### Local demonstration
 
+Public collection refuses loopback targets outside the test harness. Run the synthetic
+end-to-end demonstration through its explicit fixture exception (no AI or paid API calls):
+
 ```sh
-uv run python -m http.server 18765 --bind 127.0.0.1 --directory fixtures/site
-# In another terminal (no AI or paid API calls):
-uv run ams-assess customer --customer fixture-v1 --name 'Harbour Demo Plumbing' \
-  --industry trades --buying-model service-area --service-area Sydney
-uv run ams-assess run --customer fixture-v1 --target http://127.0.0.1:18765 --max-pages 30 --no-ai
-uv run ams-assess discover --customer fixture-v1 --notes examples/discovery/notes.example.json
-uv run ams-assess report --customer fixture-v1
+uv run pytest -q tests/test_engine.py::test_fixture_end_to_end_no_ai
+uv run pytest -q tests/test_report_v1.py::test_progressive_customer_scenario
 ```
 
 The synthetic fixture includes a broken link, missing H1/meta description/alt text, low
@@ -373,10 +371,17 @@ Start the local interface from the repository worktree:
 uv run ams-assess ui --port 8765
 ```
 
-Open the `http://127.0.0.1:8765/?token=...` URL printed once at startup. The interface binds only
-to `127.0.0.1`; all requests require that per-start token. POST forms additionally require a separate
-CSRF token and matching Origin/Host. Keep the startup URL private. **Stop: press `Ctrl-C` in that
-terminal.** Restart with the same start command; a fresh token is generated and saved edits remain.
+The interface opens in your browser and binds only to `127.0.0.1`. Its startup URL is
+exchanged for an HttpOnly, SameSite=Strict session cookie, then redirected to a token-free URL.
+The token is never printed or put in page links/forms. Every route requires the session or a
+Bearer header. Host must be `127.0.0.1:port` or `localhost:port`; POST forms also require a separate
+CSRF token and same-origin checks. Responses use `Referrer-Policy: no-referrer`. Chromium native
+forms with an opaque Origin must additionally supply same-origin Fetch Metadata and the cookie.
+If no browser can be opened (headless shell), the one-time startup URL is written to an
+owner-only (0600) temporary file whose path is printed; the file is removed at shutdown.
+Residual limit: browsers scope cookies by host, not port, so another service you open on
+`127.0.0.1` could receive the session cookie; the startup URL also remains in browser history.
+**Stop: press `Ctrl-C` in that terminal.** Restarting generates a fresh token; saved edits remain.
 Opening the UI does not load credentials. Explicit connector Test/Collect POST actions resolve the selected credential reference privately. The UI lists customers, runs, coverage,
 register evidence, Current / Resolved / Not rechecked / Needs review findings and saved reports.
 Manual verification and access updates use the same validated, locked store functions as the CLI.
@@ -1379,6 +1384,28 @@ The test harness clears operator credentials and blocks external network access,
 `AMS_LIVE_SMOKE` was present in the invoking shell. The retained legacy public-HTTPS smoke
 test is therefore skipped. Exercise actual sites separately only with explicit authorisation;
 fixture results do not establish that every customer host is reachable.
+
+Network security regressions are in `tests/test_security_network.py`,
+`tests/test_security_tls_crawl.py`, `tests/test_security_egress.py`,
+`tests/test_security_browser_report.py` and `tests/test_security_ui.py`. They inspect actual local
+attacker-server requests and generated HTML/PDF artefacts. Local collector access exists only as
+an exact-origin exception patched by fixtures; environment variables and customer settings cannot
+activate it. New HTTP collectors must use `ams_assess.network`; credential adapters must declare
+exact HTTPS hosts in `ams_assess.egress` as well as their endpoint/method allowlist.
+
+Python fetches and Playwright resources connect to checked IPs with original TLS SNI/hostname
+verification. Raw redirect destinations are validated before URL normalisation, and browser HTTP
+redirect chains run entirely inside that guarded transport. Redirected documents are marked
+unavailable for the original URL so their content cannot be misattributed. SiteOne pre-validates
+targets/seeds and applies a domain/port URL filter to discovered
+links and redirects. **Residual SiteOne limit:** its external HTTP stack cannot enforce the shared
+per-request IP guard; DNS changes within an allowed domain during crawling remain possible. This
+limitation is recorded in crawl results. Playwright denies WebSockets, service workers, downloads and
+permissions; pages requiring writes/cookies may be incomplete. Redirected subresources whose relative
+references depend on the final URL may also render incompletely. Reports remove images and unsafe
+links/raw HTML, allow only the bundled CSS hash and render PDF in an offline browser context.
+No live provider compatibility or customer-site behavior is claimed by these fixture tests.
+
 SiteOne transport statuses such as `-4:SEND-ERROR` and its fatal error appear in the module reason
 and evidence; its 2.5.1 binary does not expose the underlying request exception. Inspect the
 run's `raw/siteone.json` and `raw/target-resolution.json` when diagnosing a failed crawl.

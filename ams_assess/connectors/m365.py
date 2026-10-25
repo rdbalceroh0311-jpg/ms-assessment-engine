@@ -38,6 +38,7 @@ from ams_assess.connectors.core import (
 )
 from ams_assess.connectors.errors import default_error_classifier
 from ams_assess.connectors.privacy import private_logs
+from ams_assess.egress import PinnedSession, validate_api_url
 from ams_assess.lifecycle import observe
 from ams_assess.models import ModuleResult
 
@@ -153,6 +154,7 @@ def _application(config: dict[str, str], serialized: str = ""):
         config["client_id"],
         authority="https://login.microsoftonline.com/" + config["tenant_id"],
         token_cache=cache,
+        http_client=PinnedSession("microsoft_auth"),
         timeout=10,
         instance_discovery=False,
         enable_pii_log=False,
@@ -501,6 +503,7 @@ def test(ctx: ConnectorContext) -> Endpoint:
 
 
 def _next_params(link: str, endpoint: str, initial: dict[str, str]) -> dict[str, str]:
+    validate_api_url("m365", link)
     parts = urlsplit(link)
     if parts.scheme + "://" + parts.netloc + parts.path != endpoint or parts.fragment:
         raise ConnectorError("failed", "Refused pagination outside the original Graph endpoint")
