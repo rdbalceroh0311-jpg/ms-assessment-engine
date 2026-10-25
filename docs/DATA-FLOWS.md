@@ -7,6 +7,10 @@ HTML/PDF escaping and the local UI remain separate controls.
 
 ## What leaves the machine
 
+Nothing below happens for a customer until its profile records who authorised the assessment,
+when, and a scope covering the target or connected reads, and the CLI is given
+`--confirm-authorisation` (see the README). Test fixtures are the only exemption.
+
 | Operation | Destination | Outbound data and purpose |
 | --- | --- | --- |
 | Public collection | Selected website and URLs discovered by the existing collectors | HTTP requests for pages, robots/sitemaps, assets and WordPress public inventory; SiteOne/Chromium render or inspect public pages. The existing browser/network rules determine which requests are allowed. |
@@ -86,7 +90,10 @@ location. Provider keys, proxy settings, SSH agent sockets and interpreter injec
 variables are not inherited. The engine does not temporarily replace the parent's environment.
 
 Timeout/cancellation kills the process group and enumerated descendants, including browser
-children in separate groups. SIGINT/SIGTERM and Python task cancellation unwind cleanup.
+children in separate groups. SIGINT/SIGTERM and Python task cancellation unwind cleanup. A
+received signal is re-raised when its process boundary exits, so a failing cleanup (closing a
+killed browser) or a caller's `except Exception` cannot turn a cancelled run into a continuing
+one. No pandoc process is used; PDFs are rendered by Chromium.
 The process-table snapshot is not an OS sandbox against an intentionally daemonising executable;
 use trusted installed binaries. The Playwright driver spawn wrapper fails closed if its
 expected startup path changes. Tests inspect the actual driver environment and real child PIDs.
@@ -114,6 +121,8 @@ register/UI output, Markdown, HTML and extracted PDF text/metadata.
 | --- | --- |
 | Every child environment is allowlisted; raw process call-site inventory | `tests/test_security_processes.py`, existing crawler/DNS/SSH tests |
 | Process groups, hard deadlines, SIGINT/SIGTERM and task cancellation; real browser children | `tests/test_security_processes.py`, `tests/test_wp_cli.py` |
+| Real SIGTERM during SiteOne, browser collection, PDF rendering and OpenSSH leaves no process and stops the run | `tests/test_security_process_cancel.py` |
+| Recorded per-customer authorisation and CLI confirmation before runs/connected reads | `tests/test_security_authorisation.py` |
 | No AI capabilities or authority mutations; scope URLs derived from citations | `tests/test_security_ai.py`, `tests/test_security_processes.py` |
 | Explicit provider/account metadata, no account fallback; run/provider/customer no-AI reports | `tests/test_security_ai.py`, `tests/test_security_artifacts.py` |
 | Recursive payload field allowlists, URLs, emails and secret/encoded-secret removal | `tests/test_security_ai.py`, `tests/test_security_artifacts.py` |
