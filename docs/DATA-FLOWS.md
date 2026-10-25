@@ -70,20 +70,31 @@ Public third-party browser keys found in customer page source (Google `AIza...` 
 replaced everywhere evidence is saved, reported, shown or sent to AI by
 `[redacted:google-key:...<last 4>:sha256-<8 hex>]`, so a finding remains traceable to the
 key without storing it. Text spelt with HTML character references (`&#83;`, `&#x53;`,
-named, any number of leading zeros), JS/JSON escapes (`\u0053`, `\x53`, `\u{00053}`),
-percent escapes, or nested/mixed forms is decoded only to inspect, to a fixed point, and
-every detector above (configured secrets, provider tokens, bearer/basic credentials,
-assignments, browser keys) runs on the decoded view; only the matching source span is
-replaced (browser keys by their fingerprint, everything else by `[redacted]`). Anything
-still decoding after 64 nested levels is withheld with its whole token. Base64 and base64url
-payloads, including `data:` URIs, are decoded and inspected the same way; a payload that
-contains any secret or browser key is redacted as a whole, without a fingerprint.
-Sanitisation never raises: an undecodable escape is left as written and inspected as such,
-and a value that cannot be inspected at all is withheld. Report rendering unescapes HTML
-entities for display and sanitises the result again, so it cannot re-create a secret.
-Configured secrets are removed before any fingerprinting, so an operator's own key is fully
-redacted without a fingerprint; a key inside a percent-encoded segment that also decodes to
-a secret assignment (e.g. `key%3D...`) is redacted with that whole segment.
+named, any number of leading zeros), JS/JSON escapes (`\u0053`, `\x53`, `\u{00053}`, and
+line continuations: a backslash before LF, CR, CRLF, U+2028 or U+2029), percent escapes, or
+nested/mixed forms is decoded only to inspect, to a fixed point, and every detector above
+(configured secrets, provider tokens, bearer/basic credentials, assignments, browser keys)
+runs on the decoded view; only the matching source span is replaced (browser keys by their
+fingerprint, everything else by `[redacted]`). Anything still decoding after 64 nested
+levels is withheld with its whole token. Base64 and base64url are decoded as `atob()` does,
+ignoring ASCII whitespace: a `data:` URI payload is inspected whole, and base64 runs
+separated only by whitespace are joined first; a payload hiding any secret or browser key
+is redacted over its full encoded span, without a fingerprint. Redaction cost grows
+linearly with the number of secrets found. Sanitisation never raises: an undecodable
+escape is left as written and inspected as such, and a value that cannot be inspected at
+all is withheld. Report rendering unescapes HTML entities for display and sanitises the
+result again, so it cannot re-create a secret.
+
+**Residual limit (third-party browser keys).** Redacting public browser keys that appear in
+a customer's page source is defence in depth over these standard encodings: HTML
+entities, JS/JSON escapes including line continuations, percent escapes and base64
+including whitespace. Arbitrary script logic (string concatenation, computed or
+obfuscated values) or markup splitting (for example `AIza<span>…</span>…`) can still
+reassemble such a key, and is out of scope. These keys are already public in the
+customer's own page. AMS's own configured credentials are different: they are removed
+before any decoding or fingerprinting, are never fingerprinted, and an escaped spelling of
+one is redacted too. A key inside a percent-encoded segment that also decodes to a secret
+assignment (e.g. `key%3D...`) is redacted with that whole segment.
 This is pattern/known-value redaction, not a universal detector for arbitrary disguised
 secrets or personal names embedded in free prose. Do not put private inventories into
 public page text or customer narrative fields.

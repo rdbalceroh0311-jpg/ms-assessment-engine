@@ -61,15 +61,16 @@ PUBLIC_KEY_MARK = re.compile(r"\[redacted:google-key:\.\.\.[\w-]{4}:sha256-[0-9a
 _ESCAPE = re.compile(
     r"&#[xX](?P<hex>[0-9a-fA-F]+);?|&#(?P<dec>[0-9]+);?|&[A-Za-z][A-Za-z0-9]{0,31};?"
     r"|\\u\{(?P<brace>[0-9a-fA-F]+)\}|\\u(?P<u4>[0-9a-fA-F]{4})|\\x(?P<x2>[0-9a-fA-F]{2})"
-    r"|%(?P<pct>[0-9a-fA-F]{2})|\\.",
+    r"|%(?P<pct>[0-9a-fA-F]{2})|\\\r\n|\\.",
     re.S,
 )
 _CONTROL_ESCAPES = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
-_CONTROL_ESCAPES["\n"] = ""  # JS line continuation
+# JS line continuations: a backslash before LF, CR, CRLF, U+2028 or U+2029 decodes to nothing.
+_CONTROL_ESCAPES.update(dict.fromkeys(("\n", "\r", "\r\n", "\u2028", "\u2029"), ""))
 # Decoding stops at a fixed point; anything still decoding after this many levels is
 # redacted rather than inspected (no legitimate page nests encodings this deep).
 _MAX_LEVELS = 64
-_TOKEN_CHARS = "".join(chr(c) for c in range(33, 127) if chr(c) not in "\"'<>")
+_TOKEN_BREAK = re.compile(r"[^!-~]|[\"'<>]")
 # The standard library's character-reference syntax, for a display unescape that cannot raise.
 _HTML_REF = re.compile(r"&(#[0-9]+;?|#[xX][0-9a-fA-F]+;?|[^\t\n\f <&#;]{1,32};?)")
 BEARER = re.compile(rf"\b(?:Bearer|bearer|BEARER)\s+{_BEARER_VALUE}")
@@ -85,6 +86,15 @@ ASSIGNMENT = re.compile(
 EMAIL = re.compile(r"[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I)
 BASIC = re.compile(r"\bBasic\s+([A-Za-z0-9+/]+={0,2})", re.I)
 BASE64 = re.compile(r"(?<![\w+/-])[A-Za-z0-9+/_-]{16,}={0,2}(?![\w+/=-])")
+# atob() ignores ASCII whitespace: a data: URI payload, and base64 split by whitespace,
+# are inspected whole.
+_B64_SPACE = "\t\n\f\r "
+DATA_URI = re.compile(
+    r"data:[^,\s\"'<>]*;base64,(?P<payload>[A-Za-z0-9+/=_\t\n\f\r -]*[A-Za-z0-9+/=_-])", re.I
+)
+BASE64_GROUP = re.compile(
+    r"(?<![\w+/=-])[A-Za-z0-9+/_-]+={0,2}(?:[\t\n\f\r ]+[A-Za-z0-9+/_-]+={0,2})+(?![\w+/=-])"
+)
 URL = re.compile(r"https?://[^\s<>\"']+", re.I)
 # Starts only at a run boundary: a long run without escapes is scanned once, not per offset.
 PERCENT_RUN = re.compile(r"(?<![^\s\"'<>])[^\s\"'<>]*%[0-9A-Fa-f]{2}[^\s\"'<>]*")
@@ -146,7 +156,7 @@ def _unescape(match: re.Match[str]) -> str:
         if len(digits) > 6 or int(digits, 16) > 0x10FFFF:
             return unit  # not a valid JS escape
         return chr(int(digits, 16))
-    return _CONTROL_ESCAPES.get(unit[1], unit[1])
+    return _CONTROL_ESCAPES.get(unit[1:], unit[1:])
 
 
 Level = tuple[list[tuple[int, int, int, int]], list[int]]
@@ -254,23 +264,60 @@ def _secret_in(value: str, secrets: tuple[str, ...]) -> bool:
 
 
 def _base64_secret(payload: str, secrets: tuple[str, ...]) -> bool:
-    try:
-        raw = base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
-    except ValueError:
-        return False
-    return _secret_in(unquote(raw.decode("utf-8", "replace")), secrets)
+    """Decode as atob() would (whitespace ignored), at each 4-character alignment so that a
+    secret after a non-base64 prefix in the same run is still found."""
+    payload = "".join(payload.split())
+    for offset in range(4):
+        part = payload[offset:].rstrip("=")
+        try:
+            raw = base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+        except ValueError:
+            continue
+        if _secret_in(unquote(raw.decode("utf-8", "replace")), secrets):
+            return True
+    return False
 
 
-def _uncovered(taken: list[tuple[int, int]], start: int, end: int) -> list[tuple[int, int]]:
-    pieces = [(start, end)]
-    for a, b in taken:
-        pieces = [
-            piece
-            for s, e in pieces
-            for piece in ((s, min(e, a)), (max(s, b), e))
-            if piece[0] < piece[1]
-        ]
-    return pieces
+def _base64_spans(value: str, secrets: tuple[str, ...]) -> list[tuple[int, int]]:
+    """Spans of data: URI payloads, base64 runs and whitespace-split base64 hiding a secret."""
+    hits = [
+        m.span("payload") for m in DATA_URI.finditer(value) if _base64_secret(m["payload"], secrets)
+    ]
+    hits += [m.span() for m in BASE64.finditer(value) if _base64_secret(m[0], secrets)]
+    hit = sorted(hits)
+    for match in BASE64_GROUP.finditer(value):
+        start, end = match.span()
+        i = bisect.bisect_left(hit, (start, -1))
+        inside = i < len(hit) and hit[i][0] < end
+        joined = "".join(match[0].split())
+        if not inside and len(joined) >= 16 and _base64_secret(joined, secrets):
+            hits.append((start, end))
+    return hits
+
+
+class _Covered:
+    """Disjoint covered intervals, kept sorted: claiming a span costs O(log n) amortised."""
+
+    def __init__(self) -> None:
+        self.starts: list[int] = []
+        self.ends: list[int] = []
+
+    def claim(self, start: int, end: int) -> list[tuple[int, int]]:
+        """Cover [start, end); return the pieces of it that were not covered before."""
+        i = j = bisect.bisect_right(self.ends, start)
+        pieces, position = [], start
+        while j < len(self.starts) and self.starts[j] < end:
+            if self.starts[j] > position:
+                pieces.append((position, self.starts[j]))
+            position = max(position, self.ends[j])
+            j += 1
+        if position < end:
+            pieces.append((position, end))
+        if pieces:
+            low = min(start, self.starts[i]) if i < j else start
+            high = max(end, self.ends[j - 1]) if i < j else end
+            self.starts[i:j], self.ends[i:j] = [low], [high]
+        return pieces
 
 
 def _apply(value: str, edits: list[tuple[int, int, str]]) -> str:
@@ -297,20 +344,22 @@ def _decoded_secrets(value: str, secrets: tuple[str, ...]) -> str:
     decoded, levels, unresolved = _decode(value)
     if not levels:
         return value
-    taken: list[tuple[int, int]] = []
+    taken = _Covered()
     # Fail closed past the bound: withhold the whole token around each still-encoded escape.
-    edits = [
-        (
-            len(value[:start].rstrip(_TOKEN_CHARS)),
-            end + len(value[end:]) - len(value[end:].lstrip(_TOKEN_CHARS)),
-            "[redacted]",
+    breaks = [m.start() for m in _TOKEN_BREAK.finditer(value)] if unresolved else []
+    edits = []
+    for start, end in unresolved:
+        before = bisect.bisect_left(breaks, start) - 1
+        after = bisect.bisect_left(breaks, end)
+        edits.append(
+            (
+                breaks[before] + 1 if before >= 0 else 0,
+                breaks[after] if after < len(breaks) else len(value),
+                "[redacted]",
+            )
         )
-        for start, end in unresolved
-    ]
     findings = _findings(decoded, secrets) + [
-        (m.start(), m.start(), m.end(), "[redacted]")
-        for m in BASE64.finditer(decoded)
-        if _base64_secret(m[0], secrets)
+        (start, start, end, "[redacted]") for start, end in _base64_spans(decoded, secrets)
     ]
     for match_start, start, end, replacement in findings:
         source_start, source_end = _source(levels, match_start, end)
@@ -318,8 +367,7 @@ def _decoded_secrets(value: str, secrets: tuple[str, ...]) -> str:
         is_key = replacement is not None and replacement.startswith("[redacted:google-key")
         if replacement is not None and not is_key and literal == decoded[match_start:end]:
             continue  # spelt without escapes: the ordinary pass below handles it
-        for a, b in _uncovered(taken, start, end):
-            taken.append((a, b))
+        for a, b in taken.claim(start, end):
             if replacement is not None:
                 whole = (a, b) == (start, end)
                 edits.append((*_source(levels, a, b), replacement if whole else "[redacted]"))
@@ -380,15 +428,12 @@ def _text(value: str, secrets: tuple[str, ...], *, ai: bool) -> str:
     value = _decoded_secrets(value, secrets)
     value = _encoded_spans(value, secrets)
 
-    def encoded(match: re.Match[str]) -> str:
-        return "[redacted]" if _base64_secret(match[0], secrets) else match[0]
-
     def basic(match: re.Match[str]) -> str:
         return "[redacted]" if _basic_credentials(match[1]) else match[0]
 
     value = PUBLIC_KEY.sub(public_key_fingerprint, value)
     value = BASIC.sub(basic, value)
-    value = BASE64.sub(encoded, value)
+    value = _apply(value, [(a, b, "[redacted]") for a, b in _base64_spans(value, secrets)])
     value = TOKEN.sub("[redacted]", value)
     value = BEARER.sub("[redacted]", value)
     # Strip complete URLs first so query secrets cannot leave partial bearer strings behind.

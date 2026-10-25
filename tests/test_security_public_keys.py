@@ -173,6 +173,61 @@ def test_key_inside_a_base64_payload_is_redacted(encode):
         assert "[redacted]" in cleaned
 
 
+def spaced_base64(every=8, separator=" "):
+    payload = base64.b64encode(("prefix" + FAKE_KEY).encode()).decode()
+    return separator.join(payload[i : i + every] for i in range(0, len(payload), every))
+
+
+# Review round 3: atob() ignores ASCII whitespace inside a base64 payload.
+@pytest.mark.parametrize(
+    "source",
+    [
+        f"data:text/plain;base64,{spaced_base64()}",
+        f'<img alt="map" src="data:text/plain;base64,{spaced_base64()}">',
+        f"data:application/json;charset=utf-8;base64,{spaced_base64(20, chr(10) + chr(9))}",
+        f"data:text/plain;base64,{spaced_base64(4, chr(13) + chr(10))}",
+        f"<pre>{spaced_base64(8)}</pre>",
+        f"config: {spaced_base64(12, '  ')}",
+    ],
+)
+def test_whitespace_split_base64_is_inspected_whole(source):
+    cleaned = text(source)
+    chunks = [c for c in spaced_base64(4).split() if c != "cHJl"]  # "pre" of "prefix"
+    assert not [c for c in chunks if c in cleaned], cleaned
+    assert "[redacted]" in cleaned
+    # Ordinary prose split by whitespace is never mistaken for base64.
+    prose = "Our licensed plumbers attend Sydney suburbs within two hours daily"
+    assert text(prose) == prose
+
+
+@pytest.mark.parametrize("continuation", ["\n", "\r", "\r\n", "\u2028", "\u2029"], ids=repr)
+def test_js_line_continuations_decode_to_nothing(continuation):
+    split = f"AIza\\{continuation}SyFAKE-fixture_key0000000000000Wxyz"
+    assert text(split) == FINGERPRINT
+    assert text(f'maps = "{split}";') == f'maps = "{FINGERPRINT}";'
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [FAKE_KEY.replace("S", "&#83;") + " ", FINGERPRINT + "&amp; "],
+    ids=["escaped-keys", "fingerprints-then-entity"],
+)
+def test_redaction_cost_grows_linearly_with_the_number_of_secrets(unit):
+    def seconds(count):
+        value = unit * count
+        best = float("inf")
+        for _ in range(2):
+            started = time.perf_counter()
+            cleaned = text(value)
+            best = min(best, time.perf_counter() - started)
+        assert cleaned.count(FINGERPRINT) == count and not leaks(cleaned)
+        return best
+
+    small, large = seconds(1000), seconds(4000)
+    # 4x the input: linear is ~4x; the earlier per-finding span scan was ~16x.
+    assert large / small < 8, (small, large)
+
+
 ESCAPED_SECRETS = [
     ("sk&#45;ant-FAKEfixture000000000000000", "FAKEfixture000000000000000"),
     ("\\u0073k-FAKEfixture0000000000000000", "FAKEfixture0000000000000000"),
