@@ -379,8 +379,13 @@ CSRF token and same-origin checks. Responses use `Referrer-Policy: no-referrer`.
 forms with an opaque Origin must additionally supply same-origin Fetch Metadata and the cookie.
 If no browser can be opened (headless shell), the one-time startup URL is written to an
 owner-only (0600) temporary file whose path is printed; the file is removed at shutdown.
-Residual limit: browsers scope cookies by host, not port, so another service you open on
-`127.0.0.1` could receive the session cookie; the startup URL also remains in browser history.
+The session cookie is named per port (`ams_session_<port>`) and its value is an HMAC of this
+start's secret and port, never the startup token: a cookie from another port or an earlier start is
+rejected, and instances on different ports do not overwrite each other's session.
+Residual limit: browsers scope cookies by host, not port, so another local service you open on
+`127.0.0.1` while the UI runs could still receive this cookie. Do not browse other local services
+in the same browser profile while the UI is open, and stop the UI when done; the startup URL also
+remains in browser history until the server stops.
 **Stop: press `Ctrl-C` in that terminal.** Restarting generates a fresh token; saved edits remain.
 Opening the UI does not load credentials. Explicit connector Test/Collect POST actions resolve the selected credential reference privately. The UI lists customers, runs, coverage,
 register evidence, Current / Resolved / Not rechecked / Needs review findings and saved reports.
@@ -388,6 +393,41 @@ Manual verification and access updates use the same validated, locked store func
 Connector POST controls run bounded read-only tests/collections through the same service as the CLI; public website assessments remain in the CLI. It cannot execute arbitrary commands. File serving is limited to recorded customer output
 directories and known report/results/evidence/findings files or PNG screenshots; traversal, symlinks,
 raw files and credential files are excluded. Saved HTML is sandboxed with scripts disabled.
+
+### Onboarding a new customer
+
+The UI's **Onboarding** section shows, per integration: platform used / publicly observed,
+ownership, AMS access, actual engine connection, selected resource, last successful collection and
+the missing permission or next step, with short customer instructions (Search Console: add AMS as a
+Restricted/Full user; Bing Webmaster Tools: Read-only user; GA4: Viewer; Business Profile: Manager;
+Workspace: super admin approves read-only scopes or a custom read-only admin role; Microsoft 365:
+admin consent to the read-only app; WordPress: restricted read-only SSH on any host, or mark the
+internal assessment unavailable). Customers keep ownership; never ask for passwords. **Connected**
+appears only after an authenticated read of the bound resource; access granted is not connected.
+Provider blockers display separately, e.g. GBP `approval_required` shows
+*Blocked — provider API approval pending*. Bing Places and Apple Maps are manual public workflows:
+found → record and check details; not found → flag for customer confirmation; confirmed missing
+and eligible → the customer creates/claims it via Bing Places / Apple Business Connect.
+
+```sh
+uv run ams-assess customer --customer acme --name 'Acme Services' --website https://example.com
+uv run ams-assess run --customer acme --target https://example.com --no-ai        # discover
+uv run ams-assess register set --customer acme --platform ga4 --ownership customer_confirmed \
+  --access requested --method 'customer statement' --note 'Customer owns GA4'
+uv run ams-assess connect ga4 auth --credential-ref acme-ga4 --client-secrets /path/desktop.json
+uv run ams-assess connect ga4 list-resources --credential-ref acme-ga4
+uv run ams-assess connect ga4 bind --customer acme --credential-ref acme-ga4 \
+  --resource properties/123456789
+uv run ams-assess connect ga4 test --customer acme
+uv run ams-assess connect ga4 collect --customer acme
+uv run ams-assess report --customer acme
+uv run ams-assess ui --port 8765                                                   # review
+```
+
+Repeat auth → bind → test → collect for each connector (see its section for its auth flow).
+Record public-only platforms such as `bing_places` / `apple_maps` with `register set --presence`.
+`tests/test_customer_isolation.py` proves two synthetic customers stay separate across stores,
+CLI, UI, provider requests, AI payloads, reports, failed collections and revoked credentials.
 
 ## Integrations and credentials
 
@@ -962,7 +1002,12 @@ uv run ams-assess report --customer 2ec-traffic
 slash are not guessed. Unverified sites are omitted from the listing. Other sites' verification
 codes and inventory are never persisted in the bound customer's evidence. A site already bound to
 another customer is refused across credential references unless `--force --reason '...'` records
-an explicit shared-site exception. Collection uses the existing CLI, UI, register and report
+an explicit shared-site exception. For Bing and Search Console, aliases of one website count as the
+same site: scheme, `www.`, path, a parent/subdomain, Unicode versus punycode (`xn--`) hostnames
+(compared in IDNA form) and `sc-domain:` versus URL-prefix forms. The check deliberately over-matches:
+ports are ignored and a parent domain conflicts with every subdomain, so distinct customers on
+subdomains of one domain need `--force --reason`. Hostnames that cannot be IDNA-normalised and
+single-label hosts (such as `https://test/`) are refused. Collection uses the existing CLI, UI, register and report
 section 7 lifecycle; a partial/unavailable recheck cannot resolve an earlier finding.
 
 Official contracts checked **2026-10-24**. All routes are below
