@@ -61,21 +61,35 @@ def binding_lock(root: Path):
         os.close(fd)
 
 
+def site_url(resource: str) -> bool:
+    return resource.startswith("sc-domain:") or "://" in resource
+
+
 def site_host(resource: str) -> str:
+    """ASCII (IDNA) host of a website property; raises if it cannot be compared safely."""
     host = (
         resource.removeprefix("sc-domain:")
         if resource.startswith("sc-domain:")
         else urlsplit(resource).hostname or ""
     )
-    return host.lower().removesuffix(".").removeprefix("www.")
+    try:
+        host = host.lower().removesuffix(".").encode("idna").decode("ascii").lower()
+    except UnicodeError:
+        raise BindingError("Site hostname cannot be IDNA-normalised") from None
+    if "." not in host and ":" not in host:
+        raise BindingError("Site hostname must be a fully qualified domain or IP address")
+    return host.removeprefix("www.")
 
 
 def same_resource(resource_type: str, first: str, second: str) -> bool:
-    """Website properties alias one site across scheme, www, path and domain/URL-prefix forms."""
-    if resource_type != "site":
+    """Website properties alias one site across IDNA, scheme, www, path and domain/URL-prefix."""
+    if resource_type != "site" or not (site_url(first) and site_url(second)):
         return first == second
-    a, b = site_host(first), site_host(second)
-    return bool(a and b) and (a == b or a.endswith("." + b) or b.endswith("." + a))
+    try:
+        a, b = site_host(first), site_host(second)
+    except BindingError:
+        return True  # A host that cannot be normalised cannot prove the sites differ.
+    return a == b or a.endswith("." + b) or b.endswith("." + a)
 
 
 def set_binding(
@@ -96,6 +110,8 @@ def set_binding(
         if resource_id
         else ""
     )
+    if spec.resource_type == "site" and site_url(resource):
+        site_host(resource)  # Refuse a host that cannot be compared for isolation.
     reason = redact(register.safe_text(reason))
     if force and not reason:
         raise BindingError("--force requires a recorded non-secret --reason")

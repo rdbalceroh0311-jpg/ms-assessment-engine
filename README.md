@@ -1003,7 +1003,11 @@ slash are not guessed. Unverified sites are omitted from the listing. Other site
 codes and inventory are never persisted in the bound customer's evidence. A site already bound to
 another customer is refused across credential references unless `--force --reason '...'` records
 an explicit shared-site exception. For Bing and Search Console, aliases of one website count as the
-same site: scheme, `www.`, path, a parent/subdomain and `sc-domain:` versus URL-prefix forms. Collection uses the existing CLI, UI, register and report
+same site: scheme, `www.`, path, a parent/subdomain, Unicode versus punycode (`xn--`) hostnames
+(compared in IDNA form) and `sc-domain:` versus URL-prefix forms. The check deliberately over-matches:
+ports are ignored and a parent domain conflicts with every subdomain, so distinct customers on
+subdomains of one domain need `--force --reason`. Hostnames that cannot be IDNA-normalised and
+single-label hosts (such as `https://test/`) are refused. Collection uses the existing CLI, UI, register and report
 section 7 lifecycle; a partial/unavailable recheck cannot resolve an earlier finding.
 
 Official contracts checked **2026-10-24**. All routes are below

@@ -898,6 +898,46 @@ def test_site_property_alias_of_another_customer_is_refused(world, key, alias):
     assert world.providers.calls == []
 
 
+@pytest.mark.parametrize(
+    "key, first, second",
+    [
+        ("bing_wmt", "https://exämple.test/", "https://xn--exmple-cua.test/"),
+        ("bing_wmt", "https://xn--exmple-cua.test/", "https://exämple.test/"),
+        ("bing_wmt", "https://exämple.test/", "https://www.xn--exmple-cua.test/"),
+        ("bing_wmt", "https://exämple.test/", "https://shop.exämple.test/"),
+        ("gsc", "https://ExÄmple.test/", "sc-domain:xn--exmple-cua.test"),
+        ("gsc", "sc-domain:xn--exmple-cua.test", "https://www.EXÄMPLE.test/blog/"),
+    ],
+)
+def test_idn_site_alias_of_another_customer_is_refused(world, key, first, second):
+    bind(world, "alpha", key, resource=first)
+    with pytest.raises(ValueError, match="different customer"):
+        bind(world, "bravo", key, credential_owner="agency", resource=second)
+    assert "connectors" not in (store.load(world.root, "bravo") or {})
+
+
+@pytest.mark.parametrize(
+    "first, second",
+    [
+        ("https://EXÄMPLE.test/", "https://xn--exmple-cua.test/"),
+        ("https://exämple.test/", "https://XN--EXMPLE-CUA.TEST/"),
+        ("https://exämple.test./", "sc-domain:XN--EXMPLE-CUA.test"),
+    ],
+)
+def test_site_hosts_compare_in_idna_form(first, second):
+    assert service.same_resource("site", first, second)
+    assert service.same_resource("site", second, first)
+
+
+@pytest.mark.parametrize("resource", ["https://test/", "https://localhost/", "https://a..b.test/"])
+def test_unnormalisable_or_single_label_site_is_refused(world, resource):
+    with pytest.raises(ValueError, match="hostname"):
+        bind(world, "alpha", "bing_wmt", resource=resource)
+    assert "connectors" not in (store.load(world.root, "alpha") or {})
+    # An existing host that cannot be normalised never proves another site distinct.
+    assert service.same_resource("site", "https://a..b.test/", "https://bravo-dental.test/")
+
+
 def test_distinct_sites_and_providers_do_not_conflict(world):
     bind(world, "alpha", "gsc")
     bind(
