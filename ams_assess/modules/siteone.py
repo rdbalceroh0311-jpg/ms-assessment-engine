@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import re
 import subprocess
@@ -5,7 +6,7 @@ from typing import Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from ams_assess import subproc
-from ams_assess.data_boundary import configured_secrets, private_write
+from ams_assess.data_boundary import clean_url, configured_secrets, private_write
 from ams_assess.data_boundary import text as clean_text
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
@@ -25,6 +26,18 @@ categories = {
     "presence",
 }
 requires = ["tools/siteone/siteone-crawler/siteone-crawler"]
+# Analyzers that only read crawled responses. SiteOne's DNS and SSL/TLS analyzers resolve
+# and connect by themselves, ignoring --resolve; TLS is checked by the guarded security module.
+ANALYZERS = (
+    "/^(?:Accessibility|BestPractice|Caching|ContentType|ExternalLinks|Fastest|Headers|Page404"
+    "|Redirects|Security|SeoAndOpenGraph|SkippedUrls|Slowest|SourceDomains)Analyzer$/"
+)
+LIMITATION = (
+    "SiteOne connects only to IPv4 addresses validated before the crawl and pinned per "
+    "host/port (--resolve); its self-resolving DNS and SSL/TLS analyzers are disabled and "
+    "responses from any other destination are discarded. Which URLs it requests is "
+    "confined by its own domain/URL filters, not by the per-request network guard."
+)
 
 
 def status_code(value: Any) -> int:
@@ -100,6 +113,55 @@ def crawl_seeds(ctx: Context, result: ModuleResult) -> list[str]:
     return safe
 
 
+def crawl_ports(url: str) -> tuple[int, ...]:
+    port = urlsplit(url).port
+    return (80, 443) if port in {None, 80, 443} else (port,)
+
+
+def pin_hosts(site_url: str, hosts: set[str]) -> tuple[dict[str, str], list[str]]:
+    """Validate each crawl host now and choose the address SiteOne must connect to.
+
+    SiteOne 2.5.1 applies --resolve to every crawl request for that exact host:port, but
+    accepts only IPv4. A named host without a validated IPv4 address is not crawled. An IP
+    literal needs no resolution and maps to itself.
+    """
+    parts = urlsplit(site_url)
+    pins: dict[str, str] = {}
+    refused = []
+    for host in sorted(hosts):
+        try:
+            literal = ipaddress.ip_address(host)
+        except ValueError:
+            literal = None
+        authority = f"[{host}]" if literal and literal.version == 6 else host
+        if parts.port is not None:
+            authority += f":{parts.port}"
+        try:
+            checked = validate_public_url(urlunsplit((parts.scheme, authority, "/", "", "")))
+        except UnsafeURL:
+            refused.append(host)
+            continue
+        address = (
+            str(literal)
+            if literal
+            else next((ip for ip in checked.addresses if ipaddress.ip_address(ip).version == 4), "")
+        )
+        if address:
+            pins[host] = address
+        else:
+            refused.append(host)
+    return pins, refused
+
+
+def pinned_destination(url: str, pins: dict[str, str], ports: tuple[int, ...]) -> bool:
+    try:
+        parts = urlsplit(url)
+        port = parts.port or {"http": 80, "https": 443}.get(parts.scheme)
+    except ValueError:
+        return False
+    return (parts.hostname or "").removesuffix(".") in pins and port in ports
+
+
 def run(ctx: Context) -> ModuleResult:
     result = ModuleResult(name=name)
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
@@ -119,17 +181,33 @@ def run(ctx: Context) -> ModuleResult:
     except UnsafeURL:
         result.status, result.reason = "error", "Unsafe crawl destination"
         return result
-    hosts = crawl_hosts(ctx.target, ctx.site_url)
+    pins, refused = pin_hosts(ctx.site_url, crawl_hosts(ctx.target, ctx.site_url))
+    ports = crawl_ports(ctx.site_url)
+    if ctx.site_host.removesuffix(".") not in pins:
+        result.status = "error"
+        result.reason = (
+            "SiteOne not run: no validated IPv4 address to pin for the crawl host "
+            "(SiteOne cannot pin IPv6 host names)"
+        )
+        result.add_evidence(ctx.site_url, "SiteOne destination pinning", {"reason": result.reason})
+        return result
+    hosts = set(pins)
+    result.add_evidence(
+        ctx.site_url,
+        "SiteOne destination pinning",
+        {"pinned": pins, "ports": list(ports), "not_crawled": refused},
+    )
     limitation = (
         f"Redirect preflight limitation: {resolution['error']}; crawling the last safe URL"
         if resolution.get("error")
         else ""
     )
-    limitation = (limitation + "; " if limitation else "") + (
-        "SiteOne restricts crawl domains and pre-validates targets/seeds; its external "
-        "HTTP stack cannot pin every request IP. DNS changes during crawling remain a limitation."
-    )
-    seeds = crawl_seeds(ctx, result)
+    if refused:
+        limitation = (limitation + "; " if limitation else "") + (
+            "Not crawled (no validated IPv4 address to pin): " + ", ".join(refused)
+        )
+    limitation = (limitation + "; " if limitation else "") + LIMITATION
+    seeds = [seed for seed in crawl_seeds(ctx, result) if pinned_destination(seed, pins, ports)]
     authorities = "|".join(
         re.escape(f"[{host}]" if ":" in host else host) + (r"\.?" if ":" not in host else "")
         for host in sorted(hosts)
@@ -156,6 +234,15 @@ def run(ctx: Context) -> ModuleResult:
         "--output-text-file=",
         *(f"--allowed-domain-for-crawling={host}" for host in sorted(hosts)),
         f"--include-regex=~^https?://(?:{authorities}){authority_port}/~i",
+        f"--analyzer-filter-regex={ANALYZERS}",
+        # A pin matches the exact authority, so the root-dot spelling needs its own entry.
+        *(
+            f"--resolve={name}:{port}:{address}"
+            for host, address in sorted(pins.items())
+            if host != address
+            for name in (host, host + ".")
+            for port in ports
+        ),
     ]
     if seeds:
         # SiteOne URL-list seeds bypass its robots check, including the first URL.
@@ -192,6 +279,16 @@ def run(ctx: Context) -> ModuleResult:
         data = {}
     rows = data.get("results", [])
     rows = [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    # Evidence is accepted only from the pinned, pre-validated destinations.
+    outside = [r for r in rows if not pinned_destination(str(r.get("url", "")), pins, ports)]
+    if outside:
+        rows = [r for r in rows if r not in outside]
+        result.add_evidence(
+            ctx.site_url,
+            "SiteOne responses from unvalidated destinations discarded",
+            {"urls": [clean_url(str(r.get("url", ""))) for r in outside][:50]},
+        )
+        limitation += f"; {len(outside)} SiteOne responses from unvalidated destinations discarded"
     if len(rows) == 1 and 300 <= status_code(rows[0].get("status")) < 400:
         result.add_evidence(ctx.site_url, "SiteOne crawled only a redirect", rows[0])
         result.status = "error"

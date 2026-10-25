@@ -111,7 +111,7 @@ def test_siteone_filters_seeds_pins_domain_scope_and_records_residual_limit(tmp_
     monkeypatch.setattr(siteone.subproc, "run", crawler)
     result = siteone.run(ctx)
     assert result.status == "ok"
-    assert "cannot pin every request IP" in result.reason
+    assert "pinned per host/port" in result.reason
     assert "--allowed-domain-for-crawling=example.com" in commands[0]
     assert "--allowed-domain-for-crawling=www.example.com" in commands[0]
     assert not any("other.example" in arg for arg in commands[0])

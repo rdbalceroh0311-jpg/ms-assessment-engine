@@ -1386,7 +1386,7 @@ test is therefore skipped. Exercise actual sites separately only with explicit a
 fixture results do not establish that every customer host is reachable.
 
 Network security regressions are in `tests/test_security_network.py`,
-`tests/test_security_tls_crawl.py`, `tests/test_security_egress.py`,
+`tests/test_security_tls_crawl.py`, `tests/test_security_siteone_pinning.py`, `tests/test_security_egress.py`,
 `tests/test_security_browser_report.py` and `tests/test_security_ui.py`. They inspect actual local
 attacker-server requests and generated HTML/PDF artefacts. Local collector access exists only as
 an exact-origin exception patched by fixtures; environment variables and customer settings cannot
@@ -1397,10 +1397,18 @@ Python fetches and Playwright resources connect to checked IPs with original TLS
 verification. Raw redirect destinations are validated before URL normalisation, and browser HTTP
 redirect chains run entirely inside that guarded transport. Redirected documents are marked
 unavailable for the original URL so their content cannot be misattributed. SiteOne pre-validates
-targets/seeds and applies a domain/port URL filter to discovered
-links and redirects. **Residual SiteOne limit:** its external HTTP stack cannot enforce the shared
-per-request IP guard; DNS changes within an allowed domain during crawling remain possible. This
-limitation is recorded in crawl results. Playwright denies WebSockets, service workers, downloads and
+targets/seeds and applies a domain/port URL filter to discovered links and redirects. Each crawl
+host is validated before the crawl and pinned with SiteOne's `--resolve` to one checked IPv4
+address for every allowed port and root-dot spelling; SiteOne 2.5.1 applies this to all its
+crawl requests (pages, robots.txt, in-host redirects), so DNS changes during the crawl cannot
+move it. Its DNS and SSL/TLS analyzers resolve and connect by themselves, ignoring `--resolve`,
+and are disabled (TLS is checked by the guarded security module). Responses from any
+destination other than a pinned host/port are discarded and flagged in crawl evidence.
+**Residual SiteOne limits:** which URLs SiteOne requests is still decided by its own
+domain/URL filters rather than the shared per-request guard; a SiteOne filter defect could
+send a request elsewhere before its evidence is discarded. SiteOne 2.5.1 cannot pin IPv6, so
+a named host without a validated public IPv4 address is not crawled by SiteOne (recorded as a
+limitation). These limits are recorded in crawl results. Playwright denies WebSockets, service workers, downloads and
 permissions; pages requiring writes/cookies may be incomplete. Redirected subresources whose relative
 references depend on the final URL may also render incompletely. Reports remove images and unsafe
 links/raw HTML, allow only the bundled CSS hash and render PDF in an offline browser context.
