@@ -58,10 +58,12 @@ def test_fixture_run_stores_reports_and_sends_only_the_fingerprint(monkeypatch):
         chromium = Path(p.chromium.executable_path)
     if not (binary.is_file() and chromium.is_file() and (cli.ROOT / "tools/axe.min.js").is_file()):
         pytest.skip("Run scripts/setup.sh for SiteOne, Chromium and axe-core")
-    handler = functools.partial(
-        http.server.SimpleHTTPRequestHandler, directory=str(cli.ROOT / "fixtures/public-key")
-    )
-    handler.log_message = lambda *args: None  # type: ignore[attr-defined]
+
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass
+
+    handler = functools.partial(Quiet, directory=str(cli.ROOT / "fixtures/public-key"))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

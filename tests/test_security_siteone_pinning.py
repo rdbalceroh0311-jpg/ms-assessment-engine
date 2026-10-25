@@ -6,6 +6,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 from conftest import SYNTHETIC_PUBLIC_IP
@@ -122,12 +123,16 @@ def test_responses_from_unvalidated_destinations_are_discarded(tmp_path, monkeyp
     assert "3 SiteOne responses from unvalidated destinations discarded" in result.reason
 
 
+class Recording(ThreadingHTTPServer):
+    received: list[str]
+
+
 class Recorder(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
     def do_GET(self):
-        self.server.received.append(self.path)  # type: ignore[attr-defined]
+        cast(Recording, self.server).received.append(self.path)
         body = b"<html><head><title>Fixture</title></head><body><h1>Fixture</h1></body></html>"
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
@@ -136,7 +141,7 @@ class Recorder(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-class IPv6Only(ThreadingHTTPServer):
+class IPv6Only(Recording):
     address_family = socket.AF_INET6
 
     def server_bind(self):
@@ -155,7 +160,7 @@ def test_real_siteone_uses_validated_address_when_its_resolver_answers_different
     binary = ROOT / "tools/siteone/siteone-crawler/siteone-crawler"
     if not binary.is_file():
         pytest.skip("Run scripts/setup.sh for SiteOne")
-    site = ThreadingHTTPServer(("127.0.0.1", 0), Recorder)
+    site = Recording(("127.0.0.1", 0), Recorder)
     try:
         attacker = IPv6Only(("::1", site.server_port), Recorder)
     except OSError:
@@ -163,7 +168,7 @@ def test_real_siteone_uses_validated_address_when_its_resolver_answers_different
         pytest.skip("IPv6 loopback unavailable")
     servers = [site, attacker]
     for server in servers:
-        server.received = []  # type: ignore[attr-defined]
+        server.received = []
         threading.Thread(target=server.serve_forever, daemon=True).start()
     origin = f"http://localhost:{site.server_port}"
     lookup = socket.getaddrinfo
@@ -186,8 +191,8 @@ def test_real_siteone_uses_validated_address_when_its_resolver_answers_different
             server.shutdown()
             server.server_close()
     assert result.status == "ok", result.reason
-    assert attacker.received == []  # type: ignore[attr-defined]
-    assert "/" in site.received  # type: ignore[attr-defined]
+    assert attacker.received == []
+    assert "/" in site.received
     raw = json.loads((ctx.run_dir / "raw/siteone.json").read_text())
     # Self-resolving analyzers did not run, so they made no lookups or connections.
     assert "dns" not in raw.get("tables", {}) and "certificate-info" not in raw.get("tables", {})
