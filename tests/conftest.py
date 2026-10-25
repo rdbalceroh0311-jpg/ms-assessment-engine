@@ -95,6 +95,9 @@ def isolated_operator_and_network(tmp_path, monkeypatch):
 
     def lookup(host, *args, **kwargs):
         name = host.decode() if isinstance(host, bytes) else host
+        if name == "localhost":
+            # Fixture servers bind 127.0.0.1 only; the OS may list ::1 first.
+            return original_lookup("127.0.0.1", *args, **kwargs)
         try:
             _loopback(name)
         except AssertionError:
