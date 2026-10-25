@@ -389,7 +389,8 @@ raw files and credential files are excluded. Saved HTML is sandboxed with script
 Environment overrides repository `.env`, which overrides `~/.config/ams-assess/credentials.env`.
 Use `.env.example` for names. Credentials and runtime outputs are ignored by Git; do not stage them.
 Raw page text, screenshots and AI prompts can contain customer information. Keep `data/` private.
-AI-enabled runs send collected evidence to the provider; use `--no-ai` when inappropriate.
+AI-enabled runs send the explicit, redacted field projection described in
+[DATA-FLOWS.md](docs/DATA-FLOWS.md); use `--no-ai` when inappropriate.
 
 | Module/provider | Requirements and behaviour |
 | --- | --- |
@@ -402,7 +403,7 @@ AI-enabled runs send collected evidence to the provider; use `--no-ai` when inap
 | DataForSEO | Disabled unless `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` and explicit `--dataforseo-max-usd` are present. One Australia/English domain rank overview request by default (`DATAFORSEO_LOCATION_CODE`, overridden by `--dataforseo-location-code`), one result, no retries/pagination. Estimated $0.01515 (including pricing headroom) is recorded before the call; a `--dataforseo-max-usd` cap below $0.01515 refuses the domain overview call. Presence discovery and `--keywords` SERP calls book against the same cap. Provider price changes are outside this client cap; verify [pricing](https://dataforseo.com/pricing/dataforseo-labs/dataforseo-labs-api) before enabling. No paid endpoint is used in tests. |
 | Google Search Console | Explicit `--connect gsc`, service-account `GOOGLE_APPLICATION_CREDENTIALS` or OAuth `AMS_GSC_TOKEN_FILE`, and an accessible matching property. Optional `AMS_GSC_PROPERTY`. Read-only: top 100 queries/pages over 28 complete days with 3-day lag, plus sitemaps. OAuth requires an authorized-user JSON file created by `gsc-auth`. |
 | Digital presence (`presence`) | Reuses browser DOM (meta tags, script URLs, inline tag snippets, `<link>` URLs, anchors, JSON-LD, request URLs), SiteOne headers/external URLs/robots.txt/canonical summary, domain_email MX/TXT and the GSC connection state. Its only requests, and only after a SiteOne crawl, are one `robots.txt` GET and one GET of the first same-origin `Sitemap:` URL (else `/sitemap.xml`), each with at most one redirect that keeps scheme, host and port, all within one 10-second deadline (passed as each request's timeout) and a 2 MB cap; no recursion. The complete body is parsed with ElementTree. Sitemap PASS (sitemaps.org `urlset`/`sitemapindex` with at least one `<loc>`) / WARNING (404, or fully retrieved but invalid; needs verification when robots.txt could not be read) / NOT ASSESSED (fetch failed, incomplete or declared on another origin). Detects Search Console/Bing verification, GA4, legacy UA, GTM, Clarity, Hotjar, Google Ads, Meta, LinkedIn, Bing UET, TikTok, WordPress/Shopify/Wix/Squarespace/Webflow/Joomla/Drupal and Google Workspace/Microsoft 365, with IDs as evidence. IDs count only in tag context (gtag calls, tag URLs, the GTM loader), never as bare strings. Listings (Google Business Profile, Bing, Apple Maps, Facebook, Instagram, LinkedIn and AU directories) only when the website links to them. Produces platform, listing, search/local signal (NAP, location pages, robots.txt, sitemap, canonicals), connected-readiness and customer access checklist tables. Statuses: Detected / Not detected (no public signal on sampled pages, never "no account") / Unknown (GTM present but GA4 not seen, or a consent manager / consent-gated tags present and the tag not seen loading) / NOT ASSESSED. NAP is a confirmed mismatch only on one page with one business entity, untruncated text and exactly one different phone or postcode shown; several entities or values, truncation, absence or values from different pages give a manual verification item. AI cannot create presence findings or findings cited only by presence evidence; GSC data appears only under "Connected business-system findings". Listings always need ownership confirmation; platform pages are never fetched, and search happens only through the DataForSEO SERP under the cap (see above). `AMS_ACCESS_EMAIL` names the AMS account in the checklist (placeholder if unset). |
-| AI | `ANTHROPIC_API_KEY` selects Anthropic SDK (billable; no retries); otherwise authenticated `claude -p --output-format json` with strict schema, tools/hooks/MCP disabled and 300-second timeout; otherwise deterministic fallback. `--no-ai` disables both. Prompt/raw responses stay in the run directory. |
+| AI | `AMS_AI_PROVIDER=anthropic` explicitly selects the SDK (API key, billable; no retries); `claude-cli` explicitly selects the CLI login with tools/hooks/MCP disabled; unset/`none` makes no AI call. Failures never switch accounts. `--no-ai` or a customer profile with `no_ai: true` disables both. Debug artefacts default to sanitised hashes; see [data flows and retention](docs/DATA-FLOWS.md). |
 
 ## Microsoft 365 read-only connector (`m365`)
 
@@ -1374,14 +1375,10 @@ matching, quota failure, module isolation, platform/listing detection, readiness
 checklist rules, and a real no-AI fixture run with PDF/citation checks.
 The fixture test skips only when SiteOne, Chromium or axe is absent; run setup to exercise it.
 
-Opt-in public HTTPS smoke check (SiteOne only, no paid APIs or AI):
-
-```sh
-AMS_LIVE_SMOKE=1 uv run pytest -q tests/test_https_crawl.py::test_live_siteone_https_example_com
-```
-
-This checks `https://example.com/` with certificate verification enabled. It is skipped in the
-default suite. A successful smoke check does not establish that every customer host is reachable.
+The test harness clears operator credentials and blocks external network access, even if
+`AMS_LIVE_SMOKE` was present in the invoking shell. The retained legacy public-HTTPS smoke
+test is therefore skipped. Exercise actual sites separately only with explicit authorisation;
+fixture results do not establish that every customer host is reachable.
 SiteOne transport statuses such as `-4:SEND-ERROR` and its fatal error appear in the module reason
 and evidence; its 2.5.1 binary does not expose the underlying request exception. Inspect the
 run's `raw/siteone.json` and `raw/target-resolution.json` when diagnosing a failed crawl.
@@ -1391,3 +1388,15 @@ crawler identities can trigger server/edge rejection even when TLS verification 
 Redirects retain the requested target for domain/email checks and store identity; website
 collectors use the separately recorded `resolved_url`. A preflight timeout or HTTP rejection
 is a limitation and still allows SiteOne to try the last safe URL. Unsafe redirects stop it.
+
+## Credential and AI boundary
+
+See [DATA-FLOWS.md](docs/DATA-FLOWS.md) for outgoing fields/providers, explicit
+`AMS_AI_PROVIDER` selection (default `none`), per-customer `no_ai`, process isolation,
+private artefact retention, regression coverage and residual limitations.
+
+The offline security tests require Chromium binaries under `tools/playwright` (no browser
+profiles). On a machine where downloads are permitted, prepare them with
+`PLAYWRIGHT_BROWSERS_PATH="$PWD/tools/playwright" uv run playwright install chromium`.
+Tests never download tools or contact providers; optional SiteOne/axe integration tests
+remain skipped when those tools are absent.

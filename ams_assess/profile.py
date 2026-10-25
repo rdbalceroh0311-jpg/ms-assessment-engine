@@ -72,6 +72,7 @@ class Location(BaseModel):
 class Profile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    no_ai: bool = False
     name: str = Field(default="", max_length=200)
     aliases: list[str] = Field(default_factory=list, max_length=20)
     websites: list[str] = Field(default_factory=list, max_length=10)

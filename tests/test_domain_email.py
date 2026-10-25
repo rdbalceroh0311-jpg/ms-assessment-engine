@@ -151,7 +151,7 @@ def test_null_mx_domain_is_not_an_email_failure(tmp_path, monkeypatch):
         dns.resolver, "zone_for_name", lambda *a, **k: dns.name.from_text("example.com")
     )
     monkeypatch.setattr(
-        domain_email.subprocess,
+        domain_email.subproc,
         "run",
         lambda *a, **k: SimpleNamespace(stdout=json.dumps(checkdmarc)),
     )
@@ -375,7 +375,7 @@ def test_mx_resolution_counts_only_hosts_that_resolved(tmp_path, monkeypatch):
         dns.resolver, "zone_for_name", lambda *a, **k: dns.name.from_text("example.com")
     )
     monkeypatch.setattr(
-        domain_email.subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(ValueError())
+        domain_email.subproc, "run", lambda *a, **k: (_ for _ in ()).throw(ValueError())
     )
     monkeypatch.setattr(
         httpx, "get", lambda url, **k: (_ for _ in ()).throw(httpx.ConnectError("offline"))

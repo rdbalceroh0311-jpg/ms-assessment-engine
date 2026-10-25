@@ -110,7 +110,7 @@ def test_headers_framing_and_observatory_form_one_cited_action(tmp_path, monkeyp
         {"header": "server", "warning": "1", "recommendation": "Server identifies nginx."},
     ]
     monkeypatch.setattr(
-        siteone.subprocess,
+        siteone.subproc,
         "run",
         lambda *a, **kw: SimpleNamespace(
             returncode=0,
@@ -300,7 +300,7 @@ def test_rejected_speculative_https_upgrade_crawls_explicit_http(tmp_path, monke
             stdout=json.dumps({"results": [{"url": ctx.target, "status": "200", "type": 1}]}),
         )
 
-    monkeypatch.setattr(siteone.subprocess, "run", process)
+    monkeypatch.setattr(siteone.subproc, "run", process)
     result = siteone.run(ctx)
     assert result.status == "ok" and ctx.site_url == ctx.target == "http://example.com/"
     assert calls == ["https://example.com/", "http://example.com/"]

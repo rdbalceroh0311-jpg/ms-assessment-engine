@@ -8,6 +8,8 @@ from contextvars import ContextVar
 from typing import Any
 from urllib.parse import unquote, urlsplit, urlunsplit
 
+from ams_assess.data_boundary import text as clean_text
+
 SENSITIVE = re.compile(
     r"token|secret|password|authorization|credential|api.?key|private.?key", re.I
 )
@@ -33,7 +35,7 @@ def sensitive_key(key: str, value: Any) -> bool:
 def redact(value: Any, secrets: tuple[str, ...] = ()) -> Any:
     if isinstance(value, Mapping):
         return {
-            str(k): "[redacted]"
+            clean_text(str(k), secrets): "[redacted]"
             if sensitive_key(str(k), v) and k != "credential_ref"
             else redact(v, secrets)
             for k, v in value.items()
@@ -41,6 +43,7 @@ def redact(value: Any, secrets: tuple[str, ...] = ()) -> Any:
     if isinstance(value, (list, tuple)):
         return [redact(v, secrets) for v in value]
     if isinstance(value, str):
+        value = clean_text(value, secrets)
         for _ in range(3):
             value = unquote(value)
         for secret in sorted((s for s in secrets if s), key=len, reverse=True):

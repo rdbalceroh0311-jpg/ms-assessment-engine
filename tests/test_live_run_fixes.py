@@ -220,7 +220,7 @@ def test_siteone_redirect_only_is_an_explicit_failure(tmp_path, monkeypatch, exi
     # No pre-crawl robots/sitemap request to the public example host.
     monkeypatch.setattr("ams_assess.coverage.presence.sitemap_check", lambda ctx: {})
     monkeypatch.setattr(
-        siteone.subprocess,
+        siteone.subproc,
         "run",
         lambda *a, **k: SimpleNamespace(
             returncode=exit_code,
@@ -229,6 +229,10 @@ def test_siteone_redirect_only_is_an_explicit_failure(tmp_path, monkeypatch, exi
         ),
     )
     ctx = context(tmp_path)
+    ctx.tools_dir = tmp_path / "tools"
+    binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
+    binary.parent.mkdir(parents=True)
+    binary.touch()
     result = siteone.run(ctx)
     assert result.status == "error" and "crawled only a redirect" in result.reason
     assert not ctx.pages
@@ -511,7 +515,8 @@ def test_valid_cro_finding_and_summary_survive_failed_crawl(tmp_path, monkeypatc
         )
 
     monkeypatch.setattr(ai.shutil, "which", lambda _: "claude")
-    monkeypatch.setattr(ai.subprocess, "run", claude)
+    monkeypatch.setattr(ai.subproc, "run", claude)
+    ctx.config["AMS_AI_PROVIDER"] = "claude-cli"
     data = runner.run(ctx, formats={"md"})
     assert data["ai"]["status"] == "ok" and data["ai"]["executive_summary"] == summary
     assert data["findings"][0]["id"] == valid["id"]

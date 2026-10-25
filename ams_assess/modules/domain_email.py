@@ -16,6 +16,7 @@ import dns.exception
 import dns.resolver
 import httpx
 
+from ams_assess import subproc
 from ams_assess.models import Context, ModuleResult
 from ams_assess.targets import registrable
 
@@ -755,8 +756,9 @@ def run(ctx: Context) -> ModuleResult:
     )
     checks, dmarc_eid = None, ""
     try:
-        process = subprocess.run(
+        process = subproc.run(
             [sys.executable, "-c", code, domain_host],
+            kind="dns",
             capture_output=True,
             text=True,
             timeout=60,

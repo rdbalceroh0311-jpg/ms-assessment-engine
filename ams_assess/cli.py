@@ -5,9 +5,7 @@ import os
 import re
 from pathlib import Path
 
-from dotenv import dotenv_values
-
-from ams_assess import register, store
+from ams_assess import register, store, subproc
 from ams_assess.connectors import REGISTRY as CONNECTORS
 from ams_assess.connectors.auth import google_desktop_flow
 from ams_assess.connectors.commands import add_parsers, safe_dispatch
@@ -19,24 +17,9 @@ from ams_assess.presence_discovery import MAX_KEYWORDS, keyword_problem
 from ams_assess.profile import Location, Profile, load_verifications, read_json
 from ams_assess.report import render, render_customer
 from ams_assess.runner import run
+from ams_assess.settings import load as load_settings
 
 ROOT = Path(__file__).resolve().parent.parent
-ENV_KEYS = [
-    "ANTHROPIC_API_KEY",
-    "PAGESPEED_API_KEY",
-    "CRUX_API_KEY",
-    "GOOGLE_API_KEY",
-    "DATAFORSEO_LOGIN",
-    "DATAFORSEO_PASSWORD",
-    "DATAFORSEO_LOCATION_CODE",
-    "GOOGLE_APPLICATION_CREDENTIALS",
-    "AMS_GSC_CLIENT_SECRETS",
-    "AMS_GSC_TOKEN_FILE",
-    "AMS_GSC_PROPERTY",
-    "AMS_DKIM_SELECTORS",
-    "SPAMHAUS_DQS_KEY",
-    "AMS_ACCESS_EMAIL",
-]
 
 
 def data_root() -> Path:
@@ -44,18 +27,7 @@ def data_root() -> Path:
 
 
 def config() -> dict[str, str]:
-    loaded = {}
-    for file in [Path.home() / ".config/ams-assess/credentials.env", ROOT / ".env"]:
-        if file.is_file():
-            loaded.update(
-                {
-                    k: v
-                    for k, v in dotenv_values(file, interpolate=False).items()
-                    if k in ENV_KEYS and v is not None
-                }
-            )
-    loaded.update({k: os.environ[k] for k in ENV_KEYS if k in os.environ})
-    return loaded
+    return load_settings()
 
 
 def csv(value: str) -> set[str]:
@@ -136,6 +108,7 @@ def profile_changes(args: argparse.Namespace) -> dict:
     return changes
 
 
+@subproc.cancellation()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="ams-assess", description="AMS evidence-backed assessment"
