@@ -253,6 +253,12 @@ def action(entry: dict[str, Any]) -> tuple[str, str]:
             "Review the recorded connection sample and agree any further operational verification.",
             "AMS",
         )
+    if entry["integration"] in {"approval_required", "api_not_enabled"}:
+        return (
+            "Blocked by the provider, not customer access: AMS completes provider API "
+            "approval/enablement, then re-tests the bound resource.",
+            "AMS",
+        )
     if entry["integration"] == "unsupported":
         return "Arrange an authorised manual check; this engine has no connector.", "AMS"
     return (

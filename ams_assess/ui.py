@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateError
 
-from ams_assess import register, store
+from ams_assess import onboarding, register, store
 from ams_assess.connectors import service as connectors
 from ams_assess.models import CUSTOMER_RE, customer_path
 
@@ -169,6 +169,13 @@ class LocalServer(ThreadingHTTPServer):
         ).get_template("ui.html.j2")
         super().__init__((host, port), Handler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
+        # Browsers scope cookies by host, not port. A port-unique name stops instances on other
+        # ports overwriting each other's session, and the value is bound to this start's secret
+        # and port: another instance's cookie, or the bootstrap token itself, is never a session.
+        self.cookie = f"ams_session_{self.server_port}"
+        self.session = hmac.new(
+            self.token.encode(), f"session|127.0.0.1:{self.server_port}".encode(), "sha256"
+        ).hexdigest()
 
     def url(self, route="/", **params):
         return route + ("?" + urlencode(params) if params else "")
@@ -233,7 +240,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location", location)
         if session:
             self.send_header(
-                "Set-Cookie", f"ams_session={self.app.token}; HttpOnly; SameSite=Strict; Path=/"
+                "Set-Cookie",
+                f"{self.app.cookie}={self.app.session}; HttpOnly; SameSite=Strict; Path=/",
             )
         self.end_headers()
         self.wfile.write(body)
@@ -257,16 +265,15 @@ class Handler(BaseHTTPRequestHandler):
             cookie.load(self.headers.get("Cookie", ""))
         except CookieError:
             return ""
-        return cookie["ams_session"].value if "ams_session" in cookie else ""
+        return cookie[self.app.cookie].value if self.app.cookie in cookie else ""
 
     def authenticated(self, params):
         if not self.valid_host() or "token" in params:
             return False
         supplied = self.headers.get("Authorization", "").removeprefix("Bearer ")
-        return any(
-            hmac.compare_digest(value.encode(), self.app.token.encode())
-            for value in (supplied, self.session_token())
-        )
+        return hmac.compare_digest(
+            supplied.encode(), self.app.token.encode()
+        ) or hmac.compare_digest(self.session_token().encode(), self.app.session.encode())
 
     def same_origin_write(self):
         origin = "http://" + self.headers["Host"]
@@ -285,7 +292,7 @@ class Handler(BaseHTTPRequestHandler):
         return (
             origins == ["null"]
             and self.headers.get("Sec-Fetch-Site") == "same-origin"
-            and hmac.compare_digest(self.session_token().encode(), self.app.token.encode())
+            and hmac.compare_digest(self.session_token().encode(), self.app.session.encode())
         )
 
     def do_GET(self):
@@ -336,6 +343,8 @@ class Handler(BaseHTTPRequestHandler):
                 current=current,
                 entries=current.get("systems_register", {}).get("entries", []) if current else [],
                 connectors=connectors.rows(current) if current else [],
+                onboarding=onboarding.rows(current) if current else [],
+                sequence=onboarding.sequence(customer) if current else [],
                 groups=finding_groups(current) if current else {},
                 files=files,
                 url=self.app.url,

@@ -25,7 +25,7 @@ details{background:white;padding:.8rem;margin:.7rem 0}summary{cursor:pointer;fon
 {% if current %}
 <h2>{{ current.customer_name }}</h2>
 <p>Updated {{ current.updated_at }} · {{ current.runs | length }} recorded stages / updates</p>
-<nav><a href="#register">Systems register</a> · <a href="#actions">Customer actions</a> · <a href="#findings">Findings</a> · <a href="#reports">Saved reports</a></nav>
+<nav><a href="#onboarding">Onboarding</a> · <a href="#register">Systems register</a> · <a href="#actions">Customer actions</a> · <a href="#findings">Findings</a> · <a href="#reports">Saved reports</a></nav>
 <h2>Assessment overview and coverage</h2>
 {% for run in current.runs | reverse %}
 <details><summary>{{ run.run_id }} · {{ run.kind }} · {{ run.created_at }} · {{ run.status }}</summary>
@@ -34,6 +34,12 @@ details{background:white;padding:.8rem;margin:.7rem 0}summary{cursor:pointer;fon
 {% for module in run.get('modules', []) %}<p>{{ module.name }}: {{ module.status }} · {{ module.reason }}</p>{% endfor %}
 {% for path in files %}{% if run.get('run_dir') and path.startswith(run.run_dir + '/') and '/report.' in path %}<a href="{{ url('/file', customer=customer, path=path) }}">{{ path }}</a> {% endif %}{% endfor %}
 </details>{% endfor %}
+<h2 id="onboarding">Onboarding</h2>
+<p>The customer keeps ownership and recovery methods and grants named, least-privilege, revocable access. Never ask for or enter passwords. Access granted does not mean connected: Connected appears only after an authenticated read of the bound resource.</p>
+<ol>{% for step in sequence %}<li>{{ step.title }} — <code>{{ step.command }}</code></li>{% endfor %}</ol>
+<div class="scroll"><table><thead><tr><th>Integration</th><th>Platform used / publicly observed</th><th>Ownership</th><th>AMS access</th><th>Engine connection</th><th>Selected resource</th><th>Last successful collection</th><th>Missing permission / next action</th></tr></thead><tbody>
+{% for row in onboarding %}<tr><td>{{ row.label }}<details><summary>Customer instructions</summary>{{ row.instructions }}</details></td><td>{{ row.presence }}</td><td>{{ row.ownership }}</td><td>{{ row.access }}</td><td>{{ row.engine }}</td><td>{{ row.resource }}</td><td>{{ row.last_successful_collection }}</td><td>{% if row.missing_permission %}{{ row.missing_permission }}<br>{% endif %}Next step: {{ row.next_step }}<br>{{ row.next_action }}</td></tr>{% endfor %}
+</tbody></table></div>
 <h2 id="connectors">Bound connectors</h2>
 <p>Select a credential reference name and resource ID. Authorise in the CLI. Collections read a bounded period and preserve endpoint failures.</p>
 <div class="scroll"><table class="connector-table"><thead><tr><th>Connector</th><th>Selected resource</th><th>Access status</th><th>Connection status</th><th>Last successful collection</th><th>Coverage</th><th>Next action</th></tr></thead><tbody>

@@ -170,3 +170,36 @@ def test_hardlinked_output_is_refused(customer):
         )
         assert response.status_code == 403
         assert "FAKE-HARDLINK-CANARY" not in response.text
+
+
+def test_session_cookie_is_bound_to_this_port_and_start(customer):
+    def bootstrap(server, client):
+        response = client.get(server.bootstrap_url())
+        assert response.status_code == 303
+        name, value = response.headers["Set-Cookie"].split(";", 1)[0].split("=", 1)
+        return name, value
+
+    with running(customer) as (first, one), running(customer) as (second, two):
+        for client in (one, two):
+            client.headers.pop("Authorization")
+        name, value = bootstrap(first, one)
+        assert name == f"ams_session_{first.server_port}"
+        assert value != first.token and first.token not in value  # History URL ≠ session.
+        assert one.get("/", headers={"Cookie": f"{name}={value}"}).status_code == 200
+        # Browsers send host cookies to every port: another instance must reject them all.
+        for cookie in (
+            f"{name}={value}",
+            f"ams_session_{second.server_port}={value}",
+            f"ams_session={value}",
+            f"ams_session_{second.server_port}={first.token}",
+        ):
+            assert two.get("/", headers={"Cookie": cookie}).status_code == 403
+        assert one.get("/", headers={"Cookie": f"{name}={first.token}"}).status_code == 403
+        own = bootstrap(second, two)
+        both = f"{name}={value}; {own[0]}={own[1]}"
+        assert two.get("/", headers={"Cookie": both}).status_code == 200
+        assert one.get("/", headers={"Cookie": both}).status_code == 200
+        port = first.server_port
+    # A restart on the same port has a fresh secret: the earlier cookie no longer works.
+    with ui.LocalServer(customer, port=port) as restarted:
+        assert restarted.cookie == name and restarted.session != value

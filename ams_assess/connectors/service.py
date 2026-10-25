@@ -11,6 +11,7 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from ams_assess import register, store
 from ams_assess.connectors import REGISTRY
@@ -60,6 +61,23 @@ def binding_lock(root: Path):
         os.close(fd)
 
 
+def site_host(resource: str) -> str:
+    host = (
+        resource.removeprefix("sc-domain:")
+        if resource.startswith("sc-domain:")
+        else urlsplit(resource).hostname or ""
+    )
+    return host.lower().removesuffix(".").removeprefix("www.")
+
+
+def same_resource(resource_type: str, first: str, second: str) -> bool:
+    """Website properties alias one site across scheme, www, path and domain/URL-prefix forms."""
+    if resource_type != "site":
+        return first == second
+    a, b = site_host(first), site_host(second)
+    return bool(a and b) and (a == b or a.endswith("." + b) or b.endswith("." + a))
+
+
 def set_binding(
     root: Path,
     customer: str,
@@ -95,8 +113,9 @@ def set_binding(
                 if (
                     resource
                     and other_spec
-                    and (other_spec.provider, other_spec.resource_type, binding.get("resource_id"))
-                    == (spec.provider, spec.resource_type, resource)
+                    and (other_spec.provider, other_spec.resource_type)
+                    == (spec.provider, spec.resource_type)
+                    and same_resource(spec.resource_type, binding.get("resource_id", ""), resource)
                 ):
                     conflicts.append(directory.name)
         if conflicts and not force:
