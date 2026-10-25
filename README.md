@@ -44,6 +44,19 @@ Only required modules run; a domain/security/performance-only run has no crawl. 
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
 
+### Authorisation before any assessment
+
+`ams-assess run` and `ams-assess connect <key> test|collect` refuse (exit 2) before reading
+credentials or making any network request unless the customer's profile records who authorised the
+assessment, the date it was given, and a scope covering the target, and the command is given
+`--confirm-authorisation`. Record it with `ams-assess authorise --customer SLUG --authorised-by NAME
+--date YYYY-MM-DD --scope HOST [--scope connectors]`; each website host covers its subdomains and
+`connectors` covers connected reads. Re-running replaces it (earlier versions stay in the profile's
+evidence history); `--revoke` removes it. The local interface's connector test/collect buttons need
+the same recorded authorisation. Existing customer records load unchanged; no migration is needed.
+Only test fixture servers and the test suite's synthetic customers are exempt; no environment
+variable or customer setting can exempt a customer.
+
 ### Run the next customer assessment
 
 Replace the synthetic name, target and file paths with the authorised customer's details. Start with
@@ -54,7 +67,9 @@ Managed IT & Technology.
 ```sh
 uv run ams-assess customer --customer acme --name 'Acme Services' --industry trades \
   --buying-model service-area --service-area Sydney --website https://example.com
-uv run ams-assess run --customer acme --target https://example.com --no-ai
+uv run ams-assess authorise --customer acme --authorised-by 'Pat Owner (Director)' \
+  --date 2026-10-20 --scope example.com --scope connectors
+uv run ams-assess run --customer acme --target https://example.com --no-ai --confirm-authorisation
 uv run ams-assess discover --customer acme --notes /path/to/customer-notes.json
 uv run ams-assess presence-verify --customer acme --file /path/to/verified-profiles.json
 uv run ams-assess report --customer acme

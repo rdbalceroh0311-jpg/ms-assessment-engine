@@ -130,6 +130,18 @@ def isolated_operator_and_network(tmp_path, monkeypatch):
     monkeypatch.setattr(socket.socket, "sendto", sendto)
 
 
+@pytest.fixture(autouse=True)
+def synthetic_customers(monkeypatch):
+    """Exact synthetic customer slugs used by tests; no setting can mark a real customer."""
+    from ams_assess import authorisation
+
+    monkeypatch.setattr(
+        authorisation,
+        "_fixture_customers",
+        frozenset({"synthetic", "test", "acme", "beta", "other", "example"}),
+    )
+
+
 @pytest.fixture
 def allow_local_fixture(monkeypatch):
     """Explicit opt-in: only exact origins of HTTP servers created by this test."""
