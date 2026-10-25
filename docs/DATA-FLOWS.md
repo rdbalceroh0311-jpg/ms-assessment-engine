@@ -60,6 +60,11 @@ budgets and destinations are omitted. Query strings, fragments and URL userinfo 
 from outbound text. All emails are removed (including business contacts, a deliberate
 minimisation). Configured secrets, FAKE canaries, bearer/basic tokens, common API-key shapes
 and secret assignments are redacted, including URL-encoded and base64 representations.
+Public third-party browser keys found in customer page source (Google `AIza...` keys) are
+replaced everywhere evidence is saved, reported, shown or sent to AI by
+`[redacted:google-key:...<last 4>:sha256-<8 hex>]`, so a finding remains traceable to the
+key without storing it. An operator's own configured key is fully redacted without a
+fingerprint; a percent-encoded key is redacted as a whole segment, also without a fingerprint.
 This is pattern/known-value redaction, not a universal detector for arbitrary disguised
 secrets or personal names embedded in free prose. Do not put private inventories into
 public page text or customer narrative fields.
@@ -112,6 +117,7 @@ register/UI output, Markdown, HTML and extracted PDF text/metadata.
 | No AI capabilities or authority mutations; scope URLs derived from citations | `tests/test_security_ai.py`, `tests/test_security_processes.py` |
 | Explicit provider/account metadata, no account fallback; run/provider/customer no-AI reports | `tests/test_security_ai.py`, `tests/test_security_artifacts.py` |
 | Recursive payload field allowlists, URLs, emails and secret/encoded-secret removal | `tests/test_security_ai.py`, `tests/test_security_artifacts.py` |
+| Public page-source keys fingerprinted in stored, rendered and AI output | `tests/test_security_public_keys.py` (fixture `fixtures/public-key/`) |
 | Credential confinement in actual saved and rendered/UI/log surfaces and reflected errors | `tests/test_security_artifacts.py`; existing connector privacy tests |
 | Private creation permissions, debug hashes, customer-scoped expiry and backup expiry | `tests/test_security_artifacts.py` |
 | Hostile visible/hidden HTML, JSON-LD/meta, poisoned tool results/saved evidence, cross-customer and identifier/filename attacks | `tests/test_security_ai.py`, `tests/test_security_artifacts.py` |

@@ -49,6 +49,10 @@ TOKEN = re.compile(
     r"|gh[pousr]_[\w]{15,}|github_pat_[\w]+|eyJ[\w-]+\.[\w-]+\.[\w-]+|GOCSPX-[\w-]{10,}"
     r"|1//[\w-]{20,})"
 )
+# Public browser keys (Google Maps/Firebase "AIza...") embedded in customer page source.
+# No word boundary: page source may join them to other characters (e.g. "\\nAIza...").
+PUBLIC_KEY = re.compile(r"AIza[\w-]{15,}")
+PUBLIC_KEY_MARK = re.compile(r"\[redacted:google-key:\.\.\.[\w-]{4}:sha256-[0-9a-f]{8}\]")
 BEARER = re.compile(rf"\b(?:Bearer|bearer|BEARER)\s+{_BEARER_VALUE}")
 _NAMES = (
     r"access_token|refresh_token|id_token|auth_token|client_secret|api[_-]?key|apikey"
@@ -79,8 +83,22 @@ def clean_url(value: str) -> str:
         return "[redacted URL]"
 
 
+def public_key_fingerprint(match: re.Match[str]) -> str:
+    """Traceable without the value: last four characters and a SHA-256 prefix."""
+    key = match[0]
+    digest = hashlib.sha256(key.encode()).hexdigest()[:8]
+    return f"[redacted:google-key:...{key[-4:]}:sha256-{digest}]"
+
+
 def _assignment(match: re.Match[str]) -> str:
-    return match["name"] + (match["eq"] or match["sep"]) + "[redacted]"
+    separator = match["eq"] or match["sep"]
+    # A value already reduced to a fingerprint keeps it; anything after is still redacted.
+    mark = PUBLIC_KEY_MARK.match(match.string, match.start() + len(match["name"] + separator))
+    if mark:
+        return match.string[match.start() : mark.end()] + (
+            "[redacted]" if mark.end() < match.end() else ""
+        )
+    return match["name"] + separator + "[redacted]"
 
 
 def _secret_in(value: str, secrets: tuple[str, ...]) -> bool:
@@ -140,6 +158,7 @@ def text(value: str, secrets: tuple[str, ...] = (), *, ai: bool = False) -> str:
         # Preserve ordinary prose such as "basic voicemail" and "Basic API Access".
         return "[redacted]" if b":" in credentials else match[0]
 
+    value = PUBLIC_KEY.sub(public_key_fingerprint, value)
     value = BASIC.sub(basic, value)
     value = BASE64.sub(encoded, value)
     value = TOKEN.sub("[redacted]", value)
