@@ -359,7 +359,7 @@ def test_fixture_end_to_end_no_ai(monkeypatch):
         server.server_close()
         thread.join()
     # The customer directory also holds the store file (assessment.json); pick the run.
-    directory = next(p for p in (cli.ROOT / "data/customers" / customer).iterdir() if p.is_dir())
+    directory = next(p for p in (cli.data_root() / customer).iterdir() if p.is_dir())
     for file in [
         "results.json",
         "evidence.json",

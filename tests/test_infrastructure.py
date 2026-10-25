@@ -25,9 +25,7 @@ def mock_domain(monkeypatch, ns=None, mx=None, headers=None, rdap_body=None):
     monkeypatch.setattr(
         dns.resolver, "zone_for_name", lambda *a, **k: dns.name.from_text("example.com")
     )
-    monkeypatch.setattr(
-        domain_email.subproc, "run", lambda *a, **k: SimpleNamespace(stdout="{}")
-    )
+    monkeypatch.setattr(domain_email.subproc, "run", lambda *a, **k: SimpleNamespace(stdout="{}"))
     calls = []
 
     def get(url, **kwargs):

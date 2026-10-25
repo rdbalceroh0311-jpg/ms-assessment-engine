@@ -5,8 +5,9 @@ Connector evidence is reduced to coverage counts even if a saved aggregate is po
 """
 
 import json
-from typing import Any
+from typing import Any, get_args
 
+from ams_assess.connectors.core import Status
 from ams_assess.data_boundary import configured_secrets, sanitise
 from ams_assess.models import Context, Evidence, Finding
 
@@ -164,7 +165,18 @@ POLICIES: dict[str, Any] = {
     "m365": {},
     "wp_cli": {},
 }
-AGGREGATE = {"status": True, "rows_returned": True, "truncated": True}
+CONNECTOR_STATUSES = frozenset(get_args(Status))
+
+
+def aggregate(value: Any) -> dict[str, Any]:
+    """Closed connector coverage shape; free text never reaches the model."""
+    value = value if isinstance(value, dict) else {}
+    status, rows, truncated = (value.get(k) for k in ("status", "rows_returned", "truncated"))
+    return {
+        "status": status if type(status) is str and status in CONNECTOR_STATUSES else "invalid",
+        "rows_returned": rows if type(rows) is int and rows >= 0 else None,
+        "truncated": truncated if type(truncated) is bool else None,
+    }
 
 
 def project(value: Any, policy: Any) -> Any:
@@ -181,15 +193,18 @@ def project(value: Any, policy: Any) -> Any:
     raise ValueError("Invalid AI field policy")
 
 
-def compact_evidence(evidence: list[Evidence]) -> list[dict[str, Any]]:
+def compact_evidence(
+    evidence: list[Evidence], secrets: tuple[str, ...] = ()
+) -> list[dict[str, Any]]:
     compact = []
     for item in evidence:
         data = item.data
         if isinstance(data, dict) and data.get("connector"):
-            data = project(data.get("ai_aggregate", {}), AGGREGATE)
+            data = aggregate(data.get("ai_aggregate"))
         else:
             data = project(data, POLICIES.get(item.source, {}))
-        serialized = json.dumps(sanitise(data, ai=True), ensure_ascii=False)
+        # Remove configured secrets before truncation can split one across the boundary.
+        serialized = json.dumps(sanitise(data, secrets, ai=True), ensure_ascii=False)
         compact.append(
             {
                 "id": item.id,
@@ -201,10 +216,11 @@ def compact_evidence(evidence: list[Evidence]) -> list[dict[str, Any]]:
                 "truncated": len(serialized) > 10000,
             }
         )
-    return sanitise(compact, ai=True)
+    return sanitise(compact, secrets, ai=True)
 
 
 def payload(ctx: Context, findings: list[Finding], evidence: list[Evidence]) -> dict[str, Any]:
+    secrets = configured_secrets(ctx.config)
     result = {
         "customer": ctx.customer_name,
         "target": ctx.target,
@@ -226,6 +242,6 @@ def payload(ctx: Context, findings: list[Finding], evidence: list[Evidence]) -> 
         "findings": [
             {k: v for k, v in f.model_dump().items() if k in FINDING_FIELDS} for f in findings
         ],
-        "evidence": compact_evidence(evidence),
+        "evidence": compact_evidence(evidence, secrets),
     }
-    return sanitise(result, configured_secrets(ctx.config), ai=True)
+    return sanitise(result, secrets, ai=True)
