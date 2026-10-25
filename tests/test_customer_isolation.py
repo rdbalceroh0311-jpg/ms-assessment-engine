@@ -11,6 +11,7 @@ import shlex
 import threading
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from itertools import permutations
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import quote, unquote
@@ -907,6 +908,14 @@ def test_site_property_alias_of_another_customer_is_refused(world, key, alias):
         ("bing_wmt", "https://exämple.test/", "https://shop.exämple.test/"),
         ("gsc", "https://ExÄmple.test/", "sc-domain:xn--exmple-cua.test"),
         ("gsc", "sc-domain:xn--exmple-cua.test", "https://www.EXÄMPLE.test/blog/"),
+        # Deviation character: IDNA2003 maps ß to ss, UTS-46 non-transitional keeps xn--fa-hia.
+        *(
+            (key, first, second)
+            for key in ("gsc", "bing_wmt")
+            for first, second in permutations(
+                ("https://faß.test/", "https://xn--fa-hia.test/", "https://fass.test/"), 2
+            )
+        ),
     ],
 )
 def test_idn_site_alias_of_another_customer_is_refused(world, key, first, second):
@@ -929,13 +938,23 @@ def test_site_hosts_compare_in_idna_form(first, second):
     assert service.same_resource("site", second, first)
 
 
-@pytest.mark.parametrize("resource", ["https://test/", "https://localhost/", "https://a..b.test/"])
+@pytest.mark.parametrize(
+    "resource",
+    [
+        "https://test/",
+        "https://localhost/",
+        "https://a..b.test/",
+        "https://exämple.test../",
+        "https://alpha-plumbing.test../",
+    ],
+)
 def test_unnormalisable_or_single_label_site_is_refused(world, resource):
     with pytest.raises(ValueError, match="hostname"):
         bind(world, "alpha", "bing_wmt", resource=resource)
     assert "connectors" not in (store.load(world.root, "alpha") or {})
     # An existing host that cannot be normalised never proves another site distinct.
     assert service.same_resource("site", "https://a..b.test/", "https://bravo-dental.test/")
+    assert service.same_resource("site", "https://exämple.test../", "https://bravo-dental.test/")
 
 
 def test_distinct_sites_and_providers_do_not_conflict(world):

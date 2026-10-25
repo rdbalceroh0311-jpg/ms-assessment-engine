@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+import idna
+
 from ams_assess import register, store
 from ams_assess.connectors import REGISTRY
 from ams_assess.connectors.auth import config_dir, reference_name
@@ -65,20 +67,35 @@ def site_url(resource: str) -> bool:
     return resource.startswith("sc-domain:") or "://" in resource
 
 
-def site_host(resource: str) -> str:
-    """ASCII (IDNA) host of a website property; raises if it cannot be compared safely."""
+def site_hosts(resource: str) -> frozenset[str]:
+    """ASCII host forms of a website property under IDNA2003 and UTS-46 non-transitional
+    processing (they differ for deviation characters such as ß), so any form aliases the
+    site. Raises if the host cannot be compared safely."""
     host = (
         resource.removeprefix("sc-domain:")
         if resource.startswith("sc-domain:")
         else urlsplit(resource).hostname or ""
     )
+    host = host.lower().removesuffix(".")  # One DNS root dot.
     try:
-        host = host.lower().removesuffix(".").encode("idna").decode("ascii").lower()
+        forms = (
+            {host}  # IPv6 literal
+            if ":" in host
+            else {
+                host.encode("idna").decode("ascii").lower(),
+                uts46 := idna.encode(host, uts46=True, transitional=False).decode("ascii"),
+                # The decoded A-label's IDNA2003 form matches hosts already stored mapped (ß→ss).
+                idna.decode(uts46).encode("idna").decode("ascii").lower(),
+            }
+        )
     except UnicodeError:
         raise BindingError("Site hostname cannot be IDNA-normalised") from None
-    if "." not in host and ":" not in host:
-        raise BindingError("Site hostname must be a fully qualified domain or IP address")
-    return host.removeprefix("www.")
+    for form in forms:
+        if "" in form.split(".") and ":" not in form:
+            raise BindingError("Site hostname cannot be IDNA-normalised: empty label")
+        if "." not in form and ":" not in form:
+            raise BindingError("Site hostname must be a fully qualified domain or IP address")
+    return frozenset(form.removeprefix("www.") for form in forms)
 
 
 def same_resource(resource_type: str, first: str, second: str) -> bool:
@@ -86,10 +103,10 @@ def same_resource(resource_type: str, first: str, second: str) -> bool:
     if resource_type != "site" or not (site_url(first) and site_url(second)):
         return first == second
     try:
-        a, b = site_host(first), site_host(second)
+        pairs = [(a, b) for a in site_hosts(first) for b in site_hosts(second)]
     except BindingError:
         return True  # A host that cannot be normalised cannot prove the sites differ.
-    return a == b or a.endswith("." + b) or b.endswith("." + a)
+    return any(a == b or a.endswith("." + b) or b.endswith("." + a) for a, b in pairs)
 
 
 def set_binding(
@@ -111,7 +128,7 @@ def set_binding(
         else ""
     )
     if spec.resource_type == "site" and site_url(resource):
-        site_host(resource)  # Refuse a host that cannot be compared for isolation.
+        site_hosts(resource)  # Refuse a host that cannot be compared for isolation.
     reason = redact(register.safe_text(reason))
     if force and not reason:
         raise BindingError("--force requires a recorded non-secret --reason")
