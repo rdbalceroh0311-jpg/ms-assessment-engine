@@ -55,7 +55,9 @@ assessment, the date it was given, and a scope covering the target, and the comm
 evidence history); `--revoke` removes it. The local interface's connector test/collect buttons need
 the same recorded authorisation. Existing customer records load unchanged; no migration is needed.
 Only test fixture servers and the test suite's synthetic customers are exempt; no environment
-variable or customer setting can exempt a customer.
+variable or customer setting can exempt a customer. `connect <key> auth|list-resources|bind` are
+operator setup with the operator's own credentials and need no customer run authorisation;
+only `test` and `collect` read customer data and require it.
 
 ### Run the next customer assessment
 
@@ -1463,7 +1465,10 @@ address for every allowed port and root-dot spelling; SiteOne 2.5.1 applies this
 crawl requests (pages, robots.txt, in-host redirects), so DNS changes during the crawl cannot
 move it. Its DNS and SSL/TLS analyzers resolve and connect by themselves, ignoring `--resolve`,
 and are disabled (TLS is checked by the guarded security module). Responses from any
-destination other than a pinned host/port are discarded and flagged in crawl evidence.
+destination other than a pinned host/port (an explicit `:0` included) are discarded and flagged
+in crawl evidence, as are rows of SiteOne's per-URL tables (SEO, headings, 404, redirects,
+external links) naming such a destination; its crawl-wide header/security aggregates are
+discarded whenever any response was.
 **Residual SiteOne limits:** which URLs SiteOne requests is still decided by its own
 domain/URL filters rather than the shared per-request guard; a SiteOne filter defect could
 send a request elsewhere before its evidence is discarded. SiteOne 2.5.1 cannot pin IPv6, so

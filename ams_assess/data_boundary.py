@@ -3,6 +3,7 @@
 import base64
 import contextlib
 import hashlib
+import html
 import json
 import logging
 import os
@@ -53,6 +54,15 @@ TOKEN = re.compile(
 # No word boundary: page source may join them to other characters (e.g. "\\nAIza...").
 PUBLIC_KEY = re.compile(r"AIza[\w-]{15,}")
 PUBLIC_KEY_MARK = re.compile(r"\[redacted:google-key:\.\.\.[\w-]{4}:sha256-[0-9a-f]{8}\]")
+# Page source may also spell a key with HTML character references, JS/JSON escapes or
+# percent escapes, nested or mixed ("AIza&#83;y", "AIza\\u0053y", "AIza&amp;#x53;y").
+_ESCAPED_RUN = re.compile(r"[\w&#;\\{}%-]{19,}")
+_ESCAPE = re.compile(
+    r"&#[0-9]+;?|&#[xX][0-9a-fA-F]+;?|&[A-Za-z][A-Za-z0-9]{1,31};"
+    r"|\\u\{[0-9a-fA-F]{1,6}\}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\.|%[0-9a-fA-F]{2}|.",
+    re.S,
+)
+_CONTROL_ESCAPES = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
 BEARER = re.compile(rf"\b(?:Bearer|bearer|BEARER)\s+{_BEARER_VALUE}")
 _NAMES = (
     r"access_token|refresh_token|id_token|auth_token|client_secret|api[_-]?key|apikey"
@@ -67,7 +77,8 @@ EMAIL = re.compile(r"[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I
 BASIC = re.compile(r"\bBasic\s+([A-Za-z0-9+/]+={0,2})", re.I)
 BASE64 = re.compile(r"(?<![\w+/-])[A-Za-z0-9+/_-]{16,}={0,2}(?![\w+/=-])")
 URL = re.compile(r"https?://[^\s<>\"']+", re.I)
-PERCENT_RUN = re.compile(r"[^\s\"'<>]*%[0-9A-Fa-f]{2}[^\s\"'<>]*")
+# Starts only at a run boundary: a long run without escapes is scanned once, not per offset.
+PERCENT_RUN = re.compile(r"(?<![^\s\"'<>])[^\s\"'<>]*%[0-9A-Fa-f]{2}[^\s\"'<>]*")
 LOG = logging.getLogger(__name__)
 
 
@@ -88,6 +99,48 @@ def public_key_fingerprint(match: re.Match[str]) -> str:
     key = match[0]
     digest = hashlib.sha256(key.encode()).hexdigest()[:8]
     return f"[redacted:google-key:...{key[-4:]}:sha256-{digest}]"
+
+
+def _unescape(unit: str) -> str:
+    if unit.startswith("&"):
+        return html.unescape(unit)
+    if unit.startswith("%"):
+        return chr(int(unit[1:], 16))
+    if unit.startswith(("\\u", "\\x")) and len(unit) > 3:
+        return chr(min(int(unit[2:].strip("{}"), 16), 0x10FFFF))
+    if unit.startswith("\\") and len(unit) == 2:
+        return _CONTROL_ESCAPES.get(unit[1], unit[1])
+    return unit
+
+
+def _escaped_public_keys(value: str) -> str:
+    """Decode escapes only to inspect; replace each encoded key's source span by its print."""
+
+    def run(match: re.Match[str]) -> str:
+        source = match[0]
+        if not any(c in source for c in "&\\%"):
+            return source
+        # spans[i] is the source range that decoded character i came from, across levels.
+        decoded, spans = source, [(i, i + 1) for i in range(len(source))]
+        for _ in range(5):
+            units = [(m[0], m.start(), m.end()) for m in _ESCAPE.finditer(decoded)]
+            if all(len(unit) == 1 for unit, _, _ in units):
+                break
+            parts, next_spans = [], []
+            for unit, start, end in units:
+                for char in _unescape(unit):
+                    parts.append(char)
+                    next_spans.append((spans[start][0], spans[end - 1][1]))
+            decoded, spans = "".join(parts), next_spans
+        result, position = [], 0
+        for key in PUBLIC_KEY.finditer(decoded):
+            start, end = spans[key.start()][0], spans[key.end() - 1][1]
+            if start >= position:
+                result += [source[position:start], public_key_fingerprint(key)]
+                position = end
+        return "".join(result) + source[position:]
+
+    return _ESCAPED_RUN.sub(run, value)
 
 
 def _assignment(match: re.Match[str]) -> str:
@@ -129,6 +182,7 @@ def _encoded_spans(value: str, secrets: tuple[str, ...]) -> str:
 
 
 def text(value: str, secrets: tuple[str, ...] = (), *, ai: bool = False) -> str:
+    value = _escaped_public_keys(value)
     value = _encoded_spans(value, secrets)
     for secret in sorted((s for s in secrets if s), key=len, reverse=True):
         variants = {

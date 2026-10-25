@@ -138,7 +138,7 @@ def synthetic_customers(monkeypatch):
     monkeypatch.setattr(
         authorisation,
         "_fixture_customers",
-        frozenset({"synthetic", "test", "acme", "beta", "other", "example"}),
+        frozenset({"synthetic", "test", "acme", "beta", "other", "example", "alpha", "bravo"}),
     )
 
 

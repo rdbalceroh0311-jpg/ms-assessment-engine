@@ -32,7 +32,7 @@ def context(tmp_path, target, tools=None):
     )
 
 
-def fake_crawler(monkeypatch, ctx, rows):
+def fake_crawler(monkeypatch, ctx, rows, tables=None):
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
     binary.parent.mkdir(parents=True, exist_ok=True)
     binary.touch()
@@ -42,7 +42,8 @@ def fake_crawler(monkeypatch, ctx, rows):
 
     def crawler(command, **kwargs):
         commands.append(command)
-        return SimpleNamespace(returncode=0, stderr="", stdout=json.dumps({"results": rows}))
+        output = {"results": rows, "tables": tables or {}}
+        return SimpleNamespace(returncode=0, stderr="", stdout=json.dumps(output))
 
     monkeypatch.setattr(siteone.subproc, "run", crawler)
     return commands
@@ -121,6 +122,107 @@ def test_responses_from_unvalidated_destinations_are_discarded(tmp_path, monkeyp
     ]
     assert not any("scope-escape" in u for f in result.findings for u in f.urls)
     assert "3 SiteOne responses from unvalidated destinations discarded" in result.reason
+
+
+def test_explicit_port_zero_is_not_the_default_port():
+    pins = {"example.com": SYNTHETIC_PUBLIC_IP}
+    assert siteone.pinned_destination("https://example.com/", pins, (443,))
+    assert siteone.pinned_destination("https://example.com:443/", pins, (443,))
+    for url in ("https://example.com:0/", "http://example.com:0/", "https://example.com:8443/"):
+        assert not siteone.pinned_destination(url, pins, (80, 443))
+
+
+def security_rows():
+    return [
+        {
+            "header": "Content-Security-Policy",
+            "critical": "1",
+            "warning": "0",
+            "recommendation": "Content-Security-Policy header is not set.",
+        }
+    ]
+
+
+def test_table_rows_from_unvalidated_destinations_are_discarded(tmp_path, monkeypatch):
+    ctx = context(tmp_path, "https://example.com/")
+    rows = [
+        {"url": "https://example.com/", "status": "200", "type": 1},
+        {"url": "https://other.example/x", "status": "200", "type": 1},
+    ]
+    page = {"title": "Home", "h1": "Home", "description": "Fixture", "robotsIndex": "1"}
+    empty = {"title": "", "h1": "", "description": "", "robotsIndex": "0"}
+    tables = {
+        "seo": {
+            "rows": [
+                {"urlPathAndQuery": "/", **page},
+                {"urlPathAndQuery": "https://other.example/x", **empty},
+                {"urlPathAndQuery": "http://127.0.0.1:8080/admin", **empty},
+            ]
+        },
+        "seo-headings": {
+            "rows": [
+                {"urlPathAndQuery": "/", "headings": "<h1> Home"},
+                {"urlPathAndQuery": "https://other.example/x", "headings": "<h1> Other"},
+            ]
+        },
+        "404": {
+            "rows": [
+                {"url": "https://example.com/missing", "statusCode": "404"},
+                {"url": "http://127.0.0.1/admin", "statusCode": "404"},
+            ]
+        },
+        "redirects": {
+            "rows": [
+                {"url": "https://www.example.com/old", "targetUrl": "https://other.example/"},
+                {"url": "https://example.com:0/old", "targetUrl": "/"},
+            ]
+        },
+        "external-urls": {
+            "rows": [
+                {"url": "https://other.example/", "foundOn": "https://example.com/"},
+                {"url": "https://example.com/", "foundOn": "http://10.0.0.1/"},
+            ]
+        },
+        # Crawl aggregates include the discarded response, so none of them can be used.
+        "security": {"rows": security_rows()},
+        "headers": {"rows": [{"header": "Server", "occurrences": "2"}]},
+    }
+    fake_crawler(monkeypatch, ctx, rows, tables)
+    result = siteone.run(ctx)
+    assert result.status == "ok"
+    tabled = {e.description: e.data for e in result.evidence}
+    assert tabled["SiteOne 404 table"] == [tables["404"]["rows"][0]]
+    assert tabled["SiteOne redirects table"] == [tables["redirects"]["rows"][0]]
+    assert tabled["SiteOne external-urls table"] == [tables["external-urls"]["rows"][0]]
+    assert tabled["SiteOne seo-headings table"] == [tables["seo-headings"]["rows"][0]]
+    assert "SiteOne headers table" not in tabled
+    seo = [e for e in result.evidence if e.description == "SiteOne SEO metadata"]
+    assert [e.url for e in seo] == ["https://example.com/"]
+    assert not any(e.description.startswith("SiteOne header") for e in result.evidence)
+    keys = [f.check_key for f in result.findings]
+    assert not [k for k in keys if k.startswith(("missing-", "indexing-", "header-"))]
+    judged = json.dumps([i.model_dump() for i in [*result.findings, *result.outcomes]])
+    assert not any(host in judged for host in ("other.example", "127.0.0.1", "10.0.0.1"))
+    assert tabled["SiteOne table rows from unvalidated destinations discarded"]["rows"] == [
+        "seo: https://other.example/x",
+        "seo: http://127.0.0.1:8080/admin",
+        "seo-headings: https://other.example/x",
+        "404: http://127.0.0.1/admin",
+        "redirects: https://example.com:0/old",
+        "external-urls: http://10.0.0.1/",
+        "security table (aggregate)",
+        "headers table (aggregate)",
+    ]
+    assert "8 SiteOne table rows from unvalidated destinations discarded" in result.reason
+
+
+def test_crawl_aggregates_are_kept_when_every_response_was_pinned(tmp_path, monkeypatch):
+    ctx = context(tmp_path, "https://example.com/")
+    rows = [{"url": "https://example.com/", "status": "200", "type": 1}]
+    fake_crawler(monkeypatch, ctx, rows, {"security": {"rows": security_rows()}})
+    result = siteone.run(ctx)
+    assert any(f.check_key == "header-missing:content-security-policy" for f in result.findings)
+    assert "table rows" not in result.reason
 
 
 class Recording(ThreadingHTTPServer):

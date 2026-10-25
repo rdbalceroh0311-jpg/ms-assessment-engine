@@ -3,4 +3,9 @@
 <script type="text/plain" data-consent="maps" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyFAKE-fixture_key0000000000000Wxyz&callback=initMap"></script>
 <script>window.fixtureMaps = {apiKey: "AIzaSyFAKE-fixture_key0000000000000Wxyz", zoom: 14};</script>
 <div class="map" data-src="https://www.google.com/maps/embed/v1/place?key=AIzaSyFAKE-fixture_key0000000000000Wxyz&q=Sydney">Map hidden until consent.</div>
+<!-- The same FAKE key spelt with HTML character references, JS/JSON escapes and mixed forms. -->
+<div class="map" data-embed="https://www.google.com/maps/embed/v1/place?key=AIza&#83;yFAKE-fixture&#x5F;key0000000000000Wxyz&amp;q=Sydney"></div>
+<p>Maps support reference 2000: AIza&amp;#x53;yFAKE-fixture&amp;lowbar;key0000000000000Wxyz</p>
+<script>window.fixtureMapsEscaped = {key: "AIza\u0053yFAKE-fixture_key0000000000000Wxyz", alt: "\x41Iza\x53yFAKE-fixture\u{5f}key0000000000000Wxyz", mixed: "AIza\u0053y&#70;AKE-fixture%5Fkey0000000000000Wxyz"};</script>
+<script type="application/json" id="maps-config">{"nested": "AIza\\u0053yFAKE-fixture_key0000000000000Wxyz"}</script>
 </main><footer><p>Fictional fixture for AMS testing. No real business, customer or key.</p></footer></body></html>

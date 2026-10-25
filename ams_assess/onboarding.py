@@ -15,7 +15,13 @@ SEQUENCE = (
         "Create customer",
         "ams-assess customer --customer {c} --name '<name>' --website <url>",
     ),
-    ("discover", "Discover systems", "ams-assess run --customer {c} --target <url> --no-ai"),
+    (
+        "discover",
+        "Discover systems",
+        "ams-assess authorise --customer {c} --authorised-by '<who>' --date <YYYY-MM-DD> "
+        "--scope <host> --scope connectors, then run --customer {c} --target <url> --no-ai "
+        "--confirm-authorisation",
+    ),
     (
         "ownership",
         "Confirm ownership",
@@ -37,8 +43,12 @@ SEQUENCE = (
         "ams-assess connect <connector> list-resources --credential-ref "
         "<name>, then bind --customer {c} --resource <id>",
     ),
-    ("test", "Test", "ams-assess connect <connector> test --customer {c}"),
-    ("collect", "Collect", "ams-assess connect <connector> collect --customer {c}"),
+    ("test", "Test", "ams-assess connect <connector> test --customer {c} --confirm-authorisation"),
+    (
+        "collect",
+        "Collect",
+        "ams-assess connect <connector> collect --customer {c} --confirm-authorisation",
+    ),
     ("report", "Report", "ams-assess report --customer {c}"),
 )
 

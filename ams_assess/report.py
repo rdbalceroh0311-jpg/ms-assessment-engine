@@ -17,6 +17,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from markdown.inlinepatterns import InlineProcessor
 from markdown.treeprocessors import Treeprocessor
 
+from ams_assess import data_boundary
 from ams_assess.ai import PHASES
 from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
 from ams_assess.connectors import REGISTRY as CONNECTORS
@@ -336,7 +337,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 
 
 def mdtext(value: object) -> str:
-    value = html.unescape(" ".join(str(value).split()))
+    # Unescaping may reveal a credential or key that was stored encoded: sanitise again.
+    value = data_boundary.text(html.unescape(" ".join(str(value).split())))
     return re.sub(r"([\\`*_{}\[\]#|<>])", r"\\\1", value)
 
 

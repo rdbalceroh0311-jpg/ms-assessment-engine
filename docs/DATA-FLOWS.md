@@ -10,6 +10,8 @@ HTML/PDF escaping and the local UI remain separate controls.
 Nothing below happens for a customer until its profile records who authorised the assessment,
 when, and a scope covering the target or connected reads, and the CLI is given
 `--confirm-authorisation` (see the README). Test fixtures are the only exemption.
+`connect <key> auth|list-resources|bind` use the operator's own credentials for setup and
+do not require a customer's run authorisation; only `test` and `collect` do.
 
 | Operation | Destination | Outbound data and purpose |
 | --- | --- | --- |
@@ -67,8 +69,14 @@ and secret assignments are redacted, including URL-encoded and base64 representa
 Public third-party browser keys found in customer page source (Google `AIza...` keys) are
 replaced everywhere evidence is saved, reported, shown or sent to AI by
 `[redacted:google-key:...<last 4>:sha256-<8 hex>]`, so a finding remains traceable to the
-key without storing it. An operator's own configured key is fully redacted without a
-fingerprint; a percent-encoded key is redacted as a whole segment, also without a fingerprint.
+key without storing it. The same applies when page source spells the key with HTML
+character references (`&#83;`, `&#x53;`, named), JS/JSON escapes (`\u0053`, `\x53`,
+`\u{53}`), percent escapes, or nested/mixed forms: these are decoded only to inspect,
+and just the key's own source span is replaced. Report rendering unescapes HTML entities
+for display and sanitises the result again, so it cannot re-create a key. An operator's own
+configured key is fully redacted without a fingerprint; a key inside a percent-encoded
+segment that also decodes to a secret assignment (e.g. `key%3D...`) is redacted with that
+whole segment, without a fingerprint.
 This is pattern/known-value redaction, not a universal detector for arbitrary disguised
 secrets or personal names embedded in free prose. Do not put private inventories into
 public page text or customer narrative fields.

@@ -156,10 +156,54 @@ def pin_hosts(site_url: str, hosts: set[str]) -> tuple[dict[str, str], list[str]
 def pinned_destination(url: str, pins: dict[str, str], ports: tuple[int, ...]) -> bool:
     try:
         parts = urlsplit(url)
-        port = parts.port or {"http": 80, "https": 443}.get(parts.scheme)
+        # An explicit port (including :0) is compared as written, never as the default.
+        port = {"http": 80, "https": 443}.get(parts.scheme) if parts.port is None else parts.port
     except ValueError:
         return False
     return (parts.hostname or "").removesuffix(".") in pins and port in ports
+
+
+# Derived tables naming the crawled response (or, for external links, the page they were
+# found on) each row describes. Aggregate tables mix every response and name none.
+TABLE_URLS = {
+    "seo": "urlPathAndQuery",
+    "seo-headings": "urlPathAndQuery",
+    "redirects": "url",
+    "404": "url",
+    "external-urls": "foundOn",
+}
+AGGREGATE_TABLES = ("security", "headers", "headers-values")
+
+
+def pinned_tables(
+    tables: Any, site_url: str, pins: dict[str, str], ports: tuple[int, ...], mixed: bool
+) -> tuple[dict[str, Any], list[str]]:
+    """Keep table rows from pinned destinations; drop aggregates that include others."""
+    kept: dict[str, Any] = {}
+    discarded: list[str] = []
+    for name, table in (tables if isinstance(tables, dict) else {}).items():
+        rows = table.get("rows") if isinstance(table, dict) else None
+        if not isinstance(rows, list):
+            continue
+        rows = [row for row in rows if isinstance(row, dict)]
+        if name in AGGREGATE_TABLES and mixed:
+            discarded += [f"{name} table (aggregate)"] if rows else []
+            continue
+        if name in TABLE_URLS:
+            outside = [
+                row
+                for row in rows
+                if not pinned_destination(
+                    urljoin(site_url, str(row.get(TABLE_URLS[name], "/"))), pins, ports
+                )
+            ]
+            discarded += [
+                f"{name}: {clean_url(urljoin(site_url, str(row.get(TABLE_URLS[name], '/'))))}"
+                for row in outside
+            ]
+            rows = [row for row in rows if row not in outside]
+        kept[name] = {**table, "rows": rows}
+    return kept, discarded
 
 
 def run(ctx: Context) -> ModuleResult:
@@ -289,6 +333,16 @@ def run(ctx: Context) -> ModuleResult:
             {"urls": [clean_url(str(r.get("url", ""))) for r in outside][:50]},
         )
         limitation += f"; {len(outside)} SiteOne responses from unvalidated destinations discarded"
+    tables, discarded = pinned_tables(data.get("tables"), ctx.site_url, pins, ports, bool(outside))
+    if discarded:
+        result.add_evidence(
+            ctx.site_url,
+            "SiteOne table rows from unvalidated destinations discarded",
+            {"rows": discarded[:50]},
+        )
+        limitation += (
+            f"; {len(discarded)} SiteOne table rows from unvalidated destinations discarded"
+        )
     if len(rows) == 1 and 300 <= status_code(rows[0].get("status")) < 400:
         result.add_evidence(ctx.site_url, "SiteOne crawled only a redirect", rows[0])
         result.status = "error"
@@ -372,7 +426,6 @@ def run(ctx: Context) -> ModuleResult:
                 urls=[url],
             )
     ctx.pages = list(dict.fromkeys(ctx.pages))[: ctx.max_pages]
-    tables = data.get("tables", {})
     for row in tables.get("seo", {}).get("rows", []):
         url = urljoin(ctx.site_url, row.get("urlPathAndQuery", "/"))
         eid = result.add_evidence(url, "SiteOne SEO metadata", row)
