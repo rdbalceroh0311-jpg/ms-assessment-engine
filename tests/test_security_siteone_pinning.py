@@ -299,3 +299,65 @@ def test_real_siteone_uses_validated_address_when_its_resolver_answers_different
     # Self-resolving analyzers did not run, so they made no lookups or connections.
     assert "dns" not in raw.get("tables", {}) and "certificate-info" not in raw.get("tables", {})
     assert not any("ssl" in item.get("aplCode", "") for item in raw["summary"]["items"])
+
+
+class Pages(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+    def do_GET(self):
+        links = "<a href='/inside'>In</a><a href='/outside'>Out</a>" if self.path == "/" else ""
+        title = self.path.strip("/") or "home"
+        body = f"<html><head><title>{title}</title></head><body><h1>{title}</h1>{links}</body>"
+        self.send_response(200 if self.path in {"/", "/inside", "/outside"} else 404)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(body.encode())
+
+
+def test_real_siteone_relative_table_rows_are_tied_to_pinned_responses(tmp_path, monkeypatch):
+    """Real SiteOne tables name only relative paths ("/", "/outside"). When a response is
+    discarded, its path's rows cannot be attributed to the pinned host and are dropped."""
+    binary = ROOT / "tools/siteone/siteone-crawler/siteone-crawler"
+    if not binary.is_file():
+        pytest.skip("Run scripts/setup.sh for SiteOne")
+    site = ThreadingHTTPServer(("127.0.0.1", 0), Pages)
+    threading.Thread(target=site.serve_forever, daemon=True).start()
+    origin = f"http://127.0.0.1:{site.server_port}"
+    monkeypatch.setattr(network, "_fixture_origins", frozenset({origin}))
+    monkeypatch.setattr(
+        coverage,
+        "seed_inventory",
+        lambda _: {"seeds": [], "seed_limit": 10, "seeds_over_limit": []},
+    )
+    real, captured = siteone.subproc.run, {}
+
+    def crawler(command, **kwargs):
+        process = real(command, **kwargs)
+        output = json.loads(process.stdout)
+        captured["tables"] = output["tables"]
+        # As if SiteOne had answered /outside from a destination that was never validated.
+        for row in output["results"]:
+            if row["url"].endswith("/outside"):
+                row["url"] = "http://unvalidated.example/outside"
+        process.stdout = json.dumps(output)
+        return process
+
+    monkeypatch.setattr(siteone.subproc, "run", crawler)
+    ctx = context(tmp_path, origin + "/", tools=ROOT / "tools")
+    try:
+        result = siteone.run(ctx)
+    finally:
+        site.shutdown()
+        site.server_close()
+    assert result.status == "ok", result.reason
+    real_paths = {row["urlPathAndQuery"] for row in captured["tables"]["seo"]["rows"]}
+    assert real_paths == {"/", "/inside", "/outside"}  # SiteOne's actual relative shape
+    seo = {e.url for e in result.evidence if e.description == "SiteOne SEO metadata"}
+    assert seo == {origin + "/", origin + "/inside"}
+    headings = next(e for e in result.evidence if e.description == "SiteOne seo-headings table")
+    assert {row["urlPathAndQuery"] for row in headings.data} == {"/", "/inside"}
+    discarded = next(e for e in result.evidence if "table rows from unvalidated" in e.description)
+    assert {"seo: /outside", "seo-headings: /outside"} <= set(discarded.data["rows"])
+    judged = json.dumps([i.model_dump() for i in [*result.findings, *result.outcomes]])
+    assert "/outside" not in judged

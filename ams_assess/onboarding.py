@@ -9,6 +9,8 @@ from typing import Any
 
 from ams_assess.connectors.service import rows as connector_rows
 
+# Each step's commands, joined by ", then ", are exact `ams-assess` invocations;
+# <placeholders> are replaced by the operator and [bracketed] options vary by connector.
 SEQUENCE = (
     (
         "customer",
@@ -19,8 +21,8 @@ SEQUENCE = (
         "discover",
         "Discover systems",
         "ams-assess authorise --customer {c} --authorised-by '<who>' --date <YYYY-MM-DD> "
-        "--scope <host> --scope connectors, then run --customer {c} --target <url> --no-ai "
-        "--confirm-authorisation",
+        "--scope <host> --scope connectors, then ams-assess run --customer {c} --target <url> "
+        "--no-ai --confirm-authorisation",
     ),
     (
         "ownership",
@@ -35,13 +37,14 @@ SEQUENCE = (
     (
         "authenticate",
         "Authenticate (CLI)",
-        "ams-assess connect <connector> auth --credential-ref <name> ...",
+        "ams-assess connect <connector> auth --credential-ref <name> [connector auth options]",
     ),
     (
         "bind",
         "Bind resource",
-        "ams-assess connect <connector> list-resources --credential-ref "
-        "<name>, then bind --customer {c} --resource <id>",
+        "ams-assess connect <connector> list-resources --credential-ref <name>, then "
+        "ams-assess connect <connector> bind --customer {c} --credential-ref <name> "
+        "--resource <id>",
     ),
     ("test", "Test", "ams-assess connect <connector> test --customer {c} --confirm-authorisation"),
     (

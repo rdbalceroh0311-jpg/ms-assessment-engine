@@ -164,7 +164,8 @@ def pinned_destination(url: str, pins: dict[str, str], ports: tuple[int, ...]) -
 
 
 # Derived tables naming the crawled response (or, for external links, the page they were
-# found on) each row describes. Aggregate tables mix every response and name none.
+# found on) each row describes. SEO tables name only a relative path and query, which any
+# crawled host could have served. Aggregate tables mix every response and name none.
 TABLE_URLS = {
     "seo": "urlPathAndQuery",
     "seo-headings": "urlPathAndQuery",
@@ -175,10 +176,36 @@ TABLE_URLS = {
 AGGREGATE_TABLES = ("security", "headers", "headers-values")
 
 
+def path_and_query(url: str) -> str:
+    parts = urlsplit(url)
+    return (parts.path or "/") + ("?" + parts.query if parts.query else "")
+
+
 def pinned_tables(
-    tables: Any, site_url: str, pins: dict[str, str], ports: tuple[int, ...], mixed: bool
+    tables: Any,
+    site_url: str,
+    pins: dict[str, str],
+    ports: tuple[int, ...],
+    responses: list[dict[str, Any]],
+    outside: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], list[str]]:
-    """Keep table rows from pinned destinations; drop aggregates that include others."""
+    """Keep rows tied to pinned responses; drop aggregates when any response was discarded.
+
+    With a discarded response, a relative path is kept only if it was fetched from a
+    pinned destination and never from a discarded one; otherwise its origin is unknown.
+    """
+    pinned_paths = {path_and_query(str(r.get("url", ""))) for r in responses}
+    unpinned_paths = {path_and_query(str(r.get("url", ""))) for r in outside}
+
+    def tied(value: str) -> bool:
+        parts = urlsplit(value)
+        if not pinned_destination(urljoin(site_url, value), pins, ports):
+            return False
+        if parts.scheme or parts.netloc or not outside:
+            return True
+        path = path_and_query(value)
+        return path in pinned_paths and path not in unpinned_paths
+
     kept: dict[str, Any] = {}
     discarded: list[str] = []
     for name, table in (tables if isinstance(tables, dict) else {}).items():
@@ -186,22 +213,22 @@ def pinned_tables(
         if not isinstance(rows, list):
             continue
         rows = [row for row in rows if isinstance(row, dict)]
-        if name in AGGREGATE_TABLES and mixed:
+        if name in AGGREGATE_TABLES and outside:
             discarded += [f"{name} table (aggregate)"] if rows else []
             continue
         if name in TABLE_URLS:
-            outside = [
-                row
-                for row in rows
-                if not pinned_destination(
-                    urljoin(site_url, str(row.get(TABLE_URLS[name], "/"))), pins, ports
-                )
-            ]
-            discarded += [
-                f"{name}: {clean_url(urljoin(site_url, str(row.get(TABLE_URLS[name], '/'))))}"
-                for row in outside
-            ]
-            rows = [row for row in rows if row not in outside]
+            column, keep = TABLE_URLS[name], []
+            for row in rows:
+                value = str(row.get(column, "/"))
+                try:
+                    accepted = tied(value)
+                except ValueError:
+                    accepted = False
+                if accepted:
+                    keep.append(row)
+                else:
+                    discarded.append(f"{name}: {clean_url(value)}")
+            rows = keep
         kept[name] = {**table, "rows": rows}
     return kept, discarded
 
@@ -333,7 +360,7 @@ def run(ctx: Context) -> ModuleResult:
             {"urls": [clean_url(str(r.get("url", ""))) for r in outside][:50]},
         )
         limitation += f"; {len(outside)} SiteOne responses from unvalidated destinations discarded"
-    tables, discarded = pinned_tables(data.get("tables"), ctx.site_url, pins, ports, bool(outside))
+    tables, discarded = pinned_tables(data.get("tables"), ctx.site_url, pins, ports, rows, outside)
     if discarded:
         result.add_evidence(
             ctx.site_url,

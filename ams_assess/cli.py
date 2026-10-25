@@ -114,8 +114,7 @@ def profile_changes(args: argparse.Namespace) -> dict:
     return changes
 
 
-@subproc.cancellation()
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ams-assess", description="AMS evidence-backed assessment"
     )
@@ -277,6 +276,12 @@ def main(argv: list[str] | None = None) -> int:
         help="With --from-md: the report revision the edit started from (else taken from its "
         "reports/<revision>/ directory, or recorded as unknown)",
     )
+    return parser
+
+
+@subproc.cancellation()
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     if args.command in {"connect", "connectors"}:
         return safe_dispatch(args, data_root(), parser)

@@ -1,10 +1,13 @@
 """Public third-party keys in customer page source: fingerprinted, never stored or sent."""
 
+import base64
 import functools
 import hashlib
 import html
 import http.server
 import json
+import logging
+import random
 import re
 import threading
 import time
@@ -21,7 +24,7 @@ from test_customer_isolation import ui
 from test_security_ai import RecordingAI
 
 from ams_assess import cli, report, store
-from ams_assess.data_boundary import sanitise, text
+from ams_assess.data_boundary import sanitise, text, unescape_html
 
 pytestmark = pytest.mark.usefixtures("allow_local_fixture")
 
@@ -119,6 +122,111 @@ def test_report_rendering_cannot_recreate_an_escaped_key(encoded):
     page = markdown.markdown(rendered)
     assert not leaks(rendered) and not leaks(page), page
     assert FINGERPRINT.replace("[", "\\[").replace("]", "\\]") in rendered
+
+
+def html_levels(levels):
+    """The key with its "S" as a character reference, HTML-encoded `levels` times in all."""
+    source = "AIza&#83;yFAKE-fixture_key0000000000000Wxyz"
+    for _ in range(levels - 1):
+        source = source.replace("&", "&amp;")
+    return source
+
+
+# Review round 2: each recovered the key after one decode, or raised.
+@pytest.mark.parametrize(
+    "source",
+    [
+        "AIza\\u{00000053}yFAKE-fixture_key0000000000000Wxyz",
+        "AIza\\u{0000000000000000000053}yFAKE-fixture_key0000000000000Wxyz",
+        "AIza&#00000000000083;yFAKE-fixture_key0000000000000Wxyz",
+        "AIza&#x0000000000053;yFAKE-fixture_key0000000000000Wxyz",
+        "AIza&#" + "0" * 4400 + "83;yFAKE-fixture_key0000000000000Wxyz",
+        html_levels(6),
+        html_levels(20),
+    ],
+)
+def test_review_escaped_key_inputs_are_fingerprinted(source):
+    cleaned = text(source)
+    assert cleaned == FINGERPRINT
+    assert not leaks(report.mdtext(source))
+
+
+def test_encoding_nested_beyond_the_decode_bound_is_withheld():
+    for source in (html_levels(70), f"maps key {html_levels(200)} here"):
+        cleaned = text(source)
+        assert "fixture" not in cleaned and "Wxyz" not in cleaned
+        assert "[redacted]" in cleaned
+
+
+@pytest.mark.parametrize(
+    "encode", [base64.b64encode, base64.urlsafe_b64encode], ids=["base64", "base64url"]
+)
+def test_key_inside_a_base64_payload_is_redacted(encode):
+    payload = encode(("prefix" + FAKE_KEY).encode()).decode()
+    for source in (
+        f"data:text/plain;base64,{payload}",
+        f'<img alt="map" src="data:application/octet-stream;base64,{payload}">',
+        f"config={payload}&zoom=14",
+    ):
+        cleaned = text(source)
+        assert payload not in cleaned and payload.rstrip("=") not in cleaned
+        assert "[redacted]" in cleaned
+
+
+ESCAPED_SECRETS = [
+    ("sk&#45;ant-FAKEfixture000000000000000", "FAKEfixture000000000000000"),
+    ("\\u0073k-FAKEfixture0000000000000000", "FAKEfixture0000000000000000"),
+    ("gh&#112;_FAKEfixture000000000000000000", "FAKEfixture000000000000000000"),
+    ("ghp&#x5f;FAKEfixture000000000000000000", "FAKEfixture000000000000000000"),
+    ("ya29&#46;FAKE-fixture-token", "FAKE-fixture-token"),
+    ("GOCSPX&#45;FAKEfixture000", "FAKEfixture000"),
+    ("CANARY&#45;FAKE-fixture-canary", "FAKE-fixture-canary"),
+    ("Bearer&#32;FAKEfixtureToken0000", "FAKEfixtureToken0000"),
+    ("token&#61;FAKEfixture1234", "FAKEfixture1234"),
+    ("api\\x5fkey=FAKEfixture1234", "FAKEfixture1234"),
+    ("Basic&#32;" + base64.b64encode(b"user:FAKEpass").decode(), "dXNlcjpGQUtFcGFzcw"),
+]
+
+
+@pytest.mark.parametrize("source, body", ESCAPED_SECRETS)
+def test_every_secret_detector_runs_on_the_decoded_view(source, body):
+    for template in ("{}", "page\\n{}\\n", '{{"auth": "{}"}}'):
+        cleaned = text(template.format(source))
+        assert all(body not in view for view in decoded_views(cleaned)), cleaned
+
+
+def test_configured_secret_is_removed_before_fingerprinting():
+    assert text(FAKE_KEY + "&#32;", (FAKE_KEY,)) == "[redacted]&#32;"
+    # Also when the operator's own key is spelt with escapes: redacted, never fingerprinted.
+    assert text(html_levels(2), (FAKE_KEY,)) == "[redacted]"
+
+
+FRAGMENTS = [
+    "&", "#", "x", "X", ";", "0", "00000", "9", "83", "5f", "\\", "\\u", "\\x", "{", "}",
+    "u{", "%", "%2", "%25", "%5F", "&amp;", "&copy;", "&lowbar;", "&#", "&#x", "&#0", "AIza",
+    "Sy", "FAKE", "_", "-", "=", "key", "token", "Bearer ", "sk-", "ghp_", "ya29.", " ", "\n",
+    "'", '"', "<", ">", "é", "\U0001f600", "data:;base64,", "QUl6YV", "A" * 20,
+]  # fmt: skip
+
+
+def test_sanitising_never_raises_on_any_input(caplog):
+    caplog.set_level(logging.WARNING, logger="ams_assess.data_boundary")
+    review = ["100%_satisfaction_guaranteed&copy;", "Price%25_guaranteed_%2520today"]
+    for source in review:
+        assert text(source) == source
+    huge = "&#" + "0" * 4400 + "83;", "&#x" + "0" * 5000 + "41", "\\u{" + "0" * 5000 + "41}"
+    generator = random.Random(2026)
+    samples = [
+        "".join(generator.choice(FRAGMENTS) for _ in range(generator.randint(1, 60)))
+        for _ in range(3000)
+    ]
+    for source in [*review, *huge, *samples]:
+        assert isinstance(text(source), str)
+        assert isinstance(text(source, ("FAKE-secret",), ai=True), str)
+        assert isinstance(unescape_html(source), str)
+        assert isinstance(report.mdtext(source), str)
+    # Total by construction: the fail-closed guard for an unexpected error never ran.
+    assert "could not be inspected" not in caplog.text
 
 
 def test_fingerprint_never_extends_trailing_assignment_value_or_configured_secret():

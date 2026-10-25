@@ -1,9 +1,13 @@
 """Onboarding projection and UI section over the existing store; synthetic customers only."""
 
+import re
+import shlex
+
+import pytest
 from test_customer_isolation import BUSINESSES, bind, execute, ui
 from test_customer_isolation import world as world
 
-from ams_assess import onboarding, register, store
+from ams_assess import cli, onboarding, register, store
 from ams_assess.connectors import REGISTRY
 from ams_assess.report import render_customer
 
@@ -146,3 +150,63 @@ def test_ui_shows_onboarding_for_the_selected_customer_only(world):
     assert "Blocked" not in page or "Blocked — provider" in page
     assert BUSINESSES["bravo"].resources["gsc"] not in page
     assert "--customer bravo" not in page
+
+
+def parse(command):
+    """The real CLI parser and the dispatch-time requirements it leaves to each command."""
+    argv = shlex.split(command)
+    if argv[:2] == ["uv", "run"]:
+        argv = argv[2:]
+    assert argv[0] == "ams-assess", command
+    args = cli.build_parser().parse_args(argv[1:])
+    if args.command == "connect":
+        if args.action in {"auth", "list-resources", "bind"}:
+            assert args.credential_ref, command
+        if args.action in {"bind", "test", "collect"}:
+            assert args.customer, command
+        if args.action == "bind":
+            assert args.resource, command
+        if args.action in {"test", "collect"}:
+            assert args.confirm_authorisation, command
+    if args.command == "run":
+        assert args.customer and args.target and args.confirm_authorisation, command
+    if args.command == "authorise":
+        assert args.authorised_by and args.date and args.scope, command
+    return args
+
+
+@pytest.mark.parametrize("connector", sorted(REGISTRY))
+def test_displayed_commands_parse_with_the_real_cli(connector):
+    values = {
+        "<connector>": connector,
+        "<name>": "harbour-demo",
+        "<url>": "https://example.com",
+        "<who>": "Pat Owner",
+        "<YYYY-MM-DD>": "2026-10-01",
+        "<host>": "example.com",
+        "<key>": next(iter(register.PLATFORMS)),
+        "<id>": "properties/1",
+    }
+    parsed = []
+    for _, _, template in onboarding.SEQUENCE:
+        # [bracketed] options vary by connector; each connector's own auth command is below.
+        text = re.sub(r" \[[^\]]*\]", "", template.format(c="alpha"))
+        for placeholder, value in values.items():
+            text = text.replace(placeholder, value)
+        assert "<" not in text, text
+        parsed += [parse(command).command for command in text.split(", then ")]
+    assert parsed == [
+        "customer",
+        "authorise",
+        "run",
+        "register",
+        "register",
+        "connect",
+        "connect",
+        "connect",
+        "connect",
+        "connect",
+        "report",
+    ]
+    auth = re.sub(r"<[^>]*>", "x", REGISTRY[connector].auth_command)
+    assert parse(auth).action == "auth"
