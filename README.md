@@ -1394,11 +1394,15 @@ activate it. New HTTP collectors must use `ams_assess.network`; credential adapt
 exact HTTPS hosts in `ams_assess.egress` as well as their endpoint/method allowlist.
 
 Python fetches and Playwright resources connect to checked IPs with original TLS SNI/hostname
-verification. SiteOne pre-validates targets/seeds and applies a domain/port URL filter to discovered
+verification. Raw redirect destinations are validated before URL normalisation, and browser HTTP
+redirect chains run entirely inside that guarded transport. Redirected documents are marked
+unavailable for the original URL so their content cannot be misattributed. SiteOne pre-validates
+targets/seeds and applies a domain/port URL filter to discovered
 links and redirects. **Residual SiteOne limit:** its external HTTP stack cannot enforce the shared
 per-request IP guard; DNS changes within an allowed domain during crawling remain possible. This
 limitation is recorded in crawl results. Playwright denies WebSockets, service workers, downloads and
-permissions; pages requiring writes/cookies may be incomplete. Reports remove images and unsafe
+permissions; pages requiring writes/cookies may be incomplete. Redirected subresources whose relative
+references depend on the final URL may also render incompletely. Reports remove images and unsafe
 links/raw HTML, allow only the bundled CSS hash and render PDF in an offline browser context.
 No live provider compatibility or customer-site behavior is claimed by these fixture tests.
 

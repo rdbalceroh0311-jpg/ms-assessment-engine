@@ -8,7 +8,7 @@ import ipaddress
 import re
 import socket
 from dataclasses import dataclass
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -138,7 +138,16 @@ def public_client(**kwargs) -> httpx.Client:
     kwargs.setdefault("max_redirects", 5)
     hooks = kwargs.setdefault("event_hooks", {})
     hooks["request"] = [*hooks.get("request", []), lambda r: validate_public_url(str(r.url))]
+    hooks["response"] = [*hooks.get("response", []), validate_redirect]
     return httpx.Client(**kwargs)
+
+
+def validate_redirect(response: httpx.Response) -> None:
+    if response.is_redirect and "location" in response.headers:
+        location = response.headers["location"]
+        if re.search(r"[\x00-\x20\x7f\\]", location):
+            raise UnsafeURL()
+        validate_public_url(urljoin(str(response.url), location))
 
 
 def public_get(url: str, **kwargs) -> httpx.Response:

@@ -1,7 +1,6 @@
 """Ephemeral browser contexts; Chromium never connects directly to page destinations."""
 
 from typing import TypedDict
-from urllib.parse import urljoin
 
 import httpx
 from playwright.async_api import WebSocketRoute as AsyncWebSocketRoute
@@ -59,10 +58,11 @@ def public_route(route):
         return
     try:
         validate_public_url(request.url)
-        with public_client() as client:
+        with public_client(
+            follow_redirects=True,
+            event_hooks={"request": [strip_browser_credentials]},
+        ) as client:
             with client.stream(request.method, request.url, timeout=15) as response:
-                if response.is_redirect:
-                    validate_public_url(urljoin(request.url, response.headers.get("location", "")))
                 body = bytearray()
                 for chunk in response.iter_bytes():
                     body.extend(chunk)
@@ -79,8 +79,15 @@ def public_route(route):
                         "content-encoding",
                         "content-length",
                         "transfer-encoding",
+                        "x-ams-resolved-url",
                     }
                 }
+                headers["x-ams-resolved-url"] = str(response.url)
                 route.fulfill(status=response.status_code, headers=headers, body=bytes(body))
     except (httpx.HTTPError, ValueError, OSError):
         route.abort()
+
+
+def strip_browser_credentials(request: httpx.Request) -> None:
+    for header in ("authorization", "cookie", "referer"):
+        request.headers.pop(header, None)

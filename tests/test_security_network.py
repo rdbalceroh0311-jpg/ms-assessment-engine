@@ -164,6 +164,17 @@ def test_redirect_hops_cannot_reach_private_peer(status, http_server, monkeypatc
     assert attacker.received == []
 
 
+def test_redirect_userinfo_is_refused_before_httpx_normalizes_it(http_server, monkeypatch):
+    attacker = http_server()
+    location = attacker.origin.replace("://", "://@") + "/userinfo"
+    first = http_server(lambda request: (302, {"Location": location}, b""))
+    monkeypatch.setattr(network, "_fixture_origins", frozenset({first.origin, attacker.origin}))
+    with pytest.raises(network.UnsafeURL):
+        network.public_get(first.origin, follow_redirects=True)
+    assert len(first.received) == 1
+    assert attacker.received == []
+
+
 def test_fixture_exception_is_exact_test_only_and_never_environment_enabled(
     http_server, monkeypatch
 ):

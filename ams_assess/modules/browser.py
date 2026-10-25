@@ -151,7 +151,13 @@ def run(ctx: Context) -> ModuleResult:
                         except PlaywrightTimeoutError:
                             # Persistent polling can prevent network idle; check the loaded page.
                             response = page.goto(url, wait_until="load", timeout=25000)
-                        if response is None or not 200 <= response.status < 300 or page.url != url:
+                        final_url = (
+                            getattr(response, "headers", {}).get("x-ams-resolved-url", page.url)
+                            if response
+                            else page.url
+                        )
+                        redirected = page.url != url or final_url != url
+                        if response is None or not 200 <= response.status < 300 or redirected:
                             # Error/redirect destinations are not an equivalent test of this URL.
                             detail = "Page failed or redirected; no equivalent test"
                             eid = result.add_evidence(
@@ -159,8 +165,8 @@ def run(ctx: Context) -> ModuleResult:
                                 "Browser page load unavailable",
                                 {
                                     "status": response.status if response else None,
-                                    "final_url": diagnostic(page.url, ctx),
-                                    "redirected": page.url != url,
+                                    "final_url": diagnostic(final_url, ctx),
+                                    "redirected": redirected,
                                     "viewport": viewport,
                                 },
                             )

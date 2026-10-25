@@ -5,11 +5,15 @@ from html.parser import HTMLParser
 from types import SimpleNamespace
 
 import fitz
+import pytest
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 from test_report_compact import scenario
 
 from ams_assess import network, report
 from ams_assess.browser_safety import CONTEXT_OPTIONS, LAUNCH_OPTIONS, isolate_context
+from ams_assess.models import Context, create_run_dir
+from ams_assess.modules import browser as collector
 
 
 def test_browser_options_are_ephemeral_and_deny_ambient_state():
@@ -84,6 +88,96 @@ def test_browser_subresources_redirects_websockets_workers_and_writes_never_hit_
         finally:
             browser.close()
     assert attacker.received == []
+
+
+@pytest.mark.parametrize("resource", ["document", "image", "script", "stylesheet", "iframe"])
+def test_browser_validates_every_redirect_hop(http_server, monkeypatch, resource):
+    attacker = http_server()
+    second = http_server(lambda request: (302, {"Location": attacker.origin}, b""))
+    markup = {
+        "image": "<img src='/resource'>",
+        "script": "<script src='/resource'></script>",
+        "stylesheet": "<link rel='stylesheet' href='/resource'>",
+        "iframe": "<iframe src='/resource'></iframe>",
+    }
+
+    def respond(request):
+        if resource == "document" or request["path"] == "/resource":
+            return 302, {"Location": second.origin}, b""
+        return 200, {"Content-Type": "text/html"}, markup[resource].encode()
+
+    first = http_server(respond)
+    monkeypatch.setattr(network, "_fixture_origins", frozenset({first.origin, second.origin}))
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(**LAUNCH_OPTIONS)
+        try:
+            page = isolate_context(browser).new_page()
+            try:
+                page.goto(first.origin, wait_until="networkidle")
+            except PlaywrightError:
+                pass
+        finally:
+            browser.close()
+    assert len(first.received) == (1 if resource == "document" else 2)
+    assert len(second.received) == 1
+    assert attacker.received == []
+
+
+def test_browser_safe_redirects_strip_cookies_and_preserve_final_url(http_server, monkeypatch):
+    final = http_server(lambda request: (200, {"Content-Type": "text/html"}, b"Safe destination"))
+    first = http_server(
+        lambda request: (
+            302,
+            {"Location": final.origin + "/", "Set-Cookie": "FAKE_SECRET=canary; Path=/"},
+            b"",
+        )
+    )
+    monkeypatch.setattr(network, "_fixture_origins", frozenset({first.origin, final.origin}))
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(**LAUNCH_OPTIONS)
+        try:
+            page = isolate_context(browser).new_page()
+            response = page.goto(first.origin, wait_until="networkidle")
+            assert response is not None
+            assert response.headers["x-ams-resolved-url"] == final.origin + "/"
+            assert "Safe destination" in page.inner_text("body")
+        finally:
+            browser.close()
+    assert len(first.received) == len(final.received) == 1
+    assert "Cookie" not in final.received[0]["headers"]
+
+
+def test_collector_does_not_attribute_redirected_document_to_original_url(
+    tmp_path,
+    http_server,
+    monkeypatch,
+):
+    final = http_server(lambda request: (200, {"Content-Type": "text/html"}, b"Safe destination"))
+    first = http_server(lambda request: (302, {"Location": final.origin + "/"}, b""))
+    monkeypatch.setattr(network, "_fixture_origins", frozenset({first.origin, final.origin}))
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "axe.min.js").touch()
+    target = first.origin + "/"
+    context = Context(
+        "synthetic",
+        "Synthetic",
+        target,
+        {"technical"},
+        set(),
+        {},
+        create_run_dir(tmp_path, "synthetic"),
+        tools,
+        pages=[target],
+    )
+    result = collector.run(context)
+    assert result.status == "error"
+    unavailable = [
+        item for item in result.evidence if item.description == "Browser page load unavailable"
+    ]
+    assert len(unavailable) == 2
+    assert all(item.data["redirected"] for item in unavailable)
+    assert all(item.data["final_url"] == final.origin + "/" for item in unavailable)
 
 
 class Tags(HTMLParser):
