@@ -122,7 +122,8 @@ def dispatch(args: argparse.Namespace, root: Path) -> int:
         )
     else:
         authorisation.require(
-            store.load(root, args.customer),
+            # No settings file is read before the gate; execute() loads (and prunes) after it.
+            store.load(root, args.customer, prune_backups=False),
             args.customer,
             None,
             confirmed=args.confirm_authorisation,

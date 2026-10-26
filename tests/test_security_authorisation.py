@@ -2,7 +2,9 @@
 
 import datetime as dt
 import json
+import os
 import socket
+import sys
 
 import pytest
 
@@ -190,3 +192,61 @@ def test_fixture_exemption_is_exact_test_only(monkeypatch):
         authorisation.require(None, CUSTOMER, "http://127.0.0.1:8124/", confirmed=True)
     with pytest.raises(authorisation.Unauthorised):
         authorisation.require(None, CUSTOMER, None, confirmed=True)
+
+
+_OPENED: list[str] = []
+_WATCH: list[str] = []
+
+
+def _audit(event, args):
+    if event == "open" and _WATCH and isinstance(args[0], (str, os.PathLike)):
+        if os.fspath(args[0]) == _WATCH[0]:
+            _OPENED.append(_WATCH[0])
+
+
+sys.addaudithook(_audit)  # Permanent per process; inert unless a test sets _WATCH.
+
+
+@pytest.fixture
+def credential_canary(tmp_path, monkeypatch):
+    """A credentials.env with a canary secret; yields the list of times it was opened."""
+    monkeypatch.setenv("AMS_CONFIG_DIR", str(tmp_path / "config"))
+    credentials = tmp_path / "config/credentials.env"
+    credentials.parent.mkdir()
+    credentials.write_text("PAGESPEED_API_KEY=canary-secret\nAMS_BACKUP_RETENTION_DAYS=30\n")
+    _OPENED.clear()
+    _WATCH[:] = [str(credentials)]
+    yield _OPENED
+    _WATCH.clear()
+
+
+def test_refusals_never_open_the_credential_file(capsys, credential_canary, no_side_effects):
+    # A stored customer without an authorisation record: the store is read, credentials are not.
+    assert cli.main(["customer", "--customer", CUSTOMER, "--name", "Harbour Demo"]) == 0
+    collect = ["connect", "ga4", "collect", "--customer", CUSTOMER]
+    credential_canary.clear()
+    refused(capsys, lambda: run(authorisation.CONFIRM_FLAG), "No recorded authorisation")
+    refused(capsys, lambda: cli.main([*collect, authorisation.CONFIRM_FLAG]), "No recorded")
+    # Authorised, but not confirmed.
+    assert authorise("harbour.example.com", "connectors") == 0
+    credential_canary.clear()
+    refused(capsys, run, authorisation.CONFIRM_FLAG)
+    refused(capsys, lambda: cli.main(collect), authorisation.CONFIRM_FLAG)
+    refused(
+        capsys,
+        lambda: cli.main(["connect", "ga4", "test", "--customer", CUSTOMER]),
+        authorisation.CONFIRM_FLAG,
+    )
+    assert credential_canary == []
+
+
+def test_confirmed_run_still_loads_credentials(credential_canary, monkeypatch):
+    assert authorise("harbour.example.com") == 0
+    seen = []
+    monkeypatch.setattr(cli, "create_run_dir", lambda root, customer: root / customer / "run")
+    monkeypatch.setattr(
+        cli, "run", lambda ctx, **kw: seen.append(ctx) or {"status": "complete", "findings": []}
+    )
+    credential_canary.clear()
+    assert run(authorisation.CONFIRM_FLAG) == 0
+    assert credential_canary and seen[0].config["PAGESPEED_API_KEY"] == "canary-secret"
