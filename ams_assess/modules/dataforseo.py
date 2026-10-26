@@ -112,7 +112,9 @@ def paid_request(
     ctx.dataforseo_spent_usd += estimate
     try:
         response = api_request(
-            "dataforseo", "POST", endpoint,
+            "dataforseo",
+            "POST",
+            endpoint,
             auth=(ctx.config["DATAFORSEO_LOGIN"], ctx.config["DATAFORSEO_PASSWORD"]),
             json=[task],
             timeout=timeout,

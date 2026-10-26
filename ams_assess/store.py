@@ -19,7 +19,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ams_assess import register
+# Module import: presence_discovery -> modules -> performance -> store is a cycle.
+from ams_assess import presence_discovery, register
 from ams_assess.ai import CITATIONS
 from ams_assess.consolidate import consolidate
 from ams_assess.data_boundary import json_text, prune, retention_days, sanitise
@@ -45,7 +46,6 @@ from ams_assess.models import (
 )
 from ams_assess.modules import gsc
 from ams_assess.platforms import BY_KEY
-from ams_assess.presence_discovery import nap_detail, repair_discovery_nap
 from ams_assess.profile import (
     Verification,
     apply_verifications,
@@ -1263,7 +1263,7 @@ def repair_presence_nap(data: dict[str, Any]) -> None:
     # Copies: the composed report data must never rewrite the stored records.
     data["findings"] = [dict(f) for f in data["findings"]]
     for summary in [s for s in summaries if s and s.get("discovery", {}).get("nap")]:
-        summary["discovery"] = repair_discovery_nap(summary["discovery"])
+        summary["discovery"] = presence_discovery.repair_discovery_nap(summary["discovery"])
         for finding in data["findings"]:
             platform = finding.get("check_key", "").removeprefix(
                 "platform:external-nap-inconsistent:"
@@ -1280,7 +1280,7 @@ def repair_presence_nap(data: dict[str, Any]) -> None:
                 if n["key"] == platform and n["result"] == "differs"
             ]
             if differs:
-                finding["detail"] = nap_detail(differs)
+                finding["detail"] = presence_discovery.nap_detail(differs)
             elif any(n["key"] == platform for n in summary["discovery"]["nap"]):
                 # This is a corrected interpretation of stored evidence, not a fresh retest.
                 finding["lifecycle_status"] = "resolved"

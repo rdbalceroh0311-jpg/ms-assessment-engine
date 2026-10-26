@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import html
 import json
 import re
 import shutil
@@ -17,6 +16,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from markdown.inlinepatterns import InlineProcessor
 from markdown.treeprocessors import Treeprocessor
 
+from ams_assess import data_boundary
 from ams_assess.ai import PHASES
 from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
 from ams_assess.connectors import REGISTRY as CONNECTORS
@@ -336,7 +336,8 @@ blockquote { margin: 15px 0; padding: 8px 14px; border-left: 4px solid #16a59b;
 
 
 def mdtext(value: object) -> str:
-    value = html.unescape(" ".join(str(value).split()))
+    # Unescaping may reveal a credential or key that was stored encoded: sanitise again.
+    value = data_boundary.text(data_boundary.unescape_html(" ".join(str(value).split())))
     return re.sub(r"([\\`*_{}\[\]#|<>])", r"\\\1", value)
 
 
@@ -383,7 +384,7 @@ class SafeReportContent(Treeprocessor):
             elif node.tag == "a":
                 value = node.get("href", "")
                 for _ in range(3):
-                    value = html.unescape(unquote(value))
+                    value = data_boundary.unescape_html(unquote(value))
                 try:
                     safe = (
                         not re.search(r"[\x00-\x20\x7f\\]", node.get("href", ""))

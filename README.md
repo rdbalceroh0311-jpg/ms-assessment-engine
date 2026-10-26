@@ -44,6 +44,21 @@ Only required modules run; a domain/security/performance-only run has no crawl. 
 lowercase letters/digits/hyphens, 1-63 characters. Exit 1 means incomplete results or report failure;
 a useful partial assessment exits 0 and lists unavailable data.
 
+### Authorisation before any assessment
+
+`ams-assess run` and `ams-assess connect <key> test|collect` refuse (exit 2) before reading
+credentials or making any network request unless the customer's profile records who authorised the
+assessment, the date it was given, and a scope covering the target, and the command is given
+`--confirm-authorisation`. Record it with `ams-assess authorise --customer SLUG --authorised-by NAME
+--date YYYY-MM-DD --scope HOST [--scope connectors]`; each website host covers its subdomains and
+`connectors` covers connected reads. Re-running replaces it (earlier versions stay in the profile's
+evidence history); `--revoke` removes it. The local interface's connector test/collect buttons need
+the same recorded authorisation. Existing customer records load unchanged; no migration is needed.
+Only test fixture servers and the test suite's synthetic customers are exempt; no environment
+variable or customer setting can exempt a customer. `connect <key> auth|list-resources|bind` are
+operator setup with the operator's own credentials and need no customer run authorisation;
+only `test` and `collect` read customer data and require it.
+
 ### Run the next customer assessment
 
 Replace the synthetic name, target and file paths with the authorised customer's details. Start with
@@ -54,7 +69,9 @@ Managed IT & Technology.
 ```sh
 uv run ams-assess customer --customer acme --name 'Acme Services' --industry trades \
   --buying-model service-area --service-area Sydney --website https://example.com
-uv run ams-assess run --customer acme --target https://example.com --no-ai
+uv run ams-assess authorise --customer acme --authorised-by 'Pat Owner (Director)' \
+  --date 2026-10-20 --scope example.com --scope connectors
+uv run ams-assess run --customer acme --target https://example.com --no-ai --confirm-authorisation
 uv run ams-assess discover --customer acme --notes /path/to/customer-notes.json
 uv run ams-assess presence-verify --customer acme --file /path/to/verified-profiles.json
 uv run ams-assess report --customer acme
@@ -1431,7 +1448,7 @@ test is therefore skipped. Exercise actual sites separately only with explicit a
 fixture results do not establish that every customer host is reachable.
 
 Network security regressions are in `tests/test_security_network.py`,
-`tests/test_security_tls_crawl.py`, `tests/test_security_egress.py`,
+`tests/test_security_tls_crawl.py`, `tests/test_security_siteone_pinning.py`, `tests/test_security_egress.py`,
 `tests/test_security_browser_report.py` and `tests/test_security_ui.py`. They inspect actual local
 attacker-server requests and generated HTML/PDF artefacts. Local collector access exists only as
 an exact-origin exception patched by fixtures; environment variables and customer settings cannot
@@ -1442,10 +1459,21 @@ Python fetches and Playwright resources connect to checked IPs with original TLS
 verification. Raw redirect destinations are validated before URL normalisation, and browser HTTP
 redirect chains run entirely inside that guarded transport. Redirected documents are marked
 unavailable for the original URL so their content cannot be misattributed. SiteOne pre-validates
-targets/seeds and applies a domain/port URL filter to discovered
-links and redirects. **Residual SiteOne limit:** its external HTTP stack cannot enforce the shared
-per-request IP guard; DNS changes within an allowed domain during crawling remain possible. This
-limitation is recorded in crawl results. Playwright denies WebSockets, service workers, downloads and
+targets/seeds and applies a domain/port URL filter to discovered links and redirects. Each crawl
+host is validated before the crawl and pinned with SiteOne's `--resolve` to one checked IPv4
+address for every allowed port and root-dot spelling; SiteOne 2.5.1 applies this to all its
+crawl requests (pages, robots.txt, in-host redirects), so DNS changes during the crawl cannot
+move it. Its DNS and SSL/TLS analyzers resolve and connect by themselves, ignoring `--resolve`,
+and are disabled (TLS is checked by the guarded security module). Responses from any
+destination other than a pinned host/port (an explicit `:0` included) are discarded and flagged
+in crawl evidence, as are rows of SiteOne's per-URL tables (SEO, headings, 404, redirects,
+external links) naming such a destination; its crawl-wide header/security aggregates are
+discarded whenever any response was.
+**Residual SiteOne limits:** which URLs SiteOne requests is still decided by its own
+domain/URL filters rather than the shared per-request guard; a SiteOne filter defect could
+send a request elsewhere before its evidence is discarded. SiteOne 2.5.1 cannot pin IPv6, so
+a named host without a validated public IPv4 address is not crawled by SiteOne (recorded as a
+limitation). These limits are recorded in crawl results. Playwright denies WebSockets, service workers, downloads and
 permissions; pages requiring writes/cookies may be incomplete. Redirected subresources whose relative
 references depend on the final URL may also render incompletely. Reports remove images and unsafe
 links/raw HTML, allow only the bundled CSS hash and render PDF in an offline browser context.

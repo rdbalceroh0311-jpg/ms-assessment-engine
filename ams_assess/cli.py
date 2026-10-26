@@ -5,12 +5,18 @@ import os
 import re
 from pathlib import Path
 
-from ams_assess import register, store, subproc
+from ams_assess import authorisation, register, store, subproc
 from ams_assess.connectors import REGISTRY as CONNECTORS
 from ams_assess.connectors.auth import google_desktop_flow
 from ams_assess.connectors.commands import add_parsers, safe_dispatch
 from ams_assess.discovery import load_notes
-from ams_assess.models import CATEGORIES, Context, create_run_dir, normalize_target
+from ams_assess.models import (
+    CATEGORIES,
+    Context,
+    create_run_dir,
+    customer_path,
+    normalize_target,
+)
 from ams_assess.modules import FUTURE, REGISTRY, gsc, performance
 from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
 from ams_assess.presence_discovery import MAX_KEYWORDS, keyword_problem
@@ -108,8 +114,7 @@ def profile_changes(args: argparse.Namespace) -> dict:
     return changes
 
 
-@subproc.cancellation()
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ams-assess", description="AMS evidence-backed assessment"
     )
@@ -207,6 +212,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Opt in to a bounded EHLO/STARTTLS probe of up to two MX hosts on port 25",
     )
     assess.add_argument("--no-ai", action="store_true")
+    assess.add_argument(
+        authorisation.CONFIRM_FLAG,
+        dest="confirm_authorisation",
+        action="store_true",
+        help="Confirm this run is within the customer's recorded authorisation",
+    )
     assess.add_argument("--formats", default="md,html,pdf")
     discover = commands.add_parser(
         "discover", help="Ingest structured business-discovery notes into a customer's assessment"
@@ -230,6 +241,19 @@ def main(argv: list[str] | None = None) -> int:
         "--location", action="append", help="'12 Example St, Sydney NSW 2000' (repeatable)"
     )
     customer.add_argument("--phone", action="append", help="Phone number (repeatable)")
+    authorise = commands.add_parser(
+        "authorise", help="Record who authorised assessing a customer, when, and its scope"
+    )
+    authorise.add_argument("--customer", required=True)
+    authorise.add_argument("--authorised-by", help="Customer representative who authorised it")
+    authorise.add_argument("--date", help="Date the authorisation was given (YYYY-MM-DD)")
+    authorise.add_argument(
+        "--scope",
+        action="append",
+        help=f"Authorised website host, subdomains included, or '{authorisation.CONNECTORS_SCOPE}' "
+        "for connected reads (repeatable)",
+    )
+    authorise.add_argument("--revoke", action="store_true", help="Remove the authorisation")
     verify = commands.add_parser(
         "presence-verify", help="Import human-verified platform presence facts"
     )
@@ -252,6 +276,12 @@ def main(argv: list[str] | None = None) -> int:
         help="With --from-md: the report revision the edit started from (else taken from its "
         "reports/<revision>/ directory, or recorded as unknown)",
     )
+    return parser
+
+
+@subproc.cancellation()
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     if args.command in {"connect", "connectors"}:
         return safe_dispatch(args, data_root(), parser)
@@ -334,6 +364,33 @@ def main(argv: list[str] | None = None) -> int:
             f"{profile['buying_model'] or 'not recorded'}); evidence {eid} (customer statement)"
         )
         return 0
+    if args.command == "authorise":
+        if args.revoke == bool(args.authorised_by or args.date or args.scope):
+            parser.error("Provide --authorised-by, --date and --scope, or --revoke alone")
+        record = (
+            None
+            if args.revoke
+            else {
+                "authorised_by": args.authorised_by or "",
+                "date": args.date or "",
+                "scope": args.scope or [],
+            }
+        )
+        try:
+            profile, eid, _ = store.set_profile(
+                data_root(), args.customer, {"authorisation": record}
+            )
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc) if isinstance(exc, ValueError) else "Cannot save authorisation")
+        recorded = profile["authorisation"]
+        print(
+            "Authorisation revoked"
+            if recorded is None
+            else f"Authorisation recorded: {recorded['authorised_by']} on {recorded['date']}; "
+            f"scope: {', '.join(recorded['scope'])}"
+        )
+        print(f"Evidence {eid} (customer statement); earlier versions remain in history")
+        return 0
     if args.command == "presence-verify":
         try:
             records = load_verifications(args.file)
@@ -393,6 +450,20 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("--performance-page must use the target origin")
     except ValueError as exc:
         parser.error(str(exc))
+    try:
+        customer_path(data_root(), args.customer)
+        target = normalize_target(args.target)
+    except ValueError as exc:
+        parser.error(str(exc))
+    try:
+        existing = store.load(data_root(), args.customer)
+    except (OSError, ValueError):
+        existing = None  # An invalid slug is reported below; a bad store fails at merge.
+    # Before any credential is read or any network request is made.
+    try:
+        authorisation.require(existing, args.customer, target, confirmed=args.confirm_authorisation)
+    except authorisation.Unauthorised as exc:
+        parser.error(str(exc))
     settings = config()
     settings["AMS_PERFORMANCE_KEY_PAGES"] = str(args.performance_key_pages)
     settings["AMS_PERFORMANCE_PAGES"] = json.dumps(args.performance_page)
@@ -420,13 +491,8 @@ def main(argv: list[str] | None = None) -> int:
     for keyword in keywords:
         if problem := keyword_problem(keyword):
             parser.error(f"--keywords must be plain search terms ({keyword!r}: {problem})")
-    try:
-        existing = store.load(data_root(), args.customer)
-    except (OSError, ValueError):
-        existing = None  # An invalid slug is reported below; a bad store fails at merge.
     profile = ((existing or {}).get("profile") or {}).get("fields")
     try:
-        target = normalize_target(args.target)
         directory = create_run_dir(data_root(), args.customer)
     except ValueError as exc:
         parser.error(str(exc))

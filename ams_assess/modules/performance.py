@@ -105,7 +105,9 @@ def query_crux(scope: str, url: str, key: str) -> dict[str, Any]:
         return outcome
     try:
         validate_public_url(url)
-        response = api_request("crux", "POST",
+        response = api_request(
+            "crux",
+            "POST",
             "https://chromeuxreport.googleapis.com/v1/records:queryRecord",
             params={"key": key},
             json={scope: url},
@@ -183,8 +185,12 @@ def measure_lab(url: str, strategy: str, key: str) -> dict[str, Any]:
         params["key"] = key
     try:
         validate_public_url(url)
-        response = api_request("pagespeed", "GET",
-            "https://www.googleapis.com/pagespeedonline/v5/runPagespeed", params=params, timeout=90
+        response = api_request(
+            "pagespeed",
+            "GET",
+            "https://www.googleapis.com/pagespeedonline/v5/runPagespeed",
+            params=params,
+            timeout=90,
         )
         status = measured["http_status"] = response.status_code
         if status != 200:

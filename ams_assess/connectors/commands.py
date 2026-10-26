@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from ams_assess import store
+from ams_assess import authorisation, store
 from ams_assess.connectors import REGISTRY, service
 from ams_assess.connectors.auth import register_reference
 from ams_assess.connectors.core import ConnectorError
@@ -27,6 +27,12 @@ def add_parsers(commands) -> None:
     connect.add_argument("--days", type=int, default=28)
     connect.add_argument("--start", default="")
     connect.add_argument("--end", default="")
+    connect.add_argument(
+        authorisation.CONFIRM_FLAG,
+        dest="confirm_authorisation",
+        action="store_true",
+        help="Confirm test/collect is within the customer's recorded authorisation",
+    )
     status = commands.add_parser("connectors", help="Bound connector status table")
     status.add_argument("--customer", required=True)
 
@@ -115,6 +121,12 @@ def dispatch(args: argparse.Namespace, root: Path) -> int:
             reason=args.reason,
         )
     else:
+        authorisation.require(
+            store.load(root, args.customer),
+            args.customer,
+            None,
+            confirmed=args.confirm_authorisation,
+        )
         state = service.execute(
             root,
             args.customer,
@@ -136,7 +148,7 @@ def safe_dispatch(args: argparse.Namespace, root: Path, parser: argparse.Argumen
     except ConnectorError as exc:
         print(f"{exc.status}: {exc.detail}")
         return 1
-    except service.BindingError as exc:
+    except (service.BindingError, authorisation.Unauthorised) as exc:
         parser.error(str(exc))
     except (ValueError, OSError):
         # Never echo a rejected argument, credential path or provider exception.

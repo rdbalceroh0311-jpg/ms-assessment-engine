@@ -91,8 +91,10 @@ _LOCK = threading.RLock()
 def cancellation() -> Generator[None]:
     """Restore the caller's handlers; SIGTERM is a cancellation, not leaked children."""
     previous = {}
+    received: list[int] = []
 
     def cancel(signum, frame):
+        received.append(signum)
         with _LOCK:
             for pid in tuple(_ACTIVE):
                 kill_tree(pid)
@@ -112,6 +114,12 @@ def cancellation() -> Generator[None]:
     finally:
         for signum, handler in previous.items():
             signal.signal(signum, handler)
+        # Cleanup after a cancellation can fail (a killed browser driver raises on close),
+        # and callers may catch Exception. Neither may replace or swallow the cancellation.
+        if received:
+            if received[0] == signal.SIGINT:
+                raise KeyboardInterrupt from None
+            raise SystemExit(128 + received[0]) from None
 
 
 @contextlib.contextmanager

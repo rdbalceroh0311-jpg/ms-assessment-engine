@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 import idna
 
-from ams_assess import register, store
+from ams_assess import authorisation, register, store
 from ams_assess.connectors import REGISTRY
 from ams_assess.connectors.auth import config_dir, reference_name
 from ams_assess.connectors.connected import connected_evidence
@@ -429,6 +429,8 @@ def project_register(current: dict[str, Any], key: str, state: dict[str, Any]) -
 
 def execute(root: Path, customer: str, key: str, **kwargs) -> dict[str, Any]:
     current = store.load(root, customer) or store.new_store(customer, customer)
+    # Interactive UI actions are explicit; the CLI additionally requires its confirmation flag.
+    authorisation.require(current, customer, None, confirmed=True)
     result, state = prepare(current, key, **kwargs)
     spec = connector(key)
     target = ((current.get("profile") or {}).get("fields", {}).get("websites") or [""])[0]

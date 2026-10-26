@@ -27,21 +27,62 @@ class Destination:
     addresses: tuple[str, ...]
 
 
+# Ranges ipaddress may report as global, or that embed/translate another (possibly
+# private) destination. Refused outright: a public site never needs them.
+_REFUSED = tuple(
+    ipaddress.ip_network(network)
+    for network in (
+        "192.88.99.0/24",  # deprecated 6to4 relay anycast
+        "::/96",  # IPv4-compatible, including :: and ::1
+        "::ffff:0:0/96",  # IPv4-mapped
+        "::ffff:0:0:0/96",  # IPv4-translated (SIIT)
+        "64:ff9b:1::/48",  # local-use NAT64
+        "100::/64",  # discard-only
+        "2001::/32",  # Teredo
+        "2001:db8::/32",  # documentation
+        "2001:20::/28",  # ORCHIDv2 identifiers, not locators
+        "2002::/16",  # 6to4
+        "3fff::/20",  # documentation
+        "5f00::/16",  # SRv6 segment identifiers
+        "fec0::/10",  # deprecated site-local
+    )
+)
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+# Local-network and special-use suffixes that must never name a public collection target.
+_LOCAL_NAMES = (
+    "localhost",
+    "localdomain",
+    "local",
+    "lan",
+    "home",
+    "home.arpa",
+    "internal",
+    "intranet",
+    "corp",
+    "invalid",
+)
+
+
 def public_address(value: str) -> bool:
     address = ipaddress.ip_address(value)
     if not address.is_global or address.is_multicast:
         return False
+    if any(address.version == n.version and address in n for n in _REFUSED):
+        return False
     if isinstance(address, ipaddress.IPv6Address):
-        if address.ipv4_mapped or address in ipaddress.ip_network("::/96"):
+        if address.ipv4_mapped or address.sixtofour or address.teredo:
             return False
-        # Translation/transition addresses must not hide a private IPv4 destination.
-        if address in ipaddress.ip_network("64:ff9b::/96"):
+        # Well-known NAT64 must not hide a private IPv4 destination.
+        if address in _NAT64:
             return public_address(str(ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)))
-        if address in ipaddress.ip_network("64:ff9b:1::/48"):
-            return False
-        if address.sixtofour or address.teredo:
-            return False
     return True
+
+
+def local_name(host: str) -> bool:
+    """Single-label and local-network DNS names (host already lowercased, no root dot)."""
+    return "." not in host or any(
+        host == suffix or host.endswith("." + suffix) for suffix in _LOCAL_NAMES
+    )
 
 
 def validate_public_url(url: str) -> Destination:
@@ -76,11 +117,7 @@ def validate_public_url(url: str) -> Destination:
                 pass
             else:
                 raise ValueError from None
-            if not fixture and (
-                "." not in host
-                or host == "localhost"
-                or host.endswith((".localhost", ".local", ".internal"))
-            ):
+            if not fixture and local_name(host):
                 raise ValueError from None
         addresses = (
             (str(literal),)

@@ -7,6 +7,12 @@ HTML/PDF escaping and the local UI remain separate controls.
 
 ## What leaves the machine
 
+Nothing below happens for a customer until its profile records who authorised the assessment,
+when, and a scope covering the target or connected reads, and the CLI is given
+`--confirm-authorisation` (see the README). Test fixtures are the only exemption.
+`connect <key> auth|list-resources|bind` use the operator's own credentials for setup and
+do not require a customer's run authorisation; only `test` and `collect` do.
+
 | Operation | Destination | Outbound data and purpose |
 | --- | --- | --- |
 | Public collection | Selected website and URLs discovered by the existing collectors | HTTP requests for pages, robots/sitemaps, assets and WordPress public inventory; SiteOne/Chromium render or inspect public pages. The existing browser/network rules determine which requests are allowed. |
@@ -60,6 +66,36 @@ budgets and destinations are omitted. Query strings, fragments and URL userinfo 
 from outbound text. All emails are removed (including business contacts, a deliberate
 minimisation). Configured secrets, FAKE canaries, bearer/basic tokens, common API-key shapes
 and secret assignments are redacted, including URL-encoded and base64 representations.
+Public third-party browser keys found in customer page source (Google `AIza...` keys) are
+replaced everywhere evidence is saved, reported, shown or sent to AI by
+`[redacted:google-key:...<last 4>:sha256-<8 hex>]`, so a finding remains traceable to the
+key without storing it. Text spelt with HTML character references (`&#83;`, `&#x53;`,
+named, any number of leading zeros), JS/JSON escapes (`\u0053`, `\x53`, `\u{00053}`, and
+line continuations: a backslash before LF, CR, CRLF, U+2028 or U+2029), percent escapes, or
+nested/mixed forms is decoded only to inspect, to a fixed point, and every detector above
+(configured secrets, provider tokens, bearer/basic credentials, assignments, browser keys)
+runs on the decoded view; only the matching source span is replaced (browser keys by their
+fingerprint, everything else by `[redacted]`). Anything still decoding after 64 nested
+levels is withheld with its whole token. Base64 and base64url are decoded as `atob()` does,
+ignoring ASCII whitespace: a `data:` URI payload is inspected whole, and base64 runs
+separated only by whitespace are joined first; each whole group is always inspected, even
+when a run inside it already matched; a payload hiding any secret or browser key is
+redacted over its full encoded span, without a fingerprint. Redaction cost grows
+linearly with the number of secrets found. Sanitisation never raises: an undecodable
+escape is left as written and inspected as such, and a value that cannot be inspected at
+all is withheld. Report rendering unescapes HTML entities for display and sanitises the
+result again, so it cannot re-create a secret.
+
+**Residual limit (third-party browser keys).** Redacting public browser keys that appear in
+a customer's page source is defence in depth over these standard encodings: HTML
+entities, JS/JSON escapes including line continuations, percent escapes and base64
+including whitespace. Arbitrary script logic (string concatenation, computed or
+obfuscated values) or markup splitting (for example `AIza<span>…</span>…`) can still
+reassemble such a key, and is out of scope. These keys are already public in the
+customer's own page. AMS's own configured credentials are different: they are removed
+before any decoding or fingerprinting, are never fingerprinted, and an escaped spelling of
+one is redacted too. A key inside a percent-encoded segment that also decodes to a secret
+assignment (e.g. `key%3D...`) is redacted with that whole segment.
 This is pattern/known-value redaction, not a universal detector for arbitrary disguised
 secrets or personal names embedded in free prose. Do not put private inventories into
 public page text or customer narrative fields.
@@ -81,7 +117,10 @@ location. Provider keys, proxy settings, SSH agent sockets and interpreter injec
 variables are not inherited. The engine does not temporarily replace the parent's environment.
 
 Timeout/cancellation kills the process group and enumerated descendants, including browser
-children in separate groups. SIGINT/SIGTERM and Python task cancellation unwind cleanup.
+children in separate groups. SIGINT/SIGTERM and Python task cancellation unwind cleanup. A
+received signal is re-raised when its process boundary exits, so a failing cleanup (closing a
+killed browser) or a caller's `except Exception` cannot turn a cancelled run into a continuing
+one. No pandoc process is used; PDFs are rendered by Chromium.
 The process-table snapshot is not an OS sandbox against an intentionally daemonising executable;
 use trusted installed binaries. The Playwright driver spawn wrapper fails closed if its
 expected startup path changes. Tests inspect the actual driver environment and real child PIDs.
@@ -109,9 +148,12 @@ register/UI output, Markdown, HTML and extracted PDF text/metadata.
 | --- | --- |
 | Every child environment is allowlisted; raw process call-site inventory | `tests/test_security_processes.py`, existing crawler/DNS/SSH tests |
 | Process groups, hard deadlines, SIGINT/SIGTERM and task cancellation; real browser children | `tests/test_security_processes.py`, `tests/test_wp_cli.py` |
+| Real SIGTERM during SiteOne, browser collection, PDF rendering and OpenSSH leaves no process and stops the run | `tests/test_security_process_cancel.py` |
+| Recorded per-customer authorisation and CLI confirmation before runs/connected reads | `tests/test_security_authorisation.py` |
 | No AI capabilities or authority mutations; scope URLs derived from citations | `tests/test_security_ai.py`, `tests/test_security_processes.py` |
 | Explicit provider/account metadata, no account fallback; run/provider/customer no-AI reports | `tests/test_security_ai.py`, `tests/test_security_artifacts.py` |
 | Recursive payload field allowlists, URLs, emails and secret/encoded-secret removal | `tests/test_security_ai.py`, `tests/test_security_artifacts.py` |
+| Public page-source keys fingerprinted in stored, rendered and AI output | `tests/test_security_public_keys.py` (fixture `fixtures/public-key/`) |
 | Credential confinement in actual saved and rendered/UI/log surfaces and reflected errors | `tests/test_security_artifacts.py`; existing connector privacy tests |
 | Private creation permissions, debug hashes, customer-scoped expiry and backup expiry | `tests/test_security_artifacts.py` |
 | Hostile visible/hidden HTML, JSON-LD/meta, poisoned tool results/saved evidence, cross-customer and identifier/filename attacks | `tests/test_security_ai.py`, `tests/test_security_artifacts.py` |

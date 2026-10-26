@@ -15,6 +15,7 @@ from urllib.parse import unquote
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from ams_assess.authorisation import Authorisation
 from ams_assess.models import normalize_target
 from ams_assess.platforms import BUYING_MODELS, BY_KEY, normalise_industry
 
@@ -73,6 +74,8 @@ class Profile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     no_ai: bool = False
+    # Recorded assessment authorisation; required before non-fixture runs/connected reads.
+    authorisation: Authorisation | None = None
     name: str = Field(default="", max_length=200)
     aliases: list[str] = Field(default_factory=list, max_length=20)
     websites: list[str] = Field(default_factory=list, max_length=10)

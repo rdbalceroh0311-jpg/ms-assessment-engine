@@ -9,13 +9,21 @@ from typing import Any
 
 from ams_assess.connectors.service import rows as connector_rows
 
+# Each step's commands, joined by ", then ", are exact `ams-assess` invocations;
+# <placeholders> are replaced by the operator and [bracketed] options vary by connector.
 SEQUENCE = (
     (
         "customer",
         "Create customer",
         "ams-assess customer --customer {c} --name '<name>' --website <url>",
     ),
-    ("discover", "Discover systems", "ams-assess run --customer {c} --target <url> --no-ai"),
+    (
+        "discover",
+        "Discover systems",
+        "ams-assess authorise --customer {c} --authorised-by '<who>' --date <YYYY-MM-DD> "
+        "--scope <host> --scope connectors, then ams-assess run --customer {c} --target <url> "
+        "--no-ai --confirm-authorisation",
+    ),
     (
         "ownership",
         "Confirm ownership",
@@ -29,16 +37,21 @@ SEQUENCE = (
     (
         "authenticate",
         "Authenticate (CLI)",
-        "ams-assess connect <connector> auth --credential-ref <name> ...",
+        "ams-assess connect <connector> auth --credential-ref <name> [connector auth options]",
     ),
     (
         "bind",
         "Bind resource",
-        "ams-assess connect <connector> list-resources --credential-ref "
-        "<name>, then bind --customer {c} --resource <id>",
+        "ams-assess connect <connector> list-resources --credential-ref <name>, then "
+        "ams-assess connect <connector> bind --customer {c} --credential-ref <name> "
+        "--resource <id>",
     ),
-    ("test", "Test", "ams-assess connect <connector> test --customer {c}"),
-    ("collect", "Collect", "ams-assess connect <connector> collect --customer {c}"),
+    ("test", "Test", "ams-assess connect <connector> test --customer {c} --confirm-authorisation"),
+    (
+        "collect",
+        "Collect",
+        "ams-assess connect <connector> collect --customer {c} --confirm-authorisation",
+    ),
     ("report", "Report", "ams-assess report --customer {c}"),
 )
 
