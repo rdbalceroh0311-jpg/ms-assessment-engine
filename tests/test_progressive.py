@@ -18,6 +18,8 @@ from ams_assess.models import (
     ModuleResult,
     create_run_dir,
 )
+from ams_assess.report import site_summaries
+from ams_assess.ui import finding_groups
 
 EVIDENCE_ID = re.compile(r"ev-[a-z_]+(?:-r\d+)?-\d+")
 
@@ -1346,3 +1348,47 @@ def test_collocation_rule_survives_boundaries_synonyms_and_invisible_characters(
 )
 def test_collocation_rule_keeps_hedged_and_unrelated_wordings(text):
     assert not ai.claims_verification(text)
+
+
+def test_run_output_matches_cumulative_store_and_report_counts(home, tmp_path, monkeypatch, capsys):
+    def broken(ctx):
+        raise RuntimeError("module failed")
+
+    monkeypatch.setattr(cli, "config", lambda: {})
+    args = ["run", "--customer", "acme", "--target", "example.com", "--categories", "security"]
+    args += ["--no-ai", "--formats", "md"]
+    assert cli.main(["discover", "--customer", "acme", "--notes", str(notes_file(tmp_path))]) == 0
+    monkeypatch.setattr(runner, "REGISTRY", {"security": fake_module(extra=True)})
+    assert cli.main(args) == 0
+    # A later partial run rechecks only one of the two technical findings.
+    monkeypatch.setattr(
+        runner,
+        "REGISTRY",
+        {
+            "security": fake_module(),
+            "broken": SimpleNamespace(categories={"security"}, run=broken),
+        },
+    )
+    capsys.readouterr()
+    cli.main(args)
+    out = capsys.readouterr().out
+    current = must_load(home, "acme")
+    latest = current["runs"][-1]
+    assert latest["status"] == "partial"
+    data = store.report_data(current)[0]
+    groups = {label: len(rows) for label, rows in finding_groups(data).items()}
+    assert groups == {k: len(v) for k, v in finding_groups(current).items()}
+    run_findings = latest["summary"]["findings"]
+    assert groups["Current"] > run_findings and groups["Not rechecked"]
+    assert any(f["category"] == "discovery" for f in data["findings"])
+    assert f"Status: partial; {run_findings} findings in this run" in out
+    assert (
+        f"Customer findings (all runs and discovery): {groups['Current']} current, "
+        f"{groups['Resolved']} resolved, {groups['Not rechecked']} previously observed "
+        f"(not rechecked), {groups['Needs review']} needs review"
+    ) in out
+    sites = site_summaries(data["website_coverage_runs"])[0]
+    assert sites
+    for site in sites:
+        text = site["reason"] if site.get("status") == "unavailable" else site["summary"]
+        assert f"Website coverage ({site['run_id']}, {site['target']}): {text}" in out

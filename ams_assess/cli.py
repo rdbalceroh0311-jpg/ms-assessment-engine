@@ -21,9 +21,10 @@ from ams_assess.modules import FUTURE, REGISTRY, gsc, performance
 from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
 from ams_assess.presence_discovery import MAX_KEYWORDS, keyword_problem
 from ams_assess.profile import Location, Profile, load_verifications, read_json
-from ams_assess.report import render, render_customer
+from ams_assess.report import render, render_customer, site_summaries
 from ams_assess.runner import run
 from ams_assess.settings import load as load_settings
+from ams_assess.ui import finding_groups
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -279,6 +280,27 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def customer_summary(root: Path, customer: str) -> list[str]:
+    """Cumulative customer counts and latest coverage per website, as the report and UI show."""
+    current = store.load(root, customer)
+    try:
+        data = store.report_data(current)[0] if current else None
+    except ValueError:  # No evidence yet: nothing cumulative to summarise.
+        data = None
+    if data is None:
+        return []
+    groups = {label: len(rows) for label, rows in finding_groups(data).items()}
+    lines = [
+        f"Customer findings (all runs and discovery): {groups['Current']} current, "
+        f"{groups['Resolved']} resolved, {groups['Not rechecked']} previously observed "
+        f"(not rechecked), {groups['Needs review']} needs review"
+    ]
+    for site in site_summaries(data.get("website_coverage_runs", []))[0]:
+        text = site["reason"] if site.get("status") == "unavailable" else site["summary"]
+        lines.append(f"Website coverage ({site['run_id']}, {site['target']}): {text}")
+    return lines
+
+
 @subproc.cancellation()
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
@@ -456,7 +478,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         parser.error(str(exc))
     try:
-        existing = store.load(data_root(), args.customer)
+        existing = store.load(data_root(), args.customer, prune_backups=False)
     except (OSError, ValueError):
         existing = None  # An invalid slug is reported below; a bad store fails at merge.
     # Before any credential is read or any network request is made.
@@ -514,13 +536,18 @@ def main(argv: list[str] | None = None) -> int:
         keywords=keywords,
     )
     data = run(ctx, no_ai=args.no_ai, formats=formats)
-    print(f"Run directory: {directory}\nStatus: {data['status']}; {len(data['findings'])} findings")
+    print(
+        f"Run directory: {directory}\n"
+        f"Status: {data['status']}; {len(data['findings'])} findings in this run"
+    )
     if data.get("store_status") == "failed":
         print(
             f"Store: merge failed; the run directory was written with status {data['status']} "
             "but the customer store was not updated"
         )
         return 3
+    for line in customer_summary(data_root(), args.customer):
+        print(line)
     return 1 if data["status"] == "incomplete" else 0
 
 

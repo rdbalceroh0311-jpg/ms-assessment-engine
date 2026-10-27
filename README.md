@@ -11,7 +11,7 @@ Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), curl and tar. Setup sup
 and Linux arm64/x64. Tool downloads are pinned to SiteOne 2.5.1 and axe-core 4.10.3.
 
 ```sh
-./scripts/setup.sh                       # dependencies, Chromium, SiteOne, axe; safe to repeat
+./scripts/setup.sh                       # dependencies, Chromium (+ test copy), SiteOne, axe; safe to repeat
 uv run ams-assess modules                # requirements and future capabilities
 uv run ams-assess gsc-auth --client-secrets /path/to/desktop-client.json
 uv run ams-assess run --customer acme --customer-name 'Acme Ltd' --target https://example.com
@@ -1421,8 +1421,8 @@ fixture headers say nothing about production hosting. Public quotas/outages may 
 Observatory unavailable. GSC, DataForSEO and the SDK path require credentials and are not proven live
 by the fixture. Platform and listing detection only sees the sampled pages: tags behind consent or
 loaded from unsampled templates, and profiles not linked from the site, are reported as not detected
-or unknown, never as absent. The access checklist never requests passwords; customers keep ownership. `modules` lists future capabilities (Elmo, Houtini, OpenSEO, GBP,
-Site Health, Workspace/M365, social SEO, PR, A/B and heatmaps); these future capabilities are not implemented or measured. GA4 and WP-CLI are available through explicit binding. The legacy combined "WP-CLI / Site Health" opportunity label does not indicate the bound connector's status; use the connector table.
+or unknown, never as absent. The access checklist never requests passwords; customers keep ownership. `modules` lists future capabilities (Elmo, Houtini, OpenSEO,
+WordPress Site Health, the ScubaGoggles/ScubaGear posture baseline, social SEO, PR, A/B and heatmaps); these future capabilities are not implemented or measured. GA4, GBP, WP-CLI, Workspace and M365 are available through explicit binding. The legacy combined "WP-CLI / Site Health" opportunity label does not indicate the bound connector's status; use the connector table.
 
 ## Development
 
@@ -1496,7 +1496,8 @@ See [DATA-FLOWS.md](docs/DATA-FLOWS.md) for outgoing fields/providers, explicit
 private artefact retention, regression coverage and residual limitations.
 
 The offline security tests require Chromium binaries under `tools/playwright` (no browser
-profiles). On a machine where downloads are permitted, prepare them with
+profiles). `scripts/setup.sh` installs them there as well as in the default Playwright cache used
+by runs; to prepare them alone, run
 `PLAYWRIGHT_BROWSERS_PATH="$PWD/tools/playwright" uv run playwright install chromium`.
 Tests never download tools or contact providers; optional SiteOne/axe integration tests
 remain skipped when those tools are absent.

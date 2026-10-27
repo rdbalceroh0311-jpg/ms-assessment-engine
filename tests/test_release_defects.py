@@ -3,6 +3,7 @@
 import copy
 import json
 import os
+import re
 import threading
 from contextlib import contextmanager
 from dataclasses import replace
@@ -13,10 +14,11 @@ from typing import Any
 import httpx
 import pytest
 
-from ams_assess import ai, coverage, figures, register, store, ui
+from ams_assess import ai, cli, coverage, figures, register, store, ui
+from ams_assess.connectors import REGISTRY as CONNECTORS
 from ams_assess.lifecycle import scoped
 from ams_assess.models import Context, Evidence, Finding, ModuleResult, create_run_dir
-from ams_assess.modules import browser, gsc, presence, siteone
+from ams_assess.modules import FUTURE, REGISTRY, browser, gsc, presence, siteone
 from ams_assess.presence_discovery import INCONSISTENT, nap_detail, repair_nap
 from ams_assess.profile import phone_key
 from ams_assess.report import finding_views, render_markdown
@@ -1636,3 +1638,18 @@ def test_review_d8_keeps_qualified_customer_figure():
         {"executive_summary": cited}, [evidence], set(), []
     )
     assert not warnings and analysis["executive_summary"] == cited
+
+
+def test_modules_never_lists_an_implemented_connector_as_future(capsys):
+    def words(text):
+        return f" {' '.join(re.findall(r'[a-z0-9]+', text.lower()))} "
+
+    implemented = {words(name) for name in REGISTRY} | {
+        words(spec.label) for spec in CONNECTORS.values()
+    }
+    assert cli.main(["modules"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    future = [line.split(": future |", 1)[0] for line in out if ": future |" in line]
+    assert future == [name for name, *_ in FUTURE]
+    for name in future:
+        assert not any(label in words(name) for label in implemented), name

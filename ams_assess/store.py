@@ -165,8 +165,14 @@ def connector_bindings(root: Path, customer: str) -> dict[str, Any]:
         return bindings
 
 
-def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str, Any] | None:
-    """Read only this customer's store; None when it does not exist yet."""
+def load(
+    root: Path, customer: str, *, migrate_legacy: bool = True, prune_backups: bool = True
+) -> dict[str, Any] | None:
+    """Read only this customer's store; None when it does not exist yet.
+
+    prune_backups=False skips the retention lookup, so no settings file is opened (used
+    before the authorisation gate; a later load after the gate prunes).
+    """
     path = store_file(root, customer)
     if not path.is_file():
         return None
@@ -177,7 +183,7 @@ def load(root: Path, customer: str, *, migrate_legacy: bool = True) -> dict[str,
     )
     with guard:
         original = path.read_bytes()
-        if migrate_legacy:
+        if migrate_legacy and prune_backups:
             setting = "AMS_BACKUP_RETENTION_DAYS"
             prune(
                 path.parent,

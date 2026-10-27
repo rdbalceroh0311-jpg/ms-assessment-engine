@@ -428,9 +428,12 @@ def project_register(current: dict[str, Any], key: str, state: dict[str, Any]) -
 
 
 def execute(root: Path, customer: str, key: str, **kwargs) -> dict[str, Any]:
-    current = store.load(root, customer) or store.new_store(customer, customer)
     # Interactive UI actions are explicit; the CLI additionally requires its confirmation flag.
-    authorisation.require(current, customer, None, confirmed=True)
+    # The gate's load opens no settings file; the load after it prunes backups as usual.
+    authorisation.require(
+        store.load(root, customer, prune_backups=False), customer, None, confirmed=True
+    )
+    current = store.load(root, customer) or store.new_store(customer, customer)
     result, state = prepare(current, key, **kwargs)
     spec = connector(key)
     target = ((current.get("profile") or {}).get("fields", {}).get("websites") or [""])[0]

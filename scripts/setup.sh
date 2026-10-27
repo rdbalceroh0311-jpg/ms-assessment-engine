@@ -4,6 +4,8 @@ cd "$(dirname "$0")/.."
 uv sync
 uv run playwright install chromium
 mkdir -p tools
+# The test suite pins its isolated browser cache here (tests/conftest.py); tools/ is gitignored.
+PLAYWRIGHT_BROWSERS_PATH="$PWD/tools/playwright" uv run playwright install chromium
 version=2.5.1
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64) platform=macos-arm64 ;;
