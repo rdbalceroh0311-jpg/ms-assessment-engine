@@ -91,7 +91,7 @@ def test_grouped_accessibility_is_one_action_with_all_members_and_no_json_mutati
         if f["lifecycle_status"] == "current":
             assert f["detail"] in text and f["title"] in text
     assert "Special dependency" in text and "Check keyboard contrast too" in text
-    lifecycle = text.split("### Technical finding lifecycle")[1].split("| Source /")[0]
+    lifecycle = text.split("### Finding lifecycle")[1].split("| Source /")[0]
     assert not any(f"issue-{n}" in lifecycle for n in (1, 2, 3))
     assert lifecycle.count("| Previously observed — not rechecked |") == 1
     assert "2026-10-02 / r2" in lifecycle and "ev-browser-r1-001" in lifecycle
@@ -135,7 +135,7 @@ def test_two_sites_keep_separate_groups_recommendations_and_lifecycle_rows():
     assert "(issue-1 + 1 more)" in roadmap and "(issue-3)" in roadmap
     manual = text.split("### Manual verification items")[1].split("## Appendix")[0]
     assert "- issue-1 + 1 more:" in manual and "- issue-3:" in manual
-    lifecycle = text.split("### Technical finding lifecycle")[1].split("| Source /")[0]
+    lifecycle = text.split("### Finding lifecycle")[1].split("| Source /")[0]
     rows = [r for r in lifecycle.splitlines() if r.startswith("| Previously observed")]
     assert len(rows) == 2
     assert any("issue-4" in r and "one.test" in r and "two.test" not in r for r in rows)
@@ -227,7 +227,7 @@ def test_compact_coverage_keeps_every_url_status_and_exclusion_count():
     }
     before = copy.deepcopy(data)
     text = render_markdown(data, evidence)
-    coverage = text.split("### Website coverage")[1].split("### Technical finding lifecycle")[0]
+    coverage = text.split("### Website coverage")[1].split("### Finding lifecycle")[0]
     for url in [
         "https://example.test/0",
         "https://example.test/1",

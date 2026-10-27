@@ -347,8 +347,8 @@ The detailed presence and domain-health summaries below use the latest run for e
 {% endfor %}
 
 {% endif %}
-{% if technical_count %}
-### Technical finding lifecycle
+{% if technical_count or lifecycle_findings %}
+### Finding lifecycle
 
 **Current** findings are listed in the relevant sections and recommendations below.
 
@@ -356,7 +356,7 @@ The detailed presence and domain-health summaries below use the latest run for e
 | State | Finding / site / component / observation |
 | --- | --- |
 {% for f in lifecycle_findings %}
-| {{ {'resolved': 'Resolved', 'not_rechecked': 'Previously observed — not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | **{{ f.title | text }}**{% for member in lifecycle_members[f.id] %}<br>{{ member.id }}: {{ lifecycle_domains[member.id] | text }} / {{ member.component | text }}{% if member.title != f.title %} — {{ member.title | text }}{% endif %}{% endfor %}<br>Last observed: {% for date, rows in lifecycle_members[f.id] | groupby('last_observed') %}{{ date | text or 'This run' }}: {{ rows | map(attribute='evidence_ids') | sum(start=[]) | unique | join(', ') }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% for member in lifecycle_members[f.id] if member.resolution %}<br>Resolution ({{ member.id }}): {{ member.resolution.evidence_ids | join(', ') }} / {{ member.resolution.date | text }} / {{ member.resolution.run_id }}{% endfor %} |
+| {{ {'resolved': 'Resolved', 'not_rechecked': 'Previously observed — not rechecked', 'needs_review': 'Needs review'}[f.lifecycle_status] }} | **{{ f.title | text }}**<br>Basis: {{ f.basis }}{% for member in lifecycle_members[f.id] %}<br>{{ member.id }}: {{ lifecycle_domains[member.id] | text }} / {{ member.component | text }}{% if member.title != f.title %} — {{ member.title | text }}{% endif %}{% endfor %}<br>Last observed: {% for date, rows in lifecycle_members[f.id] | groupby('last_observed') %}{{ date | text or 'This run' }}: {{ rows | map(attribute='evidence_ids') | sum(start=[]) | unique | join(', ') }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% for member in lifecycle_members[f.id] if member.resolution %}<br>Resolution ({{ member.id }}): {{ member.resolution.evidence_ids | join(', ') }} / {{ member.resolution.date | text }} / {{ member.resolution.run_id }}{% endfor %} |
 {% endfor %}
 
 {% endif %}
@@ -683,8 +683,8 @@ Manual verification tasks (record results with `ams-assess presence-verify`):
 {% for r in data.get('needs_review', []) %}
 - **Needs review:** {% if r.get('finding_id') %}{{ r.finding_id }}: {% endif %}{{ r.title | text }}; {{ r.reason | text }}{% if r.get('finding_ids') %} (affects {{ r.finding_ids | join(', ') }}){% endif %}. Evidence: {{ r.evidence_ids | join(', ') }}.
 {% endfor %}
-{% for f in data.get('finding_history', []) %}
-- **Superseded:** {{ f.id }}: {{ f.title | text }}; {{ f.reason | text }}{% if f.get('superseded_by') %} (replaced by {{ f.superseded_by }}){% endif %}. Evidence: {{ f.evidence_ids | join(', ') }}.
+{% for f in finding_history %}
+- **Superseded:** {{ f.id }}: {{ f.title | text }}; {{ f.reason | text }}{% if f.get('superseded_by') %} (replaced by {{ f.superseded_by }}){% endif %}. Basis: {{ f.basis }}. Last observed: {{ f.get('last_observed', '') | text or 'Not recorded' }}. Evidence: {{ f.evidence_ids | join(', ') }}.
 {% endfor %}
 
 > Findings needing review are held here until a person confirms them; they are excluded from the findings and recommendations above. Superseded findings are kept for history only.
