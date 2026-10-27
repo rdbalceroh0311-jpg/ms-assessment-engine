@@ -54,6 +54,7 @@ def historical_finding(provenance, state="not_rechecked"):
         ("not_rechecked", "Previously observed — not rechecked"),
         ("resolved", "Resolved"),
         ("needs_review", "Needs review"),
+        ("not_rechecked", "Needs review"),
         ("superseded", "Superseded"),
     ],
 )
@@ -69,23 +70,53 @@ def test_history_preserves_every_provenance(tmp_path, provenance, basis, state, 
         ]
     else:
         saved["findings"] = [finding.model_dump()]
+    if label == "Needs review":
+        saved["needs_review"] = [
+            {
+                "finding_id": finding.id,
+                "title": finding.title,
+                "reason": "conflicting explicit check outcomes need review",
+                "evidence_ids": finding.evidence_ids,
+            }
+        ]
+    current = finding.model_copy(
+        update={
+            "id": "current-control",
+            "title": "Current observation",
+            "category": "presence",
+            "lifecycle_status": "current",
+            "resolution": None,
+            "recommendation": "Review the current observation",
+        }
+    )
+    saved["findings"].append(current.model_dump())
     store.save(tmp_path, "synthetic", saved)
     loaded = store.load(tmp_path, "synthetic")
     assert loaded is not None
     data, evidence_rows, discovery = store.report_data(loaded)
     # Stale AI ordering must not turn history back into recommendations or roadmap actions.
-    data["ai"]["recommendations"] = [finding.id]
-    data["ai"]["roadmap"] = {"0-30 days": [finding.id]}
+    data["ai"]["recommendations"] = [finding.id, current.id]
+    data["ai"]["roadmap"] = {"0-30 days": [finding.id, current.id]}
     text = render_markdown(data, evidence_rows, discovery)
+    if label == "Needs review":
+        assert text.count(finding.id) == 1
     rows = [line for line in text.splitlines() if finding.id in line]
     assert len(rows) == 1
     row = rows[0]
-    for value in (finding.title, label, basis, finding.last_observed, evidence.id):
+    for value in (finding.title, label, evidence.id):
         assert value in row
+    if label == "Needs review":
+        review_section = text.split("## 10.", 1)[1].split("## Appendix:", 1)[0]
+        assert finding.id in review_section
+        assert saved["needs_review"][0]["reason"] in row
+    else:
+        assert basis in row and finding.last_observed in row
     if state == "resolved":
         assert "2026-10-02 / r2" in row
     assert finding.recommendation not in text
-    assert "## 9." not in text  # No current findings: no recommendations or roadmap section.
+    roadmap = text.split("## 9.", 1)[1].split("\n## ", 1)[0]
+    assert current.id in roadmap and current.recommendation in roadmap
+    assert finding.id not in roadmap and finding.recommendation not in roadmap
 
 
 def test_not_rechecked_report_counts_match_cli_in_all_formats(tmp_path):

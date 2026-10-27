@@ -575,7 +575,11 @@ def render_markdown(
         and (f.site or f.component or f.lifecycle_status != "current")
     ]
     lifecycle_findings, lifecycle_members = finding_views(
-        [f for f in findings if f.lifecycle_status != "current"]
+        [
+            f
+            for f in findings
+            if f.id not in review and f.lifecycle_status not in {"current", "needs_review"}
+        ]
     )
     lifecycle_domains = {
         f.id: f.site
