@@ -718,7 +718,7 @@ def test_domain_scoped_legacy_finding_is_visible_with_clean_state_and_date(tmp_p
     assert loaded is not None
     data, evidence, _ = store.report_data(loaded)
     report = render_markdown(data, evidence)
-    table = report.split("### Technical finding lifecycle", 1)[1].split("| Source /", 1)[0]
+    table = report.split("### Finding lifecycle", 1)[1].split("| Source /", 1)[0]
     assert "Public resolvers disagree on A records" in table and "example.test" in table
     assert "| Previously observed — not rechecked |" in table and "2026-10-01" in table
     assert table.lower().count("not rechecked") == 1
@@ -811,7 +811,7 @@ def test_legacy_header_findings_have_one_consolidated_successor(
     report = render_markdown(data, evidence)
     assert (
         "header-missing:"
-        not in report.split("### Technical finding lifecycle", 1)[1].split("| Source /", 1)[0]
+        not in report.split("### Finding lifecycle", 1)[1].split("| Source /", 1)[0]
     )
     assert len(data["findings"]) == 1
 

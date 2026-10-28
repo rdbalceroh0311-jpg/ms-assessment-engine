@@ -575,7 +575,11 @@ def render_markdown(
         and (f.site or f.component or f.lifecycle_status != "current")
     ]
     lifecycle_findings, lifecycle_members = finding_views(
-        [f for f in technical_findings if f.lifecycle_status != "current"]
+        [
+            f
+            for f in findings
+            if f.id not in review and f.lifecycle_status not in {"current", "needs_review"}
+        ]
     )
     lifecycle_domains = {
         f.id: f.site
@@ -587,7 +591,8 @@ def render_markdown(
             ),
             site_key(data.get("target", "")) or "Domain not recorded",
         )
-        for f in technical_findings
+        for rows in lifecycle_members.values()
+        for f in rows
     }
     current = [f for f in findings if f.id not in review and f.lifecycle_status == "current"]
     findings, members = finding_views(current)
@@ -715,6 +720,10 @@ def render_markdown(
         lifecycle_findings=lifecycle_findings,
         lifecycle_members=lifecycle_members,
         lifecycle_domains=lifecycle_domains,
+        finding_history=[
+            {**f, "basis": Finding.model_validate(f).basis}
+            for f in data.get("finding_history", [])
+        ],
         public_findings=public,
         finding_categories={f.category for f in public},
         connector_rows=data.get("connector_rows", []),
