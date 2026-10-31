@@ -559,24 +559,27 @@ def applies_to_site(row: dict[str, Any], target: str) -> bool:
     if bound is None or site is None:
         return False
 
-    def keys(value, scope):
-        # Reuse IDNA aliases and site_key's www, root-dot and default-port handling.
-        return {
-            site_key(f"{scope[0]}://{'[' + host + ']' if ':' in host else host}:{scope[2]}")
-            for host in site_hosts(value, strip_www=False)
-        }
+    def modern_host(host: str) -> str:
+        # Claims cannot use site_hosts' conservative IDNA2003 binding-conflict aliases.
+        if ":" in host:  # IPv6 literal, already validated by site_scope/urlsplit.
+            return host
+        modern = idna.encode(host, uts46=True, transitional=False).decode("ascii")
+        if "." not in modern or "" in modern.split("."):
+            raise BindingError("Site hostname must be fully qualified with no empty labels")
+        return modern
+
+    def key(host, scope):
+        # Retain site_key's www and default-port handling after modern IDNA normalization.
+        return site_key(f"{scope[0]}://{'[' + host + ']' if ':' in host else host}:{scope[2]}")
 
     try:
+        bound_host, site_host = modern_host(bound[1]), modern_host(site[1])
         if bound[0] == "domain":
             # Keep the complete property domain: sc-domain:www.example.test does not
             # include its parent, unlike URL-prefix www/apex aliases in this project.
-            return any(
-                host == domain or host.endswith("." + domain)
-                for domain in site_hosts(resource, strip_www=False)
-                for host in site_hosts(target, strip_www=False)
-            )
-        return bool(keys(resource, bound) & keys(target, site)) and site[3].startswith(bound[3])
-    except BindingError:
+            return site_host == bound_host or site_host.endswith("." + bound_host)
+        return key(bound_host, bound) == key(site_host, site) and site[3].startswith(bound[3])
+    except (UnicodeError, BindingError):
         return False
 
 

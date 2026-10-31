@@ -351,3 +351,62 @@ def test_gsc_readiness_note_has_one_separator_full_stop(env, tmp_path):
     row = next(line for line in rows if line.startswith(f"| Google Search Console<br>{SITE} |"))
     assert "Synthetic partial coverage. " + AI_REPORT_NOTE in row
     assert "coverage.." not in row
+
+
+@pytest.mark.parametrize(
+    "key,kind",
+    [
+        pytest.param("gsc", "url", id="gsc-url"),
+        pytest.param("gsc", "domain", id="gsc-domain"),
+        pytest.param("bing_wmt", "url", id="bing-url"),
+    ],
+)
+@pytest.mark.parametrize(
+    "bound_host,target_host,connected",
+    [
+        pytest.param("xn--fa-hia.test", "fass.test", False, id="sharp-s-alabel-to-ss"),
+        pytest.param("fass.test", "xn--fa-hia.test", False, id="ss-to-sharp-s-alabel"),
+        pytest.param("faß.test", "fass.test", False, id="sharp-s-unicode-to-ss"),
+        pytest.param("fass.test", "faß.test", False, id="ss-to-sharp-s-unicode"),
+        pytest.param("straße.test", "strasse.test", False, id="street-to-ss"),
+        pytest.param("strasse.test", "straße.test", False, id="ss-to-street"),
+        pytest.param("ς.test", "σ.test", False, id="final-sigma-to-sigma"),
+        pytest.param("σ.test", "ς.test", False, id="sigma-to-final-sigma"),
+        pytest.param("faß.test", "xn--fa-hia.test", True, id="sharp-s-unicode-to-alabel"),
+        pytest.param("xn--fa-hia.test", "faß.test", True, id="sharp-s-alabel-to-unicode"),
+        pytest.param("xn--a.test", "a.test", False, id="invalid-modern-bound"),
+        pytest.param("a.test", "xn--a.test", False, id="invalid-modern-target"),
+    ],
+)
+def test_rendered_claim_uses_modern_idna(
+    env, tmp_path, key, kind, bound_host, target_host, connected
+):
+    if kind == "domain":
+        # Registered Search Console domain properties use ASCII A-labels.
+        domain = {
+            "faß.test": "xn--fa-hia.test",
+            "straße.test": "xn--strae-oqa.test",
+            "ς.test": "xn--3xa.test",
+            "σ.test": "xn--4xa.test",
+        }.get(bound_host, bound_host)
+        resource, target = f"sc-domain:{domain}", f"https://www.{target_host}/"
+    else:
+        resource, target = f"https://{bound_host}/", f"https://{target_host}/"
+    snapshot = connected_store(env, key, resource)
+    text = markdown(snapshot, [summary(tmp_path, target)])
+    label = service.REGISTRY[key].label
+    claims = [
+        line
+        for line in text.splitlines()
+        if line.startswith(f"- **{label} — Connected via authorised API")
+    ]
+    rows = [
+        line for line in readiness(text).splitlines() if line.startswith(f"| {label}<br>{target} |")
+    ]
+    assert len(rows) == 1
+    assert (
+        bool(claims),
+        "Connected via authorised API" in rows[0],
+        "| connected_partial |" in rows[0],
+        "| not_configured |" in rows[0],
+    ) == (connected, connected, connected, not connected)
