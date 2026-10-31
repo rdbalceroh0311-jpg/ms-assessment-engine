@@ -175,9 +175,10 @@ The probes use at most two homepage GETs and one llms.txt GET, with no redirects
 {% endif %}
 **Source:** {% if members | length > 1 %}{{ finding.evidence_ids | map('source_name') | unique | join(', ') | text }}; individual evidence references are listed with each component above.{% else %}{% for eid in finding.evidence_ids %}{{ sources[eid] | text }} ({{ eid }}){{ '; ' if not loop.last }}{% endfor %}.{% endif %}
 {% endmacro %}
+{% macro authenticated_read(row) -%}{% if row.get('authenticated_read') %}{{ row.authenticated_read | text }}. Evidence: {{ row.authenticated_evidence_ids | join(', ') }}. {% endif %}{%- endmacro %}
 {% macro platform_table(rows) %}
 {% for r in rows %}
-- **{{ r.platform | text }} — {{ r.status | text }}**{% if r.ids %} ({{ r.ids | join(', ') | text }}){% endif %}. Connection readiness: {{ r.connected | text }}. {{ r.detail | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %}. Next action: {{ r.action | text }}
+- **{{ r.platform | text }} — {% if r.get('authenticated_read') %}{{ r.authenticated_read | text }}**. Evidence: {{ r.authenticated_evidence_ids | join(', ') }}. Public signal: {{ r.status | text }}{% else %}{{ r.status | text }}**{% endif %}{% if r.ids %} ({{ r.ids | join(', ') | text }}){% endif %}. Connection readiness: {{ r.connected | text }}. {{ r.detail | text }}{% if r.evidence_ids %} ({{ r.evidence_ids | join(', ') }}){% endif %}. Next action: {{ r.action | text }}
 {% endfor %}
 {% endmacro %}
 {% macro category_section(category, title) %}
@@ -452,7 +453,7 @@ These observations help you confirm where customers can find the business. A lik
 ### Business listings linked from the website
 
 {% for r in p.listings %}
-- **{{ r.listing | text }} — {{ r.status | text }}**. Source: {{ r.sources | join(', ') | text or '-' }}. Evidence URL: {{ r.urls | join('; ') | text or '-' }}. Ownership: {{ r.ownership | text }}. Evidence: {{ r.evidence_ids | join(', ') or '-' }}.
+- **{{ r.listing | text }} — {% if r.get('authenticated_read') %}{{ r.authenticated_read | text }}**. Evidence: {{ r.authenticated_evidence_ids | join(', ') }}. Website links: {{ r.status | text }}{% else %}{{ r.status | text }}**{% endif %}. Source: {{ r.sources | join(', ') | text or '-' }}. Evidence URL: {{ r.urls | join('; ') | text or '-' }}. Ownership: {{ r.ownership | text }}. Evidence: {{ r.evidence_ids | join(', ') or '-' }}.
 {% endfor %}
 
 {% set d = p.get('discovery') %}
@@ -470,7 +471,7 @@ Independent search: **{{ d.status | text }}**{% if d.reason %} ({{ d.reason | te
 | Platform / relevance / state | Candidate profiles, match evidence and detail |
 | --- | --- |
 {% for r in d.platforms | discovery_rows %}
-| {{ r.platform | text }} ({{ r.relevance | text }})<br>{{ r.state | text }}{% if r.get('manual') %} (manual verification {{ r.manual.date | text }} by {{ r.manual.verified_by | text }}; automated: {{ r.automated_state | text }}){% endif %} | {% for c in r.candidates %}{{ c.url | text }} [{{ c.matched | join(', ') | text }}{% if c.score is not none %}; score {{ c.score }}{% endif %}]; {% endfor %}{{ r.detail | text }}{% if r.get('manual') and r.manual.note %} Manual note: {{ r.manual.note | text }}{% endif %} Evidence: {{ r.evidence_ids | join(', ') }} |
+| {{ r.platform | text }} ({{ r.relevance | text }})<br>{{ authenticated_read(r) }}{% if r.get('authenticated_read') %}<br>Public search: {% endif %}{{ r.state | text }}{% if r.get('manual') %} (manual verification {{ r.manual.date | text }} by {{ r.manual.verified_by | text }}; automated: {{ r.automated_state | text }}){% endif %} | {% for c in r.candidates %}{{ c.url | text }} [{{ c.matched | join(', ') | text }}{% if c.score is not none %}; score {{ c.score }}{% endif %}]; {% endfor %}{{ r.detail | text }}{% if r.get('manual') and r.manual.note %} Manual note: {{ r.manual.note | text }}{% endif %} Evidence: {{ r.evidence_ids | join(', ') }} |
 {% endfor %}
 
 {% if d.queries %}
@@ -566,7 +567,7 @@ Selected resource: {{ row.resource or 'Not bound' | text }}. Access status: {{ r
 
 Coverage: {{ row.coverage_text | text }}. {{ row.detail | text }}. Next action: {{ row.next_action | text }}.
 
-{% for item in row.coverage %}- {{ item.endpoint | text }}: {{ item.status | text }}; {{ item.rows }} rows{% if item.truncated %}; truncated or sampled{% endif %}. Evidence: {{ item.evidence_id }}.
+{% for item in row.coverage %}- {{ item.endpoint | text }}: {{ item.status | text }}; {{ item.rows }} rows{% if item.truncated %}; truncated or sampled{% endif %}. {{ item.detail | text }}{% if item.detail %}. {% endif %}Evidence: {{ item.evidence_id }}.
 {% endfor %}
 {% endfor %}
 

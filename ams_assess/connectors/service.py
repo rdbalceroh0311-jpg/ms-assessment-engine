@@ -346,10 +346,13 @@ def prepare(
     if explanations:
         state["detail"] += ". " + "; ".join(explanations)
     state["evidence_ids"] = [e.id for e in result.evidence]
-    if collect and tested_ok:
+    if collect and (
+        tested_ok
+        or state["status"] == "connected_partial" and any(e.rows for e in context.endpoints)
+    ):
         state["last_collection"] = store.now()
-        if not problems:
-            state["last_successful_collection"] = state["last_collection"]
+        state["last_successful_collection"] = state["last_collection"]
+        state["last_successful_collection_status"] = state["status"]
     result.status = "ok" if tested_ok else "error" if state["status"] == "failed" else "skipped"
     result.reason = state["detail"]
     return ModuleResult.model_validate(redact(result.model_dump(), secrets)), redact(state, secrets)
@@ -435,6 +438,10 @@ def execute(root: Path, customer: str, key: str, **kwargs) -> dict[str, Any]:
     )
     current = store.load(root, customer) or store.new_store(customer, customer)
     result, state = prepare(current, key, **kwargs)
+    if key == "gsc" and kwargs.get("collect"):
+        from ams_assess.connectors.gsc import recheck_findings
+
+        recheck_findings(result, current, latest_public_evidence(current))
     spec = connector(key)
     target = ((current.get("profile") or {}).get("fields", {}).get("websites") or [""])[0]
     data = {
@@ -511,7 +518,21 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
                 "status": status,
                 "access": ", ".join(access) or "not_requested",
                 "detail": state.get("detail", ""),
-                "last_successful_collection": state.get("last_successful_collection", "Never"),
+                "authenticated_evidence_ids": [
+                    e["evidence_id"]
+                    for e in state.get("coverage", [])
+                    if e["status"] == "connected"
+                ]
+                if state.get("resource_id")
+                and state.get("last_successful_test")
+                and status in {"connected", "connected_partial"}
+                else [],
+                "last_successful_collection": state.get("last_successful_collection", "Never")
+                + (
+                    " (partial)"
+                    if state.get("last_successful_collection_status") == "connected_partial"
+                    else ""
+                ),
                 "last_collection": state.get("last_collection", "Never"),
                 "period": state.get("period", {}),
                 "coverage": state.get("coverage", []),
@@ -529,7 +550,45 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
 
 def project_presence(summary: dict[str, Any], connector_rows: list[dict[str, Any]]) -> None:
     """Overlay current engine status without changing the historical public observations."""
+    from ams_assess.modules.presence import NOTES
+    from ams_assess.onboarding import PLATFORM_KEYS
+
     states = {row["key"]: row for row in connector_rows}
+    states.update(
+        {alias: row for row in connector_rows for alias in PLATFORM_KEYS.get(row["key"], ())}
+    )
+    # Replace outdated guidance in saved reports as well as newly collected summaries.
+    summary["notes"] = [
+        note
+        for note in summary.get("notes", [])
+        if not note.startswith(
+            (
+                "Google Business Profile existence",
+                "Google Business Profile public search",
+                "Readiness rows describe",
+            )
+        )
+    ] + [
+        NOTES[-2],
+        "Readiness rows describe what authorised access would add. Registered "
+        "connectors: " + ", ".join(spec.label for spec in REGISTRY.values()) + ".",
+    ]
+    for group in (
+        summary.get("platforms", []),
+        summary.get("listings", []),
+        summary.get("readiness", []),
+        summary.get("discovery", {}).get("platforms", []),
+    ):
+        for row in group:
+            row.pop("authenticated_read", None)
+            row.pop("authenticated_evidence_ids", None)
+            state = states.get(row["key"], {})
+            if state.get("authenticated_evidence_ids"):
+                row["authenticated_read"] = (
+                    "Connected via authorised API — see section 7. Bound resource: "
+                    + state["resource"]
+                )
+                row["authenticated_evidence_ids"] = state["authenticated_evidence_ids"]
     for row in summary.get("platforms", []):
         if row["key"] in states:
             row["connected"] = states[row["key"]]["status"]

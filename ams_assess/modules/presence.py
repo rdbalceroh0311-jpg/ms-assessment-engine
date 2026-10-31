@@ -287,10 +287,10 @@ NOTES = [
     "The listings table records only profiles the website links to (links or JSON-LD sameAs). "
     "Ownership, verification and management are not confirmed. Platform pages are never "
     "fetched; independent search results appear in the platform discovery table.",
-    "Google Business Profile existence is looked up only through the DataForSEO Google Maps "
-    "SERP when a USD cap is set; otherwise its status needs manual verification.",
-    "Readiness rows describe what authorised access would add; only existing integrations "
-    "(Search Console and GA4) can be connected by this engine.",
+    "Google Business Profile public search uses the DataForSEO Google Maps SERP when a USD "
+    "cap is set. Authenticated reads of a bound profile are reported separately in section 7.",
+    "Readiness rows describe what authorised access would add; connector coverage appears "
+    "in section 7.",
 ]
 
 

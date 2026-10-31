@@ -1,4 +1,5 @@
 import base64
+import copy
 import hashlib
 import json
 import re
@@ -46,7 +47,7 @@ def discovery_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for row in rows:
         state, detail = row["state"], row["detail"]
         group = None
-        if not row.get("manual") and not row["candidates"]:
+        if not row.get("manual") and not row.get("authenticated_read") and not row["candidates"]:
             if state == "Not applicable":
                 detail = "Not relevant for the recorded industry and buying model."
                 group = (state, detail, row["relevance"])
@@ -676,7 +677,7 @@ def render_markdown(
     for row in coverage_history:
         earlier_coverage.setdefault(site_key(row.get("target", "")), []).append(row)
     presence_sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
-    presence_sites = [p for p in presence_sites if p]
+    presence_sites = [copy.deepcopy(p) for p in presence_sites if p]
     for summary in presence_sites:
         project_presence(summary, data.get("connector_rows", []))
     presence_sites, earlier_presence = site_summaries(presence_sites)
@@ -690,6 +691,7 @@ def render_markdown(
         if p.get("status") == "assessed"
         or p.get("discovery", {}).get("status") in {"Assessed", "Partially assessed"}
         or any(r.get("manual") for r in p.get("discovery", {}).get("platforms", []))
+        or any(r.get("authenticated_read") for r in p.get("readiness", []))
     ]
     # GSC alone must not create empty website/SEO sections.
     public_categories = {f.category for f in public}

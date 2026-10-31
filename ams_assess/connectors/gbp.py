@@ -69,11 +69,20 @@ def classify_error(status_code: int, body: Mapping[str, Any]) -> ErrorClassifica
             "Do not request a quota increase for a zero-quota project.",
         )
     if classified.status == "permission_required":
+        error = body.get("error", {})
+        diagnostic = ": ".join(
+            str(error[key])[:500]
+            for key in ("status", "message")
+            if isinstance(error, Mapping) and isinstance(error.get(key), str)
+        )
         return ErrorClassification(
             "permission_required",
-            "GBP requires business.manage OAuth scope and Manager (or existing Owner) access "
-            "to the selected profile. Reviews require a verified location. For Workspace users, "
-            "confirm the Google Business Profile service is enabled for the user.",
+            f"Provider HTTP {status_code}"
+            + (f": {diagnostic}. " if diagnostic else ". ")
+            + "Possible causes to check: business.manage OAuth scope; Manager (or existing "
+            "Owner) access to the selected profile; location verification for reviews; "
+            "Google Business Profile service availability for Workspace users. "
+            "Successful reads of other endpoints do not establish access to this endpoint.",
         )
     if classified.status == "api_not_enabled":
         return ErrorClassification(

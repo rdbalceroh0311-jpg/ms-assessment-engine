@@ -181,7 +181,7 @@ def rows(current: dict[str, Any]) -> list[dict[str, Any]]:
                 "connected": connected,
                 "resource": row["resource"] or "Not bound",
                 "credential_ref": row["credential_ref"],
-                "last_successful_collection": collected or "Never",
+                "last_successful_collection": row["last_successful_collection"],
                 "missing_permission": state.get("detail", "")
                 if status in {"permission_required", "credential_expired", "approval_required"}
                 else "",
