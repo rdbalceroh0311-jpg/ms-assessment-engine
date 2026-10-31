@@ -57,17 +57,18 @@ def test_every_crawl_host_is_pinned_and_self_resolving_analyzers_are_disabled(
     result = siteone.run(ctx)
     assert result.status == "ok"
     command = commands[0]
-    pins = {arg for arg in command if arg.startswith("--resolve=")}
-    assert pins == {
-        f"--resolve={name}:{port}:{SYNTHETIC_PUBLIC_IP}"
-        for name in ("example.com", "example.com.", "www.example.com", "www.example.com.")
-        for port in (80, 443)
+    assert not any(arg.startswith("--resolve=") for arg in command)
+    assert any(arg.startswith("--proxy=127.0.0.1:") for arg in command)
+    pinning = next(e for e in result.evidence if e.description == "SiteOne destination pinning")
+    assert pinning.data["pinned"] == {
+        host: SYNTHETIC_PUBLIC_IP for host in ("example.com", "www.example.com")
     }
+    assert pinning.data["ports"] == [80, 443]
     analyzers = next(a for a in command if a.startswith("--analyzer-filter-regex="))
     assert "Dns" not in analyzers and "SslTls" not in analyzers
     assert "SeoAndOpenGraph" in analyzers and "Security" in analyzers
     assert "pinned per host/port" in result.reason
-    assert "not by the per-request network guard" in result.reason
+    assert "every connection is revalidated before sending" in result.reason
 
 
 def test_host_without_validated_ipv4_is_not_crawled(tmp_path, monkeypatch):
