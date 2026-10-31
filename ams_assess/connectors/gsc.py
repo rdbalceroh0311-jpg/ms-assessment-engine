@@ -137,7 +137,10 @@ def recheck_findings(result: ModuleResult, current: dict, public: list[Evidence]
         endpoint = endpoints.get(operations.get(check, ""))
         if endpoint is None or not finding.get("component"):
             continue
-        own = [previous[eid] for eid in finding["evidence_ids"] if previous[eid]["source"] == "gsc"]
+        cited = [previous.get(eid) for eid in finding["evidence_ids"]]
+        if any(e is None for e in cited):
+            continue
+        own = [e for e in cited if e is not None and e["source"] == "gsc"]
         if not own or any(
             site_scope(e["data"].get("resource_id", e["data"].get("property"))) != scope
             for e in own

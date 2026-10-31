@@ -21,13 +21,15 @@ from ams_assess import data_boundary
 from ams_assess.ai import PHASES
 from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
 from ams_assess.connectors import REGISTRY as CONNECTORS
-from ams_assess.connectors.service import project_presence
+from ams_assess.connectors.connected import site_scope
+from ams_assess.connectors.service import applies_to_site, project_presence
 from ams_assess.consolidate import consolidate
 from ams_assess.data_boundary import private_artifacts
 from ams_assess.discovery import DISCOVERY_SECTIONS
 from ams_assess.lifecycle import site_key
 from ams_assess.models import CATEGORIES, SEVERITIES, Evidence, Finding, customer_path
 from ams_assess.modules.gsc import AI_REPORT_NOTE
+from ams_assess.onboarding import PLATFORM_KEYS
 from ams_assess.platforms import BUYING_MODELS, INDUSTRIES
 from ams_assess.store import load, locked, now, report_data, save
 from ams_assess.subproc import environment
@@ -69,16 +71,27 @@ def discovery_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
     """Use collected status, with conservative fallbacks for readable pre-v1 runs."""
+    aliases = {alias: key for key, values in PLATFORM_KEYS.items() for alias in values}
+    sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
+    targets = list(dict.fromkeys(p.get("target", data.get("target", "")) for p in sites if p)) or [
+        data.get("target", "")
+    ]
+
+    def identity(key, target):
+        return aliases.get(key, key), site_scope(target) or target
+
     rows = [
         {
             "key": r["key"],
             "service": r["label"],
-            "target": data.get("target", ""),
+            "target": target,
             "status": r["status"],
             "detail": r["detail"],
             "evidence_ids": [e["evidence_id"] for e in r["coverage"]],
         }
         for r in data.get("connector_rows", [])
+        for target in targets
+        if applies_to_site(r, target)
     ]
     for module in data["modules"]:
         target = module.get("target", data.get("target", ""))
@@ -103,26 +116,40 @@ def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
                 }
             )
     # Unsupported connectors are opportunities for a manual review, never connected evidence.
-    sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
     for p in filter(None, sites):
         for r in p.get("readiness", []):
             target = p.get("target", data.get("target", ""))
-            if any(c["key"] == r["key"] and c["target"] == target for c in rows):
+            authenticated = {
+                field: r[field]
+                for field in ("authenticated_read", "authenticated_evidence_ids")
+                if field in r
+            }
+            existing = next(
+                (c for c in rows if identity(c["key"], c["target"]) == identity(r["key"], target)),
+                None,
+            )
+            if existing is not None:
+                existing.update(authenticated)
                 continue
+            key = aliases.get(r["key"], r["key"])
             rows.append(
                 {
-                    "key": r["key"],
+                    "key": key,
                     "service": r["service"],
                     "target": target,
-                    "status": r["access"] if r["key"] in {"gsc", *CONNECTORS} else "Unsupported",
+                    "status": r["access"] if key in {"gsc", *CONNECTORS} else "Unsupported",
                     "detail": r["insights"],
                     "evidence_ids": r["evidence_ids"],
+                    **authenticated,
                 }
             )
     for row in rows:
         if row["key"] == "gsc" and AI_REPORT_NOTE not in row["detail"]:
             row["detail"] += ". " + AI_REPORT_NOTE
-    return rows
+    unique = {}
+    for row in rows:
+        unique.setdefault(identity(row["key"], row["target"]), row)
+    return list(unique.values())
 
 
 LAB_CHECKS = {"lighthouse-mobile", "lighthouse-desktop"}
@@ -679,6 +706,7 @@ def render_markdown(
     presence_sites = data.get("digital_presence_sites") or [data.get("digital_presence")]
     presence_sites = [copy.deepcopy(p) for p in presence_sites if p]
     for summary in presence_sites:
+        summary.setdefault("target", data.get("target", ""))
         project_presence(summary, data.get("connector_rows", []))
     presence_sites, earlier_presence = site_summaries(presence_sites)
     health_sites, earlier_health = site_summaries(

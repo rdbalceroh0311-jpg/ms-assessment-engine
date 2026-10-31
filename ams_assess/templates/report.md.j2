@@ -430,7 +430,7 @@ These observations help you confirm where customers can find the business. A lik
 {{ ai.sections.presence | text }}
 
 {% endif %}
-{% if p.get('target') %}Website: {{ p.target | text }} (run {{ p.run_id }}). {% endif %}Public assessment: statuses below come from the sampled pages ({{ p.pages_sampled | length }}), the crawl, public DNS and one bounded robots.txt/sitemap fetch.{% if p.status != 'assessed' %} **NOT ASSESSED:** {{ p.get('reason', '') | text }}.{% endif %}
+{% if p.get('target') %}Website: {{ p.target | text }}{% if p.get('run_id') %} (run {{ p.run_id }}){% endif %}. {% endif %}Public assessment: statuses below come from the sampled pages ({{ p.pages_sampled | length }}), the crawl, public DNS and one bounded robots.txt/sitemap fetch.{% if p.status != 'assessed' %} **NOT ASSESSED:** {{ p.get('reason', '') | text }}.{% endif %}
 
 
 {% for note in p.notes %}
@@ -565,9 +565,9 @@ Connector status and any returned evidence are separate from public website chec
 
 Selected resource: {{ row.resource or 'Not bound' | text }}. Access status: {{ row.access | text }}. Reporting period: {{ row.period.get('start', 'Not collected') | text }} to {{ row.period.get('end', 'Not collected') | text }}. Last successful collection: {{ row.last_successful_collection | text }}.
 
-Coverage: {{ row.coverage_text | text }}. {{ row.detail | text }}. Next action: {{ row.next_action | text }}.
+Coverage: {{ row.coverage_text | text }}. {% if row.detail %}{{ row.detail.rstrip('.') | text }}. {% endif %}Next action: {{ row.next_action | text }}.
 
-{% for item in row.coverage %}- {{ item.endpoint | text }}: {{ item.status | text }}; {{ item.rows }} rows{% if item.truncated %}; truncated or sampled{% endif %}. {{ item.detail | text }}{% if item.detail %}. {% endif %}Evidence: {{ item.evidence_id }}.
+{% for item in row.coverage %}- {{ item.endpoint | text }}: {{ item.status | text }}; {{ item.rows }} rows{% if item.truncated %}; truncated or sampled{% endif %}. {% if item.detail %}{{ item.detail.rstrip('.') | text }}. {% endif %}Evidence: {{ item.evidence_id }}.
 {% endfor %}
 {% endfor %}
 
@@ -645,7 +645,7 @@ A successful connection means evidence was returned for this sample. Unsupported
 | Service / website | Readiness status | Coverage, limitation or next step | Evidence |
 | --- | --- | --- | --- |
 {% for c in connections %}
-| {{ c.service | text }}<br>{{ c.target | text }} | {{ c.status }} | {{ c.detail | text }} | {{ c.evidence_ids | join(', ') or '-' }} |
+| {{ c.service | text }}<br>{{ c.target | text }} | {{ c.status }} | {{ authenticated_read(c) }}{{ c.detail | text }} | {{ c.evidence_ids | join(', ') or '-' }} |
 {% endfor %}
 
 {% endif %}

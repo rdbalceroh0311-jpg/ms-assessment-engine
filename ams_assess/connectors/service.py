@@ -18,7 +18,7 @@ import idna
 from ams_assess import authorisation, register, store
 from ams_assess.connectors import REGISTRY
 from ams_assess.connectors.auth import config_dir, reference_name
-from ams_assess.connectors.connected import connected_evidence
+from ams_assess.connectors.connected import connected_evidence, site_scope
 from ams_assess.connectors.core import (
     ConnectorContext,
     ConnectorError,
@@ -548,14 +548,40 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
     return output
 
 
+def applies_to_site(row: dict[str, Any], target: str) -> bool:
+    """Keep site-bound reads on their recorded property; opaque resources remain explicit."""
+    bound, site = site_scope(row.get("resource")), site_scope(target)
+    spec = REGISTRY.get(row["key"])
+    if bound is None and (spec is None or spec.resource_type != "site"):
+        return True
+    return (
+        bound is not None
+        and site is not None
+        and (
+            bound == site
+            or (bound[0] == "domain" and bound[1] == site[1] and bound[3] == site[3] == "/")
+        )
+    )
+
+
 def project_presence(summary: dict[str, Any], connector_rows: list[dict[str, Any]]) -> None:
     """Overlay current engine status without changing the historical public observations."""
-    from ams_assess.modules.presence import NOTES
+    from ams_assess.modules.presence import GBP_SEARCH_NOTE
     from ams_assess.onboarding import PLATFORM_KEYS
 
-    states = {row["key"]: row for row in connector_rows}
+    states = {
+        row["key"]: row
+        if applies_to_site(row, summary.get("target", ""))
+        else {
+            **row,
+            "status": "not_configured",
+            "authenticated_evidence_ids": [],
+            "next_action": "Bind a resource for this website",
+        }
+        for row in connector_rows
+    }
     states.update(
-        {alias: row for row in connector_rows for alias in PLATFORM_KEYS.get(row["key"], ())}
+        {alias: row for row in list(states.values()) for alias in PLATFORM_KEYS.get(row["key"], ())}
     )
     # Replace outdated guidance in saved reports as well as newly collected summaries.
     summary["notes"] = [
@@ -569,7 +595,7 @@ def project_presence(summary: dict[str, Any], connector_rows: list[dict[str, Any
             )
         )
     ] + [
-        NOTES[-2],
+        GBP_SEARCH_NOTE,
         "Readiness rows describe what authorised access would add. Registered "
         "connectors: " + ", ".join(spec.label for spec in REGISTRY.values()) + ".",
     ]
