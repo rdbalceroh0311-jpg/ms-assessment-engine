@@ -4,6 +4,7 @@ import json
 import stat
 
 import pytest
+from conftest import mock_siteone_traffic
 
 from ams_assess import store
 from ams_assess.lifecycle import observe
@@ -217,6 +218,7 @@ def test_pass_for_smaller_component_sample_does_not_resolve(tmp_path):
 
 
 def test_real_siteone_outcomes_drive_runner_store_and_report(tmp_path, monkeypatch):
+    mock_siteone_traffic(monkeypatch)
     from types import SimpleNamespace
 
     from ams_assess import runner

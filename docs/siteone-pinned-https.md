@@ -30,12 +30,20 @@ Host, SNI and certificate verification. No production SiteOne binary is modified
 
 The relay only accepts the current crawl's prevalidated host/port destinations,
 rechecks all DNS answers before opening each connection, and requires the original
-pin to remain present. HTTP redirects are checked before returning them; HTTPS
-redirect destinations must pass the same check before their next CONNECT opens.
+pin to remain present. HTTP redirects retain their original status and Location;
+SiteOne uses `Policy::none`, and each next-hop GET or CONNECT must independently
+pass the destination check before opening a connection. Refused or failed HTTP
+forwards close without an HTTP response, so they are transport failures rather
+than invented origin 403 responses or confirmed broken-URL findings.
 SiteOne sends `Connection: close`, so each request gets a checked connection.
 Unpinned destinations are refused even if crawler URL filters fail. The relay
-never resolves or connects through an automatic fallback. HTTP forwarding strips
-credentials/cookies and arbitrary headers. CONNECT forwards TLS bytes only, not
+never resolves or connects through an automatic fallback. SiteOne itself can drop
+its proxy on client construction or option parsing failure. The relay counts HTTP
+requests sent upstream and tunnels carrying client bytes. If SiteOne reports any
+fetched HTTP responses while this count is zero, the module fails closed before
+retaining crawl rows, tables, findings, pages or raw stdout/stderr. This is a
+run-level zero-traffic check, not proof against a partial bypass after relay use.
+HTTP forwarding strips credentials/cookies and arbitrary headers. CONNECT forwards TLS bytes only, not
 proxy headers; SiteOne receives no HTTP auth configuration or inherited secrets.
 Its URL handling does not propagate linked/redirected userinfo into authentication,
 which is exercised against the HTTPS receiving fixture.
@@ -90,7 +98,7 @@ TLS tunnel, not an HTTP interception service. The relay relies on this pinned
 SiteOne version's credential-free, connection-close HTTP client and its standard
 TLS verifier. Tests exercise those behaviors, including linked URL userinfo.
 
-## Verification result
+## Verification at head 8da71e4
 
 - `uv run pytest -q` (all `tests/`): **2,693 passed, 1 skipped**, 2,694 collected cases.
   The skip is the opt-in live-site smoke test; five unrelated SWIG deprecation warnings.
@@ -98,12 +106,25 @@ TLS verifier. Tests exercise those behaviors, including linked URL userinfo.
   **47 passed cases across 29 test functions**. The new HTTPS file contains 31 cases
   across 14 test functions.
 - `uv run ruff check .`: passed.
-- `uv run mypy ams_assess/modules/siteone.py ams_assess/siteone_transport.py`: passed
-  (2 source files). `uv run mypy --check-untyped-defs ams_assess/siteone_transport.py`
-  also passed (1 source file).
-- `uv run mypy ams_assess`: **75 errors in 19 unchanged files**, 58 source files checked.
-  The untouched baseline reported 79 errors in 20 files; the touched SiteOne module's
-  four diagnostics were corrected. These unrelated package errors remain outside this
-  transport fix, so the all-gates-green requirement is not met. Mypy was absent from
-  declared dev dependencies and was installed locally to run the requested check.
+- `uv run ty check`: All checks passed! This is the project type-checking gate.
 - `bash -n scripts/setup-siteone-test-ca.sh` and `git diff --check`: passed.
+
+## HTTP forwarding review correction
+
+`tests/test_siteone_http_forwarding.py` reproduces external HTTP redirects being
+rewritten to 403, plus refused private-DNS and temporary-DNS forwards being recorded
+as broken URLs. All four real-SiteOne cases failed before the correction. They now
+require the real 302 or a negative transport status, with no broken-URL finding.
+The file also covers unpinned host/port and body refusals, zero-traffic rejection of
+200/302/404 rows, and a real SiteOne proxy bypass against a loopback fixture. No
+external redirect target is contacted. Existing mocked-crawler unit tests explicitly
+simulate relay traffic; bypass tests and real crawls use the actual counter.
+
+Validation for the HTTP forwarding correction:
+
+- `uv run ty check`: All checks passed!
+- `uv run ruff check .`: All checks passed!
+- `uv run pytest -q` (all `tests/`): **2,705 passed, 1 skipped**, 2,706 collected
+  cases, 5 SWIG deprecation warnings. The only skip is the opt-in live-site test.
+  This includes 12 new cases across 6 functions in `tests/test_siteone_http_forwarding.py`.
+- `git diff --check`: passed.

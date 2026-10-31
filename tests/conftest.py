@@ -204,3 +204,13 @@ def http_server():
         server.shutdown()
         server.server_close()
         thread.join(5)
+
+
+def mock_siteone_traffic(monkeypatch):
+    """Pair a mocked successful crawler response with simulated relay traffic.
+
+    Explicit unit-test opt-in only; real crawls and bypass regressions use the real counter.
+    """
+    from ams_assess.siteone_transport import CrawlProxy
+
+    monkeypatch.setattr(CrawlProxy, "carried_requests", property(lambda self: 1))

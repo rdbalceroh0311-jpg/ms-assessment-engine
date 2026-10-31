@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from typing import cast
 
 import pytest
-from conftest import SYNTHETIC_PUBLIC_IP
+from conftest import SYNTHETIC_PUBLIC_IP, mock_siteone_traffic
 
 from ams_assess import coverage, network
 from ams_assess.models import Context, create_run_dir
@@ -33,6 +33,7 @@ def context(tmp_path, target, tools=None):
 
 
 def fake_crawler(monkeypatch, ctx, rows, tables=None):
+    mock_siteone_traffic(monkeypatch)
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
     binary.parent.mkdir(parents=True, exist_ok=True)
     binary.touch()

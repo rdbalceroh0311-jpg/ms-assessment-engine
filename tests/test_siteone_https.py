@@ -350,7 +350,8 @@ def test_proxy_http_drops_credentials_and_refuses_unpinned_targets(http_server, 
             response = client.get(site.origin + "/next")
             assert response.headers["X-Content-Type-Options"] == "nosniff"
             assert response.headers["Set-Cookie"] == "session=synthetic; HttpOnly"
-            assert client.get(attacker.origin).status_code == 403
+            with pytest.raises(httpx.RemoteProtocolError):
+                client.get(attacker.origin)
             assert client.post(site.origin, content="secret").status_code == 501
     assert attacker.received == []
     assert len(site.received) == 2

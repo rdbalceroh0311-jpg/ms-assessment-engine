@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from conftest import mock_siteone_traffic
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -69,6 +70,7 @@ def test_pinned_tls_keeps_chain_and_original_hostname_verification(
 
 
 def test_siteone_filters_seeds_pins_domain_scope_and_records_residual_limit(tmp_path, monkeypatch):
+    mock_siteone_traffic(monkeypatch)
     target = "https://example.com/"
     ctx = Context(
         "synthetic",

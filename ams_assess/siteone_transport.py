@@ -16,7 +16,7 @@ import time
 from collections.abc import Generator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import cast
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
 from ams_assess.network import UnsafeURL, validate_public_url
 from ams_assess.targets import REQUEST_SECONDS
@@ -29,6 +29,7 @@ class CrawlProxy(ThreadingHTTPServer):
         self.pins, self.ports = dict(pins), ports
         self.stopped = threading.Event()
         self.lock = threading.Lock()
+        self._carried_requests = 0
         self.sockets: set[socket.socket] = set()
         # Crawler uses two workers; cap local clients.
         self.slots = threading.BoundedSemaphore(8)
@@ -37,6 +38,15 @@ class CrawlProxy(ThreadingHTTPServer):
     @property
     def option(self) -> str:
         return f"--proxy=127.0.0.1:{self.server_port}"
+
+    @property
+    def carried_requests(self) -> int:
+        with self.lock:
+            return self._carried_requests
+
+    def record_carried_request(self) -> None:
+        with self.lock:
+            self._carried_requests += 1
 
     def destination(self, url: str) -> tuple[str, int]:
         try:
@@ -127,9 +137,11 @@ class ProxyRequest(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-    def bodyless(self) -> bool:
+    def bodyless(self, *, report_error: bool = True) -> bool:
         if self.headers.get("Content-Length", "0") != "0" or "Transfer-Encoding" in self.headers:
-            self.send_error(400)
+            if report_error:
+                self.send_error(400)
+            self.close_connection = True
             return False
         return True
 
@@ -153,6 +165,7 @@ class ProxyRequest(BaseHTTPRequestHandler):
             # HTTP auth configured and its subprocess inherits no credentials.
             deadline = time.monotonic() + REQUEST_SECONDS + 2
             peers = (self.connection, upstream)
+            carried = False
             while not proxy.stopped.is_set() and time.monotonic() < deadline:
                 ready, _, _ = select.select(peers, [], [], 0.1)
                 for source in ready:
@@ -161,6 +174,9 @@ class ProxyRequest(BaseHTTPRequestHandler):
                         return
                     other = upstream if source is self.connection else self.connection
                     other.sendall(data)
+                    if source is self.connection and not carried:
+                        proxy.record_carried_request()
+                        carried = True
         except (OSError, ValueError):
             pass
         finally:
@@ -174,7 +190,7 @@ class ProxyRequest(BaseHTTPRequestHandler):
         self.forward()
 
     def forward(self):
-        if not self.bodyless():
+        if not self.bodyless(report_error=False):
             return
         proxy = cast(CrawlProxy, self.server)
         upstream = None
@@ -196,9 +212,10 @@ class ProxyRequest(BaseHTTPRequestHandler):
             client.sock = upstream
             path = (parts.path or "/") + ("?" + parts.query if parts.query else "")
             client.request(self.command, path, headers=headers)
+            proxy.record_carried_request()
             response = client.getresponse()
-            if 300 <= response.status < 400 and response.getheader("Location"):
-                proxy.destination(urljoin(self.path, response.getheader("Location") or ""))
+            # Return the real redirect unchanged. SiteOne does not auto-follow it;
+            # any next-hop GET/CONNECT must pass destination validation itself.
             self.send_response_only(response.status)
             for key, value in response.getheaders():
                 if key.lower() not in {
@@ -214,10 +231,7 @@ class ProxyRequest(BaseHTTPRequestHandler):
                 if not data:
                     break
                 self.wfile.write(data)
-        except UnsafeURL:
-            with contextlib.suppress(OSError):
-                self.send_error(403)
-        except (OSError, ValueError, http.client.HTTPException):
+        except (UnsafeURL, OSError, ValueError, http.client.HTTPException):
             # Preserve a transport failure, rather than inventing an HTTP response
             # attributed to the public site when the upstream never sent one.
             pass

@@ -333,9 +333,6 @@ def run(ctx: Context) -> ModuleResult:
         result.add_evidence(ctx.site_url, "SiteOne process failure", {"reason": result.reason})
         return result
     secrets = configured_secrets(ctx.config)
-    private_write(ctx.run_dir / "raw/siteone.stderr.txt", clean_text(process.stderr, secrets))
-    result.raw_paths += ["raw/siteone.json", "raw/siteone.stderr.txt"]
-    private_write(ctx.run_dir / "raw/siteone.json", clean_text(process.stdout, secrets))
     try:
         data = json.loads(process.stdout)
     except ValueError:
@@ -344,6 +341,20 @@ def run(ctx: Context) -> ModuleResult:
         data = {}
     rows = data.get("results", [])
     rows = [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    if proxy.carried_requests == 0 and any(
+        100 <= status_code(row.get("status")) < 600 for row in rows
+    ):
+        result.status = "error"
+        result.reason = (
+            "SiteOne reported fetched responses without relay traffic; results discarded"
+        )
+        result.add_evidence(
+            ctx.site_url, "SiteOne relay verification failed", {"reason": result.reason}
+        )
+        return result
+    private_write(ctx.run_dir / "raw/siteone.stderr.txt", clean_text(process.stderr, secrets))
+    result.raw_paths += ["raw/siteone.json", "raw/siteone.stderr.txt"]
+    private_write(ctx.run_dir / "raw/siteone.json", clean_text(process.stdout, secrets))
     # Evidence is accepted only from the pinned, pre-validated destinations.
     outside = [r for r in rows if not pinned_destination(str(r.get("url", "")), pins, ports)]
     if outside:
