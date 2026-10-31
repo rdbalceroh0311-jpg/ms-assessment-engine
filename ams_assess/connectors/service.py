@@ -67,10 +67,11 @@ def site_url(resource: str) -> bool:
     return resource.startswith("sc-domain:") or "://" in resource
 
 
-def site_hosts(resource: str) -> frozenset[str]:
+def site_hosts(resource: str, *, strip_www: bool = True) -> frozenset[str]:
     """ASCII host forms of a website property under IDNA2003 and UTS-46 non-transitional
     processing (they differ for deviation characters such as ß), so any form aliases the
-    site. Raises if the host cannot be compared safely."""
+    site. Raises if the host cannot be compared safely. Domain properties retain www
+    with strip_www=False so their parent domain is not included."""
     host = (
         resource.removeprefix("sc-domain:")
         if resource.startswith("sc-domain:")
@@ -95,7 +96,7 @@ def site_hosts(resource: str) -> frozenset[str]:
             raise BindingError("Site hostname cannot be IDNA-normalised: empty label")
         if "." not in form and ":" not in form:
             raise BindingError("Site hostname must be a fully qualified domain or IP address")
-    return frozenset(form.removeprefix("www.") for form in forms)
+    return frozenset(form.removeprefix("www.") if strip_www else form for form in forms)
 
 
 def same_resource(resource_type: str, first: str, second: str) -> bool:
@@ -550,18 +551,33 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
 
 def applies_to_site(row: dict[str, Any], target: str) -> bool:
     """Keep site-bound reads on their recorded property; opaque resources remain explicit."""
-    bound, site = site_scope(row.get("resource")), site_scope(target)
+    resource = row.get("resource", "")
+    bound, site = site_scope(resource), site_scope(target)
     spec = REGISTRY.get(row["key"])
     if bound is None and (spec is None or spec.resource_type != "site"):
         return True
-    return (
-        bound is not None
-        and site is not None
-        and (
-            bound == site
-            or (bound[0] == "domain" and bound[1] == site[1] and bound[3] == site[3] == "/")
-        )
-    )
+    if bound is None or site is None:
+        return False
+
+    def keys(value, scope):
+        # Reuse IDNA aliases and site_key's www, root-dot and default-port handling.
+        return {
+            site_key(f"{scope[0]}://{'[' + host + ']' if ':' in host else host}:{scope[2]}")
+            for host in site_hosts(value, strip_www=False)
+        }
+
+    try:
+        if bound[0] == "domain":
+            # Keep the complete property domain: sc-domain:www.example.test does not
+            # include its parent, unlike URL-prefix www/apex aliases in this project.
+            return any(
+                host == domain or host.endswith("." + domain)
+                for domain in site_hosts(resource, strip_www=False)
+                for host in site_hosts(target, strip_www=False)
+            )
+        return bool(keys(resource, bound) & keys(target, site)) and site[3].startswith(bound[3])
+    except BindingError:
+        return False
 
 
 def project_presence(summary: dict[str, Any], connector_rows: list[dict[str, Any]]) -> None:

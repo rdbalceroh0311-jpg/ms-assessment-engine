@@ -80,7 +80,7 @@ def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
     def identity(key, target):
         return aliases.get(key, key), site_scope(target) or target
 
-    rows = [
+    rows: list[dict[str, Any]] = [
         {
             "key": r["key"],
             "service": r["label"],
@@ -145,7 +145,7 @@ def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
             )
     for row in rows:
         if row["key"] == "gsc" and AI_REPORT_NOTE not in row["detail"]:
-            row["detail"] += ". " + AI_REPORT_NOTE
+            row["detail"] = row["detail"].rstrip(". ") + ". " + AI_REPORT_NOTE
     unique = {}
     for row in rows:
         unique.setdefault(identity(row["key"], row["target"]), row)

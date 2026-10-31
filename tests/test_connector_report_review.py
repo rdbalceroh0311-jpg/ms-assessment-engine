@@ -13,6 +13,7 @@ from ams_assess import store
 from ams_assess.connectors import gsc, service
 from ams_assess.models import Evidence, ModuleResult
 from ams_assess.modules import presence
+from ams_assess.modules.gsc import AI_REPORT_NOTE
 from ams_assess.onboarding import PLATFORM_KEYS
 from ams_assess.report import render_markdown
 
@@ -237,3 +238,116 @@ def test_gsc_missing_cited_evidence_is_not_reevaluated(env, monkeypatch, missing
     gsc.recheck_findings(result, snapshot, service.latest_public_evidence(snapshot))
     assert not result.findings and not result.outcomes
     assert snapshot == before
+
+
+@pytest.mark.parametrize(
+    "key,resource,target,connected",
+    [
+        pytest.param("gsc", SITE, "https://www.example.test/", True, id="gsc-apex-www"),
+        pytest.param("gsc", "https://www.example.test/", SITE, True, id="gsc-www-apex"),
+        pytest.param(
+            "gsc", "sc-domain:example.test", "https://www.example.test/", True, id="domain-www"
+        ),
+        pytest.param("gsc", "sc-domain:example.test", SITE + "blog/", True, id="domain-path"),
+        pytest.param("bing_wmt", SITE, "https://www.example.test/", True, id="bing-apex-www"),
+        pytest.param(
+            "gsc",
+            "sc-domain:example.test",
+            "https://deep.shop.example.test/blog/",
+            True,
+            id="domain-subdomains-path",
+        ),
+        pytest.param(
+            "gsc",
+            SITE + "blog/",
+            "https://www.example.test/blog/post/",
+            True,
+            id="url-prefix-child",
+        ),
+        pytest.param("gsc", SITE + "blog/", SITE + "blogger/", False, id="url-prefix-lookalike"),
+        pytest.param("gsc", SITE + "blog/", SITE + "other/", False, id="url-prefix-outside"),
+        pytest.param("gsc", SITE, "https://shop.example.test/", False, id="url-other-subdomain"),
+        pytest.param(
+            "gsc",
+            "sc-domain:example.test",
+            "https://evil-example.test/",
+            False,
+            id="domain-lookalike-prefix",
+        ),
+        pytest.param(
+            "gsc",
+            "sc-domain:example.test",
+            "https://example.test.evil.test/",
+            False,
+            id="domain-lookalike-suffix",
+        ),
+        pytest.param("gsc", SITE, "https://evil-example.test/", False, id="url-lookalike-prefix"),
+        pytest.param(
+            "bing_wmt", SITE, "https://example.test.evil.test/", False, id="bing-lookalike-suffix"
+        ),
+        pytest.param(
+            "gsc",
+            "https://EXAMPLE.test.:443/",
+            "https://www.example.test./blog/",
+            True,
+            id="trailing-dot-default-port",
+        ),
+        pytest.param(
+            "gsc",
+            "https://exämple.test/blog/",
+            "https://www.xn--exmple-cua.test/blog/post/",
+            True,
+            id="unicode-url-resource",
+        ),
+        pytest.param(
+            "bing_wmt",
+            "https://xn--exmple-cua.test/",
+            "https://www.exämple.test/",
+            True,
+            id="unicode-url-target",
+        ),
+        pytest.param(
+            "gsc",
+            "sc-domain:xn--exmple-cua.test.",
+            "https://shop.exämple.test/blog/",
+            True,
+            id="unicode-domain-target",
+        ),
+        pytest.param(
+            "gsc", "sc-domain:www.example.test", SITE, False, id="domain-property-excludes-parent"
+        ),
+        pytest.param(
+            "gsc",
+            "sc-domain:www.example.test",
+            "https://www.example.test/blog/",
+            True,
+            id="domain-property-retains-www",
+        ),
+        pytest.param("gsc", SITE, "https://example.test:8443/", False, id="url-other-port"),
+    ],
+)
+def test_rendered_property_scope_variants(env, tmp_path, key, resource, target, connected):
+    snapshot = connected_store(env, key, resource)
+    text = markdown(snapshot, [summary(tmp_path, target)])
+    label = service.REGISTRY[key].label
+    claims = [
+        line
+        for line in text.splitlines()
+        if line.startswith(f"- **{label} — Connected via authorised API")
+    ]
+    assert bool(claims) is connected, text
+    rows = [
+        line for line in readiness(text).splitlines() if line.startswith(f"| {label}<br>{target} |")
+    ]
+    assert len(rows) == 1
+    assert ("Connected via authorised API" in rows[0]) is connected
+    assert ("| connected_partial |" in rows[0]) is connected
+    assert ("| not_configured |" in rows[0]) is not connected
+
+
+def test_gsc_readiness_note_has_one_separator_full_stop(env, tmp_path):
+    snapshot = connected_store(env, "gsc", SITE)
+    rows = readiness(markdown(snapshot, [summary(tmp_path)])).splitlines()
+    row = next(line for line in rows if line.startswith(f"| Google Search Console<br>{SITE} |"))
+    assert "Synthetic partial coverage. " + AI_REPORT_NOTE in row
+    assert "coverage.." not in row
