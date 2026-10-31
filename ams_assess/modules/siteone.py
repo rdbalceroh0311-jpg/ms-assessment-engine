@@ -252,18 +252,11 @@ def robots_summary(ctx: Context, result: ModuleResult, items: list[dict[str, Any
                         "robots-txt-missing",
                         "seo",
                         ctx.site_url,
-                        "pass"
-                        if status == 200
-                        else "fail"
-                        if status in {404, 410}
-                        else "unavailable",
+                        "pass" if status == 200 else "fail",
                         [eid],
-                        reason=""
-                        if status in {200, 404, 410}
-                        else f"robots.txt fetch returned HTTP {status}; no usable rules observed",
                     )
                 )
-            if match and int(match.group(1)) in {404, 410}:
+            if match and int(match.group(1)) != 200:
                 result.finding(
                     "robots-txt-missing",
                     "robots.txt not available",

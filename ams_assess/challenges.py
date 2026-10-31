@@ -86,11 +86,52 @@ def blocked_urls(evidence) -> set[str]:
     return urls
 
 
+class _RobotsMeta(HTMLParser):
+    def __init__(self, body: str):
+        super().__init__()
+        self.directives: list[str] = []
+        self.feed(body)
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        if tag == "meta" and str(values.get("name", "")).lower() in {
+            "robots",
+            "googlebot",
+            "bingbot",
+        }:
+            self.directives.append(str(values.get("content", "")))
+
+
+def _has_noindex(data: dict[str, Any]) -> bool:
+    # Reuse the collector's exact directive/crawler scoping semantics. Import locally
+    # because site_rules imports presence, which imports the collector/store modules.
+    from ams_assess.modules.site_rules import noindex
+
+    headers = data.get("headers", {})
+    if isinstance(headers, dict) and any(
+        str(name).lower() == "x-robots-tag" and noindex(value) for name, value in headers.items()
+    ):
+        return True
+    page = data.get("page", {})
+    if isinstance(page, dict) and any(
+        str(meta.get("name", "")).lower() in {"robots", "googlebot", "bingbot"}
+        and noindex(meta.get("content", ""))
+        for meta in page.get("meta", [])
+        if isinstance(meta, dict)
+    ):
+        return True
+    body = data.get("body", "")
+    if isinstance(body, bytes):
+        body = body.decode("utf-8", "replace")
+    return isinstance(body, str) and any(noindex(value) for value in _RobotsMeta(body).directives)
+
+
 def _noindex_basis(data, items, blocked) -> bool:
     """Every explicit hit and supporting citation must be explained by challenges.
 
-    Only known coverage-only metadata (robotsIndex=1) and probe batch members
-    without a noindex signal are excluded. Unknown citations retain a finding.
+    Known indexable SEO metadata, successful HTTP responses and rendered pages
+    without a robots noindex directive are coverage only. Unknown citations retain
+    a finding; actual directives and aggregate support always keep it active.
     """
     detail = data.get("detail", {})
     if not isinstance(detail, dict):
@@ -111,19 +152,27 @@ def _noindex_basis(data, items, blocked) -> bool:
             continue
         response = value
         if e.description == "Bounded site-check HTTP probes":
-            # A secondary probe may independently support the same noindex claim.
-            # Preserve uncertain directives as well; withdrawal requires a sole basis.
-            for probe in value.values():
-                if isinstance(probe, dict) and not challenged(probe):
-                    signals = str(probe.get("headers", {})) + str(probe.get("body", ""))
-                    if re.search(r"\b(?:noindex|none)\b", signals, re.I):
-                        return False
+            # A secondary probe only supports the claim through an actual directive,
+            # never incidental prose, CSS values or unrelated header values.
+            if any(
+                isinstance(probe, dict) and not challenged(probe) and _has_noindex(probe)
+                for probe in value.values()
+            ):
+                return False
             response = value.get("normal", {})
             if not challenged(response):
                 return False
         elif eid not in blocked:
+            if _has_noindex(value):
+                return False
             if e.description == "SiteOne SEO metadata" and str(value.get("robotsIndex")) == "1":
-                continue  # Indexable coverage is not support for a noindex claim.
+                continue
+            if e.description == "SiteOne HTTP response" and str(value.get("status")) == "200":
+                continue
+            if e.description.startswith("Rendered page evidence") and isinstance(
+                value.get("page"), dict
+            ):
+                continue
             return False
         for header, value in response.get("headers", {}).items():
             if header.lower() == "x-robots-tag":

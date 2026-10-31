@@ -320,6 +320,9 @@ def test_real_siteone_exports_challenge_signatures(
         tools_dir=Path(__file__).resolve().parents[1] / "tools",
     )
     monkeypatch.setattr(siteone, "resolve_target", lambda _: {"resolved": url})
+    # Production seed collection captures the robots challenge independently of HTML.
+    # Keep that evidence even though this fixture bypasses crawl seed selection.
+    ctx.inventory["sitemap"] = presence.sitemap_check(ctx)
     monkeypatch.setattr(siteone, "crawl_seeds", lambda *a: [])
     result = siteone.run(ctx)
     assert not ctx.pages and not result.findings

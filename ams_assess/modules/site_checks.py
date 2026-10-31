@@ -480,19 +480,23 @@ class Checks:
             if hits
             else ("PASS" if self.indexing_coverage else "NOT ASSESSED")
         )
+        checked = "; ".join(f"{h['url']}: {h['source']}" for h in hits) or (
+            "Crawl-wide X-Robots-Tag noindex observed; affected pages are unknown."
+            if aggregate
+            else f"No noindex in {len(self.indexing_coverage)} crawl indexing records. "
+            "Meta directives inspected where available; individual HTTP-header attribution may "
+            "be unavailable outside the homepage."
+        )
+        if self.crawl_blocked:
+            checked += (
+                f" Excluded {len(self.crawl_blocked)} crawl pages from this sample: {REASON}."
+            )
         self.row(
             "noindex",
             "Page noindex / X-Robots-Tag",
             ["seo", "technical"],
             status,
-            "; ".join(f"{h['url']}: {h['source']}" for h in hits)
-            or (
-                "Crawl-wide X-Robots-Tag noindex observed; affected pages are unknown."
-                if aggregate
-                else f"No noindex in {len(self.indexing_coverage)} crawl indexing records. "
-                "Meta directives inspected where available; individual HTTP-header attribution may "
-                "be unavailable outside the homepage."
-            ),
+            checked,
             "Unintended noindex on home or key pages prevents those pages appearing in search.",
             "Confirm intended indexing per URL; inspect response headers on unsampled pages. "
             "Remove noindex only on pages intended for search.",
