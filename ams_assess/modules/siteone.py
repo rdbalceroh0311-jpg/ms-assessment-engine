@@ -11,6 +11,7 @@ from ams_assess.data_boundary import text as clean_text
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult
 from ams_assess.network import UnsafeURL, validate_public_url
+from ams_assess.siteone_transport import crawl_proxy
 from ams_assess.targets import NORMAL_UA, REQUEST_SECONDS, crawl_hosts, resolve_target, same_site
 
 name = "siteone"
@@ -27,16 +28,16 @@ categories = {
 }
 requires = ["tools/siteone/siteone-crawler/siteone-crawler"]
 # Analyzers that only read crawled responses. SiteOne's DNS and SSL/TLS analyzers resolve
-# and connect by themselves, ignoring --resolve; TLS is checked by the guarded security module.
+# and connect by themselves, bypassing the proxy; TLS is checked by the guarded security module.
 ANALYZERS = (
     "/^(?:Accessibility|BestPractice|Caching|ContentType|ExternalLinks|Fastest|Headers|Page404"
     "|Redirects|Security|SeoAndOpenGraph|SkippedUrls|Slowest|SourceDomains)Analyzer$/"
 )
 LIMITATION = (
-    "SiteOne connects only to IPv4 addresses validated before the crawl and pinned per "
-    "host/port (--resolve); its self-resolving DNS and SSL/TLS analyzers are disabled and "
-    "responses from any other destination are discarded. Which URLs it requests is "
-    "confined by its own domain/URL filters, not by the per-request network guard."
+    "SiteOne connects through a run-scoped local proxy to validated addresses pinned per "
+    "host/port; every connection is revalidated before sending. Original Host/SNI and "
+    "certificate verification are preserved; self-resolving DNS and SSL/TLS analyzers "
+    "are disabled. IPv6-only host names are not crawled."
 )
 
 
@@ -121,8 +122,8 @@ def crawl_ports(url: str) -> tuple[int, ...]:
 def pin_hosts(site_url: str, hosts: set[str]) -> tuple[dict[str, str], list[str]]:
     """Validate each crawl host now and choose the address SiteOne must connect to.
 
-    SiteOne 2.5.1 applies --resolve to every crawl request for that exact host:port, but
-    accepts only IPv4. A named host without a validated IPv4 address is not crawled. An IP
+    Keep the existing IPv4 selection policy; the local proxy owns connection pinning.
+    A named host without a validated IPv4 address is not crawled. An IP
     literal needs no resolution and maps to itself.
     """
     parts = urlsplit(site_url)
@@ -258,7 +259,7 @@ def run(ctx: Context) -> ModuleResult:
         result.status = "error"
         result.reason = (
             "SiteOne not run: no validated IPv4 address to pin for the crawl host "
-            "(SiteOne cannot pin IPv6 host names)"
+            "(IPv6-only host names are outside the crawl pinning policy)"
         )
         result.add_evidence(ctx.site_url, "SiteOne destination pinning", {"reason": result.reason})
         return result
@@ -306,14 +307,6 @@ def run(ctx: Context) -> ModuleResult:
         *(f"--allowed-domain-for-crawling={host}" for host in sorted(hosts)),
         f"--include-regex=~^https?://(?:{authorities}){authority_port}/~i",
         f"--analyzer-filter-regex={ANALYZERS}",
-        # A pin matches the exact authority, so the root-dot spelling needs its own entry.
-        *(
-            f"--resolve={name}:{port}:{address}"
-            for host, address in sorted(pins.items())
-            if host != address
-            for name in (host, host + ".")
-            for port in ports
-        ),
     ]
     if seeds:
         # SiteOne URL-list seeds bypass its robots check, including the first URL.
@@ -323,14 +316,15 @@ def run(ctx: Context) -> ModuleResult:
         private_write(listing, "\n".join([*start, *seeds]) + "\n")
         command.append(f"--url-list={listing}")
     try:
-        process = subproc.run(
-            command,
-            kind="siteone",
-            cwd=ctx.run_dir,
-            capture_output=True,
-            text=True,
-            timeout=max(120, min(ctx.max_pages * 10, 1800)),
-        )
+        with crawl_proxy(pins, ports) as proxy:
+            process = subproc.run(
+                [*command, proxy.option],
+                kind="siteone",
+                cwd=ctx.run_dir,
+                capture_output=True,
+                text=True,
+                timeout=max(120, min(ctx.max_pages * 10, 1800)),
+            )
         result.collection_started = True
     except (OSError, subprocess.TimeoutExpired) as exc:
         result.collection_started = isinstance(exc, subprocess.TimeoutExpired)
@@ -339,9 +333,6 @@ def run(ctx: Context) -> ModuleResult:
         result.add_evidence(ctx.site_url, "SiteOne process failure", {"reason": result.reason})
         return result
     secrets = configured_secrets(ctx.config)
-    private_write(ctx.run_dir / "raw/siteone.stderr.txt", clean_text(process.stderr, secrets))
-    result.raw_paths += ["raw/siteone.json", "raw/siteone.stderr.txt"]
-    private_write(ctx.run_dir / "raw/siteone.json", clean_text(process.stdout, secrets))
     try:
         data = json.loads(process.stdout)
     except ValueError:
@@ -350,6 +341,20 @@ def run(ctx: Context) -> ModuleResult:
         data = {}
     rows = data.get("results", [])
     rows = [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    if proxy.carried_requests == 0 and any(
+        100 <= status_code(row.get("status")) < 600 for row in rows
+    ):
+        result.status = "error"
+        result.reason = (
+            "SiteOne reported fetched responses without relay traffic; results discarded"
+        )
+        result.add_evidence(
+            ctx.site_url, "SiteOne relay verification failed", {"reason": result.reason}
+        )
+        return result
+    private_write(ctx.run_dir / "raw/siteone.stderr.txt", clean_text(process.stderr, secrets))
+    result.raw_paths += ["raw/siteone.json", "raw/siteone.stderr.txt"]
+    private_write(ctx.run_dir / "raw/siteone.json", clean_text(process.stdout, secrets))
     # Evidence is accepted only from the pinned, pre-validated destinations.
     outside = [r for r in rows if not pinned_destination(str(r.get("url", "")), pins, ports)]
     if outside:
@@ -380,7 +385,9 @@ def run(ctx: Context) -> ModuleResult:
         return result
     successful = any(r.get("type") == 1 and 200 <= status_code(r.get("status")) < 300 for r in rows)
     if process.returncode or not successful:
-        failure = next((r for r in rows if not 200 <= status_code(r.get("status")) < 300), {})
+        failure: dict[str, Any] = next(
+            (r for r in rows if not 200 <= status_code(r.get("status")) < 300), {}
+        )
         error = data.get("error") or "No successful HTML pages"
         message = diagnostic("; ".join(map(str, error)) if isinstance(error, list) else error, ctx)
         result.status = "error"
@@ -582,19 +589,19 @@ def run(ctx: Context) -> ModuleResult:
         code, text = str(item.get("aplCode", "")), str(item.get("text", ""))
         if code.startswith("robots-txt-"):
             eid = result.add_evidence(ctx.site_url, "SiteOne robots.txt load", item)
-            status = re.search(r"status code (\d+)", text)
-            if status:
+            match = re.search(r"status code (\d+)", text)
+            if match:
                 result.outcomes.append(
                     observe(
                         name,
                         "robots-txt-missing",
                         "seo",
                         ctx.site_url,
-                        "pass" if status.group(1) == "200" else "fail",
+                        "pass" if match.group(1) == "200" else "fail",
                         [eid],
                     )
                 )
-            if status and status.group(1) != "200":
+            if match and match.group(1) != "200":
                 result.finding(
                     "robots-txt-missing",
                     "robots.txt not available",

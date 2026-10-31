@@ -13,6 +13,7 @@ from typing import Any
 
 import httpx
 import pytest
+from conftest import mock_siteone_traffic
 
 from ams_assess import ai, cli, coverage, figures, register, store, ui
 from ams_assess.connectors import REGISTRY as CONNECTORS
@@ -462,6 +463,7 @@ def test_d5_crawl_seeds_are_known_same_site_html_pages_within_robots_and_budget(
 
 
 def test_d5_siteone_receives_seeds_and_browser_reserves_slots_for_them(tmp_path, monkeypatch):
+    mock_siteone_traffic(monkeypatch)
     ctx = context(tmp_path, max_pages=10)
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
     binary.parent.mkdir(parents=True)
@@ -1248,6 +1250,7 @@ def test_d5_seed_robots_support_wildcards_specific_allow_and_end_anchor(path, al
 
 
 def test_d5_seed_list_never_bypasses_a_disallowed_start_page(tmp_path, monkeypatch):
+    mock_siteone_traffic(monkeypatch)
     ctx = context(tmp_path)
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
     binary.parent.mkdir(parents=True)

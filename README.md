@@ -1460,20 +1460,23 @@ verification. Raw redirect destinations are validated before URL normalisation, 
 redirect chains run entirely inside that guarded transport. Redirected documents are marked
 unavailable for the original URL so their content cannot be misattributed. SiteOne pre-validates
 targets/seeds and applies a domain/port URL filter to discovered links and redirects. Each crawl
-host is validated before the crawl and pinned with SiteOne's `--resolve` to one checked IPv4
-address for every allowed port and root-dot spelling; SiteOne 2.5.1 applies this to all its
-crawl requests (pages, robots.txt, in-host redirects), so DNS changes during the crawl cannot
-move it. Its DNS and SSL/TLS analyzers resolve and connect by themselves, ignoring `--resolve`,
-and are disabled (TLS is checked by the guarded security module). Responses from any
-destination other than a pinned host/port (an explicit `:0` included) are discarded and flagged
-in crawl evidence, as are rows of SiteOne's per-URL tables (SEO, headings, 404, redirects,
-external links) naming such a destination; its crawl-wide header/security aggregates are
-discarded whenever any response was.
-**Residual SiteOne limits:** which URLs SiteOne requests is still decided by its own
-domain/URL filters rather than the shared per-request guard; a SiteOne filter defect could
-send a request elsewhere before its evidence is discarded. SiteOne 2.5.1 cannot pin IPv6, so
-a named host without a validated public IPv4 address is not crawled by SiteOne (recorded as a
-limitation). These limits are recorded in crawl results. Playwright denies WebSockets, service workers, downloads and
+host is validated before the crawl and pinned to one checked IPv4 address per allowed
+port by a run-scoped loopback proxy. Every outbound connection, including a redirected
+connection, is validated again and uses that original numeric pin. SiteOne retains the
+public URL and original Host/SNI, and verifies the actual server certificate. The relay
+refuses unpinned hosts/ports and private/rebound DNS answers before connecting. SiteOne's
+DNS and SSL/TLS analyzers bypass the proxy and remain disabled (TLS is checked by the
+guarded security module). Responses and derived table rows from any unpinned destination
+are still discarded as a secondary evidence-integrity check; mixed aggregates are discarded.
+
+SiteOne 2.5.1's `--resolve` changes the request URL to an IP, losing the original TLS
+hostname even though it restores the HTTP Host header. The proxy avoids this defect without
+disabling pinning or certificate checks. It closes with SiteOne on cancellation or failure,
+strips HTTP credentials/cookies, and has no direct-connection fallback. See
+[the diagnosis and local HTTPS regression setup](docs/siteone-pinned-https.md).
+**Residual SiteOne limits:** the existing IPv4-only DNS-host policy remains. HTTPS is a
+verified TLS tunnel; SiteOne's credential-free, connection-close client is covered by
+regression tests. These limits are recorded in crawl results. Playwright denies WebSockets, service workers, downloads and
 permissions; pages requiring writes/cookies may be incomplete. Redirected subresources whose relative
 references depend on the final URL may also render incompletely. Reports remove images and unsafe
 links/raw HTML, allow only the bundled CSS hash and render PDF in an offline browser context.

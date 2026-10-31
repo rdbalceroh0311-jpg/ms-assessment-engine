@@ -12,6 +12,7 @@ import dns.name
 import dns.resolver
 import httpx
 import pytest
+from conftest import mock_siteone_traffic
 
 from ams_assess import ai, network, runner, store, targets
 from ams_assess.models import Context, Evidence, ModuleResult, create_run_dir
@@ -37,6 +38,7 @@ def context(tmp_path, **changes):
 
 
 def mock_crawler(monkeypatch, ctx, rows=None, exit_code=0, error=None):
+    mock_siteone_traffic(monkeypatch)
     # Unit tests need neither the installed binary nor the network.
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
     if not binary.exists():

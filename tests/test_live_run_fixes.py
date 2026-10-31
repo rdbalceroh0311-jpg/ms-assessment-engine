@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from conftest import mock_siteone_traffic
 
 from ams_assess import ai, presence_discovery, runner, targets
 from ams_assess.models import Context, Evidence, ModuleResult, create_run_dir
@@ -221,6 +222,7 @@ def test_redirect_host_change_crawls_both_hosts_and_feeds_downstream(tmp_path, m
 
 @pytest.mark.parametrize("exit_code", [0, 3])
 def test_siteone_redirect_only_is_an_explicit_failure(tmp_path, monkeypatch, exit_code):
+    mock_siteone_traffic(monkeypatch)
     monkeypatch.setattr(siteone, "resolve_target", lambda target: {"resolved": target, "chain": []})
     # No pre-crawl robots/sitemap request to the public example host.
     monkeypatch.setattr("ams_assess.coverage.presence.sitemap_check", lambda ctx: {})

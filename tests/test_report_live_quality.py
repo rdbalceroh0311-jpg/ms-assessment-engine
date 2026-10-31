@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from conftest import mock_siteone_traffic
 
 from ams_assess import runner, targets
 from ams_assess.models import Context, create_run_dir
@@ -100,6 +101,7 @@ def test_page_budget_excludes_assets_and_retains_html_header_evidence(tmp_path):
 
 
 def test_headers_framing_and_observatory_form_one_cited_action(tmp_path, monkeypatch):
+    mock_siteone_traffic(monkeypatch)
     ctx = context(tmp_path)
     ctx.tools_dir = tmp_path / "tools"
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
@@ -280,6 +282,7 @@ def test_crux_documented_no_data_is_distinct_from_api_errors(
 
 @pytest.mark.parametrize("status", [403, 404, 503])
 def test_rejected_speculative_https_upgrade_crawls_explicit_http(tmp_path, monkeypatch, status):
+    mock_siteone_traffic(monkeypatch)
     ctx = context(tmp_path, target="http://example.com/", tools_dir=tmp_path / "tools")
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
     binary.parent.mkdir(parents=True)
