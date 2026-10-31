@@ -18,7 +18,7 @@ import idna
 from ams_assess import authorisation, register, store
 from ams_assess.connectors import REGISTRY
 from ams_assess.connectors.auth import config_dir, reference_name
-from ams_assess.connectors.connected import connected_evidence
+from ams_assess.connectors.connected import connected_evidence, site_scope
 from ams_assess.connectors.core import (
     ConnectorContext,
     ConnectorError,
@@ -67,10 +67,11 @@ def site_url(resource: str) -> bool:
     return resource.startswith("sc-domain:") or "://" in resource
 
 
-def site_hosts(resource: str) -> frozenset[str]:
+def site_hosts(resource: str, *, strip_www: bool = True) -> frozenset[str]:
     """ASCII host forms of a website property under IDNA2003 and UTS-46 non-transitional
     processing (they differ for deviation characters such as ß), so any form aliases the
-    site. Raises if the host cannot be compared safely."""
+    site. Raises if the host cannot be compared safely. Domain properties retain www
+    with strip_www=False so their parent domain is not included."""
     host = (
         resource.removeprefix("sc-domain:")
         if resource.startswith("sc-domain:")
@@ -95,7 +96,7 @@ def site_hosts(resource: str) -> frozenset[str]:
             raise BindingError("Site hostname cannot be IDNA-normalised: empty label")
         if "." not in form and ":" not in form:
             raise BindingError("Site hostname must be a fully qualified domain or IP address")
-    return frozenset(form.removeprefix("www.") for form in forms)
+    return frozenset(form.removeprefix("www.") if strip_www else form for form in forms)
 
 
 def same_resource(resource_type: str, first: str, second: str) -> bool:
@@ -346,10 +347,13 @@ def prepare(
     if explanations:
         state["detail"] += ". " + "; ".join(explanations)
     state["evidence_ids"] = [e.id for e in result.evidence]
-    if collect and tested_ok:
+    if collect and (
+        tested_ok
+        or state["status"] == "connected_partial" and any(e.rows for e in context.endpoints)
+    ):
         state["last_collection"] = store.now()
-        if not problems:
-            state["last_successful_collection"] = state["last_collection"]
+        state["last_successful_collection"] = state["last_collection"]
+        state["last_successful_collection_status"] = state["status"]
     result.status = "ok" if tested_ok else "error" if state["status"] == "failed" else "skipped"
     result.reason = state["detail"]
     return ModuleResult.model_validate(redact(result.model_dump(), secrets)), redact(state, secrets)
@@ -435,6 +439,10 @@ def execute(root: Path, customer: str, key: str, **kwargs) -> dict[str, Any]:
     )
     current = store.load(root, customer) or store.new_store(customer, customer)
     result, state = prepare(current, key, **kwargs)
+    if key == "gsc" and kwargs.get("collect"):
+        from ams_assess.connectors.gsc import recheck_findings
+
+        recheck_findings(result, current, latest_public_evidence(current))
     spec = connector(key)
     target = ((current.get("profile") or {}).get("fields", {}).get("websites") or [""])[0]
     data = {
@@ -511,7 +519,21 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
                 "status": status,
                 "access": ", ".join(access) or "not_requested",
                 "detail": state.get("detail", ""),
-                "last_successful_collection": state.get("last_successful_collection", "Never"),
+                "authenticated_evidence_ids": [
+                    e["evidence_id"]
+                    for e in state.get("coverage", [])
+                    if e["status"] == "connected"
+                ]
+                if state.get("resource_id")
+                and state.get("last_successful_test")
+                and status in {"connected", "connected_partial"}
+                else [],
+                "last_successful_collection": state.get("last_successful_collection", "Never")
+                + (
+                    " (partial)"
+                    if state.get("last_successful_collection_status") == "connected_partial"
+                    else ""
+                ),
                 "last_collection": state.get("last_collection", "Never"),
                 "period": state.get("period", {}),
                 "coverage": state.get("coverage", []),
@@ -527,9 +549,88 @@ def rows(current: dict[str, Any], *, include_unconfigured: bool = True) -> list[
     return output
 
 
+def applies_to_site(row: dict[str, Any], target: str) -> bool:
+    """Keep site-bound reads on their recorded property; opaque resources remain explicit."""
+    resource = row.get("resource", "")
+    bound, site = site_scope(resource), site_scope(target)
+    spec = REGISTRY.get(row["key"])
+    if bound is None and (spec is None or spec.resource_type != "site"):
+        return True
+    if bound is None or site is None:
+        return False
+
+    def keys(value, scope):
+        # Reuse IDNA aliases and site_key's www, root-dot and default-port handling.
+        return {
+            site_key(f"{scope[0]}://{'[' + host + ']' if ':' in host else host}:{scope[2]}")
+            for host in site_hosts(value, strip_www=False)
+        }
+
+    try:
+        if bound[0] == "domain":
+            # Keep the complete property domain: sc-domain:www.example.test does not
+            # include its parent, unlike URL-prefix www/apex aliases in this project.
+            return any(
+                host == domain or host.endswith("." + domain)
+                for domain in site_hosts(resource, strip_www=False)
+                for host in site_hosts(target, strip_www=False)
+            )
+        return bool(keys(resource, bound) & keys(target, site)) and site[3].startswith(bound[3])
+    except BindingError:
+        return False
+
+
 def project_presence(summary: dict[str, Any], connector_rows: list[dict[str, Any]]) -> None:
     """Overlay current engine status without changing the historical public observations."""
-    states = {row["key"]: row for row in connector_rows}
+    from ams_assess.modules.presence import GBP_SEARCH_NOTE
+    from ams_assess.onboarding import PLATFORM_KEYS
+
+    states = {
+        row["key"]: row
+        if applies_to_site(row, summary.get("target", ""))
+        else {
+            **row,
+            "status": "not_configured",
+            "authenticated_evidence_ids": [],
+            "next_action": "Bind a resource for this website",
+        }
+        for row in connector_rows
+    }
+    states.update(
+        {alias: row for row in list(states.values()) for alias in PLATFORM_KEYS.get(row["key"], ())}
+    )
+    # Replace outdated guidance in saved reports as well as newly collected summaries.
+    summary["notes"] = [
+        note
+        for note in summary.get("notes", [])
+        if not note.startswith(
+            (
+                "Google Business Profile existence",
+                "Google Business Profile public search",
+                "Readiness rows describe",
+            )
+        )
+    ] + [
+        GBP_SEARCH_NOTE,
+        "Readiness rows describe what authorised access would add. Registered "
+        "connectors: " + ", ".join(spec.label for spec in REGISTRY.values()) + ".",
+    ]
+    for group in (
+        summary.get("platforms", []),
+        summary.get("listings", []),
+        summary.get("readiness", []),
+        summary.get("discovery", {}).get("platforms", []),
+    ):
+        for row in group:
+            row.pop("authenticated_read", None)
+            row.pop("authenticated_evidence_ids", None)
+            state = states.get(row["key"], {})
+            if state.get("authenticated_evidence_ids"):
+                row["authenticated_read"] = (
+                    "Connected via authorised API — see section 7. Bound resource: "
+                    + state["resource"]
+                )
+                row["authenticated_evidence_ids"] = state["authenticated_evidence_ids"]
     for row in summary.get("platforms", []):
         if row["key"] in states:
             row["connected"] = states[row["key"]]["status"]

@@ -461,7 +461,8 @@ def test_endpoint_failures_preserve_successful_evidence(env, key, status, code, 
     assert expected in state["detail"] and key in state["detail"]
     if expected == "permission_required":
         assert m365.PERMISSIONS[key][0] in payloads(env)[key]["detail"]
-    assert not state.get("last_successful_collection")
+    assert state["last_successful_collection"] == state["last_collection"]
+    assert state["last_successful_collection_status"] == "connected_partial"
     attempts = [r for r in env.graph.calls if r.url.path == "/v1.0" + m365.PATHS[key]]
     assert len(attempts) == (3 if status in {429, 503} else 1)
     if key == "mfa_registration":
