@@ -2,6 +2,7 @@
 
 import math
 
+from ams_assess.challenges import challenged
 from ams_assess.lifecycle import identity_component, key, observe, outcome_key, scoped, site_key
 from ams_assess.models import Context, ModuleResult
 
@@ -155,7 +156,11 @@ def record(ctx: Context, result: ModuleResult) -> None:
                             [e.id],
                         )
                     )
-            if e.description == "HTTP response security headers" and 200 <= e.data["status"] < 300:
+            if (
+                e.description == "HTTP response security headers"
+                and 200 <= e.data["status"] < 300
+                and not challenged(e.data)
+            ):
                 headers = e.data["headers"]
                 missing = [
                     h

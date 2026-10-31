@@ -13,6 +13,7 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 
+from ams_assess.challenges import REASON, blocked_urls, challenged
 from ams_assess.models import Context
 from ams_assess.modules import presence, siteone
 from ams_assess.network import public_client
@@ -524,7 +525,10 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
         )
     if sitemap and sitemap.get("status") not in {None, presence.PASS}:
         stops.append("Sitemap: " + sitemap.get("detail", "Unavailable"))
-    crawled = set(ctx.pages)
+    hosting_blocked = blocked_urls(evidence)
+    crawled = set(ctx.pages) - {
+        e.url for e in evidence if e.description == "SiteOne HTTP response" and challenged(e.data)
+    }
     browser: set[str] = set()
     failed, blocked, redirected = [], [], []
     for url in ctx.pages:
@@ -533,7 +537,7 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
         if e.source == "siteone" and e.description == "SiteOne HTTP response":
             url = add(e.url, "crawl links", e.url)
             status = siteone.status_code(e.data.get("status"))
-            if url and not 200 <= status < 300:
+            if url and not challenged(e.data) and not 200 <= status < 300:
                 row = {"url": url, "status": status}
                 if 300 <= status < 400:
                     redirected.append(row)
@@ -547,13 +551,20 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
         if e.source == "browser" and e.description == "Browser page load unavailable":
             if url := add(e.url, "browser sample"):
                 row = {"url": url, **e.data}
+                if challenged(e.data):
+                    continue
                 if e.data.get("redirected"):
                     redirected.append(row)
                 elif e.data.get("status") in {401, 403, 429}:
                     blocked.append(row)
                 else:
                     failed.append(row)
-        if e.source == "browser" and isinstance(e.data, dict) and e.data.get("page"):
+        if (
+            e.source == "browser"
+            and isinstance(e.data, dict)
+            and e.data.get("page")
+            and not challenged(e.data)
+        ):
             browser.add(e.url)
             add(e.url, "browser sample")
             for link in e.data["page"].get("links", []):
@@ -633,6 +644,7 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
         "robots_declarations": roots,
         "excluded": excluded,
         "blocked": blocked,
+        "hosting_blocked": sorted(hosting_blocked),
         "failed": failed,
         "redirected": redirected,
         "wordpress": inventory,
@@ -663,5 +675,6 @@ def collect(ctx: Context, transport: httpx.BaseTransport | None = None) -> dict[
             if seeded
             else ""
         )
+        + (f" {len(hosting_blocked)} pages {REASON}." if hosting_blocked else "")
         + " Complete coverage is not established.",
     }

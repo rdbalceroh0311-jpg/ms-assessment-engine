@@ -6,6 +6,7 @@ from typing import Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from ams_assess import subproc
+from ams_assess.challenges import REASON, challenged
 from ams_assess.data_boundary import clean_url, configured_secrets, private_write
 from ams_assess.data_boundary import text as clean_text
 from ams_assess.lifecycle import observe
@@ -200,6 +201,8 @@ def pinned_tables(
 
     def tied(value: str) -> bool:
         parts = urlsplit(value)
+        if urljoin(site_url, value) in {r.get("url") for r in outside}:
+            return False
         if not pinned_destination(urljoin(site_url, value), pins, ports):
             return False
         if parts.scheme or parts.netloc or not outside:
@@ -292,6 +295,11 @@ def run(ctx: Context) -> ModuleResult:
         # Keep our exact tool identity; ! suppresses SiteOne's appended signature.
         f"--user-agent={NORMAL_UA}!",
         "--output=json",
+        # JSON results otherwise omit response headers and bodies. Export only challenge
+        # headers and a bounded HTML prefix; no extra requests. SiteOne splits on commas,
+        # hence repeated optional characters rather than a comma quantifier.
+        "--extra-columns=sg-captcha,cf-mitigated",
+        "--extra-columns=AMS-Body=regexp:(?s)^(?:.?){4096}",
         "--no-color",
         "--no-cache",
         "--disable-all-assets",
@@ -365,7 +373,24 @@ def run(ctx: Context) -> ModuleResult:
             {"urls": [clean_url(str(r.get("url", ""))) for r in outside][:50]},
         )
         limitation += f"; {len(outside)} SiteOne responses from unvalidated destinations discarded"
-    tables, discarded = pinned_tables(data.get("tables"), ctx.site_url, pins, ports, rows, outside)
+    for row in rows:
+        extras = row.get("extras")
+        if isinstance(extras, dict):
+            row["headers"] = {k: extras[k] for k in ("sg-captcha", "cf-mitigated") if extras.get(k)}
+            row["body"] = extras.get("AMS-Body", "")
+            row["complete"] = len(row["body"]) < 4096
+    challenges = [r for r in rows if challenged(r)]
+    rows = [r for r in rows if r not in challenges]
+    for row in challenges:
+        eid = result.add_evidence(row["url"], "SiteOne HTTP response", row)
+        result.outcomes.append(
+            observe(name, "page-load", "technical", row["url"], "unavailable", [eid], reason=REASON)
+        )
+    if challenges:
+        limitation += f"; {len({r['url'] for r in challenges})} pages {REASON}"
+    tables, discarded = pinned_tables(
+        data.get("tables"), ctx.site_url, pins, ports, rows, outside + challenges
+    )
     if discarded:
         result.add_evidence(
             ctx.site_url,
@@ -382,6 +407,10 @@ def run(ctx: Context) -> ModuleResult:
             f"SiteOne crawled only a redirect (exit {process.returncode}); "
             "no HTML pages assessed. Verify the canonical host and redirect configuration."
         )
+        return result
+    if challenges and not rows:
+        result.status = "skipped"
+        result.reason = f"NOT ASSESSED: {len(challenges)} pages {REASON}; " + limitation
         return result
     successful = any(r.get("type") == 1 and 200 <= status_code(r.get("status")) < 300 for r in rows)
     if process.returncode or not successful:
@@ -585,7 +614,7 @@ def run(ctx: Context) -> ModuleResult:
                 coverage=list(ctx.pages),
             )
         )
-    for item in data.get("summary", {}).get("items", []):
+    for item in [] if challenges else data.get("summary", {}).get("items", []):
         code, text = str(item.get("aplCode", "")), str(item.get("text", ""))
         if code.startswith("robots-txt-"):
             eid = result.add_evidence(ctx.site_url, "SiteOne robots.txt load", item)

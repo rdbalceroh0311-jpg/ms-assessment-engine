@@ -17,6 +17,7 @@ import httpx
 
 from ams_assess import platforms as catalogue
 from ams_assess import presence_discovery
+from ams_assess.challenges import REASON, blocked_urls, challenged
 from ams_assess.models import Context, ModuleResult
 from ams_assess.modules import dataforseo
 from ams_assess.modules.gsc import AI_REPORT_NOTE
@@ -534,7 +535,9 @@ def page_evidence(browser: ModuleResult | None) -> list[tuple[str, dict[str, Any
     return [
         (e.id, e.data)
         for e in browser.evidence
-        if e.description.startswith("Rendered page evidence") and isinstance(e.data, dict)
+        if e.description.startswith("Rendered page evidence")
+        and isinstance(e.data, dict)
+        and not challenged(e.data)
     ]
 
 
@@ -709,12 +712,22 @@ def fetch(client: httpx.Client, url: str, origin: tuple, deadline: float) -> dic
                     if len(body) > SITEMAP_MAX_BYTES or time.monotonic() > deadline:
                         complete = False
                         break
+                challenge = challenged(
+                    {
+                        "status": response.status_code,
+                        "headers": dict(response.headers),
+                        "body": body,
+                        "complete": complete,
+                    }
+                )
                 return {
+                    "hosting_challenge": challenge,
+                    "reason": REASON if challenge else "",
                     "url": url,
                     "status": response.status_code,
                     "content_type": response.headers.get("content-type", ""),
                     "body": body[:SITEMAP_MAX_BYTES],
-                    "complete": complete,
+                    "complete": complete and not challenge,
                 }
         except (httpx.HTTPError, ValueError) as exc:
             return {"url": url, "error": type(exc).__name__}
@@ -804,6 +817,7 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
             and len(robots.get("body", b"")) <= 65_536,
             "declared": declared if declared is not None else "unknown",
             "confirmed": True,
+            "hosting_blocked_urls": [robots["url"]] if challenged(robots) else [],
         }
         same_origin = [u for u in declared or [] if origin_of(u) == origin]
         if declared and not same_origin:
@@ -821,6 +835,10 @@ def sitemap_check(ctx: Context, transport: httpx.BaseTransport | None = None) ->
         "complete": response.get("complete", False),
         "elapsed_seconds": round(time.monotonic() - started, 2),
     }
+    if challenged(response) or challenged(robots):
+        if challenged(response):
+            data["hosting_blocked_urls"].append(response["url"])
+        return data | {"status": NOT_ASSESSED, "detail": REASON}
     if "error" in response or response.get("redirect"):
         reason = response.get("error") or f"redirect to {response['redirect']} not followed"
         return data | {"status": NOT_ASSESSED, "detail": f"Sitemap fetch failed: {reason}"}
@@ -1316,6 +1334,14 @@ def build(
         "access_email_configured": bool(ctx.config.get("AMS_ACCESS_EMAIL")),
         "notes": NOTES,
     }
+    blocked = blocked_urls(e for module in results for e in module.evidence)
+    if blocked:
+        tables["reason"] = f"{len(blocked)} pages {REASON}"
+        tables["notes"] = [*NOTES, tables["reason"]]
+        if not pages:
+            for row in [*platforms, *listings, *signals]:
+                if row.get("status") == NOT_ASSESSED:
+                    row["detail"] = REASON
     if discovery is not None:
         tables["discovery"] = discovery
     from ams_assess.connectors.service import project_presence, rows
@@ -1468,13 +1494,17 @@ def run(ctx: Context) -> ModuleResult:
         return ModuleResult(
             name=name,
             status="skipped",
-            reason="Requires browser page evidence or public DNS evidence (domain_email)",
+            reason=REASON
+            if blocked_urls(e for r in ctx.results for e in r.evidence)
+            else "Requires browser page evidence or public DNS evidence (domain_email)",
             raw_paths=result.raw_paths,
         )
     if tables["status"] == NOT_ASSESSED:
         result.reason = (
             "No browser page or DNS evidence; only independent presence discovery was assessed"
         )
+    if tables.get("reason"):
+        result.reason = tables["reason"]
     # Stored on the module result so results.json and re-rendering reuse the same tables.
     result.checks = [{"key": key, "value": value} for key, value in tables.items()]
     result.raw_paths = [*result.raw_paths, ctx.raw(name, tables)]

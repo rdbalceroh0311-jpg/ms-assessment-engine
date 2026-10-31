@@ -4,6 +4,7 @@ import hashlib
 import re
 from urllib.parse import urldefrag, urlsplit
 
+from ams_assess.challenges import challenge_basis
 from ams_assess.models import CheckOutcome, Evidence, Finding
 
 
@@ -162,6 +163,7 @@ def transition(
 ) -> list[Finding]:
     """Absence is never a pass. A pass must cover every previously failing component."""
     known = {e.id: e for e in evidence}
+    blocked_evidence = challenge_basis(evidence)
     rows: dict[tuple[str, str, str], list[CheckOutcome]] = {}
     for outcome in page_axe_outcomes(outcomes):
         if not set(outcome.evidence_ids) <= known.keys():
@@ -200,6 +202,7 @@ def transition(
             for o in observations
             if o.status == "pass"
             and o.evidence_ids
+            and not blocked_evidence.intersection(o.evidence_ids)
             and {identity_component(c) for c in old.coverage}
             <= {identity_component(c) for c in o.coverage}
             and all(known[i].provenance == "technical_evidence" for i in o.evidence_ids)
