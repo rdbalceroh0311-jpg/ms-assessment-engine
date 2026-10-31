@@ -282,16 +282,19 @@ RULES = [
     "Least privilege: read-only roles unless an agreed task needs more.",
     "Access is revocable by the customer at any time and is removed when the work ends.",
 ]
+GBP_SEARCH_NOTE = (
+    "Google Business Profile public search uses the DataForSEO Google Maps SERP when a USD "
+    "cap is set. Authenticated reads of a bound profile are reported separately in section 7."
+)
 NOTES = [
     "Not detected means no public signal on the pages sampled; it does not mean an account "
     "does not exist. Tags may load through Google Tag Manager or only after cookie consent.",
     "The listings table records only profiles the website links to (links or JSON-LD sameAs). "
     "Ownership, verification and management are not confirmed. Platform pages are never "
     "fetched; independent search results appear in the platform discovery table.",
-    "Google Business Profile existence is looked up only through the DataForSEO Google Maps "
-    "SERP when a USD cap is set; otherwise its status needs manual verification.",
-    "Readiness rows describe what authorised access would add; only existing integrations "
-    "(Search Console and GA4) can be connected by this engine.",
+    GBP_SEARCH_NOTE,
+    "Readiness rows describe what authorised access would add; connector coverage appears "
+    "in section 7.",
 ]
 
 
@@ -1321,6 +1324,7 @@ def build(
             urls=[ctx.site_url],
         )
     tables = {
+        "target": ctx.site_url,
         "status": "assessed" if assessed else NOT_ASSESSED,
         "pages_sampled": page_urls,
         "consent": consent,
@@ -1349,7 +1353,7 @@ def build(
     # Legacy GSC keeps its existing status unless an explicit framework binding was used.
     connector_rows = [
         r
-        for r in rows({"connectors": ctx.connector_results})
+        for r in rows({"customer_id": ctx.customer_id, "connectors": ctx.connector_results})
         if r["key"] != "gsc" or r["key"] in ctx.connector_results
     ]
     project_presence(tables, connector_rows)

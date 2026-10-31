@@ -396,9 +396,9 @@ Website: http://127.0.0.1:18765/ (run r2). Public assessment: statuses below com
 
 > The listings table records only profiles the website links to (links or JSON-LD sameAs). Ownership, verification and management are not confirmed. Platform pages are never fetched; independent search results appear in the platform discovery table.
 
-> Google Business Profile existence is looked up only through the DataForSEO Google Maps SERP when a USD cap is set; otherwise its status needs manual verification.
+> Google Business Profile public search uses the DataForSEO Google Maps SERP when a USD cap is set. Authenticated reads of a bound profile are reported separately in section 7.
 
-> Readiness rows describe what authorised access would add; only existing integrations (Search Console) can be connected by this engine.
+> Readiness rows describe what authorised access would add. Registered connectors: Google Analytics 4, Google Search Console, Microsoft 365, Google Workspace, WordPress WP-CLI, Bing Webmaster Tools, Google Business Profile.
 
 
 | Signal | Status | Detail | Evidence |
