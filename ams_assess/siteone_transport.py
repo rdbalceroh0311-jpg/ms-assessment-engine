@@ -15,6 +15,7 @@ import threading
 import time
 from collections.abc import Generator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import cast
 from urllib.parse import urljoin, urlsplit
 
 from ams_assess.network import UnsafeURL, validate_public_url
@@ -116,7 +117,6 @@ class CrawlProxy(ThreadingHTTPServer):
 
 
 class ProxyRequest(BaseHTTPRequestHandler):
-    server: CrawlProxy
     # Do not buffer beyond the CONNECT headers into the TLS ClientHello.
     rbufsize = 0
 
@@ -136,12 +136,13 @@ class ProxyRequest(BaseHTTPRequestHandler):
     def do_CONNECT(self):
         if not self.bodyless():
             return
+        proxy = cast(CrawlProxy, self.server)
         try:
             url = "https://" + self.path
             parts = urlsplit(url)
             if parts.path or parts.query or parts.fragment or parts.port is None:
                 raise UnsafeURL()
-            upstream = self.server.connect(url)
+            upstream = proxy.connect(url)
         except (UnsafeURL, OSError, ValueError):
             self.send_error(403)
             return
@@ -152,7 +153,7 @@ class ProxyRequest(BaseHTTPRequestHandler):
             # HTTP auth configured and its subprocess inherits no credentials.
             deadline = time.monotonic() + REQUEST_SECONDS + 2
             peers = (self.connection, upstream)
-            while not self.server.stopped.is_set() and time.monotonic() < deadline:
+            while not proxy.stopped.is_set() and time.monotonic() < deadline:
                 ready, _, _ = select.select(peers, [], [], 0.1)
                 for source in ready:
                     data = source.recv(65536)
@@ -163,7 +164,7 @@ class ProxyRequest(BaseHTTPRequestHandler):
         except (OSError, ValueError):
             pass
         finally:
-            self.server.untrack(upstream)
+            proxy.untrack(upstream)
             self.close_connection = True
 
     def do_GET(self):
@@ -175,12 +176,13 @@ class ProxyRequest(BaseHTTPRequestHandler):
     def forward(self):
         if not self.bodyless():
             return
+        proxy = cast(CrawlProxy, self.server)
         upstream = None
         try:
             parts = urlsplit(self.path)
             if parts.scheme != "http" or parts.fragment:
                 raise UnsafeURL()
-            upstream = self.server.connect(self.path)
+            upstream = proxy.connect(self.path)
             # Only public crawler headers, never cookies/auth/proxy credentials or
             # arbitrary caller headers. HTTPConnection receives an already pinned socket.
             headers = {
@@ -196,7 +198,7 @@ class ProxyRequest(BaseHTTPRequestHandler):
             client.request(self.command, path, headers=headers)
             response = client.getresponse()
             if 300 <= response.status < 400 and response.getheader("Location"):
-                self.server.destination(urljoin(self.path, response.getheader("Location") or ""))
+                proxy.destination(urljoin(self.path, response.getheader("Location") or ""))
             self.send_response_only(response.status)
             for key, value in response.getheaders():
                 if key.lower() not in {
@@ -207,7 +209,7 @@ class ProxyRequest(BaseHTTPRequestHandler):
                     self.send_header(key, value)
             self.end_headers()
             deadline = time.monotonic() + REQUEST_SECONDS
-            while not self.server.stopped.is_set() and time.monotonic() < deadline:
+            while not proxy.stopped.is_set() and time.monotonic() < deadline:
                 data = response.read(65536)
                 if not data:
                     break
@@ -221,7 +223,7 @@ class ProxyRequest(BaseHTTPRequestHandler):
             pass
         finally:
             if upstream is not None:
-                self.server.untrack(upstream)
+                proxy.untrack(upstream)
             self.close_connection = True
 
 

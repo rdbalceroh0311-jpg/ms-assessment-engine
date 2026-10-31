@@ -6,8 +6,10 @@ import socket
 import ssl
 import subprocess
 import threading
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 import httpx
 import pytest
@@ -27,6 +29,13 @@ TLS_TOOLS = ROOT / "tools/siteone-test-ca"
 HOSTS = ("fixture.example.org", "www.fixture.example.org")
 
 
+class FixtureState(TypedDict):
+    redirect: str
+    links: str
+    hold: threading.Event
+    on_jump: NotRequired[Callable[[], None]]
+
+
 @pytest.fixture
 def https_site(tmp_path, http_server, monkeypatch):
     if not (TLS_TOOLS / "siteone/siteone-crawler/siteone-crawler").is_file():
@@ -43,7 +52,7 @@ def https_site(tmp_path, http_server, monkeypatch):
         .not_valid_after(datetime.now(UTC) + timedelta(days=1))
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .add_extension(
-            x509.KeyUsage(False, False, False, False, False, True, True, None, None), True
+            x509.KeyUsage(False, False, False, False, False, True, True, False, False), True
         )
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), False)
         .add_extension(x509.SubjectAlternativeName([x509.DNSName(h) for h in HOSTS]), False)
@@ -63,7 +72,7 @@ def https_site(tmp_path, http_server, monkeypatch):
         .not_valid_after(datetime.now(UTC) + timedelta(days=1))
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(
-            x509.KeyUsage(True, False, True, False, False, False, False, None, None), True
+            x509.KeyUsage(True, False, True, False, False, False, False, False, False), True
         )
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), False)
         .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(key.public_key()), False)
@@ -90,7 +99,7 @@ def https_site(tmp_path, http_server, monkeypatch):
         return None
 
     tls.set_servername_callback(route)
-    state = {"redirect": "", "links": "", "hold": threading.Event()}
+    state: FixtureState = {"redirect": "", "links": "", "hold": threading.Event()}
 
     def respond(request):
         if request["path"] == "/slow":
