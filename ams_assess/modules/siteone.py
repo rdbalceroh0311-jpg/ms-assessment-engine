@@ -237,6 +237,46 @@ def pinned_tables(
     return kept, discarded
 
 
+def robots_summary(ctx: Context, result: ModuleResult, items: list[dict[str, Any]]) -> None:
+    """robots.txt has its own response, independent of challenged HTML pages."""
+    for item in items:
+        code, text = str(item.get("aplCode", "")), str(item.get("text", ""))
+        if code.startswith("robots-txt-"):
+            eid = result.add_evidence(ctx.site_url, "SiteOne robots.txt load", item)
+            match = re.search(r"status code (\d+)", text)
+            if match:
+                status = int(match.group(1))
+                result.outcomes.append(
+                    observe(
+                        name,
+                        "robots-txt-missing",
+                        "seo",
+                        ctx.site_url,
+                        "pass"
+                        if status == 200
+                        else "fail"
+                        if status in {404, 410}
+                        else "unavailable",
+                        [eid],
+                        reason=""
+                        if status in {200, 404, 410}
+                        else f"robots.txt fetch returned HTTP {status}; no usable rules observed",
+                    )
+                )
+            if match and int(match.group(1)) in {404, 410}:
+                result.finding(
+                    "robots-txt-missing",
+                    "robots.txt not available",
+                    "seo",
+                    [eid],
+                    text,
+                    "Publish a robots.txt that allows public pages and declares the XML sitemap.",
+                    severity="low",
+                    confidence="needs_verification",
+                    urls=[ctx.site_url],
+                )
+
+
 def run(ctx: Context) -> ModuleResult:
     result = ModuleResult(name=name)
     binary = ctx.tools_dir / "siteone/siteone-crawler/siteone-crawler"
@@ -389,7 +429,7 @@ def run(ctx: Context) -> ModuleResult:
     if challenges:
         limitation += f"; {len({r['url'] for r in challenges})} pages {REASON}"
     tables, discarded = pinned_tables(
-        data.get("tables"), ctx.site_url, pins, ports, rows, outside + challenges
+        data.get("tables"), ctx.site_url, pins, ports, rows + challenges, outside
     )
     if discarded:
         result.add_evidence(
@@ -400,6 +440,28 @@ def run(ctx: Context) -> ModuleResult:
         limitation += (
             f"; {len(discarded)} SiteOne table rows from unvalidated destinations discarded"
         )
+    if challenges:
+        tables, challenge_discarded = pinned_tables(
+            tables, ctx.site_url, pins, ports, rows, challenges
+        )
+        if challenge_discarded:
+            result.add_evidence(
+                ctx.site_url,
+                "SiteOne table rows discarded because of hosting bot protection",
+                {"rows": challenge_discarded[:50], "reason": REASON},
+            )
+            limitation += (
+                f"; {len(challenge_discarded)} SiteOne table rows discarded "
+                "because of hosting bot protection"
+            )
+    summary_items = data.get("summary", {}).get("items", [])
+    challenge_urls = {r["url"] for r in challenges}
+    robots_url = urljoin(ctx.site_url, "/robots.txt")
+    robots_blocked = robots_url in challenge_urls or robots_url in ctx.inventory.get(
+        "sitemap", {}
+    ).get("hosting_blocked_urls", [])
+    if not robots_blocked:
+        robots_summary(ctx, result, summary_items)
     if len(rows) == 1 and 300 <= status_code(rows[0].get("status")) < 400:
         result.add_evidence(ctx.site_url, "SiteOne crawled only a redirect", rows[0])
         result.status = "error"
@@ -614,35 +676,9 @@ def run(ctx: Context) -> ModuleResult:
                 coverage=list(ctx.pages),
             )
         )
-    for item in [] if challenges else data.get("summary", {}).get("items", []):
+    for item in summary_items:
         code, text = str(item.get("aplCode", "")), str(item.get("text", ""))
-        if code.startswith("robots-txt-"):
-            eid = result.add_evidence(ctx.site_url, "SiteOne robots.txt load", item)
-            match = re.search(r"status code (\d+)", text)
-            if match:
-                result.outcomes.append(
-                    observe(
-                        name,
-                        "robots-txt-missing",
-                        "seo",
-                        ctx.site_url,
-                        "pass" if match.group(1) == "200" else "fail",
-                        [eid],
-                    )
-                )
-            if match and match.group(1) != "200":
-                result.finding(
-                    "robots-txt-missing",
-                    "robots.txt not available",
-                    "seo",
-                    [eid],
-                    text,
-                    "Publish a robots.txt that allows public pages and declares the XML sitemap.",
-                    severity="low",
-                    confidence="needs_verification",
-                    urls=[ctx.site_url],
-                )
-        elif code == "seo-canonical-missing":
+        if code == "seo-canonical-missing" and not any(r.get("type") == 1 for r in challenges):
             eid = result.add_evidence(ctx.site_url, "SiteOne canonical link summary", item)
             result.outcomes.append(
                 observe(

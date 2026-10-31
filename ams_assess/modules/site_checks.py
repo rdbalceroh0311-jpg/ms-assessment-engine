@@ -125,6 +125,7 @@ class Checks:
         self.blocked = blocked_urls(self.evidence) | {
             r["url"] for r in probes.values() if challenged(r)
         }
+        self.all_probes = probes
         self.probes = {k: v for k, v in probes.items() if not challenged(v)}
         self.crawl_blocked = {
             clean_url(e.url)
@@ -210,6 +211,32 @@ class Checks:
     def refs(self, *groups: str) -> list[str]:
         return sorted({eid for group in groups for eid in self.source_ids[group]})
 
+    def blocked_dependencies(self, key: str, refs: list[str]) -> bool:
+        """Only missing observations used by this check can invalidate its pass.
+
+        Probe evidence is a batch: llms.txt must not invalidate the homepage pair, or
+        vice versa. Filtered page records no longer contribute coverage, so a pass on
+        the remaining sample cannot resolve a finding requiring the omitted records.
+        """
+        referenced = set(refs)
+        if self.probe_eid in referenced:
+            probes = {"firewall": ("normal", "search"), "llms-txt": ("llms",)}.get(key, ("normal",))
+            if any(challenged(self.all_probes.get(p)) for p in probes):
+                return True
+        for e in [*self.evidence, *self.result.evidence]:
+            if e.id not in referenced or e.id == self.probe_eid:
+                continue
+            if challenged(e.data):
+                return True
+            if isinstance(e.data, dict):
+                blocked = e.data.get("hosting_blocked_urls", [])
+                if key in {"robots", "ai-robots"}:
+                    if e.data.get("robots_url") in blocked:
+                        return True
+                elif blocked:
+                    return True
+        return False
+
     def row(
         self,
         key: str,
@@ -226,7 +253,7 @@ class Checks:
         category = next((c for c in scopes if c in self.ctx.categories), None)
         if category is None:
             return
-        if self.blocked and key != "cwv":
+        if self.blocked_dependencies(key, refs):
             if status == "PASS":
                 status, checked = "NOT ASSESSED", REASON
             elif status == "NOT ASSESSED":
@@ -1142,6 +1169,8 @@ def run(ctx: Context) -> ModuleResult:
         if unavailable == len(checks.result.checks):
             checks.result.status = "skipped"
     if checks.blocked:
-        checks.result.reason += f"; {len(checks.blocked)} pages {REASON}"
+        checks.result.reason = "; ".join(
+            filter(None, [checks.result.reason, f"{len(checks.blocked)} pages {REASON}"])
+        )
     checks.result.raw_paths = [ctx.raw(name, {"checks": checks.result.checks, "limits": LIMITS})]
     return checks.result

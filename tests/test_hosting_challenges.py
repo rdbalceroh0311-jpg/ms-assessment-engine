@@ -48,9 +48,9 @@ def response(**changes):
         response(),
         response(headers={}),
         response(status=200, headers={"cf-mitigated": "challenge"}, body=""),
-        response(status=503, headers={}, body="<script>window.__cf_chl_test = 1</script>"),
+        response(status=503, headers={}, body="<script>window._cf_chl_opt = {}</script>"),
         response(
-            status=200,
+            status=503,
             headers={},
             body="<title>Just a moment...</title>Enable JavaScript and cookies to continue",
         ),
@@ -301,7 +301,7 @@ def test_coverage_reports_challenged_urls_separately(tmp_path, monkeypatch):
         (202, HEADERS, BODY),
         (202, {"content-type": "text/html"}, BODY),
         (
-            200,
+            503,
             {"content-type": "text/html"},
             "<title>Just a moment...</title>Enable JavaScript and cookies to continue",
         ),
