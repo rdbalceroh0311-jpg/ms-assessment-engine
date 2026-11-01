@@ -152,6 +152,81 @@ def connection_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
     return list(unique.values())
 
 
+def project_access_checklist(summary: dict[str, Any], data: dict[str, Any]) -> None:
+    """Refresh saved requests using only this customer's current, site-scoped access."""
+    aliases = {alias: key for key, values in PLATFORM_KEYS.items() for alias in values}
+    keys = {r["service"]: aliases.get(r["key"], r["key"]) for r in summary.get("readiness", [])}
+    target = summary.get("target", "")
+    entries = data.get("systems_register", [])
+
+    def matches(site: str) -> bool:
+        return bool(site) and applies_to_site({"key": "gsc", "resource": site}, target)
+
+    websites = [
+        *(((data.get("profile") or {}).get("fields") or {}).get("websites") or []),
+        *(r["target"] for r in data.get("targets", []) if r["target"]),
+    ]
+    sole_site = bool(websites) and all(matches(site) for site in websites)
+    grants = {
+        aliases.get(e["platform"], e["platform"])
+        for e in entries
+        if e.get("ams_access") == "granted"
+        and (matches(e.get("site", "")) or not e.get("site") and sole_site)
+    }
+    states = {}
+    for row in data.get("connector_rows", []):
+        if not applies_to_site(row, target):
+            continue
+        if site_scope(row["resource"]) is None:
+            # Opaque property/location IDs have no URL. Use the website of the runs that
+            # produced this binding's current coverage, never a grant on a different site.
+            collected_sites = {
+                r["target"]
+                for r in data.get("targets", [])
+                for run_id in r["run_ids"]
+                if any(f"-{run_id}-" in e["evidence_id"] for e in row.get("coverage", []))
+            }
+            if collected_sites:
+                scoped = all(matches(site) for site in collected_sites)
+            else:
+                scoped = sole_site
+            if not scoped:
+                continue
+        states[row["key"]] = row
+    for item in summary.get("checklist", []):
+        key = keys.get(item["service"])
+        state = states.get(key, {})
+        if state.get("status") in {"connected", "connected_partial"}:
+            gaps = [
+                f"{e['endpoint']}: {e['status']}"
+                for e in state.get("coverage", [])
+                if e["status"] != "connected"
+            ]
+            item["access"] = "Existing connection"
+            item["action"] = "Access in place — connected"
+            if gaps:
+                item["action"] += (
+                    " (partial coverage). Outstanding endpoints: "
+                    + "; ".join(gaps)
+                    + ". Review endpoint coverage and retry unavailable reads."
+                )
+            elif state["status"] == "connected_partial":
+                item["action"] += " (partial coverage); review endpoint coverage."
+            else:
+                item["action"] += "; no action needed."
+            item["evidence_ids"] = list(
+                dict.fromkeys(
+                    [*item["evidence_ids"], *(e["evidence_id"] for e in state.get("coverage", []))]
+                )
+            )
+        elif key in grants:
+            item["access"] = "Reported granted"
+            item["action"] = (
+                "Access reported granted; connection not yet tested. "
+                "Arrange an authorised connection test."
+            )
+
+
 LAB_CHECKS = {"lighthouse-mobile", "lighthouse-desktop"}
 
 
@@ -708,6 +783,7 @@ def render_markdown(
     for summary in presence_sites:
         summary.setdefault("target", data.get("target", ""))
         project_presence(summary, data.get("connector_rows", []))
+        project_access_checklist(summary, data)
     presence_sites, earlier_presence = site_summaries(presence_sites)
     health_sites, earlier_health = site_summaries(
         data.get("domain_email_health_sites")
