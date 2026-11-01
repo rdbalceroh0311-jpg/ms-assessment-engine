@@ -19,3 +19,8 @@ dist/
 *.egg-info/
 .DS_Store
 .security-test/
+.tools/
+reports/
+scoutsuite-report/
+scoutsuite-results/
+scoutsuite-report*.html
