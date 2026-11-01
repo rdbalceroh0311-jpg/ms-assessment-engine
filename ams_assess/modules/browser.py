@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from ams_assess.browser_safety import LAUNCH_OPTIONS, isolate_context
+from ams_assess.challenges import REASON, blocked_urls, challenged
 from ams_assess.data_boundary import private_artifacts
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult, site_authority
@@ -157,9 +158,23 @@ def run(ctx: Context) -> ModuleResult:
                             else page.url
                         )
                         redirected = page.url != url or final_url != url
-                        if response is None or not 200 <= response.status < 300 or redirected:
+                        response_headers = getattr(response, "headers", {})
+                        challenge = bool(response) and (
+                            response_headers.get("x-ams-hosting-challenge") == "1"
+                            or challenged({"status": response.status, "headers": response_headers})
+                        )
+                        if (
+                            challenge
+                            or response is None
+                            or not 200 <= response.status < 300
+                            or redirected
+                        ):
                             # Error/redirect destinations are not an equivalent test of this URL.
-                            detail = "Page failed or redirected; no equivalent test"
+                            detail = (
+                                REASON
+                                if challenge
+                                else "Page failed or redirected; no equivalent test"
+                            )
                             eid = result.add_evidence(
                                 url,
                                 "Browser page load unavailable",
@@ -167,6 +182,8 @@ def run(ctx: Context) -> ModuleResult:
                                     "status": response.status if response else None,
                                     "final_url": diagnostic(final_url, ctx),
                                     "redirected": redirected,
+                                    "hosting_challenge": challenge,
+                                    "reason": detail,
                                     "viewport": viewport,
                                 },
                             )
@@ -303,7 +320,13 @@ def run(ctx: Context) -> ModuleResult:
             browser.close()
     result.raw_paths = [ctx.raw(name, {"pages": records, "errors": errors})]
     if errors:
-        result.reason = "Some page checks failed: " + "; ".join(errors)
+        result.reason = (
+            "Some page checks NOT ASSESSED: "
+            if blocked_urls(result.evidence)
+            else "Some page checks failed: "
+        ) + "; ".join(errors)
+    if blocked := blocked_urls(result.evidence):
+        result.reason = f"{len(blocked)} pages {REASON}; " + result.reason
     if not records:
         result.status = "error"
         result.reason = result.reason or "No rendered pages collected"

@@ -5,6 +5,7 @@ from typing import TypedDict
 import httpx
 from playwright.async_api import WebSocketRoute as AsyncWebSocketRoute
 
+from ams_assess.challenges import challenged
 from ams_assess.network import public_client, validate_public_url
 
 
@@ -80,9 +81,20 @@ def public_route(route):
                         "content-length",
                         "transfer-encoding",
                         "x-ams-resolved-url",
+                        "x-ams-hosting-challenge",
                     }
                 }
                 headers["x-ams-resolved-url"] = str(response.url)
+                if challenged(
+                    {
+                        "status": response.status_code,
+                        "headers": dict(response.headers),
+                        "body": bytes(body),
+                    }
+                ):
+                    # Do not execute challenge scripts or follow its meta refresh.
+                    headers["x-ams-hosting-challenge"] = "1"
+                    body = bytearray()
                 route.fulfill(status=response.status_code, headers=headers, body=bytes(body))
     except (httpx.HTTPError, ValueError, OSError):
         route.abort()

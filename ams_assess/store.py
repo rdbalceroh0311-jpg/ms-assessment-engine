@@ -22,6 +22,7 @@ from typing import Any
 # Module import: presence_discovery -> modules -> performance -> store is a cycle.
 from ams_assess import presence_discovery, register
 from ams_assess.ai import CITATIONS
+from ams_assess.challenges import REASON, challenge_basis
 from ams_assess.consolidate import consolidate
 from ams_assess.data_boundary import json_text, prune, retention_days, sanitise
 from ams_assess.discovery import DISCOVERY_SECTIONS, Notes, slug
@@ -193,7 +194,13 @@ def load(
         store = json.loads(original)
         if store.get("customer_id") != customer or store.get("schema_version") not in {1, 2, 3}:
             raise ValueError("Unsupported or mismatched customer store")
-        if store["schema_version"] != SCHEMA_VERSION:
+        blocked = challenge_basis([Evidence.model_validate(e) for e in store.get("evidence", [])])
+        withdrawn = [
+            f
+            for f in store.get("findings", [])
+            if f.get("evidence_ids") and set(f["evidence_ids"]) <= blocked
+        ]
+        if store["schema_version"] != SCHEMA_VERSION or (withdrawn and migrate_legacy):
             if not migrate_legacy:
                 raise ValueError("Legacy store: open it with register show in the CLI to migrate")
             # Preserve the original before migration: its exact bytes, or when it holds
@@ -207,7 +214,11 @@ def load(
                 handle.write(original if redacted == store else json_text(redacted).encode())
                 handle.flush()
                 os.fsync(handle.fileno())
-            migrate(store)
+            for raw in withdrawn:
+                _retire(store, Finding.model_validate(raw), "Withdrawn: " + REASON)
+            store["findings"] = [f for f in store["findings"] if f not in withdrawn]
+            if store["schema_version"] != SCHEMA_VERSION:
+                migrate(store)
             save(root, customer, store)
         unique_findings(store)
         repair_axe_reviews(store)

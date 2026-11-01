@@ -8,6 +8,7 @@ from urllib.parse import urldefrag, urljoin, urlsplit
 
 import httpx
 
+from ams_assess.challenges import REASON, blocked_urls, challenged
 from ams_assess.lifecycle import observe
 from ams_assess.models import Context, ModuleResult, site_authority
 from ams_assess.modules import presence, siteone
@@ -72,6 +73,11 @@ def probe(client: httpx.Client, url: str, ua: str, deadline: float) -> dict[str,
                     "complete": False,
                     "body": "",
                     "error": "UnexpectedContentEncoding",
+                    "headers": {
+                        k: response.headers[k]
+                        for k in ("sg-captcha", "cf-mitigated")
+                        if k in response.headers
+                    },
                 }
             body = bytearray()
             complete = True
@@ -88,7 +94,7 @@ def probe(client: httpx.Client, url: str, ua: str, deadline: float) -> dict[str,
                 "body": body.decode("utf-8", "replace"),
                 "headers": {
                     k: response.headers.get_list(k) if k == "x-robots-tag" else response.headers[k]
-                    for k in ("x-robots-tag", "content-type")
+                    for k in ("x-robots-tag", "content-type", "sg-captcha", "cf-mitigated")
                     if k in response.headers
                 },
             }
@@ -116,19 +122,29 @@ class Checks:
         self.result = ModuleResult(name=name)
         self.evidence = [e for r in ctx.results for e in r.evidence]
         self.modules = {r.name: r for r in ctx.results}
-        self.probes = probes
+        self.blocked = blocked_urls(self.evidence) | {
+            r["url"] for r in probes.values() if challenged(r)
+        }
+        self.all_probes = probes
+        self.probes = {k: v for k, v in probes.items() if not challenged(v)}
+        self.crawl_blocked = {
+            clean_url(e.url)
+            for e in self.evidence
+            if e.description == "SiteOne HTTP response" and challenged(e.data)
+        }
         self.pages: dict[str, dict[str, Any]] = {}
         self.responses: dict[str, dict[str, Any]] = {}
         self.seo: dict[str, dict[str, Any]] = {}
         self.source_ids: dict[str, list[str]] = defaultdict(list)
         for e in self.evidence:
-            if e.source == "siteone" and isinstance(e.data, dict):
+            if e.source == "siteone" and isinstance(e.data, dict) and not challenged(e.data):
                 if e.description == "SiteOne HTTP response":
                     self.responses[clean_url(e.url)] = e.data
                     self.source_ids["crawl"].append(e.id)
                 if e.description == "SiteOne SEO metadata":
-                    self.seo[clean_url(e.url)] = e.data
-                    self.source_ids["seo"].append(e.id)
+                    if clean_url(e.url) not in self.crawl_blocked:
+                        self.seo[clean_url(e.url)] = e.data
+                        self.source_ids["seo"].append(e.id)
         records = presence.page_evidence(self.modules.get("browser"))
         for eid, record in records:
             url = clean_url(record.get("url", ""))
@@ -152,7 +168,7 @@ class Checks:
                     merged = list(self.pages[url].get(key, []))
                     merged.extend(v for v in page.get(key, []) if v not in merged)
                     self.pages[url][key] = merged
-        home = probes.get("normal", {})
+        home = self.probes.get("normal", {})
         self.probe_eid = self.result.add_evidence(
             ctx.site_url, "Bounded site-check HTTP probes", probes
         )
@@ -195,6 +211,32 @@ class Checks:
     def refs(self, *groups: str) -> list[str]:
         return sorted({eid for group in groups for eid in self.source_ids[group]})
 
+    def blocked_dependencies(self, key: str, refs: list[str]) -> bool:
+        """Only missing observations used by this check can invalidate its pass.
+
+        Probe evidence is a batch: llms.txt must not invalidate the homepage pair, or
+        vice versa. Filtered page records no longer contribute coverage, so a pass on
+        the remaining sample cannot resolve a finding requiring the omitted records.
+        """
+        referenced = set(refs)
+        if self.probe_eid in referenced:
+            probes = {"firewall": ("normal", "search"), "llms-txt": ("llms",)}.get(key, ("normal",))
+            if any(challenged(self.all_probes.get(p)) for p in probes):
+                return True
+        for e in [*self.evidence, *self.result.evidence]:
+            if e.id not in referenced or e.id == self.probe_eid:
+                continue
+            if challenged(e.data):
+                return True
+            if isinstance(e.data, dict):
+                blocked = e.data.get("hosting_blocked_urls", [])
+                if key in {"robots", "ai-robots"}:
+                    if e.data.get("robots_url") in blocked:
+                        return True
+                elif blocked:
+                    return True
+        return False
+
     def row(
         self,
         key: str,
@@ -211,6 +253,11 @@ class Checks:
         category = next((c for c in scopes if c in self.ctx.categories), None)
         if category is None:
             return
+        if self.blocked_dependencies(key, refs):
+            if status == "PASS":
+                status, checked = "NOT ASSESSED", REASON
+            elif status == "NOT ASSESSED":
+                checked += "; " + REASON
         row = {
             "site_check": key,
             "area": title,
@@ -254,6 +301,7 @@ class Checks:
                 {"PASS": "pass", "WARNING": "fail", "ERROR": "fail"}.get(status, "unavailable"),
                 [eid],
                 coverage=coverage if status in {"PASS", "WARNING", "ERROR"} else [],
+                reason=checked if status == "NOT ASSESSED" else "",
             )
         )
         if status in {"WARNING", "ERROR"}:
@@ -416,7 +464,8 @@ class Checks:
         aggregate = [
             e
             for e in self.evidence
-            if e.description == "SiteOne headers-values table"
+            if not self.crawl_blocked
+            and e.description == "SiteOne headers-values table"
             and any(
                 str(r.get("header", "")).lower() == "x-robots-tag" and noindex(r.get("value"))
                 for r in e.data
@@ -431,19 +480,23 @@ class Checks:
             if hits
             else ("PASS" if self.indexing_coverage else "NOT ASSESSED")
         )
+        checked = "; ".join(f"{h['url']}: {h['source']}" for h in hits) or (
+            "Crawl-wide X-Robots-Tag noindex observed; affected pages are unknown."
+            if aggregate
+            else f"No noindex in {len(self.indexing_coverage)} crawl indexing records. "
+            "Meta directives inspected where available; individual HTTP-header attribution may "
+            "be unavailable outside the homepage."
+        )
+        if self.crawl_blocked:
+            checked += (
+                f" Excluded {len(self.crawl_blocked)} crawl pages from this sample: {REASON}."
+            )
         self.row(
             "noindex",
             "Page noindex / X-Robots-Tag",
             ["seo", "technical"],
             status,
-            "; ".join(f"{h['url']}: {h['source']}" for h in hits)
-            or (
-                "Crawl-wide X-Robots-Tag noindex observed; affected pages are unknown."
-                if aggregate
-                else f"No noindex in {len(self.indexing_coverage)} crawl indexing records. "
-                "Meta directives inspected where available; individual HTTP-header attribution may "
-                "be unavailable outside the homepage."
-            ),
+            checked,
             "Unintended noindex on home or key pages prevents those pages appearing in search.",
             "Confirm intended indexing per URL; inspect response headers on unsampled pages. "
             "Remove noindex only on pages intended for search.",
@@ -1119,5 +1172,9 @@ def run(ctx: Context) -> ModuleResult:
         )
         if unavailable == len(checks.result.checks):
             checks.result.status = "skipped"
+    if checks.blocked:
+        checks.result.reason = "; ".join(
+            filter(None, [checks.result.reason, f"{len(checks.blocked)} pages {REASON}"])
+        )
     checks.result.raw_paths = [ctx.raw(name, {"checks": checks.result.checks, "limits": LIMITS})]
     return checks.result
